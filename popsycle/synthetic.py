@@ -23,7 +23,7 @@ from scipy import spatial
 from scipy.spatial import cKDTree
 import time
 import datetime
-import ebf
+from popsycle import ebf
 import gc
 import pdb
 import sys

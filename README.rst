@@ -10,7 +10,7 @@ Population Synthesis for Compact object Lensing Events
 
 Dependencies
 ------------
-.. _Galaxia: http://galaxia.sourceforge.net
+`Galaxia <http://galaxia.sourceforge.net>`_
 
 
 License

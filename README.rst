@@ -8,6 +8,11 @@ popsycle
 Population Synthesis for Compact object Lensing Events
 
 
+Dependencies
+------------
+.. _Galaxia http://galaxia.sourceforge.net
+
+
 License
 -------
 

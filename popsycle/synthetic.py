@@ -1554,12 +1554,12 @@ def refine_events(input_root, filter_name, red_law,
     calc_observables(filter_name, red_law, event_tab, blend_tab)
 
     # Relative parallax
-    pi_rel = (event_tab['rad_L']**-1 - event_tab['rad_S']**-1) * au_to_kpc
-    event_tab['pi_rel'] = pi_rel # unitless 
+    pi_rel = event_tab['rad_L']**-1 - event_tab['rad_S']**-1
+    event_tab['pi_rel'] = pi_rel # mas
 
     # Microlensing parallax
     pi_E = pi_rel/event_tab['theta_E']
-    event_tab['pi_E'] = pi_E # 1/mas
+    event_tab['pi_E'] = pi_E # dim'less
 
     event_tab.write(output_file, overwrite = overwrite)
 

@@ -691,69 +691,48 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
             ##########
             # Initialize values for compact object photometry.
+            # All of the values are np.nan
+            # These are all the outputs from the IFMR of Raithel and Kalirai.
             ##########
-            comp_dict['exbv'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_i'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_k'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_j'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_u'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_r'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_b'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_v'] = np.zeros(len(comp_dict['vx']))
-            comp_dict['ubv_h'] = np.zeros(len(comp_dict['vx']))
+            comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
+            # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
             # For non-dark WDs only (the ones from MIST):
             # Approximate extinction from the nearest (in 3-D space) star.
             # Get WD photometry from MIST models.
             ##########
-            # FIXME : CHECK
-#            WD_idx = np.where((comp_dict['rem_id'] == 101) & (comp_table['m_ubv_I'] != -99))[0]
-            WD_idx = np.where(comp_dict['rem_id'] == 101)[0]
-            pdb.set_trace()
-            if len(WD_idx) > 0:
-                print('Luminous white dwarfs!')
-                print(WD_idx)
+            lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
+
+            if len(lum_WD_idx) > 0:
                 star_xyz = np.array([star_dict['px'], star_dict['py'], star_dict['pz']]).T
-                comp_xyz = np.array([comp_dict['px'][WD_idx], comp_dict['py'][WD_idx], comp_dict['pz'][WD_idx]]).T            
+                comp_xyz = np.array([comp_dict['px'][lum_WD_idx], comp_dict['py'][lum_WD_idx], comp_dict['pz'][lum_WD_idx]]).T            
 
                 kdt = cKDTree(star_xyz)
                 dist, indices = kdt.query(comp_xyz)
             
-                comp_dict['exbv'][WD_idx] = star_dict['exbv'][indices]
-                comp_dict['ubv_i'][WD_idx] = comp_table['m_ubv_I'][WD_idx].data
-                comp_dict['ubv_k'][WD_idx] = comp_table['m_ukirt_K'][WD_idx].data
-                comp_dict['ubv_j'][WD_idx] = comp_table['m_ukirt_J'][WD_idx].data
-                comp_dict['ubv_u'][WD_idx] = comp_table['m_ubv_U'][WD_idx].data
-                comp_dict['ubv_r'][WD_idx] = comp_table['m_ubv_R'][WD_idx].data
-                comp_dict['ubv_b'][WD_idx] = comp_table['m_ubv_B'][WD_idx].data
-                comp_dict['ubv_v'][WD_idx] = comp_table['m_ubv_V'][WD_idx].data
-                comp_dict['ubv_h'][WD_idx] = comp_table['m_ukirt_H'][WD_idx].data
+                comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
+                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
+                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
+                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
+                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
+                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
+                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
+                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
+                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
                 
                 # Memory cleaning
                 del comp_table
                 gc.collect()
             
-            ##########
-            # Add extinction and photometry for NS, BH, and dark WDs to be np.nan
-            # These are all the outputs from the IFMR of Raithel and Kalirai.
-            ##########
-            # FIXME : THIS IS WRONG, DARK_IDX IS ALWAYS []
-            pdb.set_trace()
-            dark_idx = np.where(comp_dict['ubv_i'] == 0)[0] # FIXME: CHECK THIS
-            print('Dark compact objects!')
-            print(dark_idx)
-
-            comp_dict['exbv'][dark_idx] = np.full(len(dark_idx), np.nan)
-            comp_dict['ubv_i'][dark_idx] = np.full(len(dark_idx), np.nan)
-            comp_dict['ubv_k'][dark_idx] = np.full(len(dark_idx), np.nan)
-            comp_dict['ubv_j'][dark_idx] = np.full(len(dark_idx), np.nan) 
-            comp_dict['ubv_u'][dark_idx] = np.full(len(dark_idx), np.nan) 
-            comp_dict['ubv_r'][dark_idx] = np.full(len(dark_idx), np.nan) 
-            comp_dict['ubv_b'][dark_idx] = np.full(len(dark_idx), np.nan) 
-            comp_dict['ubv_v'][dark_idx] = np.full(len(dark_idx), np.nan) 
-            comp_dict['ubv_h'][dark_idx] = np.full(len(dark_idx), np.nan) 
-
             # Assign population and object ID.
             comp_dict['popid'] = star_dict['popid'][0] * np.ones(len(comp_dict['vx']))   
             comp_dict['obj_id'] = np.arange(len(comp_dict['vx'])) + next_id

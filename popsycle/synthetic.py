@@ -1,3 +1,5 @@
+# NOTE TO SELF: we want to save out info about the neighbors better.
+
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
@@ -339,8 +341,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
-                comp_dict, next_id = make_comp_dict(age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                             BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
+                comp_dict, next_id = make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
+                                                    BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -466,8 +468,8 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass) # make cluster
         output = cluster.star_systems
         
-        # Find the stars in MIST not in Galaxia and figure out how much mass they contribute
-        bad_idx = np.where(output['phase'] >= 6)[0]
+        # Find the stars in MIST not in Galaxia (i.e. WDs) and figure out how much mass they contribute
+        bad_idx = np.where(output['phase'] == 101)[0]
         bad_mass = np.sum(output['mass'][bad_idx]) # in m_sol
 
         # Figure out the current mass (stars + post-AGB stars)
@@ -478,7 +480,7 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
         current_stellar_mass = current_mass - bad_mass
     
         # Calculate the ratio of initial to final stellar mass.
-        current_initial_mass_ratio = current_stellar_mass/10**7
+        current_initial_mass_ratio = current_stellar_mass/cluster_mass
         current_initial_ratio_array[i] = current_initial_mass_ratio
         print(current_initial_mass_ratio)
         
@@ -517,7 +519,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
         try:
             boop = np.loadtxt(ratio_file)
         except Exception as e:
-            calc_current_initial_ratio(out_file=ratio_file, iso_dir=iso_dir)
+            calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file)
             boop = np.loadtxt(ratio_file)
             
         logage_vec = boop[:, 0]
@@ -573,7 +575,9 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     massLimits = np.array([0.1, 0.5, 120]) # changed from 0.08 to 0.1 at start because MIST can't handle.
     powers = np.array([-1.3, -2.3])
     my_ifmr = ifmr.IFMR()
-    ratio = current_initial_ratio(log_age, 'current_initial_stellar_mass_ratio.txt')
+    ratio = current_initial_ratio(logage = log_age, 
+                                  ratio_file = 'current_initial_stellar_mass_ratio.txt',
+                                  iso_dir = iso_dir)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H', 'ukirt,K', 'ukirt,J']
 
@@ -596,17 +600,16 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # MAKE cluster
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, initialClusterMass, ifmr=my_ifmr)
         output = cluster.star_systems
-        
+
         # Create the PopStar table with just compact objects
 
         # The compact IDs are:
-        # 101: WD, 102: NS, 103: BH (Raithel/Kalirai IFMR)
-        # -1: PMS, 0: MS, 2: RGB, 3: CHeB, 4: EAGB, 5: TPAGB, 6: postAGB, 9: WR (MIST)
-        # WE CONSIDER EVERYTHING FROM THE MIST MODELS WITH PHASE 6 TO BE WHITE DWARFS        
+        # 101: WD, 102: NS, 103: BH
+        # -1: PMS, 0: MS, 2: RGB, 3: CHeB, 4: EAGB, 5: TPAGB, 9: WR
+        # WE CONSIDER EVERYTHING FROM THE MIST MODELS WITH PHASE 6 (postAGB) TO BE WHITE DWARFS        
         compact_ID = np.where((output['phase'] == 101) |
                               (output['phase'] == 102) |
-                              (output['phase'] == 103) |
-                              (output['phase'] == 6))[0]
+                              (output['phase'] == 103))[0]
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.     
@@ -704,14 +707,18 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # Approximate extinction from the nearest (in 3-D space) star.
             # Get WD photometry from MIST models.
             ##########
-            WD_idx = np.where(comp_dict['rem_id'] == 6)[0]
+            # FIXME : CHECK
+#            WD_idx = np.where((comp_dict['rem_id'] == 101) & (comp_table['m_ubv_I'] != -99))[0]
+            WD_idx = np.where(comp_dict['rem_id'] == 101)[0]
+            pdb.set_trace()
             if len(WD_idx) > 0:
+                print('Luminous white dwarfs!')
+                print(WD_idx)
                 star_xyz = np.array([star_dict['px'], star_dict['py'], star_dict['pz']]).T
                 comp_xyz = np.array([comp_dict['px'][WD_idx], comp_dict['py'][WD_idx], comp_dict['pz'][WD_idx]]).T            
 
                 kdt = cKDTree(star_xyz)
                 dist, indices = kdt.query(comp_xyz)
-                print('Maximum compact object-star separation for this round, in kpc:', np.max(dist))
             
                 comp_dict['exbv'][WD_idx] = star_dict['exbv'][indices]
                 comp_dict['ubv_i'][WD_idx] = comp_table['m_ubv_I'][WD_idx].data
@@ -728,20 +735,24 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 gc.collect()
             
             ##########
-            # Add extinction and photometry for NS, BH, and dark WDs (-99 is a "throwaway" value.)
+            # Add extinction and photometry for NS, BH, and dark WDs to be np.nan
             # These are all the outputs from the IFMR of Raithel and Kalirai.
             ##########
-            dark_idx = np.where(comp_dict['rem_id'] > 100)[0] 
+            # FIXME : THIS IS WRONG, DARK_IDX IS ALWAYS []
+            pdb.set_trace()
+            dark_idx = np.where(comp_dict['ubv_i'] == 0)[0] # FIXME: CHECK THIS
+            print('Dark compact objects!')
+            print(dark_idx)
 
-            comp_dict['exbv'][dark_idx] = -99 * np.ones(len(dark_idx))
-            comp_dict['ubv_i'][dark_idx] = -99 * np.ones(len(dark_idx))
-            comp_dict['ubv_k'][dark_idx] = -99 * np.ones(len(dark_idx))
-            comp_dict['ubv_j'][dark_idx] = -99 * np.ones(len(dark_idx)) 
-            comp_dict['ubv_u'][dark_idx] = -99 * np.ones(len(dark_idx)) 
-            comp_dict['ubv_r'][dark_idx] = -99 * np.ones(len(dark_idx)) 
-            comp_dict['ubv_b'][dark_idx] = -99 * np.ones(len(dark_idx)) 
-            comp_dict['ubv_v'][dark_idx] = -99 * np.ones(len(dark_idx)) 
-            comp_dict['ubv_h'][dark_idx] = -99 * np.ones(len(dark_idx)) 
+            comp_dict['exbv'][dark_idx] = np.full(len(dark_idx), np.nan)
+            comp_dict['ubv_i'][dark_idx] = np.full(len(dark_idx), np.nan)
+            comp_dict['ubv_k'][dark_idx] = np.full(len(dark_idx), np.nan)
+            comp_dict['ubv_j'][dark_idx] = np.full(len(dark_idx), np.nan) 
+            comp_dict['ubv_u'][dark_idx] = np.full(len(dark_idx), np.nan) 
+            comp_dict['ubv_r'][dark_idx] = np.full(len(dark_idx), np.nan) 
+            comp_dict['ubv_b'][dark_idx] = np.full(len(dark_idx), np.nan) 
+            comp_dict['ubv_v'][dark_idx] = np.full(len(dark_idx), np.nan) 
+            comp_dict['ubv_h'][dark_idx] = np.full(len(dark_idx), np.nan) 
 
             # Assign population and object ID.
             comp_dict['popid'] = star_dict['popid'][0] * np.ones(len(comp_dict['vx']))   
@@ -1518,8 +1529,9 @@ def refine_events(input_root, filter_name, red_law,
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
 
-    good_idx = np.where(event_tab['ubv_' + filter_name + '_S'] != -99)[0]
-    event_tab = event_tab[good_idx]
+#    good_idx = np.where(event_tab['ubv_' + filter_name + '_S'] != -99)[0]
+#    event_tab = event_tab[good_idx]
+    event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])] # CHECK IF THIS WORKED
 
     with open(input_root + '_calc_events.log') as my_file:
         for num, line in enumerate(my_file):
@@ -1707,8 +1719,9 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab):
     
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10**(app_N / -2.5)
-    bad_N_idx = np.where(blend_tab['ubv_' + filter_name + '_N'] == -99)[0]
-    flux_N[bad_N_idx] = 0.0
+#    bad_N_idx = np.where(blend_tab['ubv_' + filter_name + '_N'] == -99)[0]
+#    flux_N[bad_N_idx] = 0.0
+    flux_N = np.nan_to_num(flux_N)
 
     # Get total flux
     flux_N_tot = np.sum(flux_N)
@@ -1744,22 +1757,26 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
     f_i = filt_dict[filter_name][red_law]
 
     # Find bad magnitude values
-    bad_L_idx = np.where(event_tab['ubv_' + filter_name + '_L'] == -99)[0]
-    bad_S_idx = np.where(event_tab['ubv_' + filter_name + '_S'] == -99)[0]
+#    bad_L_idx = np.where(event_tab['ubv_' + filter_name + '_L'] == -99)[0]
+#    bad_S_idx = np.where(event_tab['ubv_' + filter_name + '_S'] == -99)[0]
 
     # Calculate apparent magnitude of lens and source, and fix bad values
     app_S = calc_app_mag(event_tab['rad_S'], event_tab['ubv_' + filter_name + '_S'], event_tab['exbv_S'], f_i)
     app_L = calc_app_mag(event_tab['rad_L'], event_tab['ubv_' + filter_name + '_L'], event_tab['exbv_L'], f_i)
     event_tab['ubv_' + filter_name + '_app_S'] = app_S
     event_tab['ubv_' + filter_name + '_app_L'] = app_L
-    event_tab['ubv_' + filter_name + '_app_S'][bad_S_idx] = -99
-    event_tab['ubv_' + filter_name + '_app_L'][bad_L_idx] = -99
+#    event_tab['ubv_' + filter_name + '_app_S'][bad_S_idx] = -99
+#    event_tab['ubv_' + filter_name + '_app_L'][bad_L_idx] = -99
 
     # Convert absolute magnitude to fluxes, and fix bad values
     flux_L = 10**(app_L / -2.5)
     flux_S = 10**(app_S / -2.5)
-    flux_L[bad_L_idx] = 0.0
-    flux_S[bad_S_idx] = 0.0
+
+    flux_L = np.nan_to_num(flux_L)
+    flux_S = np.nan_to_num(flux_S)
+ 
+#    flux_L[bad_L_idx] = 0.0
+#    flux_S[bad_S_idx] = 0.0
     event_tab['flux_' + filter_name + '_S'] = flux_S
     event_tab['flux_' + filter_name + '_L'] = flux_L
     
@@ -1783,7 +1800,7 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
             event_tab['cent_glat_' + filter_name + '_N'][pp] = cent_b
 
     flux_N = event_tab['flux_' + filter_name + '_N']
-  
+
     # Total blended flux in i-band
     flux_tot = flux_L + flux_S + flux_N
 
@@ -1792,7 +1809,7 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
     bad_N_idx = np.where(flux_N == 0)[0]
     good_N_idx = np.where(flux_N != 0)[0]
     app_N[good_N_idx] = -2.5 * np.log10(flux_N[good_N_idx])
-    app_N[bad_N_idx] = -99
+    app_N[bad_N_idx] = np.full(len(bad_N_idx), np.nan)
 
     event_tab['ubv_' + filter_name + '_app_N'] = app_N
 
@@ -1887,7 +1904,8 @@ def make_label_file(h5file_name):
     """
     dict = {'file_name' : [], 'long_start' : [], 'long_end' : [],
             'lat_start' : [], 'lat_end' : [], 'objects' : [],
-            'N_stars' : [], 'N_WD_MIST' : [], 'N_WD' : [], 'N_NS' : [], 'N_BH' : []}
+            'N_stars' : [], 'N_WD' : [], 'N_NS' : [], 'N_BH' : []}
+#            'N_stars' : [], 'N_WD_MIST' : [], 'N_WD' : [], 'N_NS' : [], 'N_BH' : []}
 
     hf = h5py.File(h5file_name + '.h5', 'r')
     l_array = hf['long_bin_edges']
@@ -1899,7 +1917,7 @@ def make_label_file(h5file_name):
             dataset = hf[dset_name]
             
             N_stars = len(np.where(dataset[1] == 0)[0])
-            N_WD_MIST = len(np.where(dataset[1] == 6)[0])
+#            N_WD_MIST = len(np.where(dataset[1] == 6)[0])
             N_WD = len(np.where(dataset[1] == 101)[0])
             N_NS = len(np.where(dataset[1] == 102)[0])
             N_BH = len(np.where(dataset[1] == 103)[0])
@@ -1911,7 +1929,7 @@ def make_label_file(h5file_name):
             dict['lat_end'].append(b_array[bb + 1])
             dict['objects'].append(dataset.shape[1])
             dict['N_stars'].append(N_stars)
-            dict['N_WD_MIST'].append(N_WD_MIST)
+#            dict['N_WD_MIST'].append(N_WD_MIST)
             dict['N_WD'].append(N_WD)
             dict['N_NS'].append(N_NS)
             dict['N_BH'].append(N_BH)
@@ -1920,7 +1938,8 @@ def make_label_file(h5file_name):
 
     label_file = Table(dict, names = ('file_name', 'long_start', 'long_end', 
                                       'lat_start', 'lat_end', 'objects',
-                                      'N_stars', 'N_WD_MIST', 'N_WD', 'N_NS', 'N_BH'))
+                                      'N_stars', 'N_WD', 'N_NS', 'N_BH'))
+#                                      'N_stars', 'N_WD_MIST', 'N_WD', 'N_NS', 'N_BH'))
     label_file['long_start'].format = '08.3f'
     label_file['long_end'].format = '08.3f'
     label_file['lat_start'].format = '07.3f'

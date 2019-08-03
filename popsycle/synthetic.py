@@ -1163,7 +1163,7 @@ def calc_events(hdf5_file, output_root2,
                                                 blend_sorc_obj_id.reshape(len(blend_sorc_obj_id), 1),
                                                 bigpatch[:, blend_idx.astype(int)].T,
                                                 sep_LN_list.reshape(len(sep_LN_list), 1)))
-                    
+         
                     # Concatenate the current event table (at this l, b, time) with the rest.
                     if events_tmp is not None:
                         events_tmp = np.hstack((events_tmp, event_lbt))
@@ -1181,7 +1181,7 @@ def calc_events(hdf5_file, output_root2,
                     blends_tmp = unique_blends(blends_tmp)
                     
             # END of time loop
-
+                    
     # Conver the events numpy array into an Astropy Table for easier consumption. 
     # The dimensions of events_final_table are 52 x Nevents
     if events_tmp is not None:
@@ -1359,7 +1359,7 @@ def unique_blends(blend_table):
     unique_tab = unique_returns[0]
     unique_indices = unique_returns[1]
 
-    unique_blend_tab = blend_table[ unique_indices]
+    unique_blend_tab = blend_table[unique_indices]
 
     return unique_blend_tab
 
@@ -1766,6 +1766,8 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
     event_tab['flux_' + filter_name + '_N'] = np.zeros(len(app_L))
     event_tab['cent_glon_' + filter_name + '_N'] = np.zeros(len(app_L))
     event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
+
+    pdb.set_trace()
 
     for pp in range(len(LS_pairs)):
         #### TEMP FIX ####

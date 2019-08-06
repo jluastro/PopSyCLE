@@ -872,9 +872,9 @@ def bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ########### Candidate event calculation and associated functions ###########
 ############################################################################
 
-def calc_events(hdf5_file, output_root2,
-                radius_cut, obs_time, n_obs, theta_frac, blend_rad,
-                microlens_path, overwrite=False):
+def calc_events_parallel(hdf5_file, output_root2,
+                         radius_cut, obs_time, n_obs, theta_frac, blend_rad,
+                         microlens_path, overwrite=False):
     """
     Calculate microlensing events
     
@@ -956,7 +956,7 @@ def calc_events(hdf5_file, output_root2,
     blends_tmp = None
 
     # Get the l and b from the HDF5 file.
-    hf = h5py.File(hdf5_file, 'r')
+    hf = h5py.File(hdf5_file, 'r', swmr = True)
     l_array = np.array(hf['long_bin_edges'])
     b_array = np.array(hf['lat_bin_edges'])
     hf.close()
@@ -978,7 +978,7 @@ def calc_events(hdf5_file, output_root2,
             name01 = 'l' + str(ll) + 'b' + str(bb + 1)
             name10 = 'l' + str(ll + 1) + 'b' + str(bb)
             name11 = 'l' + str(ll + 1) + 'b' + str(bb + 1)
-            hf = h5py.File(hdf5_file, 'r')
+            hf = h5py.File(hdf5_file, 'r', swmr = True)
             bigpatch = np.concatenate((hf[name00], hf[name01], hf[name10], hf[name11]), axis=1)    
             hf.close()
             time_array = np.linspace(-1 * obs_time/2.0, obs_time/2.0, n_obs)

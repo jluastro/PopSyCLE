@@ -872,9 +872,9 @@ def bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ########### Candidate event calculation and associated functions ###########
 ############################################################################
 
-def calc_events_parallel(hdf5_file, output_root2,
-                         radius_cut, obs_time, n_obs, theta_frac, blend_rad,
-                         microlens_path, overwrite=False):
+def calc_events(hdf5_file, output_root2,
+                radius_cut, obs_time, n_obs, theta_frac, blend_rad,
+                microlens_path, overwrite=False):
     """
     Calculate microlensing events
     
@@ -1091,7 +1091,7 @@ def calc_events_parallel(hdf5_file, output_root2,
                     # Note 1: We are centering on the lens.
                     # Note 2: We don't want to include the lens itself, or the source, in the table.
                     ##########
-                    blend_lbt = calc_blends(bigpatch, c, event_lbt, blend_rad)
+                    blends_lbt = calc_blends(bigpatch, c, event_lbt, blend_rad)
          
                     # Concatenate the current event table (at this l, b, time) with the rest.
                     if events_tmp is not None:
@@ -1235,32 +1235,45 @@ def calc_blends(bigpatch, c, event_lbt, blend_rad):
     results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
     
     # Figure out the number of blends for each lens.
-    blend_lens_obj_id = []
-    blend_sorc_obj_id = []
-    blend_neigh_obj_id = []
-    sep_LN_list = []
+    blend_lens_obj_id = None 
+    blend_sorc_obj_id = None 
+    blend_neigh_obj_id = None 
+    sep_LN_list = None 
     
     for ii in range(len(results)):               
         # The index 20 is the object ID.
         # results indexes into bigpatch. ii corresponds to coords_lbt.
         # bidx indexes into results.
         # It should be that len(results[ii]) = len(bidx) + 2 (we get rid of source and lens.)
-        rii = results[ii]
-
+        nid = bigpatch[20, results[ii]] # neighbor star object id
+        lid = np.array(event_lbt[20, ii]) # lens star object id
+        sid = np.array(event_lbt[20 + 27, ii]) # source star object id
+ 
         # Fetch the things that are not the lens and the source.
-        bidx = np.where((bigpatch[20, rii] != event_lbt[20, ii]) &
-                        (bigpatch[20, rii] != event_lbt[20 + 27, ii]))[0]
+        bidx = np.where((nid != lid) &
+                        (nid != sid))[0]
 
         # Add the non-lens, non-source blended objects to a list. 
-        blend_neigh_obj_id.append((bigpatch[20, rii][bidx]).tolist())
+        if blend_neigh_obj_id is not None:
+            blend_neigh_obj_id = np.concatenate((blend_neigh_obj_id, nid[bidx]))
+        else:
+            blend_neigh_obj_id = nid[bidx]
 
         # Add the lens and the source to a new list as well. Repeat so that every blend has
         # an associated lens, source ID pair.
-        tmp_lens_id = np.repeat(event_lbt[20, ii], len(bidx)).tolist()
-        tmp_sorc_id = np.repeat(event_lbt[20 + 27, ii], len(bidx)).tolist()
+        tmp_lens_id = np.repeat(lid, len(bidx)) 
+        tmp_sorc_id = np.repeat(sid, len(bidx)) 
         
-        blend_lens_obj_id.append(tmp_lens_id)
-        blend_sorc_obj_id.append(tmp_sorc_id)
+        if blend_lens_obj_id is not None:
+            blend_lens_obj_id = np.concatenate((blend_lens_obj_id, tmp_lens_id))
+        else:
+            blend_lens_obj_id = tmp_lens_id
+
+        if blend_sorc_obj_id is not None:
+            blend_sorc_obj_id = np.concatenate((blend_sorc_obj_id, tmp_sorc_id))
+        else:
+            blend_sorc_obj_id = tmp_sorc_id
+
         
         # Calculate the distance from lens to each neighbor.
         lens_lb = SkyCoord(frame = 'galactic', 
@@ -1271,20 +1284,11 @@ def calc_blends(bigpatch, c, event_lbt, blend_rad):
                             b = bigpatch[10][results[ii]][bidx] * units.deg)
         sep_LN = lens_lb.separation(neigh_lb)
         sep_LN = (sep_LN.to(units.arcsec))/units.arcsec
-        sep_LN_list.append(np.array(sep_LN).tolist())
 
-        # Futzing with data types...
-        # blend_neigh_id, blend_lens_id, blend_sorc_id are list of lists with the same "shape"
-        # So we flatten these lists and turn them into arrays.
-        blend_neigh_obj_id = [y for x in blend_neigh_obj_id for y in x]
-        blend_lens_obj_id = [y for x in blend_lens_obj_id for y in x]
-        blend_sorc_obj_id = [y for x in blend_sorc_obj_id for y in x]
-        sep_LN_list = [y for x in sep_LN_list for y in x]
-
-        blend_neigh_obj_id = np.array(blend_neigh_obj_id)
-        blend_lens_obj_id = np.array(blend_lens_obj_id)
-        blend_sorc_obj_id = np.array(blend_sorc_obj_id)
-        sep_LN_list = np.array(sep_LN_list)
+        if sep_LN_list is not None:
+            sep_LN_list = np.concatenate((sep_LN_list, sep_LN))
+        else:
+            sep_LN_list = sep_LN
 
         blend_idx = np.zeros(len(blend_neigh_obj_id))
         for ii in range(len(blend_idx)):

@@ -113,7 +113,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path
     Outputs
     -------
     <output_root>.h5 : hdf5 file
-        NOTE: This is what bin_lb_hdf5 returns.
+        NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into those bins.
 
@@ -341,16 +341,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
-                comp_dict, next_id = make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                    BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
+                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
+                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
                 ##########
                 if comp_dict is not None:
                     comp_counter += len(comp_dict['mass'])
-                    bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict, output_root)
-                bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin, output_root)
+                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict, output_root)
+                _bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin, output_root)
                 ##########
                 # Done with galaxia output in dictionary t and ebf_log.
                 # Garbage collect in order to save space.
@@ -529,8 +529,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
     return _Mclust_v_age_func(logage)
 
 
-def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
-                   BH_kick_speed = 100, NS_kick_speed = 350):
+def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
+                    BH_kick_speed = 100, NS_kick_speed = 350):
     """
     Perform population synthesis.  
 
@@ -744,7 +744,7 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             
     return comp_dict, next_id
 
-def bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
+def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     """
     Given stars and compact objects, sort them into latitude and longitude bins.
     Save each latitude and longitude bin, and the edges that define the latitude
@@ -956,7 +956,7 @@ def calc_events(hdf5_file, output_root2,
     blends_tmp = None
 
     # Get the l and b from the HDF5 file.
-    hf = h5py.File(hdf5_file, 'r')
+    hf = h5py.File(hdf5_file, 'r', swmr = True)
     l_array = np.array(hf['long_bin_edges'])
     b_array = np.array(hf['lat_bin_edges'])
     hf.close()
@@ -978,7 +978,7 @@ def calc_events(hdf5_file, output_root2,
             name01 = 'l' + str(ll) + 'b' + str(bb + 1)
             name10 = 'l' + str(ll + 1) + 'b' + str(bb)
             name11 = 'l' + str(ll + 1) + 'b' + str(bb + 1)
-            hf = h5py.File(hdf5_file, 'r')
+            hf = h5py.File(hdf5_file, 'r', swmr = True)
             bigpatch = np.concatenate((hf[name00], hf[name01], hf[name10], hf[name11]), axis=1)    
             hf.close()
             time_array = np.linspace(-1 * obs_time/2.0, obs_time/2.0, n_obs)
@@ -986,132 +986,28 @@ def calc_events(hdf5_file, output_root2,
             # Skip patches with less than 10 objects
             if len(bigpatch[0]) < 10:
                 continue
-            
-            ####################
+
+            #######################
             # Loop through different time steps and figure out separations between
-            # all possible pairs of stars. Trim down to "events", which consist of
+            # all possible pairs of stars. Trim down to "events', which consist of
             # those pairs that approach within one <radius_cut> of each other.
-            # These will be the events we consider as candidate microlensing events. 
-            ####################
-            for i in np.arange(len(time_array)):
-                # Propagate r, b, l positions forward in time.
-                r_t = bigpatch[9] + time_array[i] * bigpatch[12] * kms_to_kpcday # kpc
-                b_t = bigpatch[10] + time_array[i] * bigpatch[13] * masyr_to_degday # deg
-                l_t = bigpatch[11] + time_array[i] * (bigpatch[14] / np.cos(np.radians(bigpatch[10]))) * masyr_to_degday # deg
+            # These will be the events we consider as candidate microlensing events.
+            #######################
+            events_llbb, blends_llbb = _calc_event_time_loop(ll, bb, time_array, bigpatch, radius_cut, theta_frac, blend_rad)
+            
+            # Concatenate the current event table at this (l,b) with the others.
+            if events_tmp is not None:
+                events_tmp = np.hstack((events_tmp, events_llbb))
+            else:
+                events_tmp = events_llbb
                 
-                ##########
-                # Determine nearest neighbor in spherical coordinates.
-                ##########
-                c = SkyCoord(frame = 'galactic', l = l_t * units.deg, b = b_t * units.deg)
-
-                # NOTE: dist has no actual meaning since we didn't input distances from Earth.
-                #       It's an auto output. just ignore it.
- 
-                idx, sep, dist = coord.match_coordinates_sky(c, c, nthneighbor = 2)
-
-                # Converts separations to milliarcseconds
-                sep = (sep.to(units.mas)) / units.mas
-
-                ##########
-                # Error checking: calculate how many duplicate (l, b) pairs there are.
-                # (This is a problem for nearest neighbors.)
-                ##########
-                uni = np.unique((l_t, b_t), axis = 1).shape[1]
-                tot = len(l_t)
-                dup = tot - uni
-                if dup != 0:
-                    print('****************** WARNING!!! ********************')
-                    print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
-                    print('**************************************************')
-        
-                ##########
-                # Find all objects with a nearest neighbor within an angular distance 
-                # equal to sep. The index of the object and its nearest neighbor are
-                # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
-                ##########
-                # NOTE: event_id1/2 are indices into bigpatch
-                event_id1 = np.where(sep < radius_cut)[0]
-                event_id2 = idx[event_id1]
-
-                ##########
-                # We've got neighbors... figure out who's the lens and who's the source.
-                ##########
-                # NOTE: lens_id and sorc_id are indices into bigpatch
-                idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
-                idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
-                                
-                lens_id = np.zeros(len(event_id1), dtype = 'int')
-                sorc_id = np.zeros(len(event_id1), dtype = 'int')
-
-                lens_id[idx_l1] = event_id1[idx_l1]
-                sorc_id[idx_l1] = event_id2[idx_l1]
-
-                lens_id[idx_l2] = event_id2[idx_l2]
-                sorc_id[idx_l2] = event_id1[idx_l2]
-
-                # Calculate einstein radius and lens-source separation
-                theta_E = einstein_radius(bigpatch[2][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
-                u = sep[event_id1] / theta_E
-                
-                # Trim down to those microlensing events that really get close enough
-                # to hope that we can detect them. Trim on a Theta_E criteria.
-                # NOTE: adx is an indices into lens_id or event_id (NOT bigpatch)
-                adx = np.where(u < theta_frac)[0]                
-                if len(adx > 0):
-                    # Narrow down to unique pairs of stars... don't double calculate
-                    # an event.
-                    lens_sorc_id_pairs = np.stack((bigpatch[17][lens_id][adx], bigpatch[17][sorc_id][adx]),
-                                                  axis=-1)
-
-                    unique_returns = np.unique(lens_sorc_id_pairs,
-                                               return_index = True, return_inverse = True, 
-                                               return_counts = True, axis = 0)
-                    unique_tab = unique_returns[0]
-                    unique_indices = unique_returns[1]
-                    unique_inverse = unique_returns[2]
-                    unique_counts = unique_returns[3]
-
-                    # Define all tables we will need to calculate event properties.
-                    # These will all have a length of N_events.
-                    lens_table = bigpatch[:, lens_id][:, adx][:, unique_indices]
-                    sorc_table = bigpatch[:, sorc_id][:, adx][:, unique_indices]
-                    theta_E = theta_E[adx][unique_indices]
-                    u = u[adx][unique_indices]
-                        
-                    mu_b_rel = sorc_table[13] - lens_table[13] # mas/yr
-                    mu_lcosb_rel = sorc_table[14] - lens_table[14] # mas/yr
-                    mu_rel = np.sqrt(mu_b_rel**2 + mu_lcosb_rel**2) # mas/yr
-                    t_event = np.ones(len(mu_rel), dtype=float) * time_array[i]  # days
-                    
-                    # This is all the events for this l, b, time
-                    event_lbt = np.vstack((lens_table, sorc_table, theta_E, u, mu_rel, t_event))
-                    
-                    #########
-                    # Get blending. 
-                    # Note 1: We are centering on the lens.
-                    # Note 2: We don't want to include the lens itself, or the source, in the table.
-                    ##########
-                    blend_lbt = calc_blends(bigpatch, c, event_lbt, blend_rad)
-         
-                    # Concatenate the current event table (at this l, b, time) with the rest.
-                    if events_tmp is not None:
-                        events_tmp = np.hstack((events_tmp, event_lbt))
-                    else:
-                        events_tmp = event_lbt
-
-                    # Ditto for the blend table. 
-                    if blends_tmp is not None:
-                        blends_tmp = np.vstack((blends_tmp, blends_lbt))
-                    else:
-                        blends_tmp = blends_lbt
-                    
-                    # Keep only unique events within our different time stamps
-                    events_tmp = unique_events(events_tmp)
-                    blends_tmp = unique_blends(blends_tmp)
-                    
-            # END of time loop
-                    
-    # Conver the events numpy array into an Astropy Table for easier consumption. 
+            # Ditto for the blend table. 
+            if blends_tmp is not None:
+                blends_tmp = np.hstack((blends_tmp, blends_llbb))
+            else:
+                blends_tmp = blends_llbb
+              
+    # Convert the events numpy array into an Astropy Table for easier consumption. 
     # The dimensions of events_final_table are 52 x Nevents
     if events_tmp is not None:
         events_tmp = unique_events(events_tmp)
@@ -1138,17 +1034,17 @@ def calc_events(hdf5_file, output_root2,
 
     if blends_tmp is not None:
         blends_tmp = unique_blends(blends_tmp)
-        blends_final = Table(blends_tmp, names = ('obj_id_L', 'obj_id_S',
-                                                  'zams_mass_N', 'rem_id_N', 'mass_N', 
-                                                  'px_N', 'py_N', 'pz_N', 
-                                                  'vx_N', 'vy_N', 'vz_N', 
-                                                  'rad_N', 'glat_N', 'glon_N',
-                                                  'vr_N', 'mu_b_N', 'mu_lcosb_N',
-                                                  'age_N', 'popid_N', 'ubv_k_N', 'ubv_i_N',
-                                                  'exbv_N', 'obj_id_N', 
-                                                  'ubv_j_N', 'ubv_u_N', 'ubv_r_N', 
-                                                  'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
-                                                  'sep_LN'))
+        blends_final = Table(blends_tmp.T, names = ('obj_id_L', 'obj_id_S',
+                                                    'zams_mass_N', 'rem_id_N', 'mass_N', 
+                                                    'px_N', 'py_N', 'pz_N', 
+                                                    'vx_N', 'vy_N', 'vz_N', 
+                                                    'rad_N', 'glat_N', 'glon_N',
+                                                    'vr_N', 'mu_b_N', 'mu_lcosb_N',
+                                                    'age_N', 'popid_N', 'ubv_k_N', 'ubv_i_N',
+                                                    'exbv_N', 'obj_id_N', 
+                                                    'ubv_j_N', 'ubv_u_N', 'ubv_r_N', 
+                                                    'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                                    'sep_LN'))
 
     if events_tmp is None:
         print('No events!')
@@ -1198,19 +1094,292 @@ def calc_events(hdf5_file, output_root2,
 
     return
 
-def calc_blends(bigpatch, c, event_lbt, blend_rad):
+def _calc_event_time_loop(ll, bb, time_array, bigpatch, radius_cut, theta_frac, blend_rad):
+    """
+    What do
+
+    Parameters
+    ----------
+    ll : int
+        Index of the longitude bin.
+
+    bb : int
+        Index of the latitude bin.
+
+    time_array : array
+        Times at which to evaluate. 
+
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    radius_cut : float
+        Parameter of calc_events()
+        Initial radius cut, in ARCSECONDS.
+
+    theta_frac : float
+        Parameter of calc_events()
+        Another cut, in multiples of Einstein radii. 
+
+    blend_rad : float
+        Parameter of calc_events()
+        Stars within this distance of the lens are said to be blended. 
+        Units are in ARCSECONDS.
+
+    Return
+    ------
+    events_llbb : array
+        Array of the unique events for the particular (l,b) patch.
+
+    blends_llbb : array
+        Array of the unique blends for the particular (l,b) patch.
+    
+    """
+    ####################
+    # Loop through different time steps and figure out separations between
+    # all possible pairs of stars. Trim down to "events", which consist of
+    # those pairs that approach within one <radius_cut> of each other.
+    # These will be the events we consider as candidate microlensing events. 
+    ####################
+
+    # Initialize events_llbb and blends_llbb.
+    events_llbb = None
+    blends_llbb = None
+
+    for i in np.arange(len(time_array)):
+        # Find potential lenses and sources that fall within radius cut.
+        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch, time_array[i], radius_cut)
+        
+        # Calculate einstein radius and lens-source separation
+        theta_E = einstein_radius(bigpatch[2][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
+        u = sep[event_id1] / theta_E
+                
+        # Trim down to those microlensing events that really get close enough
+        # to hope that we can detect them. Trim on a Theta_E criteria.
+        event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, time_array[i])
+
+        #########
+        # Get blending. 
+        # Note 1: We are centering on the lens.
+        # Note 2: We don't want to include the lens itself, or the source, in the table.
+        ##########
+        blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+         
+        # Concatenate the current event table (at this l, b, time) with the rest.
+        if events_llbb is not None:
+            events_llbb = np.hstack((events_llbb, event_lbt))
+        else:
+            events_llbb = event_lbt
+            
+        # Ditto for the blend table. 
+        if blends_llbb is not None:
+            blends_llbb = np.hstack((blends_llbb, blends_lbt))
+        else:
+            blends_llbb = blends_lbt
+                    
+        # Keep only unique events within our different time stamps
+        events_llbb = unique_events(events_llbb)
+        blends_llbb = unique_blends(blends_llbb)
+                    
+        # END of time loop
+
+    return events_llbb, blends_llbb
+
+def _calc_event_cands_radius(bigpatch, timei, radius_cut):
+    """
+    Get sources and lenses that pass the radius cut.
+    
+    Parameters
+    ----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    timei : float
+        Time at which to evaluate.
+
+    radius_cut : float
+        Parameter of calc_events().
+        Converted to mas
+
+    Return
+    ------
+    lens_id : array
+        Indices into bigpatch that indicate lenses
+    
+    sorc_id : array
+        Indices into bigpatch that indicate sources
+
+    r_t : array
+        Radial coordinates for all objects in bigpatch at time t
+
+    sep : array
+        Separation between lens-source pairs (mas)
+
+    event_id1 : array
+        Lens-source pairs where sep < radius_cut
+
+    c : SkyCoord object
+        Coordinates of all the stars.
+    """
+    # Propagate r, b, l positions forward in time.
+    r_t = bigpatch[9] + timei * bigpatch[12] * kms_to_kpcday # kpc
+    b_t = bigpatch[10] + timei * bigpatch[13] * masyr_to_degday # deg
+    l_t = bigpatch[11] + timei * (bigpatch[14] / np.cos(np.radians(bigpatch[10]))) * masyr_to_degday # deg
+    
+    ##########
+    # Determine nearest neighbor in spherical coordinates.
+    ##########
+    c = SkyCoord(frame = 'galactic', l = l_t * units.deg, b = b_t * units.deg)
+    
+    # NOTE: dist has no actual meaning since we didn't input distances from Earth.
+    #       It's an auto output. just ignore it.    
+    idx, sep, dist = coord.match_coordinates_sky(c, c, nthneighbor = 2)
+    
+    # Converts separations to milliarcseconds
+    sep = (sep.to(units.mas)) / units.mas
+
+    ##########
+    # Error checking: calculate how many duplicate (l, b) pairs there are.
+    # (This is a problem for nearest neighbors.)
+    ##########
+    uni = np.unique((l_t, b_t), axis = 1).shape[1]
+    tot = len(l_t)
+    dup = tot - uni
+    if dup != 0:
+        print('****************** WARNING!!! ********************')
+        print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
+        print('**************************************************')
+        
+    ##########
+    # Find all objects with a nearest neighbor within an angular distance 
+    # equal to sep. The index of the object and its nearest neighbor are
+    # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
+    ##########
+    # NOTE: event_id1/2 are indices into bigpatch
+    event_id1 = np.where(sep < radius_cut)[0]
+    event_id2 = idx[event_id1]
+
+    ##########
+    # We've got neighbors... figure out who's the lens and who's the source.
+    ##########
+    # NOTE: lens_id and sorc_id are indices into bigpatch
+    idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
+    idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
+                                
+    lens_id = np.zeros(len(event_id1), dtype = 'int')
+    sorc_id = np.zeros(len(event_id1), dtype = 'int')
+    
+    lens_id[idx_l1] = event_id1[idx_l1]
+    sorc_id[idx_l1] = event_id2[idx_l1]
+    
+    lens_id[idx_l2] = event_id2[idx_l2]
+    sorc_id[idx_l2] = event_id1[idx_l2]
+
+    return lens_id, sorc_id, r_t, sep, event_id1, c
+    
+
+def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, timei):
+    """
+    Get sources and lenses that pass the radius cut.
+    
+    Parameters
+    ----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    theta_E : array
+        Einstein radius of the events that pass the radius cut
+
+    u : array
+        Impact parameters at time t of the events that pass the radius cut
+
+    theta_frac : float
+        Parameter of calc_events()
+        Another cut, in multiples of Einstein radii.
+
+    lens_id : array
+        Indices into bigpatch that indicate lenses
+    
+    sorc_id : array
+        Indices into bigpatch that indicate sources
+
+    timei : float
+        Time at which to evaluate.
+
+    Return
+    ------
+    event_lbt : array
+        Lenses and sources at a particular time t.
+
+    """
+    # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
+    adx = np.where(u < theta_frac)[0]                
+    if len(adx > 0):
+        # Narrow down to unique pairs of stars... don't double calculate
+        # an event.
+        lens_sorc_id_pairs = np.stack((bigpatch[17][lens_id][adx], bigpatch[17][sorc_id][adx]),
+                                      axis=-1)
+        
+        unique_returns = np.unique(lens_sorc_id_pairs,
+                                   return_index = True, return_inverse = True, 
+                                   return_counts = True, axis = 0)
+        unique_tab = unique_returns[0]
+        unique_indices = unique_returns[1]
+        unique_inverse = unique_returns[2]
+        unique_counts = unique_returns[3]
+        
+        # Define all tables we will need to calculate event properties.
+        # These will all have a length of N_events.
+        lens_table = bigpatch[:, lens_id][:, adx][:, unique_indices]
+        sorc_table = bigpatch[:, sorc_id][:, adx][:, unique_indices]
+        theta_E = theta_E[adx][unique_indices]
+        u = u[adx][unique_indices]
+    
+        mu_b_rel = sorc_table[13] - lens_table[13] # mas/yr
+        mu_lcosb_rel = sorc_table[14] - lens_table[14] # mas/yr
+        mu_rel = np.sqrt(mu_b_rel**2 + mu_lcosb_rel**2) # mas/yr
+        t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
+        
+        # This is all the events for this l, b, time
+        event_lbt = np.vstack((lens_table, sorc_table, theta_E, u, mu_rel, t_event))
+        
+    return event_lbt
+
+
+def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     """
     Create a table containing the blended stars for each event. 
+    Note 1: We are centering on the lens.
+    Note 2: We don't want to include the lens itself, or the source, in the table.
+
+    Parameters
+    ----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+    
+    c : SkyCoord object
+        Coordinates of all the stars.
+
+    event_lbt : array
+        Lenses and sources at a particular time t.
+
+    blend_rad : float
+        Parameter of calc_events().
+
+    Return
+    ------
+    blends_lbt : array
+        Array of neighbor stars for each lens-source pair.
+
     """
-    #########
-    # Get blending. 
-    # Note 1: We are centering on the lens.
-    # Note 2: We don't want to include the lens itself, or the source, in the table.
     ##########
     # Get the cached KD-Tree to make things run faster.
+    ##########
+    # This way, we don't have to remake a tree that already exists.
+    # (We didn't just do the neighbor calculation initially, because
+    # it would be expensive to hold onto all the unnecessary neighbors)
     kdtree_cache = c.cache['kdtree_sky']
 
-    # Define the center of the blending circle (the lens)
+    # Define the center of the blending disk (the lens)
     coords_lbt = SkyCoord(frame = 'galactic', 
                           l = np.array(event_lbt[11]) * units.deg, 
                           b = np.array(event_lbt[10]) * units.deg)
@@ -1238,36 +1407,32 @@ def calc_blends(bigpatch, c, event_lbt, blend_rad):
     blend_lens_obj_id = []
     blend_sorc_obj_id = []
     blend_neigh_obj_id = []
+    blend_neigh_idx = []
     sep_LN_list = []
     
     for ii in range(len(results)):               
         # The index 20 is the object ID.
         # results indexes into bigpatch. ii corresponds to coords_lbt.
+        if len(results[ii]) == 0:
+            continue
+        
         # bidx indexes into results.
         # It should be that len(results[ii]) = len(bidx) + 2 (we get rid of source and lens.)
-        rii = results[ii]
-
-        if len(rii) == 0:
-            continue
-
+        nid = bigpatch[20, results[ii]] # neighbor star object id
+        lid = np.array(event_lbt[20, ii]) # lens star object id
+        sid = np.array(event_lbt[20 + 27, ii]) # source star object id
+ 
         # Fetch the things that are not the lens and the source.
-        bidx = np.where((bigpatch[20, rii] != event_lbt[20, ii]) &
-                        (bigpatch[20, rii] != event_lbt[20 + 27, ii]))[0]
+        bidx = np.where((nid != lid) &
+                        (nid != sid))[0]
 
         if len(bidx) == 0:
             continue
 
-        # Add the non-lens, non-source blended objects to a list. 
-        blend_neigh_obj_id.append((bigpatch[20, rii][bidx]).tolist())
+        # Make a list of the lens and source IDs for each neighbor... these are just repeats.
+        tmp_lens_id = np.repeat(lid, len(bidx)).tolist() 
+        tmp_sorc_id = np.repeat(sid, len(bidx)).tolist() 
 
-        # Add the lens and the source to a new list as well. Repeat so that every blend has
-        # an associated lens, source ID pair.
-        tmp_lens_id = np.repeat(event_lbt[20, ii], len(bidx)).tolist()
-        tmp_sorc_id = np.repeat(event_lbt[20 + 27, ii], len(bidx)).tolist()
-        
-        blend_lens_obj_id.append(tmp_lens_id)
-        blend_sorc_obj_id.append(tmp_sorc_id)
-        
         # Calculate the distance from lens to each neighbor.
         lens_lb = SkyCoord(frame = 'galactic', 
                            l = np.array(event_lbt[11][ii]) * units.deg, 
@@ -1277,30 +1442,25 @@ def calc_blends(bigpatch, c, event_lbt, blend_rad):
                             b = bigpatch[10][results[ii]][bidx] * units.deg)
         sep_LN = lens_lb.separation(neigh_lb)
         sep_LN = (sep_LN.to(units.arcsec))/units.arcsec
-        sep_LN_list.append(np.array(sep_LN).tolist())
+        
+        # Add the non-lens, non-source blended object IDs to a list.
+        # Add the lens and the source object ID to a new list as well.
+        # Add the index of the neighbors.
+        blend_neigh_obj_id.extend(nid[bidx].tolist())
+        blend_lens_obj_id.extend(tmp_lens_id)
+        blend_sorc_obj_id.extend(tmp_sorc_id)
+        blend_neigh_idx.extend([results[ii][bb] for bb in bidx])
+        sep_LN_list.extend(sep_LN.value.tolist())
 
-        # Futzing with data types...
-        # blend_neigh_id, blend_lens_id, blend_sorc_id are list of lists with the same "shape"
-        # So we flatten these lists and turn them into arrays.
-        blend_neigh_obj_id = [y for x in blend_neigh_obj_id for y in x]
-        blend_lens_obj_id = [y for x in blend_lens_obj_id for y in x]
-        blend_sorc_obj_id = [y for x in blend_sorc_obj_id for y in x]
-        sep_LN_list = [y for x in sep_LN_list for y in x]
-
-        blend_neigh_obj_id = np.array(blend_neigh_obj_id)
-        blend_lens_obj_id = np.array(blend_lens_obj_id)
-        blend_sorc_obj_id = np.array(blend_sorc_obj_id)
-        sep_LN_list = np.array(sep_LN_list)
-
-        blend_idx = np.zeros(len(blend_neigh_obj_id))
-        for ii in range(len(blend_idx)):
-            blend_idx[ii] = np.where(blend_neigh_obj_id[ii] == bigpatch[20])[0]                        
-            blends_lbt = np.hstack((blend_lens_obj_id.reshape(len(blend_lens_obj_id), 1),
-                                    blend_sorc_obj_id.reshape(len(blend_sorc_obj_id), 1),
-                                    bigpatch[:, blend_idx.astype(int)].T,
-                                    sep_LN_list.reshape(len(sep_LN_list), 1)))
-
-                        
+    # Convert our lists into arrays.
+    blend_neigh_obj_id = np.array(blend_neigh_obj_id)
+    blend_lens_obj_id = np.array(blend_lens_obj_id)
+    blend_sorc_obj_id = np.array(blend_sorc_obj_id)
+    blend_neigh_idx = np.array(blend_neigh_idx)
+    sep_LN_list = np.array(sep_LN_list)
+    
+    blends_lbt = np.vstack((blend_lens_obj_id, blend_sorc_obj_id, bigpatch[:, blend_neigh_idx], sep_LN_list))
+        
     return blends_lbt                    
 
 def unique_events(event_table):
@@ -1367,24 +1527,24 @@ def unique_blends(blend_table):
 
     Parameters
     ---------
-    event_table : blend array 
-        A table with all the events. There are 29 columns: 1 with the unique
-        source ID, 1 with the unique lens ID lens, and 27 with info about the
-        neighbor (same order as the other "all info" tables.
+    blend_table : blend array 
+        A table with all the events. There are 30 columns: 1 with the unique
+        source ID, 1 with the unique lens ID lens, and 28 with info about the
+        neighbor (same order as the other "all info" tables).
 
     Return
     ------
-    new_event_table : numpy array
-        Same as event_table, but all duplicate events have been trimmed out,
+    new_blend_table : numpy array
+        Same as blend_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
     """
 
     # Pull the unique ID numbers for the lens, source, and neighbors and put 
     # them into a table of 3 x N_blends.
-    lens_obj_id = blend_table[:, 0]
-    sorc_obj_id = blend_table[:, 1]
-    neigh_obj_id = blend_table[:, 20 + 2]
+    lens_obj_id = blend_table[0, :]
+    sorc_obj_id = blend_table[1, :]
+    neigh_obj_id = blend_table[20 + 2, :]
     triples_obj_id = np.swapaxes(np.vstack((lens_obj_id, sorc_obj_id, neigh_obj_id)), 0, 1)
     
     # Determine if we have unique events (and how many duplicates there are).
@@ -1393,7 +1553,7 @@ def unique_blends(blend_table):
     unique_tab = unique_returns[0]
     unique_indices = unique_returns[1]
 
-    unique_blend_tab = blend_table[unique_indices]
+    unique_blend_tab = blend_table[:, unique_indices]
 
     return unique_blend_tab
 

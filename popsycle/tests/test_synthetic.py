@@ -6,6 +6,7 @@ import ebf
 from astropy import units
 import numpy as np
 import h5py
+import pdb
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10**16)**-1 * 86400.0
@@ -54,6 +55,9 @@ def test_calc_blends():
     print(type(event_lbt))
 
     blend_rad = 1.0  # arcseconds
-    blend_lbt = synthetic.calc_blends(bigpatch, c, event_lbt, blend_rad)
+    blend_lbt = synthetic._calc_blends(bigpatch, c, event_lbt, blend_rad)
+
+    # Fetch the first lens:
+    lens_obj_id_1 = blend_lbt[0, 0]
     
     return

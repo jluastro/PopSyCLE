@@ -113,7 +113,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path
     Outputs
     -------
     <output_root>.h5 : hdf5 file
-        NOTE: This is what bin_lb_hdf5 returns.
+        NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into those bins.
 
@@ -341,16 +341,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
-                comp_dict, next_id = make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                    BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
+                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
+                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
                 ##########
                 if comp_dict is not None:
                     comp_counter += len(comp_dict['mass'])
-                    bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict, output_root)
-                bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin, output_root)
+                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict, output_root)
+                _bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin, output_root)
                 ##########
                 # Done with galaxia output in dictionary t and ebf_log.
                 # Garbage collect in order to save space.
@@ -529,8 +529,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
     return _Mclust_v_age_func(logage)
 
 
-def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
-                   BH_kick_speed = 100, NS_kick_speed = 350):
+def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
+                    BH_kick_speed = 100, NS_kick_speed = 350):
     """
     Perform population synthesis.  
 
@@ -744,7 +744,7 @@ def make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             
     return comp_dict, next_id
 
-def bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
+def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     """
     Given stars and compact objects, sort them into latitude and longitude bins.
     Save each latitude and longitude bin, and the edges that define the latitude
@@ -1135,13 +1135,23 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
 
     Return
     ------
-    lens_id
+    lens_id : array
+        Indices into bigpatch that indicate lenses
+    
+    sorc_id : array
+        Indices into bigpatch that indicate sources
 
-    sorc_id
+    r_t : array
+        Radial coordinates for all objects in bigpatch at time t
 
-    r_t
+    sep : array
+        Separation between lens-source pairs (mas)
 
-    sep
+    event_id1 : array
+        Lens-source pairs where sep < radius_cut
+
+    c : SkyCoord object
+        Coordinates of all the stars.
     """
     # Propagate r, b, l positions forward in time.
     r_t = bigpatch[9] + timei * bigpatch[12] * kms_to_kpcday # kpc
@@ -1209,15 +1219,29 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id,
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
 
-    theta_E : 
+    theta_E : array
+        Einstein radius of the events that pass the radius cut
 
-    u : 
+    u : array
+        Impact parameters at time t of the events that pass the radius cut
 
-    theta_frac : 
+    theta_frac : float
+        Parameter of calc_events()
+        Another cut, in multiples of Einstein radii.
+
+    lens_id : array
+        Indices into bigpatch that indicate lenses
+    
+    sorc_id : array
+        Indices into bigpatch that indicate sources
+
+    timei : float
+        Time at which to evaluate.
 
     Return
     ------
-    event_lbt : 
+    event_lbt : array
+        Lenses and sources at a particular time t.
 
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
@@ -1276,7 +1300,8 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     Return
     ------
-    blends_lbt : 
+    blends_lbt : array
+        Array of neighbor stars for each lens-source pair.
 
     """
     ##########

@@ -986,51 +986,28 @@ def calc_events(hdf5_file, output_root2,
             # Skip patches with less than 10 objects
             if len(bigpatch[0]) < 10:
                 continue
-            
-            ####################
+
+            #######################
             # Loop through different time steps and figure out separations between
-            # all possible pairs of stars. Trim down to "events", which consist of
+            # all possible pairs of stars. Trim down to "events', which consist of
             # those pairs that approach within one <radius_cut> of each other.
-            # These will be the events we consider as candidate microlensing events. 
-            ####################
-            for i in np.arange(len(time_array)):
-                # Find potential lenses and sources that fall within radius cut.
-                lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch, time_array[i], radius_cut)
-
-                # Calculate einstein radius and lens-source separation
-                theta_E = einstein_radius(bigpatch[2][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
-                u = sep[event_id1] / theta_E
+            # These will be the events we consider as candidate microlensing events.
+            #######################
+            events_llbb, blends_llbb = _calc_event_time_loop(ll, bb, time_array, bigpatch, radius_cut, theta_frac, blend_rad)
+            
+            # Concatenate the current event table at this (l,b) with the others.
+            if events_tmp is not None:
+                events_tmp = np.hstack((events_tmp, events_llbb))
+            else:
+                events_tmp = events_llbb
                 
-                # Trim down to those microlensing events that really get close enough
-                # to hope that we can detect them. Trim on a Theta_E criteria.
-                event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, time_array[i])
-
-                #########
-                # Get blending. 
-                # Note 1: We are centering on the lens.
-                # Note 2: We don't want to include the lens itself, or the source, in the table.
-                ##########
-                blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
-         
-                # Concatenate the current event table (at this l, b, time) with the rest.
-                if events_tmp is not None:
-                    events_tmp = np.hstack((events_tmp, event_lbt))
-                else:
-                    events_tmp = event_lbt
-
-                # Ditto for the blend table. 
-                if blends_tmp is not None:
-                    blends_tmp = np.vstack((blends_tmp, blends_lbt))
-                else:
-                    blends_tmp = blends_lbt
-                    
-                # Keep only unique events within our different time stamps
-                events_tmp = unique_events(events_tmp)
-                blends_tmp = unique_blends(blends_tmp)
-                    
-            # END of time loop
-                    
-    # Conver the events numpy array into an Astropy Table for easier consumption. 
+            # Ditto for the blend table. 
+            if blends_tmp is not None:
+                blends_tmp = np.vstack((blends_tmp, blends_llbb))
+            else:
+                blends_tmp = blends_llbb
+              
+    # Convert the events numpy array into an Astropy Table for easier consumption. 
     # The dimensions of events_final_table are 52 x Nevents
     if events_tmp is not None:
         events_tmp = unique_events(events_tmp)
@@ -1116,6 +1093,96 @@ def calc_events(hdf5_file, output_root2,
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
+
+def _calc_event_time_loop(ll, bb, time_array, bigpatch, radius_cut, theta_frac, blend_rad):
+    """
+    What do
+
+    Parameters
+    ----------
+    ll : int
+        Index of the longitude bin.
+
+    bb : int
+        Index of the latitude bin.
+
+    time_array : array
+        Times at which to evaluate. 
+
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    radius_cut : float
+        Parameter of calc_events()
+        Initial radius cut, in ARCSECONDS.
+
+    theta_frac : float
+        Parameter of calc_events()
+        Another cut, in multiples of Einstein radii. 
+
+    blend_rad : float
+        Parameter of calc_events()
+        Stars within this distance of the lens are said to be blended. 
+        Units are in ARCSECONDS.
+
+    Return
+    ------
+    events_llbb : array
+        Array of the unique events for the particular (l,b) patch.
+
+    blends_llbb : array
+        Array of the unique blends for the particular (l,b) patch.
+    
+    """
+    ####################
+    # Loop through different time steps and figure out separations between
+    # all possible pairs of stars. Trim down to "events", which consist of
+    # those pairs that approach within one <radius_cut> of each other.
+    # These will be the events we consider as candidate microlensing events. 
+    ####################
+
+    # Initialize events_llbb and blends_llbb.
+    events_llbb = None
+    blends_llbb = None
+
+    for i in np.arange(len(time_array)):
+        # Find potential lenses and sources that fall within radius cut.
+        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch, time_array[i], radius_cut)
+        
+        # Calculate einstein radius and lens-source separation
+        theta_E = einstein_radius(bigpatch[2][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
+        u = sep[event_id1] / theta_E
+                
+        # Trim down to those microlensing events that really get close enough
+        # to hope that we can detect them. Trim on a Theta_E criteria.
+        event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, time_array[i])
+
+        #########
+        # Get blending. 
+        # Note 1: We are centering on the lens.
+        # Note 2: We don't want to include the lens itself, or the source, in the table.
+        ##########
+        blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+         
+        # Concatenate the current event table (at this l, b, time) with the rest.
+        if events_llbb is not None:
+            events_llbb = np.hstack((events_llbb, event_lbt))
+        else:
+            events_llbb = event_lbt
+            
+        # Ditto for the blend table. 
+        if blends_llbb is not None:
+            blends_llbb = np.vstack((blends_llbb, blends_lbt))
+        else:
+            blends_llbb = blends_lbt
+                    
+        # Keep only unique events within our different time stamps
+        events_llbb = unique_events(events_llbb)
+        blends_llbb = unique_blends(blends_llbb)
+                    
+        # END of time loop
+
+    return events_llbb, blends_llbb
 
 def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     """

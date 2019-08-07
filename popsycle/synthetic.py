@@ -1247,9 +1247,15 @@ def calc_blends(bigpatch, c, event_lbt, blend_rad):
         # It should be that len(results[ii]) = len(bidx) + 2 (we get rid of source and lens.)
         rii = results[ii]
 
+        if len(rii) == 0:
+            continue
+
         # Fetch the things that are not the lens and the source.
         bidx = np.where((bigpatch[20, rii] != event_lbt[20, ii]) &
                         (bigpatch[20, rii] != event_lbt[20 + 27, ii]))[0]
+
+        if len(bidx) == 0:
+            continue
 
         # Add the non-lens, non-source blended objects to a list. 
         blend_neigh_obj_id.append((bigpatch[20, rii][bidx]).tolist())

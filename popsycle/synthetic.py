@@ -35,6 +35,9 @@ import os
 from sklearn import neighbors
 from pathlib import Path
 #from mpi4py import MPI
+import multiprocessing as mp
+from multiprocessing import Pool
+import itertools
 
 ##########
 # Conversions.
@@ -874,7 +877,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut, obs_time, n_obs, theta_frac, blend_rad,
-                microlens_path, overwrite=False):
+                microlens_path, overwrite=False,
+                n_proc = 1):
     """
     Calculate microlensing events
     
@@ -901,6 +905,10 @@ def calc_events(hdf5_file, output_root2,
 
     microlens_path : filepath
        Filepath to PopSyCLE directory.
+
+    n_proc : int
+        Number of processors to use. Should not exceed the number of (cores?) 
+        Default is one processor (no parallelization).
 
     Return
     ------
@@ -960,6 +968,36 @@ def calc_events(hdf5_file, output_root2,
     l_array = np.array(hf['long_bin_edges'])
     b_array = np.array(hf['lat_bin_edges'])
     hf.close()
+    
+    # Converts radius_cut from arcseconds into milliarcseconds
+    radius_cut *= 1000.0
+
+    # Set up the multiprocessing
+    pool = Pool(n_proc)
+
+    # Set up inputs to be able to be read by pool.map
+    nll = len(l_array[:]) - 2
+    nbb = len(b_array[:]) - 2
+
+#    # TEMPORARY
+#    nll = 1
+#    nbb = 2
+    
+    # FIXME : NEED TO CATCH CASE WHERE ONLY ONE PATCH...
+    # if nll < 2 or nbb < 2... something...
+
+    llbb = itertools.product(range(nll), range(nbb))
+
+    reps = nll * nbb
+
+    hd = itertools.repeat(hdf5_file, reps)
+    ot = itertools.repeat(obs_time, reps)
+    no = itertools.repeat(n_obs, reps)
+    rc = itertools.repeat(radius_cut, reps)
+    tf = itertools.repeat(theta_frac, reps) 
+    br = itertools.repeat(blend_rad, reps)
+
+    inputs = zip(llbb, hd, ot, no, rc, tf, br)
 
     ##########
     # Loop through galactic latitude and longitude bins. For each bin vertex, take
@@ -967,32 +1005,36 @@ def calc_events(hdf5_file, output_root2,
     # to properly handle bin edges (i.e. a sliding window analysis of 2x2 bins).
     # Duplicate events are removed. 
     ##########
-    
-    # Converts radius_cut from arcseconds into milliarcseconds
-    radius_cut *= 1000.0
+    # map_async? Make it wait till there are all done.
+    results = pool.starmap(_calc_event_time_loop, inputs)
 
-    for ll in range(len(l_array[:]) - 2):
-        for bb in range(len(b_array[:]) - 2):
-            #######################
-            # Loop through different time steps and figure out separations between
-            # all possible pairs of stars. Trim down to "events', which consist of
-            # those pairs that approach within one <radius_cut> of each other.
-            # These will be the events we consider as candidate microlensing events.
-            #######################
-            events_llbb, blends_llbb = _calc_event_time_loop(ll, bb, hdf5_file, obs_time, n_obs, radius_cut, theta_frac, blend_rad)
-            
-            # Concatenate the current event table at this (l,b) with the others.
-            if events_tmp is not None:
-                events_tmp = np.hstack((events_tmp, events_llbb))
-            else:
-                events_tmp = events_llbb
-                
-            # Ditto for the blend table. 
-            if blends_tmp is not None:
-                blends_tmp = np.hstack((blends_tmp, blends_llbb))
-            else:
-                blends_tmp = blends_llbb
-              
+    pool.close()
+    pool.join()
+
+#    # Doesn't work...
+#    e_idx = [[i][0] for i in range(reps)]
+#    b_idx = [[i][1] for i in range(reps)]
+#
+#    # Doesn't work either...
+#    e_idx = [[i,0] for i in range(reps)]
+#    b_idx = [[i,1] for i in range(reps)]
+#
+#    events_tmp = np.concatenate((results[e_idx]))
+#    blends_tmp = np.concatenate((results[b_idx]))
+ 
+    # Is there a way for this to NOT involve a loop?????
+    for ii in range(reps):
+        if events_tmp is not None:
+            events_tmp = np.concatenate((events_tmp, results[ii][0]), axis=1)
+        else:
+            events_tmp = results[ii][0]
+
+    for ii in range(reps):
+        if blends_tmp is not None:
+            blends_tmp = np.concatenate((blends_tmp, results[ii][1]), axis=1)
+        else:
+            blends_tmp = results[ii][1]
+        
     # Convert the events numpy array into an Astropy Table for easier consumption. 
     # The dimensions of events_final_table are 52 x Nevents
     if events_tmp is not None:
@@ -1080,17 +1122,20 @@ def calc_events(hdf5_file, output_root2,
 
     return
 
-def _calc_event_time_loop(ll, bb, hdf5_file, obs_time, n_obs, radius_cut, theta_frac, blend_rad):
+def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_frac, blend_rad):
     """
     What do
 
     Parameters
     ----------
-    ll : int
-        Index of the longitude bin.
-
-    bb : int
-        Index of the latitude bin.
+    llbb : (int, int)
+        Indicies of (l,b) bin.
+    
+#    ll : int
+#        Index of the longitude bin.
+#
+#    bb : int
+#        Index of the latitude bin.
 
     obs_time, n_obs, radius_cut, theta_frac, blend_rad 
     are all parameters of calc_events()
@@ -1110,11 +1155,14 @@ def _calc_event_time_loop(ll, bb, hdf5_file, obs_time, n_obs, radius_cut, theta_
     # those pairs that approach within one <radius_cut> of each other.
     # These will be the events we consider as candidate microlensing events. 
     ####################
-
+    
     # Initialize events_llbb and blends_llbb.
     events_llbb = None
     blends_llbb = None
-            
+
+    ll = llbb[0]
+    bb = llbb[1]
+        
     print('Working on loop ll, bb = ', ll, bb)
     name00 = 'l' + str(ll) + 'b' + str(bb)
     name01 = 'l' + str(ll) + 'b' + str(bb + 1)

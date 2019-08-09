@@ -1168,8 +1168,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
         # continue
         return
 
-    print('Made it past the if statement!')
-
     time_array = np.linspace(-1 * obs_time/2.0, obs_time/2.0, n_obs)
 
     for i in np.arange(len(time_array)):
@@ -1760,13 +1758,13 @@ def refine_events(input_root, filter_name, red_law,
     ##########
 
     # Einstein crossing time
-    # THIS HAS TO GO BEFORE CALC_OBSERVABLES
+    # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
     t_E = event_tab['theta_E']/event_tab['mu_rel'] # yr
     t_E *= 365.25 # days 
     event_tab['t_E'] = t_E # days
 
     # Add stuff to event_tab... shouldn't have any direct outputs
-    calc_observables(filter_name, red_law, event_tab, blend_tab)
+    _calc_observables(filter_name, red_law, event_tab, blend_tab)
 
     # Relative parallax
     pi_rel = event_tab['rad_L']**-1 - event_tab['rad_S']**-1
@@ -1942,7 +1940,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab):
     
     return app_blended, flux_N_tot, cent_l, cent_b
 
-def calc_observables(filter_name, red_law, event_tab, blend_tab):
+def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     """
     Calculate a bunch of observable quantities we get out from microlensing 
 
@@ -1959,17 +1957,11 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
     """
     f_i = filt_dict[filter_name][red_law]
 
-    # Find bad magnitude values
-#    bad_L_idx = np.where(event_tab['ubv_' + filter_name + '_L'] == -99)[0]
-#    bad_S_idx = np.where(event_tab['ubv_' + filter_name + '_S'] == -99)[0]
-
     # Calculate apparent magnitude of lens and source, and fix bad values
     app_S = calc_app_mag(event_tab['rad_S'], event_tab['ubv_' + filter_name + '_S'], event_tab['exbv_S'], f_i)
     app_L = calc_app_mag(event_tab['rad_L'], event_tab['ubv_' + filter_name + '_L'], event_tab['exbv_L'], f_i)
     event_tab['ubv_' + filter_name + '_app_S'] = app_S
     event_tab['ubv_' + filter_name + '_app_L'] = app_L
-#    event_tab['ubv_' + filter_name + '_app_S'][bad_S_idx] = -99
-#    event_tab['ubv_' + filter_name + '_app_L'][bad_L_idx] = -99
 
     # Convert absolute magnitude to fluxes, and fix bad values
     flux_L = 10**(app_L / -2.5)
@@ -1978,11 +1970,9 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
     flux_L = np.nan_to_num(flux_L)
     flux_S = np.nan_to_num(flux_S)
  
-#    flux_L[bad_L_idx] = 0.0
-#    flux_S[bad_S_idx] = 0.0
     event_tab['flux_' + filter_name + '_S'] = flux_S
     event_tab['flux_' + filter_name + '_L'] = flux_L
-    
+
     # Find the blends.
     LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']), axis = -1)
     blend_pairs = np.stack((blend_tab['obj_id_L'], blend_tab['obj_id_S']), axis = -1)
@@ -1991,19 +1981,27 @@ def calc_observables(filter_name, red_law, event_tab, blend_tab):
     event_tab['cent_glon_' + filter_name + '_N'] = np.zeros(len(app_L))
     event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
 
-    pdb.set_trace()
+    # Get the unique blend_pairs and the first instance of each.
+    uni_blends, uni_bidx = np.unique(blend_pairs, return_index = True, axis = 0)
 
+    # Add a "dummy" idx onto uni_bidx so that I can do idx+1 later.
+    uni_bidxx = np.append(uni_bidx, len(blend_pairs))
+
+    # FIXME: Put in a check that uni_bidx is monotonically increasing???
+    # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???    
+
+    # FIXME: This seems more complicated than necessary...
     for pp in range(len(LS_pairs)):
-        #### TEMP FIX ####
-        idx = np.where(LS_pairs[pp] == blend_pairs)[0]
+        # Search for where the blend pairs have the nth unique LS value
+        idx = np.where(uni_blends == LS_pairs[pp])[0]
         if len(idx) > 0:
-            bn_idx = np.unique(idx, axis = 0)
-#        bn_idx = np.unique(np.where(LS_pairs[pp] == blend_pairs)[0], axis = 0)
-            app_blended, flux_N_tot, cent_l, cent_b = calc_blend_and_centroid(filter_name, red_law, blend_tab[bn_idx])
+            start = uni_bidxx[idx][0]
+            end = uni_bidxx[idx+1][0]
+            app_blended, flux_N_tot, cent_l, cent_b = calc_blend_and_centroid(filter_name, red_law, blend_tab[start:end])
             event_tab['flux_' + filter_name + '_N'][pp] = flux_N_tot
             event_tab['cent_glon_' + filter_name + '_N'][pp] = cent_l 
             event_tab['cent_glat_' + filter_name + '_N'][pp] = cent_b
-
+            
     flux_N = event_tab['flux_' + filter_name + '_N']
 
     # Total blended flux in i-band

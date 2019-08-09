@@ -978,13 +978,9 @@ def calc_events(hdf5_file, output_root2,
     # Set up inputs to be able to be read by pool.map
     nll = len(l_array[:]) - 2
     nbb = len(b_array[:]) - 2
-
-#    # TEMPORARY
-#    nll = 1
-#    nbb = 2
     
     # FIXME : NEED TO CATCH CASE WHERE ONLY ONE PATCH...
-    # if nll < 2 or nbb < 2... something...
+    # if nll < 2 and nbb < 2... something...
 
     llbb = itertools.product(range(nll), range(nbb))
 
@@ -1005,35 +1001,29 @@ def calc_events(hdf5_file, output_root2,
     # to properly handle bin edges (i.e. a sliding window analysis of 2x2 bins).
     # Duplicate events are removed. 
     ##########
-    # map_async? Make it wait till there are all done.
+    # Should I use starmap_async? 
     results = pool.starmap(_calc_event_time_loop, inputs)
 
     pool.close()
     pool.join()
 
-#    # Doesn't work...
-#    e_idx = [[i][0] for i in range(reps)]
-#    b_idx = [[i][1] for i in range(reps)]
-#
-#    # Doesn't work either...
-#    e_idx = [[i,0] for i in range(reps)]
-#    b_idx = [[i,1] for i in range(reps)]
-#
-#    events_tmp = np.concatenate((results[e_idx]))
-#    blends_tmp = np.concatenate((results[b_idx]))
- 
-    # Is there a way for this to NOT involve a loop?????
-    for ii in range(reps):
-        if events_tmp is not None:
-            events_tmp = np.concatenate((events_tmp, results[ii][0]), axis=1)
-        else:
-            events_tmp = results[ii][0]
+    # Remove all the None values
+    # (occurs for patches with less than 10 objects)
+    results = [i for i in results if i is not None]
 
-    for ii in range(reps):
-        if blends_tmp is not None:
-            blends_tmp = np.concatenate((blends_tmp, results[ii][1]), axis=1)
-        else:
-            blends_tmp = results[ii][1]
+    # Is there a way for this to NOT involve a loop?????
+    if len(results) > 0:
+        for ii in range(len(results)):
+            if events_tmp is not None:
+                events_tmp = np.concatenate((events_tmp, results[ii][0]), axis=1)
+            else:
+                events_tmp = results[ii][0]
+
+        for ii in range(len(results)):
+            if blends_tmp is not None:
+                blends_tmp = np.concatenate((blends_tmp, results[ii][1]), axis=1)
+            else:
+                blends_tmp = results[ii][1]
         
     # Convert the events numpy array into an Astropy Table for easier consumption. 
     # The dimensions of events_final_table are 52 x Nevents
@@ -1088,7 +1078,6 @@ def calc_events(hdf5_file, output_root2,
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=microlens_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
-
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
     line1 = 'hdf5_file , ' + hdf5_file + '\n'
     line2 = 'output_root2 , ' + output_root2 + '\n'
@@ -1097,22 +1086,23 @@ def calc_events(hdf5_file, output_root2,
     line5 = 'n_obs , ' + str(n_obs) + '\n'
     line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
     line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
-    line8 = 'VERSION INFORMATION' + '\n'
-    line9 = str(now) + ' : creation date' + '\n'
-    line10 = microlens_hash + ' : microlens commit' + '\n'
+    line8 = 'n_proc , ' + str(n_proc) + '\n'
+    line9 = 'VERSION INFORMATION' + '\n'
+    line10 = str(now) + ' : creation date' + '\n'
+    line11 = microlens_hash + ' : microlens commit' + '\n'
     
-    line11 = 'OTHER INFORMATION' + '\n'
-    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
 
-    line13 = 'FILES CREATED' + '\n'
-    line14 = output_root2 + '_events.fits : events file' + '\n'
-    line15 = output_root2 + '_blends.fits : blends file' + '\n'
+    line14 = 'FILES CREATED' + '\n'
+    line15 = output_root2 + '_events.fits : events file' + '\n'
+    line16 = output_root2 + '_blends.fits : blends file' + '\n'
 
     with open(output_root2 + '_calc_events.log','w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, line10, empty_line,
-                        line11, dash_line, line12, empty_line,
-                        line13, dash_line, line14, line15])
+        out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, line7, line8, empty_line,
+                        line9, dash_line, line10, line11, empty_line,
+                        line12, dash_line, line13, empty_line,
+                        line14, dash_line, line15, line16])
 
     # Save out file 
     events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
@@ -1155,7 +1145,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
     # those pairs that approach within one <radius_cut> of each other.
     # These will be the events we consider as candidate microlensing events. 
     ####################
-    
+
     # Initialize events_llbb and blends_llbb.
     events_llbb = None
     blends_llbb = None
@@ -1177,6 +1167,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
     if len(bigpatch[0]) < 10:
         # continue
         return
+
+    print('Made it past the if statement!')
 
     time_array = np.linspace(-1 * obs_time/2.0, obs_time/2.0, n_obs)
 

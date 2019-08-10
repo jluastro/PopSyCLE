@@ -1011,19 +1011,18 @@ def calc_events(hdf5_file, output_root2,
     # (occurs for patches with less than 10 objects)
     results = [i for i in results if i is not None]
 
-    # Is there a way for this to NOT involve a loop?????
-    if len(results) > 0:
-        for ii in range(len(results)):
-            if events_tmp is not None:
-                events_tmp = np.concatenate((events_tmp, results[ii][0]), axis=1)
-            else:
-                events_tmp = results[ii][0]
+    results_ev = []
+    results_bl = []
 
-        for ii in range(len(results)):
-            if blends_tmp is not None:
-                blends_tmp = np.concatenate((blends_tmp, results[ii][1]), axis=1)
-            else:
-                blends_tmp = results[ii][1]
+    for ii in range(len(results)):
+        if results[ii] is not None:
+            if results[ii][0] is not None:
+                results_ev.append(results[ii][0])
+            if results[ii][1] is not None:
+                results_bl.append(results[ii][1])
+                
+    events_tmp = np.concatenate(results_ev, axis = 1)
+    blends_tmp = np.concatenate(results_bl, axis = 1)
         
     # Convert the events numpy array into an Astropy Table for easier consumption. 
     # The dimensions of events_final_table are 52 x Nevents

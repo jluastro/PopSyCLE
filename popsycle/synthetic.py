@@ -1682,7 +1682,8 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
 ############################################################################
 
 def refine_events(input_root, filter_name, red_law, 
-                  microlens_path, popstar_path, overwrite = False):
+                  microlens_path, popstar_path, overwrite = False,
+                  output_file = 'default'):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -1715,7 +1716,8 @@ def refine_events(input_root, filter_name, red_law,
     columns of data. 
 
     """
-    output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(input_root, filter_name, red_law)
+    if output_file == 'default':
+        output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(input_root, filter_name, red_law)
     
     # Error handling.
     if os.path.isfile(output_file) == True:

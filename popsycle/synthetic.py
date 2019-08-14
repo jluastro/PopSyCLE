@@ -1004,6 +1004,8 @@ def calc_events(hdf5_file, output_root2,
     # Should I use starmap_async? 
     results = pool.starmap(_calc_event_time_loop, inputs)
 
+    pdb.set_trace()
+
     pool.close()
     pool.join()
 
@@ -1202,6 +1204,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
                 blends_llbb = blends_lbt
                     
             # Keep only unique events within our different time stamps
+            pdb.set_trace()
+
             events_llbb = unique_events(events_llbb)
             blends_llbb = unique_blends(blends_llbb)
                     
@@ -1517,8 +1521,8 @@ def unique_events(event_table):
 
     # Pull the unique ID numbers for the lens and source and put them into a
     # table of 2 x N_lenses.
-    lens_uid = event_table[26, :]
-    sorc_uid = event_table[26 + 27, :]
+    lens_uid = event_table[20, :]
+    sorc_uid = event_table[20 + 27, :]
     events_uid = np.swapaxes(np.vstack((lens_uid, sorc_uid)), 0, 1)
     
     # Determine if we have unique events (and how many duplicates there are).

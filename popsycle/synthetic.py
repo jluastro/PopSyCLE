@@ -1004,8 +1004,6 @@ def calc_events(hdf5_file, output_root2,
     # Should I use starmap_async? 
     results = pool.starmap(_calc_event_time_loop, inputs)
 
-    pdb.set_trace()
-
     pool.close()
     pool.join()
 
@@ -1069,6 +1067,10 @@ def calc_events(hdf5_file, output_root2,
         print('No events!')
         return
 
+    # Save out file 
+    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+
     t1 = time.time()
 
     ##########
@@ -1104,10 +1106,6 @@ def calc_events(hdf5_file, output_root2,
                         line9, dash_line, line10, line11, empty_line,
                         line12, dash_line, line13, empty_line,
                         line14, dash_line, line15, line16])
-
-    # Save out file 
-    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
 
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
@@ -1204,8 +1202,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
                 blends_llbb = blends_lbt
                     
             # Keep only unique events within our different time stamps
-            pdb.set_trace()
-
             events_llbb = unique_events(events_llbb)
             blends_llbb = unique_blends(blends_llbb)
                     
@@ -1554,8 +1550,6 @@ def unique_blends(blend_table):
     This function will eliminate duplicates, only keeping an event once. It 
     is picked to be the first occurence.
 
-    FIXME: rows vs columns...
-
     Parameters
     ---------
     blend_table : blend array 
@@ -1577,7 +1571,7 @@ def unique_blends(blend_table):
     sorc_obj_id = blend_table[1, :]
     neigh_obj_id = blend_table[20 + 2, :]
     triples_obj_id = np.swapaxes(np.vstack((lens_obj_id, sorc_obj_id, neigh_obj_id)), 0, 1)
-    
+
     # Determine if we have unique events (and how many duplicates there are).
     # We will keep the first occurence. 
     unique_returns = np.unique(triples_obj_id, return_index = True, axis = 0)

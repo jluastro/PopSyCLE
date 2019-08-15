@@ -1458,7 +1458,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
         nid = bigpatch[col_idx['obj_id'], results[ii]] # neighbor star object id
         lid = np.array(event_lbt[col_idx['obj_id'], ii]) # lens star object id
         sid = np.array(event_lbt[col_idx['obj_id'] + len(col_idx), ii]) # source star object id
- 
+        
         # Fetch the things that are not the lens and the source.
         bidx = np.where((nid != lid) &
                         (nid != sid))[0]
@@ -1538,7 +1538,7 @@ def unique_events(event_table):
     lens_uid = event_table[col_idx['obj_id'], :]
     sorc_uid = event_table[col_idx['obj_id'] + len(col_idx), :]
     events_uid = np.swapaxes(np.vstack((lens_uid, sorc_uid)), 0, 1)
-    
+        
     # Determine if we have unique events (and how many duplicates there are).
     unique_returns = np.unique(events_uid,
                                return_index = True, return_inverse = True, 
@@ -1594,6 +1594,7 @@ def unique_blends(blend_table):
     lens_obj_id = blend_table[0, :]
     sorc_obj_id = blend_table[1, :]
     neigh_obj_id = blend_table[20 + 2, :]
+
     triples_obj_id = np.swapaxes(np.vstack((lens_obj_id, sorc_obj_id, neigh_obj_id)), 0, 1)
 
     # Determine if we have unique events (and how many duplicates there are).
@@ -1753,9 +1754,8 @@ def refine_events(input_root, filter_name, red_law,
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
 
-#    good_idx = np.where(event_tab['ubv_' + filter_name + '_S'] != -99)[0]
-#    event_tab = event_tab[good_idx]
-    event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])] # CHECK IF THIS WORKED
+    # Only keep events with luminous sources
+    event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])] 
 
     with open(input_root + '_calc_events.log') as my_file:
         for num, line in enumerate(my_file):
@@ -1943,8 +1943,6 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab):
     
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10**(app_N / -2.5)
-#    bad_N_idx = np.where(blend_tab['ubv_' + filter_name + '_N'] == -99)[0]
-#    flux_N[bad_N_idx] = 0.0
     flux_N = np.nan_to_num(flux_N)
 
     # Get total flux
@@ -1955,8 +1953,9 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab):
     if flux_N_tot == 0:
         cent_l = 0.0
         cent_b = 0.0
-    cent_l = np.sum(flux_N * blend_tab['glon_N'])/flux_N_tot
-    cent_b = np.sum(flux_N * blend_tab['glat_N'])/flux_N_tot
+    else:
+        cent_l = np.sum(flux_N * blend_tab['glon_N'])/flux_N_tot
+        cent_b = np.sum(flux_N * blend_tab['glat_N'])/flux_N_tot
 
     # Total blended magnitude
     app_blended = -2.5 * np.log10(flux_N_tot)
@@ -1993,14 +1992,11 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     flux_L = np.nan_to_num(flux_L)
     flux_S = np.nan_to_num(flux_S)
  
-    event_tab['flux_' + filter_name + '_S'] = flux_S
-    event_tab['flux_' + filter_name + '_L'] = flux_L
-
     # Find the blends.
     LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']), axis = -1)
     blend_pairs = np.stack((blend_tab['obj_id_L'], blend_tab['obj_id_S']), axis = -1)
 
-    event_tab['flux_' + filter_name + '_N'] = np.zeros(len(app_L))
+    flux_N = np.zeros(len(app_L))
     event_tab['cent_glon_' + filter_name + '_N'] = np.zeros(len(app_L))
     event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
 
@@ -2021,12 +2017,10 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
             start = uni_bidxx[idx][0]
             end = uni_bidxx[idx+1][0]
             app_blended, flux_N_tot, cent_l, cent_b = calc_blend_and_centroid(filter_name, red_law, blend_tab[start:end])
-            event_tab['flux_' + filter_name + '_N'][pp] = flux_N_tot
+            flux_N[pp] = flux_N_tot
             event_tab['cent_glon_' + filter_name + '_N'][pp] = cent_l 
             event_tab['cent_glat_' + filter_name + '_N'][pp] = cent_b
             
-    flux_N = event_tab['flux_' + filter_name + '_N']
-
     # Total blended flux in i-band
     flux_tot = flux_L + flux_S + flux_N
 
@@ -2050,19 +2044,6 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     # Calculate the blend fraction (commonly used in microlensing): f_source / f_total
     f_blend = flux_S / flux_tot
     event_tab['f_blend_' + filter_name] = f_blend
-
-    # Calculate the astrometric shift, no blending, dark lens
-    event_tab['delta_c_max'] = calc_delta_c(np.sqrt(2), event_tab['theta_E'])
-
-    # Calculate the astrometric shift, with potentially luminous lens and blending,
-    # evaluated at time corresponding to u = sqrt(2) * u0
-    # value returned in mas
-    t_shift = get_t_from_u(event_tab['u0'], event_tab['t0'], 
-                           event_tab['t_E'], np.sqrt(2) * event_tab['u0']) 
-    glon_L, glat_L = calc_new_position(event_tab['glon_L'], event_tab['glat_L'], 
-                                       event_tab['mu_lcosb_L'], event_tab['mu_b_L'], t_shift)
-    glon_S, glat_S = calc_new_position(event_tab['glon_S'], event_tab['glat_S'],
-                                       event_tab['mu_lcosb_S'], event_tab['mu_b_S'], t_shift)
     
     return
 

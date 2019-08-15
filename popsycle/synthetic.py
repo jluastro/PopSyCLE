@@ -1,5 +1,3 @@
-# NOTE TO SELF: we want to save out info about the neighbors better.
-
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
@@ -34,7 +32,6 @@ import tracemalloc
 import os
 from sklearn import neighbors
 from pathlib import Path
-#from mpi4py import MPI
 import multiprocessing as mp
 from multiprocessing import Pool
 import itertools
@@ -58,7 +55,6 @@ _Mclust_v_age_func = None
 # Calculated using calc_f
 # Schlegel and Schlafly photometric bands: B = 440, V = 543, I = 809, J = 1266, H = 1673, K = 2215, U = 337, R = 651
 ##########
-
 filt_dict = {}
 filt_dict['j'] = {'Schlafly11' : 0.709, 'Schlegel99' : 0.902, 'Damineli16' : 0.662}
 filt_dict['h'] = {'Schlafly11' : 0.449, 'Schlegel99' : 0.576, 'Damineli16' : 0.344}
@@ -68,6 +64,20 @@ filt_dict['b'] = {'Schlafly11' : 3.626, 'Schlegel99' : 4.315, 'Damineli16' : 3.7
 filt_dict['v'] = {'Schlafly11' : 2.742, 'Schlegel99' : 3.315, 'Damineli16' : 2.757}
 filt_dict['i'] = {'Schlafly11' : 1.505, 'Schlegel99' : 1.940, 'Damineli16' : 1.496}
 filt_dict['r'] = {'Schlafly11' : 2.169, 'Schlegel99' : 2.634, 'Damineli16' : 2.102} 
+
+##########
+# Dictionary for going between values in 
+# .h5 datasets and keys in astropy table
+##########
+col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
+           'px' : 3, 'py' : 4, 'pz' : 5,
+           'vx' : 6, 'vy' : 7, 'vz' : 8,
+           'rad' : 9, 'glat' : 10, 'glon' : 11,
+           'vr' : 12, 'mu_b' : 13, 'mu_lcosb' : 14,
+           'age' : 15, 'popid' : 16, 'ubv_k' : 17,
+           'ubv_i' : 18, 'exbv' : 19, 'obj_id' : 20,
+           'ubv_j' : 21, 'ubv_u' : 22, 'ubv_r' : 23,
+           'ubv_b' : 24, 'ubv_h' : 25, 'ubv_v' : 26}
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -791,11 +801,11 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [14] : mu_lcosb
         [15] : age
         [16] : popid
-        [17] : ubv_k (UBV k-band photometry)
-        [18] : ubv_i (UBV i-band photometry)
+        [17] : ubv_k (UBV K-band abs. mag)
+        [18] : ubv_i (UBV I-band abs. mag)
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
-        [21] - [26] " moar photometry
+        [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
     """    
    
     ##########
@@ -910,16 +920,13 @@ def calc_events(hdf5_file, output_root2,
         Number of processors to use. Should not exceed the number of (cores?) 
         Default is one processor (no parallelization).
 
-    Return
-    ------
-    events_final : Astropy table
-        List of potential microlensing events. There are 40 columns (see documentation PDF)
-        and the number of rows corresponds to the number of events
 
     Output
     ------
-    <output_root2>_events.fits 
-         The events_final Astropy table, written out as a .fits file
+    <output_root2>_events.fits : Astropy .fits table
+        Table of candidate microlensing events. There are 58 columns 
+        (see documentation PDF) and the number of rows corresponds to 
+        the number of candidate events.
 
     """
     
@@ -1025,7 +1032,8 @@ def calc_events(hdf5_file, output_root2,
     blends_tmp = np.concatenate(results_bl, axis = 1)
         
     # Convert the events numpy array into an Astropy Table for easier consumption. 
-    # The dimensions of events_final_table are 52 x Nevents
+    # The dimensions of events_tmp is 58 x Nevents
+    # The dimensions of blends_tmp is 30 x Nblends
     if events_tmp is not None:
         events_tmp = unique_events(events_tmp)
         events_final = Table(events_tmp.T, 
@@ -1065,6 +1073,7 @@ def calc_events(hdf5_file, output_root2,
 
     if events_tmp is None:
         print('No events!')
+
         return
 
     # Save out file 
@@ -1118,14 +1127,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
     Parameters
     ----------
     llbb : (int, int)
-        Indicies of (l,b) bin.
+        Indices of (l,b) bin.
     
-#    ll : int
-#        Index of the longitude bin.
-#
-#    bb : int
-#        Index of the latitude bin.
-
     obs_time, n_obs, radius_cut, theta_frac, blend_rad 
     are all parameters of calc_events()
 
@@ -1174,7 +1177,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch, time_array[i], radius_cut)
         
         # Calculate einstein radius and lens-source separation
-        theta_E = einstein_radius(bigpatch[2][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
+        theta_E = einstein_radius(bigpatch[col_idx['mass']][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
         u = sep[event_id1] / theta_E
                 
         # Trim down to those microlensing events that really get close enough
@@ -1246,9 +1249,9 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         Coordinates of all the stars.
     """
     # Propagate r, b, l positions forward in time.
-    r_t = bigpatch[9] + timei * bigpatch[12] * kms_to_kpcday # kpc
-    b_t = bigpatch[10] + timei * bigpatch[13] * masyr_to_degday # deg
-    l_t = bigpatch[11] + timei * (bigpatch[14] / np.cos(np.radians(bigpatch[10]))) * masyr_to_degday # deg
+    r_t = bigpatch[col_idx['rad']] + timei * bigpatch[col_idx['vr']] * kms_to_kpcday # kpc
+    b_t = bigpatch[col_idx['glat']] + timei * bigpatch[col_idx['mu_b']] * masyr_to_degday # deg
+    l_t = bigpatch[col_idx['glon']] + timei * (bigpatch[col_idx['mu_lcosb']] / np.cos(np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday # deg
     
     ##########
     # Determine nearest neighbor in spherical coordinates.
@@ -1301,7 +1304,6 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
 
     return lens_id, sorc_id, r_t, sep, event_id1, c
     
-
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, timei):
     """
     Get sources and lenses that pass the radius cut.
@@ -1341,7 +1343,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id,
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
-        lens_sorc_id_pairs = np.stack((bigpatch[17][lens_id][adx], bigpatch[17][sorc_id][adx]),
+        lens_sorc_id_pairs = np.stack((bigpatch[col_idx['obj_id']][lens_id][adx], bigpatch[col_idx['obj_id']][sorc_id][adx]),
                                       axis=-1)
         
         unique_returns = np.unique(lens_sorc_id_pairs,
@@ -1359,8 +1361,8 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id,
         theta_E = theta_E[adx][unique_indices]
         u = u[adx][unique_indices]
     
-        mu_b_rel = sorc_table[13] - lens_table[13] # mas/yr
-        mu_lcosb_rel = sorc_table[14] - lens_table[14] # mas/yr
+        mu_b_rel = sorc_table[col_idx['mu_b']] - lens_table[col_idx['mu_b']] # mas/yr
+        mu_lcosb_rel = sorc_table[col_idx['mu_lcosb']] - lens_table[col_idx['mu_lcosb']] # mas/yr
         mu_rel = np.sqrt(mu_b_rel**2 + mu_lcosb_rel**2) # mas/yr
         t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
         
@@ -1408,8 +1410,8 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     # Define the center of the blending disk (the lens)
     coords_lbt = SkyCoord(frame = 'galactic', 
-                          l = np.array(event_lbt[11]) * units.deg, 
-                          b = np.array(event_lbt[10]) * units.deg)
+                          l = np.array(event_lbt[col_idx['glon']]) * units.deg, 
+                          b = np.array(event_lbt[col_idx['glat']]) * units.deg)
 
     ##########
     # Replicate astropy's search_around_sky.
@@ -1438,16 +1440,24 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     sep_LN_list = []
     
     for ii in range(len(results)):               
-        # The index 20 is the object ID.
-        # results indexes into bigpatch. ii corresponds to coords_lbt.
+        # results indexes into bigpatch. 
+        # ii corresponds to coords_lbt.
         if len(results[ii]) == 0:
             continue
+
+        # event_lbt indexing:
+        # col_idx for lens keys
+        # len(col_idx) + col_idx for source keys
+        # 2 * len(col_idx) = theta_E,
+        # 2 * len(col_idx) + 1 = u
+        # 2 * len(col_idx) + 2 = mu_rel
+        # 2 * len(col_idx) + 3 = t_event
         
         # bidx indexes into results.
         # It should be that len(results[ii]) = len(bidx) + 2 (we get rid of source and lens.)
-        nid = bigpatch[20, results[ii]] # neighbor star object id
-        lid = np.array(event_lbt[20, ii]) # lens star object id
-        sid = np.array(event_lbt[20 + 27, ii]) # source star object id
+        nid = bigpatch[col_idx['obj_id'], results[ii]] # neighbor star object id
+        lid = np.array(event_lbt[col_idx['obj_id'], ii]) # lens star object id
+        sid = np.array(event_lbt[col_idx['obj_id'] + len(col_idx), ii]) # source star object id
  
         # Fetch the things that are not the lens and the source.
         bidx = np.where((nid != lid) &
@@ -1462,11 +1472,11 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
         # Calculate the distance from lens to each neighbor.
         lens_lb = SkyCoord(frame = 'galactic', 
-                           l = np.array(event_lbt[11][ii]) * units.deg, 
-                           b = np.array(event_lbt[10][ii]) * units.deg)
+                           l = np.array(event_lbt[col_idx['glon']][ii]) * units.deg, 
+                           b = np.array(event_lbt[col_idx['glat']][ii]) * units.deg)
         neigh_lb = SkyCoord(frame = 'galactic',
-                            l = bigpatch[11][results[ii]][bidx] * units.deg,
-                            b = bigpatch[10][results[ii]][bidx] * units.deg)
+                            l = bigpatch[col_idx['glon']][results[ii]][bidx] * units.deg,
+                            b = bigpatch[col_idx['glat']][results[ii]][bidx] * units.deg)
         sep_LN = lens_lb.separation(neigh_lb)
         sep_LN = (sep_LN.to(units.arcsec))/units.arcsec
         
@@ -1514,11 +1524,19 @@ def unique_events(event_table):
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
     """
+    
+    # event_table indexing:
+    # col_idx for lens keys
+    # len(col_idx) + col_idx for source keys
+    # 2 * len(col_idx) = theta_E,
+    # 2 * len(col_idx) + 1 = u
+    # 2 * len(col_idx) + 2 = mu_rel
+    # 2 * len(col_idx) + 3 = t_event
 
     # Pull the unique ID numbers for the lens and source and put them into a
     # table of 2 x N_lenses.
-    lens_uid = event_table[20, :]
-    sorc_uid = event_table[20 + 27, :]
+    lens_uid = event_table[col_idx['obj_id'], :]
+    sorc_uid = event_table[col_idx['obj_id'] + len(col_idx), :]
     events_uid = np.swapaxes(np.vstack((lens_uid, sorc_uid)), 0, 1)
     
     # Determine if we have unique events (and how many duplicates there are).
@@ -1538,7 +1556,7 @@ def unique_events(event_table):
         # Fetch the duplicates for this event.
         dup_idx = np.where(unique_inverse == dpdx[ii])[0]
         dup_events = event_table[:, dup_idx]
-        min_idx = np.argmin(dup_events[27 + 27 + 2 - 1])
+        min_idx = np.argmin(dup_events[len(col_idx) + len(col_idx) + 2 - 1])
         new_event_table[:, dpdx[ii]] = event_table[:, dup_idx[min_idx]]
         
     return new_event_table
@@ -1554,8 +1572,9 @@ def unique_blends(blend_table):
     ---------
     blend_table : blend array 
         A table with all the events. There are 30 columns: 1 with the unique
-        source ID, 1 with the unique lens ID lens, and 28 with info about the
-        neighbor (same order as the other "all info" tables).
+        source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
+        separation, and 27 with info about the neighbor (same order as the 
+        other "all info" tables).
 
     Return
     ------
@@ -1564,6 +1583,11 @@ def unique_blends(blend_table):
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
     """
+    # blend_table indexing
+    # 0 = lens obj_id
+    # 1 = source obj_id
+    # 2 + col_idx for neighbor keys
+    # len(col_idx) + 2 = lens-source separation
 
     # Pull the unique ID numbers for the lens, source, and neighbors and put 
     # them into a table of 3 x N_blends.
@@ -2098,7 +2122,7 @@ def make_label_file(h5file_name):
         make a new output file entitled:
         <h5file_name>_label.fits (after removing the *.h5).
 
-    "Return"
+    Return
     ------
     label_file : Astropy table
         Table containing the dataset name, and corresponding l, b, and number of objects.
@@ -2107,7 +2131,6 @@ def make_label_file(h5file_name):
     dict = {'file_name' : [], 'long_start' : [], 'long_end' : [],
             'lat_start' : [], 'lat_end' : [], 'objects' : [],
             'N_stars' : [], 'N_WD' : [], 'N_NS' : [], 'N_BH' : []}
-#            'N_stars' : [], 'N_WD_MIST' : [], 'N_WD' : [], 'N_NS' : [], 'N_BH' : []}
 
     hf = h5py.File(h5file_name + '.h5', 'r')
     l_array = hf['long_bin_edges']
@@ -2119,7 +2142,6 @@ def make_label_file(h5file_name):
             dataset = hf[dset_name]
             
             N_stars = len(np.where(dataset[1] == 0)[0])
-#            N_WD_MIST = len(np.where(dataset[1] == 6)[0])
             N_WD = len(np.where(dataset[1] == 101)[0])
             N_NS = len(np.where(dataset[1] == 102)[0])
             N_BH = len(np.where(dataset[1] == 103)[0])
@@ -2131,7 +2153,6 @@ def make_label_file(h5file_name):
             dict['lat_end'].append(b_array[bb + 1])
             dict['objects'].append(dataset.shape[1])
             dict['N_stars'].append(N_stars)
-#            dict['N_WD_MIST'].append(N_WD_MIST)
             dict['N_WD'].append(N_WD)
             dict['N_NS'].append(N_NS)
             dict['N_BH'].append(N_BH)
@@ -2141,7 +2162,6 @@ def make_label_file(h5file_name):
     label_file = Table(dict, names = ('file_name', 'long_start', 'long_end', 
                                       'lat_start', 'lat_end', 'objects',
                                       'N_stars', 'N_WD', 'N_NS', 'N_BH'))
-#                                      'N_stars', 'N_WD_MIST', 'N_WD', 'N_NS', 'N_BH'))
     label_file['long_start'].format = '08.3f'
     label_file['long_end'].format = '08.3f'
     label_file['lat_start'].format = '07.3f'

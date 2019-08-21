@@ -83,7 +83,10 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ############# Population synthesis and associated functions ###############
 ###########################################################################
 
-def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path,
+def perform_pop_syn(ebf_file, output_root, 
+                    iso_dir = '/u/casey/scratch/work/microlens/galaxia_test/isochrones/', 
+                    microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle/', 
+                    popstar_path = '/u/casey/scratch/code/PopStar/popstar',
                     bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
@@ -403,7 +406,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir, microlens_path, popstar_path
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
     line4 = 'BH_kick_speed , ' + str(BH_kick_speed) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed , ' + str(NS_kick_speed) + ' , (km/s)' + '\n'
-    line6 = 'iso_dir' + iso_dir + '\n'
+    line6 = 'iso_dir , ' + iso_dir + '\n'
 
     line7 = 'VERSION INFORMATION' + '\n'
     line8 = str(now) + ' : creation date' + '\n'
@@ -887,7 +890,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut, obs_time, n_obs, theta_frac, blend_rad,
-                microlens_path, overwrite=False,
+                microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle', 
+                overwrite=False,
                 n_proc = 1):
     """
     Calculate microlensing events
@@ -1705,7 +1709,9 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
 ############################################################################
 
 def refine_events(input_root, filter_name, red_law, 
-                  microlens_path, popstar_path, overwrite = False,
+                  microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle', 
+                  popstar_path = '/u/casey/scratch/code/PopStar/popstar', 
+                  overwrite = False,
                   output_file = 'default'):
     """
     Takes the output Astropy table from calc_events, and from that

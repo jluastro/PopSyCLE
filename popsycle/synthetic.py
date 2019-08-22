@@ -889,7 +889,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ############################################################################
 
 def calc_events(hdf5_file, output_root2,
-                radius_cut, obs_time, n_obs, theta_frac, blend_rad,
+                radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65,
                 microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle', 
                 overwrite=False,
                 n_proc = 1):

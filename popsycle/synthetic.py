@@ -1189,28 +1189,31 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
         event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, time_array[i])
         
         if event_lbt is not None:
+            # Concatenate the current event table (at this l, b, time) with the rest.
+            if events_llbb is not None:
+                events_llbb = np.hstack((events_llbb, event_lbt))
+            else:
+                events_llbb = event_lbt
+
+            # Keep only unique events within our different time stamps
+            events_llbb = unique_events(events_llbb)
+
             #########
             # Get blending. 
             # Note 1: We are centering on the lens.
             # Note 2: We don't want to include the lens itself, or the source, in the table.
             ##########
             blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
-         
-            # Concatenate the current event table (at this l, b, time) with the rest.
-            if events_llbb is not None:
-                events_llbb = np.hstack((events_llbb, event_lbt))
-            else:
-                events_llbb = event_lbt
             
-            # Ditto for the blend table. 
-            if blends_llbb is not None:
-                blends_llbb = np.hstack((blends_llbb, blends_lbt))
-            else:
-                blends_llbb = blends_lbt
-                    
-            # Keep only unique events within our different time stamps
-            events_llbb = unique_events(events_llbb)
-            blends_llbb = unique_blends(blends_llbb)
+            if blends_lbt is not None: 
+                # Concatenate the current blend table (at this l, b, time) with the rest.
+                if blends_llbb is not None:
+                    blends_llbb = np.hstack((blends_llbb, blends_lbt))
+                else:
+                    blends_llbb = blends_lbt
+
+                # Keep only unique blends within our different time stamps    
+                blends_llbb = unique_blends(blends_llbb)
                     
         # END of time loop
 
@@ -1499,9 +1502,12 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     blend_sorc_obj_id = np.array(blend_sorc_obj_id)
     blend_neigh_idx = np.array(blend_neigh_idx)
     sep_LN_list = np.array(sep_LN_list)
-    
-    blends_lbt = np.vstack((blend_lens_obj_id, blend_sorc_obj_id, bigpatch[:, blend_neigh_idx], sep_LN_list))
-        
+
+    if len(blend_neigh_obj_id) > 0:
+        blends_lbt = np.vstack((blend_lens_obj_id, blend_sorc_obj_id, bigpatch[:, blend_neigh_idx], sep_LN_list))        
+    else:
+        blends_lbt = None
+
     return blends_lbt                    
 
 def unique_events(event_table):

@@ -84,7 +84,7 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ###########################################################################
 
 def perform_pop_syn(ebf_file, output_root, 
-                    iso_dir = '/u/casey/scratch/work/microlens/galaxia_test/isochrones/', 
+                    iso_dir = '/u/casey/scratch/work/microlens/popsycle_test/isochrones/', 
                     microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle/', 
                     popstar_path = '/u/casey/scratch/code/PopStar/popstar',
                     bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350):

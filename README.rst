@@ -5,7 +5,7 @@ PopSyCLE
     :target: http://www.astropy.org
     :alt: Powered by Astropy Badge
 
-**Pop**ulation **Sy**nthesis for **C**ompact-object **L**ensing **E**vents
+**Pop**\ulation **Sy**\nthesis for **C**\ompact-object **L**\ensing **E**\vents
 
 
 Dependencies
@@ -26,7 +26,7 @@ more information.
 Contributing
 ------------
 
-We love contributions! popsycle is open source,
+We love contributions! PopSyCLE is open source,
 built on open source, and we'd love to have you hang out in our community.
 
 **Imposter syndrome disclaimer**: We want your help. No, really.

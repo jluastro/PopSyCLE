@@ -13,6 +13,12 @@ Dependencies
 `Galaxia <http://galaxia.sourceforge.net>`_
 
 
+Installation
+------------
+
+PopSyCLE can be installed as a standard python package. 
+
+
 License
 -------
 

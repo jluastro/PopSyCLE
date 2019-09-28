@@ -1,11 +1,11 @@
-popsycle
+PopSyCLE
 --------
 
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
     :target: http://www.astropy.org
     :alt: Powered by Astropy Badge
 
-Population Synthesis for Compact object Lensing Events
+**Pop**ulation **Sy**nthesis for **C**ompact-object **L**ensing **E**vents
 
 
 Dependencies

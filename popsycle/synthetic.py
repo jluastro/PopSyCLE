@@ -1,38 +1,24 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import math
-from matplotlib.colors import LogNorm
-from mpl_toolkits.mplot3d import Axes3D
 from astropy import units
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord # High-level coordinates
-from astropy.coordinates import ICRS, Galactic, FK4, FK5 # Low-level frames
 from astropy.coordinates import Angle, Latitude, Longitude # Angles
 from astropy.table import Table
 from astropy.table import vstack
-from astropy.table import hstack
-from astropy.table import Column
-from astropy.table import unique
-from scipy import stats
 from popstar.imf import imf
 from popstar import synthetic, evolution, reddening, ifmr
 from scipy.interpolate import interp1d
-from scipy import spatial
 from scipy.spatial import cKDTree
 import time
 import datetime
 from popsycle import ebf
 import gc
-import pdb
-import sys
 import subprocess
-import tracemalloc
 import os
 from sklearn import neighbors
-from pathlib import Path
-import multiprocessing as mp
 from multiprocessing import Pool
 import itertools
 

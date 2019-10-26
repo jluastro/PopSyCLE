@@ -83,10 +83,7 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ############# Population synthesis and associated functions ###############
 ###########################################################################
 
-def perform_pop_syn(ebf_file, output_root, 
-                    iso_dir = '/u/casey/scratch/work/microlens/popsycle_test/isochrones/', 
-                    microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle/', 
-                    popstar_path = '/u/casey/scratch/code/PopStar/popstar',
+def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
@@ -107,12 +104,6 @@ def perform_pop_syn(ebf_file, output_root,
 
     iso_dir : filepath 
         Where are the isochrones stored (for PopStar)
-
-    microlens_path : filepath
-        Filepath to PopSyCLE repo
-
-    popstar_path : filepath
-        Filepath to PopStar repo
 
     Optional Parameters
     -------------------
@@ -395,6 +386,8 @@ def perform_pop_syn(ebf_file, output_root,
     # Make log file
     ##########
     now = datetime.datetime.now()
+    microlens_path = os.path.split(os.path.abspath(__file__))[0]
+    popstar_path = os.path.split(os.path.abspath(imf.__file__))[0]
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=microlens_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -890,7 +883,6 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65,
-                microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle', 
                 overwrite=False,
                 n_proc = 1):
     """
@@ -916,9 +908,6 @@ def calc_events(hdf5_file, output_root2,
     blend_rad : float
         Stars within this distance of the lens are said to be blended. 
         Units are in ARCSECONDS.
-
-    microlens_path : filepath
-       Filepath to PopSyCLE directory.
 
     n_proc : int
         Number of processors to use. Should not exceed the number of (cores?) 
@@ -1714,9 +1703,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
 ######### Refined event rate calculation and associated functions ##########
 ############################################################################
 
-def refine_events(input_root, filter_name, red_law, 
-                  microlens_path = '/u/casey/scratch/code/PopSyCLE/popsycle', 
-                  popstar_path = '/u/casey/scratch/code/PopStar/popstar', 
+def refine_events(input_root, filter_name, red_law,
                   overwrite = False,
                   output_file = 'default'):
     """
@@ -1737,12 +1724,6 @@ def refine_events(input_root, filter_name, red_law,
 
     red_law : str
         The name of the reddening law to use from PopStar.
-
-    microlens_path : filepath
-        Filepath to PopSyCLE repo
-
-    popstar_path : filepath
-        Filepath to PopStar repo
 
     Output:
     ----------
@@ -1817,6 +1798,8 @@ def refine_events(input_root, filter_name, red_law,
     # Make log file
     ##########
     now = datetime.datetime.now()
+    microlens_path = os.path.split(os.path.abspath(__file__))[0]
+    popstar_path = os.path.split(os.path.abspath(imf.__file__))[0]
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=microlens_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'

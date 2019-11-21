@@ -1068,6 +1068,7 @@ def calc_events(hdf5_file, output_root2,
     ##########
     now = datetime.datetime.now()
     radius_cut = radius_cut/1000.0 # back to arcsec
+    microlens_path = os.path.split(os.path.abspath(__file__))[0]
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=microlens_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'

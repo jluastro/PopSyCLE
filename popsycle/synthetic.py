@@ -227,6 +227,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     for pid in range(10):
         print('*********************** Starting popid ' + str(pid))
+        if np.sum(popid_array == pid) == 0:
+            print('No stars with this pid. Skipping!')
+            continue
         popid_idx = np.where(popid_array == pid)[0]
         logage_min = np.min(age_array[popid_idx])
         logage_max = np.max(age_array[popid_idx])
@@ -271,7 +274,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 n_stop = int((nn + 1) * num_stars_in_bin)
 
                 bin_idx = popid_idx[age_idx[n_start:n_stop]]
-                
+
                 exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
 
                 star_dict = {}
@@ -308,7 +311,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
                 ##########
-
                 vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
                                                       star_dict['vy'],
                                                       star_dict['vz'],
@@ -601,7 +603,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # The compact IDs are:
         # 101: WD, 102: NS, 103: BH
         # -1: PMS, 0: MS, 2: RGB, 3: CHeB, 4: EAGB, 5: TPAGB, 9: WR
-        # WE CONSIDER EVERYTHING FROM THE MIST MODELS WITH PHASE 6 (postAGB) TO BE WHITE DWARFS        
+        # WE CONSIDER EVERYTHING FROM THE MIST MODELS WITH PHASE 6 (postAGB) TO BE WHITE DWARFS
         compact_ID = np.where((output['phase'] == 101) |
                               (output['phase'] == 102) |
                               (output['phase'] == 103))[0]

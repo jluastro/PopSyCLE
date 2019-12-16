@@ -231,6 +231,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             print('No stars with this pid. Skipping!')
             continue
         popid_idx = np.where(popid_array == pid)[0]
+        if len(popid_idx) == 0:
+            print('No stars with this pid. Skipping!')
+            continue
+
         logage_min = np.min(age_array[popid_idx])
         logage_max = np.max(age_array[popid_idx])
 

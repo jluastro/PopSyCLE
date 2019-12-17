@@ -2025,7 +2025,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     event_tab['ubv_' + filter_name + '_app_LSN'] = app_LSN
 
     # Bump amplitude (in magnitudes)
-    delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N_tot)
+    delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N)
     event_tab['delta_m_' + filter_name] = delta_m
     
     # Calculate the blend fraction (commonly used in microlensing): f_source / f_total

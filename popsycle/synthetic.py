@@ -1012,54 +1012,53 @@ def calc_events(hdf5_file, output_root2,
                 results_ev.append(results[ii][0])
             if results[ii][1] is not None:
                 results_bl.append(results[ii][1])
-                
-    events_tmp = np.concatenate(results_ev, axis = 1)
-    blends_tmp = np.concatenate(results_bl, axis = 1)
-        
-    # Convert the events numpy array into an Astropy Table for easier consumption. 
+
+    if len(results_ev) == 0:
+        print('No events!')
+        return
+    else:
+        events_tmp = np.concatenate(results_ev, axis=1)
+        blends_tmp = np.concatenate(results_bl, axis=1)
+
+    # Convert the events numpy array into an Astropy Table for easier consumption.
     # The dimensions of events_tmp is 58 x Nevents
     # The dimensions of blends_tmp is 30 x Nblends
-    if events_tmp is not None:
-        events_tmp = unique_events(events_tmp)
-        events_final = Table(events_tmp.T, 
-                             names = ('zams_mass_L', 'rem_id_L', 'mass_L', 
-                                      'px_L', 'py_L', 'pz_L', 
-                                      'vx_L', 'vy_L', 'vz_L', 
-                                      'rad_L', 'glat_L', 'glon_L',
-                                      'vr_L', 'mu_b_L', 'mu_lcosb_L',
-                                      'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
-                                      'exbv_L', 'obj_id_L',
-                                      'ubv_j_L', 'ubv_u_L', 'ubv_r_L', 
-                                      'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
-                                      'zams_mass_S', 'rem_id_S', 'mass_S', 
-                                      'px_S', 'py_S', 'pz_S', 
-                                      'vx_S', 'vy_S', 'vz_S', 
-                                      'rad_S', 'glat_S', 'glon_S',
-                                      'vr_S', 'mu_b_S', 'mu_lcosb_S',
-                                      'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
-                                      'exbv_S', 'obj_id_S', 
-                                      'ubv_j_S', 'ubv_u_S', 'ubv_r_S', 
-                                      'ubv_b_S', 'ubv_h_S', 'ubv_v_S', 
-                                      'theta_E', 'u0', 'mu_rel', 't0'))
+    events_tmp = unique_events(events_tmp)
+    events_final = Table(events_tmp.T,
+                         names=('zams_mass_L', 'rem_id_L', 'mass_L',
+                                'px_L', 'py_L', 'pz_L',
+                                'vx_L', 'vy_L', 'vz_L',
+                                'rad_L', 'glat_L', 'glon_L',
+                                'vr_L', 'mu_b_L', 'mu_lcosb_L',
+                                'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
+                                'exbv_L', 'obj_id_L',
+                                'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
+                                'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                'zams_mass_S', 'rem_id_S', 'mass_S',
+                                'px_S', 'py_S', 'pz_S',
+                                'vx_S', 'vy_S', 'vz_S',
+                                'rad_S', 'glat_S', 'glon_S',
+                                'vr_S', 'mu_b_S', 'mu_lcosb_S',
+                                'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
+                                'exbv_S', 'obj_id_S',
+                                'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
+                                'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
+                                'theta_E', 'u0', 'mu_rel', 't0'))
 
-    if blends_tmp is not None:
-        blends_tmp = unique_blends(blends_tmp)
-        blends_final = Table(blends_tmp.T, names = ('obj_id_L', 'obj_id_S',
-                                                    'zams_mass_N', 'rem_id_N', 'mass_N', 
-                                                    'px_N', 'py_N', 'pz_N', 
-                                                    'vx_N', 'vy_N', 'vz_N', 
-                                                    'rad_N', 'glat_N', 'glon_N',
-                                                    'vr_N', 'mu_b_N', 'mu_lcosb_N',
-                                                    'age_N', 'popid_N', 'ubv_k_N', 'ubv_i_N',
-                                                    'exbv_N', 'obj_id_N', 
-                                                    'ubv_j_N', 'ubv_u_N', 'ubv_r_N', 
-                                                    'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
-                                                    'sep_LN'))
-
-    if events_tmp is None:
-        print('No events!')
-
-        return
+    blends_tmp = unique_blends(blends_tmp)
+    blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
+                                              'zams_mass_N', 'rem_id_N',
+                                              'mass_N',
+                                              'px_N', 'py_N', 'pz_N',
+                                              'vx_N', 'vy_N', 'vz_N',
+                                              'rad_N', 'glat_N', 'glon_N',
+                                              'vr_N', 'mu_b_N', 'mu_lcosb_N',
+                                              'age_N', 'popid_N', 'ubv_k_N',
+                                              'ubv_i_N',
+                                              'exbv_N', 'obj_id_N',
+                                              'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
+                                              'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                              'sep_LN'))
 
     # Save out file 
     events_final.write(output_root2 + '_events.fits', overwrite=overwrite)

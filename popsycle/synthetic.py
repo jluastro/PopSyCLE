@@ -1695,6 +1695,14 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
 ######### Refined event rate calculation and associated functions ##########
 ############################################################################
 
+
+def convert_photometric_99_to_nan(table):
+    for name in table.colnames:
+        if ('ubv' in name) or ('exbv' in name):
+            cond = table[name] == -99
+            table[name][cond] = np.nan
+
+
 def refine_events(input_root, filter_name, red_law,
                   overwrite = False,
                   output_file = 'default'):
@@ -1738,6 +1746,10 @@ def refine_events(input_root, filter_name, red_law,
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
+
+    # If photometric fields contain -99, convert to nan
+    convert_photometric_99_to_nan(event_tab)
+    convert_photometric_99_to_nan(blend_tab)
 
     # Only keep events with luminous sources
     event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])] 

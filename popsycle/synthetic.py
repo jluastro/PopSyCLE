@@ -69,11 +69,45 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ############# Population synthesis and associated functions ###############
 ###########################################################################
 
+def execute(cmd, shell=False):
+    """
+    Executes a command line instruction, captures the stdout and stderr
+
+    Parameters
+    ----------
+    cmd : str
+        Command line instruction, including any executables and parameters
+
+    shell : bool
+        Determines if the command is run through the shell
+
+    Outputs
+    -------
+    stdout : str
+        Contains the standard output of the executed process
+
+    stderr : str
+        Contains the standard error of the executed process
+
+    """
+    # Split the argument into a list suitable for Popen
+    args = cmd.split()
+    # subprocess.PIPE indicates that a pipe
+    # to the standard stream should be opened.
+    process = subprocess.Popen(args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               shell=shell)
+    stdout, stderr = process.communicate()
+
+    return stdout, stderr
+
+
 def write_galaxia_params(output_root,
                          longitude, latitude, area,
                          seed=None):
     """
-    Given a folder, obect name, sky location and area, creates the parameter
+    Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running. User can also specify a seed for
     Galaxia to use in its object generation.
 

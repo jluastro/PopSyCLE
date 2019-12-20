@@ -69,6 +69,78 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ############# Population synthesis and associated functions ###############
 ###########################################################################
 
+def write_galaxia_params(output_root,
+                         longitude, latitude, area,
+                         seed=None):
+    """
+    Given a folder, obect name, sky location and area, creates the parameter
+    file that Galaxia requires for running. User can also specify a seed for
+    Galaxia to use in its object generation.
+
+    Parameters
+    ----------
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    Optional Parameters
+    -------------------
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a random number from 0 to 100. This may want to be set for
+         reproducibility.
+
+    Outputs
+    -------
+    galaxia_params.<output_root>.<random_seed>.txt : text file
+        A text file with the parameters that Galaxia requires to run.
+    """
+
+    if seed is None:
+        seed = np.random.uniform(0, 100, size=1).astype(int)[0]
+
+    params = [
+        "outputFile %s" % output_root,
+        "outputDir .",
+        "photoSys UBV",
+        "magcolorNames V,B-V",
+        "appMagLimits[0] -1000",
+        "appMagLimits[1] 1000",
+        "absMagLimits[0] -1000",
+        "absMagLimits[1] 1000",
+        "colorLimits[0] -1000",
+        "colorLimits[1] 1000",
+        "geometryOption 1",
+        "longitude %f" % longitude,
+        "latitude %f" % latitude,
+        "surveyArea %.2f" % area,
+        "fSample 1",
+        "popID -1",
+        "warpFlareOn 1",
+        "seed %i" % seed,
+        "r_max 20",
+        "starType 0",
+        "photoError 0"
+    ]
+
+    galaxia_param_fname = 'galaxia_params.%s.%i.txt' % (output_root, seed)
+    with open(galaxia_param_fname, 'w') as f:
+        for param in params:
+            f.write(param + '\n')
+
+
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350):
     """

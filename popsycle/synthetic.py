@@ -180,7 +180,8 @@ def write_galaxia_params(output_root,
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350):
+                    bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350,
+                    set_random_seed = False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -212,6 +213,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     NS_kick_speed : float 
         Kick speed of NS (in km/s)
+
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
 
     Outputs
     -------
@@ -451,7 +456,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     stars_in_bin[key] = val
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
+                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed,
+                                                     set_random_seed=set_random_seed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -641,7 +647,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
 
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
-                    BH_kick_speed = 100, NS_kick_speed = 350):
+                    BH_kick_speed = 100, NS_kick_speed = 350, set_random_seed=False):
     """
     Perform population synthesis.  
 
@@ -669,6 +675,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     NSKickSpeed : float or int
         Kick speed of NS (in km/s)
+
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
 
     Returns
     -------
@@ -709,7 +719,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers)
 
         # MAKE cluster
-        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, initialClusterMass, ifmr=my_ifmr)
+        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, initialClusterMass, ifmr=my_ifmr, set_random_seed=set_random_seed)
         output = cluster.star_systems
 
         # Create the PopStar table with just compact objects

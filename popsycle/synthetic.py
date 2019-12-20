@@ -170,9 +170,13 @@ def write_galaxia_params(output_root,
     ]
 
     galaxia_param_fname = 'galaxia_params.%s.%i.txt' % (output_root, seed)
+
+    print('** Generating %s **' % galaxia_param_fname)
+
     with open(galaxia_param_fname, 'w') as f:
         for param in params:
             f.write(param + '\n')
+            print('-- %s' % param)
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,

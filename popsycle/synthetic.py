@@ -147,7 +147,7 @@ def write_galaxia_params(output_root,
 
     params = [
         "outputFile %s" % output_root,
-        "outputDir .",
+        "outputDir ./",
         "photoSys UBV",
         "magcolorNames V,B-V",
         "appMagLimits[0] -1000",

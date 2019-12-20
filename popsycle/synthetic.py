@@ -169,7 +169,7 @@ def write_galaxia_params(output_root,
         "photoError 0"
     ]
 
-    galaxia_param_fname = 'galaxia_params.%s.%i.txt' % (output_root, seed)
+    galaxia_param_fname = 'galaxia_params.%s.txt' % output_root
 
     print('** Generating %s **' % galaxia_param_fname)
 

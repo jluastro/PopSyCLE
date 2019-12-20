@@ -138,7 +138,7 @@ def write_galaxia_params(output_root,
 
     Outputs
     -------
-    galaxia_params.<output_root>.<random_seed>.txt : text file
+    galaxia_params.<output_root>.txt : text file
         A text file with the parameters that Galaxia requires to run.
     """
 

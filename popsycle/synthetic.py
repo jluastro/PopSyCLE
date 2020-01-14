@@ -2124,7 +2124,12 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
 
     # Get the unique blend_pairs and the first instance of each.
-    uni_blends, uni_bidx = np.unique(blend_pairs, return_index = True, axis = 0)
+    if len(blend_pairs) > 0:
+        uni_blends, uni_bidx = np.unique(blend_pairs, return_index = True, axis = 0)
+    else:
+        # obj_id always >= 0, so these negative values serve as dummies that
+        # cannot be matched in the below `where` statement
+        uni_blends = np.array([[-1, -1]])
 
     # Add a "dummy" idx onto uni_bidx so that I can do idx+1 later.
     uni_bidxx = np.append(uni_bidx, len(blend_pairs))

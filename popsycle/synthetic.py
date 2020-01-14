@@ -1138,7 +1138,10 @@ def calc_events(hdf5_file, output_root2,
         return
     else:
         events_tmp = np.concatenate(results_ev, axis=1)
-        blends_tmp = np.concatenate(results_bl, axis=1)
+        if len(results_bl) == 0:
+            blends_tmp = np.array([])
+        else:
+            blends_tmp = np.concatenate(results_bl, axis=1)
 
     # Convert the events numpy array into an Astropy Table for easier consumption.
     # The dimensions of events_tmp is 58 x Nevents
@@ -1165,7 +1168,8 @@ def calc_events(hdf5_file, output_root2,
                                 'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
                                 'theta_E', 'u0', 'mu_rel', 't0'))
 
-    blends_tmp = unique_blends(blends_tmp)
+    if len(results_bl) != 0:
+        blends_tmp = unique_blends(blends_tmp)
     blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
                                               'zams_mass_N', 'rem_id_N',
                                               'mass_N',

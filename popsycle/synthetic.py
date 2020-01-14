@@ -2126,13 +2126,13 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     # Get the unique blend_pairs and the first instance of each.
     if len(blend_pairs) > 0:
         uni_blends, uni_bidx = np.unique(blend_pairs, return_index = True, axis = 0)
+        # Add a "dummy" idx onto uni_bidx so that I can do idx+1 later.
+        uni_bidxx = np.append(uni_bidx, len(blend_pairs))
     else:
         # obj_id always >= 0, so these negative values serve as dummies that
         # cannot be matched in the below `where` statement
         uni_blends = np.array([[-1, -1]])
-
-    # Add a "dummy" idx onto uni_bidx so that I can do idx+1 later.
-    uni_bidxx = np.append(uni_bidx, len(blend_pairs))
+        uni_bidxx = np.array([])
 
     # FIXME: Put in a check that uni_bidx is monotonically increasing???
     # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???    

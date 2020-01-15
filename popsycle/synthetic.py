@@ -1085,7 +1085,7 @@ def calc_events(hdf5_file, output_root2,
     radius_cut *= 1000.0
 
     # Set up the multiprocessing
-    pool = Pool(n_proc)
+    from mpi4py import MPI
 
     # Set up inputs to be able to be read by pool.map
     nll = len(l_array[:]) - 2

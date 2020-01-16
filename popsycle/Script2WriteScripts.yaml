@@ -2,7 +2,7 @@
 
 # Path to the folder containing all of the field tile file data
 # Important: make sure this is on a luster drive (e.g. lscratchh)
-path_data: /p/lscratchh/dawson29/macho_photometry/rerun_bulge4
+path_run: /p/lscratchh/dawson29/macho_photometry/rerun_bulge4
 # Path to the python executable
 path_python: /p/lscratchh/dawson29/macho/detection_pipeline/env/sysdefup/bin/python
 # Path to the pipeline

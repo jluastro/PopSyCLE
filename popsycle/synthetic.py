@@ -19,7 +19,6 @@ import gc
 import subprocess
 import os
 from sklearn import neighbors
-from multiprocessing import Pool
 import itertools
 
 ##########
@@ -49,7 +48,7 @@ filt_dict['u'] = {'Schlafly11' : 4.334, 'Schlegel99' : 5.434, 'Damineli16' : 5.0
 filt_dict['b'] = {'Schlafly11' : 3.626, 'Schlegel99' : 4.315, 'Damineli16' : 3.757}
 filt_dict['v'] = {'Schlafly11' : 2.742, 'Schlegel99' : 3.315, 'Damineli16' : 2.757}
 filt_dict['i'] = {'Schlafly11' : 1.505, 'Schlegel99' : 1.940, 'Damineli16' : 1.496}
-filt_dict['r'] = {'Schlafly11' : 2.169, 'Schlegel99' : 2.634, 'Damineli16' : 2.102} 
+filt_dict['r'] = {'Schlafly11' : 2.169, 'Schlegel99' : 2.634, 'Damineli16' : 2.102}
 
 ##########
 # Dictionary for going between values in 
@@ -241,7 +240,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Ditto with the fits label file.
     if os.path.isfile(output_root + '_label.fits') == True:
         raise Exception('That .fits file name is taken! Either delete the .fits file, or pick a new name.')
-        
+
     # Error handling/complaining if input types are not right.
     if ebf_file[-4:] != '.ebf':
         raise Exception('ebf_file must be an ebf file.')
@@ -252,7 +251,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     if bin_edges_number is not None:
         if type(bin_edges_number) != int:
             raise Exception('bin_edges_number must be an integer.')
-        
+
     if type(BH_kick_speed) != int:
         if type(BH_kick_speed) != float:
             raise Exception('BH_kick_speed must be an integer or a float.')
@@ -263,7 +262,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     if type(iso_dir) != str:
         raise Exception('iso_dir must be a string.')
-    
+
     ##########
     # Start of code
     #########
@@ -275,12 +274,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Control yourself... take only what you need from it
     # i.e. the log file, popid, and age
     ########
-    t = ebf.read_ind(ebf_file, '/log', 0)    
+    t = ebf.read_ind(ebf_file, '/log', 0)
     popid_array = ebf.read(ebf_file, '/popid')
     age_array = ebf.read(ebf_file, '/age')
-    
+
     # Just some counting/error checking things
-    n_stars = len(popid_array) # How many stars from Galaxia 
+    n_stars = len(popid_array) # How many stars from Galaxia
     comp_counter = 0 # Number of compact objects made
 
     # Convert log to useful dictionary.
@@ -317,7 +316,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Create h5py file to store lat/long binned output
     ##########
-    h5file = h5py.File(output_root + '.h5', 'w') 
+    h5file = h5py.File(output_root + '.h5', 'w')
     dataset = h5file.create_dataset('lat_bin_edges', data = lat_bin_edges)
     dataset = h5file.create_dataset('long_bin_edges', data = long_bin_edges)
     h5file.close()
@@ -333,7 +332,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Initialize a running counter for the "unique ID".
     next_id = n_stars # for compact objects...
-    n_binned_stars = 0 # for stars... 
+    n_binned_stars = 0 # for stars...
 
     ##########
     # Loop through population ID (i.e. bulge, disk, halo, ...) in order to
@@ -403,9 +402,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
                 star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
                 star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
-                star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx) 
+                star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
                 star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
-                star_dict['age'] = age_array[bin_idx] 
+                star_dict['age'] = age_array[bin_idx]
                 star_dict['popid'] = popid_array[bin_idx]
                 star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
                 star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
@@ -471,8 +470,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Garbage collect in order to save space.
                 ##########
                 del star_dict
-                gc.collect() 
-                
+                gc.collect()
+
     t1 = time.time()
     print('Total run time is {0:f} s'.format(t1 - t0))
 
@@ -483,7 +482,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     hf = h5py.File(output_root + '.h5', 'r')
     for key in list(hf.keys()):
         if len(hf[key].shape) > 1:
-            binned_counter += (hf[key].shape)[1]            
+            binned_counter += (hf[key].shape)[1]
 
     ##########
     # Make label file containing information about l,b bins
@@ -513,7 +512,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line8 = str(now) + ' : creation date' + '\n'
     line9 = popstar_hash + ' : PopStar commit' + '\n'
     line10 = microlens_hash + ' : microlens commit' + '\n'
-    
+
     line11 = 'OTHER INFORMATION' + '\n'
     line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
     line13 = str(n_stars) + ' : total stars from Galaxia' + '\n'
@@ -573,10 +572,10 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
     powers = np.array([-1.3, -2.3]) # IMF powers
     current_initial_ratio_array = np.zeros(len(logage_vec)) #initialize current-initial ratio vector
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H', 'ukirt,K', 'ukirt,J']
-    
+
     # Run all the clusters for the different ages in logage_vec
     for i in range(len(logage_vec)):
-        my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10, 
+        my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10,
                                          evo_model = evolution.MISTv1(),
                                          filters = filt_list,
                                          iso_dir = iso_dir) # make isochrone
@@ -584,30 +583,30 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
         trunc_kroupa = imf.IMF_broken_powerlaw(mass_limits, powers) # define IMF
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass) # make cluster
         output = cluster.star_systems
-        
+
         # Find the stars in MIST not in Galaxia (i.e. WDs) and figure out how much mass they contribute
         bad_idx = np.where(output['phase'] == 101)[0]
         bad_mass = np.sum(output['mass'][bad_idx]) # in m_sol
 
         # Figure out the current mass (stars + post-AGB stars)
         current_mass = np.sum(output['mass']) # in m_sol
-        
+
         # Figure out the current STELLAR mass (no post-AGB stars) This is what we want for the ratio
         # since Galaxia does NOT have white dwarfs.
         current_stellar_mass = current_mass - bad_mass
-    
+
         # Calculate the ratio of initial to final stellar mass.
         current_initial_mass_ratio = current_stellar_mass/cluster_mass
         current_initial_ratio_array[i] = current_initial_mass_ratio
         print(current_initial_mass_ratio)
-        
+
     # Reshape vectors so they can be concatenated into two columns
     logage_vec = logage_vec.reshape((len(logage_vec),1))
     current_initial_ratio_array = current_initial_ratio_array.reshape((len(logage_vec),1))
     tab = np.concatenate((logage_vec, current_initial_ratio_array), axis = 1)
     np.savetxt(out_file, tab)
 
-    return 
+    return
 
 def current_initial_ratio(logage, ratio_file, iso_dir):
     """
@@ -631,14 +630,14 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
 
     """
     global _Mclust_v_age_func
-    
+
     if _Mclust_v_age_func == None:
         try:
             boop = np.loadtxt(ratio_file)
         except Exception as e:
             calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file)
             boop = np.loadtxt(ratio_file)
-            
+
         logage_vec = boop[:, 0]
         current_initial_mass_ratio = boop[:, 1]
         _Mclust_v_age_func = interp1d(logage_vec, current_initial_mass_ratio)
@@ -646,7 +645,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
+def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed = 100, NS_kick_speed = 350, set_random_seed=False):
     """
     Perform population synthesis.  
@@ -696,7 +695,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     massLimits = np.array([0.1, 0.5, 120]) # changed from 0.08 to 0.1 at start because MIST can't handle.
     powers = np.array([-1.3, -2.3])
     my_ifmr = ifmr.IFMR()
-    ratio = current_initial_ratio(logage = log_age, 
+    ratio = current_initial_ratio(logage = log_age,
                                   ratio_file = 'current_initial_stellar_mass_ratio.txt',
                                   iso_dir = iso_dir)
     initialClusterMass = currentClusterMass / ratio
@@ -710,11 +709,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # MAKE isochrone
         # -- arbitrarily chose AKs = 0, distance = 10 pc (irrelevant, photometry not used)
         # Using MIST models to get white dwarfs
-        my_iso = synthetic.IsochronePhot(log_age, 0, 10, 
-                                         evo_model = evolution.MISTv1(), 
+        my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                         evo_model = evolution.MISTv1(),
                                          filters = filt_list,
                                          iso_dir=iso_dir)
-        
+
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise. DON'T MOVE IT OUT!
         trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers)
 
@@ -734,19 +733,19 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.     
-        comp_table.keep_columns(['mass', 'phase', 'mass_current', 
+        comp_table.keep_columns(['mass', 'phase', 'mass_current',
                                  'm_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U', 'm_ubv_V',
                                  'm_ukirt_H', 'm_ukirt_J', 'm_ukirt_K'])
 
         # Fill out the rest of comp_dict 
         if len(comp_table['mass']) > 0:
-            
+
             # Turn astropy table into dictionary to conserve memory.
             comp_dict = {}
             comp_dict['mass'] = comp_table['mass_current'].data
             comp_dict['rem_id'] = comp_table['phase'].data
             comp_dict['zams_mass'] = comp_table['mass'].data
-        
+
             ##########
             # Assign spherical positions and velocities to all compact objects.
             ##########
@@ -793,7 +792,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['rad'] = add_precision64(comp_dict['rad'], -4)
             comp_dict['glat'] = add_precision64(comp_dict['glat'], -4)
             comp_dict['glon'] = add_precision64(comp_dict['glon'], -4)
-                                                      
+
             # Assign vr, mu_b, mu_lcosb.
             comp_dict['vr'], comp_dict['mu_b'], comp_dict['mu_lcosb'] =  calc_sph_motion(comp_dict['vx'],
                                                                                          comp_dict['vy'],
@@ -835,11 +834,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
             if len(lum_WD_idx) > 0:
                 star_xyz = np.array([star_dict['px'], star_dict['py'], star_dict['pz']]).T
-                comp_xyz = np.array([comp_dict['px'][lum_WD_idx], comp_dict['py'][lum_WD_idx], comp_dict['pz'][lum_WD_idx]]).T            
+                comp_xyz = np.array([comp_dict['px'][lum_WD_idx], comp_dict['py'][lum_WD_idx], comp_dict['pz'][lum_WD_idx]]).T
 
                 kdt = cKDTree(star_xyz)
                 dist, indices = kdt.query(comp_xyz)
-            
+
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
                 comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
                 comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
@@ -849,20 +848,20 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
                 comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
                 comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
-                
+
                 # Memory cleaning
                 del comp_table
                 gc.collect()
-            
+
             # Assign population and object ID.
-            comp_dict['popid'] = star_dict['popid'][0] * np.ones(len(comp_dict['vx']))   
+            comp_dict['popid'] = star_dict['popid'][0] * np.ones(len(comp_dict['vx']))
             comp_dict['obj_id'] = np.arange(len(comp_dict['vx'])) + next_id
 
             next_id += len(comp_dict['vx'])
-            
+
     else:
         comp_dict = None
-            
+
     return comp_dict, next_id
 
 def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
@@ -914,8 +913,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
-    """    
-   
+    """
+
     ##########
     # Loop through the latitude and longitude bins.
     ##########
@@ -927,16 +926,16 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
             # Open our HDF5 file for reading and appending. Create as necessary.
             hf = h5py.File(output_root + '.h5', 'r+')
-            
+
             # HDF5 dataset name
-            dset_name = 'l' + str(ll) + 'b' + str(bb)  
+            dset_name = 'l' + str(ll) + 'b' + str(bb)
 
             # Create data set if needed. Start with 0 stars in the dataset.
             if (dset_name in hf) == False:
                 dataset = hf.create_dataset(dset_name, shape=(dset_dim1, 0),
                                             chunks=(dset_dim1, 1e4), maxshape= (dset_dim1, None), dtype='float64')
             else:
-                dataset = hf[dset_name]   
+                dataset = hf[dset_name]
 
             ##########
             # Binning the stars and/or compact objects
@@ -949,7 +948,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
                 if len(id_lb) == 0:
                     continue
-                
+
                 save_data = np.zeros((len(obj_arr), len(id_lb)))
                 save_data[0, :] = np.float64(obj_arr['zams_mass'][id_lb])
                 save_data[1, :] = np.float64(obj_arr['rem_id'][id_lb])
@@ -986,7 +985,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 dataset[:, old_size:new_size] = save_data
 
             hf.close()
-            
+
     return
 
 ############################################################################
@@ -1034,7 +1033,7 @@ def calc_events(hdf5_file, output_root2,
         the number of candidate events.
 
     """
-    
+
     ##########
     # Error handling: check whether files exist and whether input types are correct.
     ##########
@@ -1068,9 +1067,9 @@ def calc_events(hdf5_file, output_root2,
     ##########
     # Start of code
     #########
-    
+
     t0 = time.time()
-    
+
     # Initialize events_tmp and blends_tmp.
     events_tmp = None
     blends_tmp = None
@@ -1080,32 +1079,21 @@ def calc_events(hdf5_file, output_root2,
     l_array = np.array(hf['long_bin_edges'])
     b_array = np.array(hf['lat_bin_edges'])
     hf.close()
-    
+
     # Converts radius_cut from arcseconds into milliarcseconds
     radius_cut *= 1000.0
 
     # Set up the multiprocessing
     from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
 
     # Set up inputs to be able to be read by pool.map
     nll = len(l_array[:]) - 2
     nbb = len(b_array[:]) - 2
-    
-    # FIXME : NEED TO CATCH CASE WHERE ONLY ONE PATCH...
-    # if nll < 2 and nbb < 2... something...
 
     llbb = itertools.product(range(nll), range(nbb))
-
-    reps = nll * nbb
-
-    hd = itertools.repeat(hdf5_file, reps)
-    ot = itertools.repeat(obs_time, reps)
-    no = itertools.repeat(n_obs, reps)
-    rc = itertools.repeat(radius_cut, reps)
-    tf = itertools.repeat(theta_frac, reps) 
-    br = itertools.repeat(blend_rad, reps)
-
-    inputs = zip(llbb, hd, ot, no, rc, tf, br)
 
     ##########
     # Loop through galactic latitude and longitude bins. For each bin vertex, take
@@ -1113,119 +1101,128 @@ def calc_events(hdf5_file, output_root2,
     # to properly handle bin edges (i.e. a sliding window analysis of 2x2 bins).
     # Duplicate events are removed. 
     ##########
-    # Should I use starmap_async? 
-    results = pool.starmap(_calc_event_time_loop, inputs)
 
-    pool.close()
-    pool.join()
+    my_results = []
+    idx = rank
+    while idx < len(llbb):
+        my_results.append(_calc_event_time_loop(llbb[idx],
+                                                hdf5_file, obs_time,
+                                                n_obs, radius_cut,
+                                                theta_frac, blend_rad))
+        idx += size
 
-    # Remove all the None values
-    # (occurs for patches with less than 10 objects)
-    results = [i for i in results if i is not None]
+    if rank == 0:
+        results = comm.Gather(my_results, root=0)  # FIXME check on syntax
 
-    results_ev = []
-    results_bl = []
 
-    for ii in range(len(results)):
-        if results[ii] is not None:
-            if results[ii][0] is not None:
-                results_ev.append(results[ii][0])
-            if results[ii][1] is not None:
-                results_bl.append(results[ii][1])
+        # Remove all the None values
+        # (occurs for patches with less than 10 objects)
 
-    if len(results_ev) == 0:
-        print('No events!')
-        return
-    else:
-        events_tmp = np.concatenate(results_ev, axis=1)
-        if len(results_bl) == 0:
-            blends_tmp = np.array([])
+        results = [i for i in results if i is not None]
+
+        results_ev = []
+        results_bl = []
+
+        for ii in range(len(results)):
+            if results[ii] is not None:
+                if results[ii][0] is not None:
+                    results_ev.append(results[ii][0])
+                if results[ii][1] is not None:
+                    results_bl.append(results[ii][1])
+
+        if len(results_ev) == 0:
+            print('No events!')
+            return
         else:
-            blends_tmp = np.concatenate(results_bl, axis=1)
+            events_tmp = np.concatenate(results_ev, axis=1)
+            if len(results_bl) == 0:
+                blends_tmp = np.array([])
+            else:
+                blends_tmp = np.concatenate(results_bl, axis=1)
 
-    # Convert the events numpy array into an Astropy Table for easier consumption.
-    # The dimensions of events_tmp is 58 x Nevents
-    # The dimensions of blends_tmp is 30 x Nblends
-    events_tmp = unique_events(events_tmp)
-    events_final = Table(events_tmp.T,
-                         names=('zams_mass_L', 'rem_id_L', 'mass_L',
-                                'px_L', 'py_L', 'pz_L',
-                                'vx_L', 'vy_L', 'vz_L',
-                                'rad_L', 'glat_L', 'glon_L',
-                                'vr_L', 'mu_b_L', 'mu_lcosb_L',
-                                'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
-                                'exbv_L', 'obj_id_L',
-                                'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
-                                'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
-                                'zams_mass_S', 'rem_id_S', 'mass_S',
-                                'px_S', 'py_S', 'pz_S',
-                                'vx_S', 'vy_S', 'vz_S',
-                                'rad_S', 'glat_S', 'glon_S',
-                                'vr_S', 'mu_b_S', 'mu_lcosb_S',
-                                'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
-                                'exbv_S', 'obj_id_S',
-                                'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
-                                'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
-                                'theta_E', 'u0', 'mu_rel', 't0'))
+        # Convert the events numpy array into an Astropy Table for easier consumption.
+        # The dimensions of events_tmp is 58 x Nevents
+        # The dimensions of blends_tmp is 30 x Nblends
+        events_tmp = unique_events(events_tmp)
+        events_final = Table(events_tmp.T,
+                             names=('zams_mass_L', 'rem_id_L', 'mass_L',
+                                    'px_L', 'py_L', 'pz_L',
+                                    'vx_L', 'vy_L', 'vz_L',
+                                    'rad_L', 'glat_L', 'glon_L',
+                                    'vr_L', 'mu_b_L', 'mu_lcosb_L',
+                                    'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
+                                    'exbv_L', 'obj_id_L',
+                                    'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
+                                    'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                    'zams_mass_S', 'rem_id_S', 'mass_S',
+                                    'px_S', 'py_S', 'pz_S',
+                                    'vx_S', 'vy_S', 'vz_S',
+                                    'rad_S', 'glat_S', 'glon_S',
+                                    'vr_S', 'mu_b_S', 'mu_lcosb_S',
+                                    'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
+                                    'exbv_S', 'obj_id_S',
+                                    'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
+                                    'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
+                                    'theta_E', 'u0', 'mu_rel', 't0'))
 
-    if len(results_bl) != 0:
-        blends_tmp = unique_blends(blends_tmp)
-    blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
-                                              'zams_mass_N', 'rem_id_N',
-                                              'mass_N',
-                                              'px_N', 'py_N', 'pz_N',
-                                              'vx_N', 'vy_N', 'vz_N',
-                                              'rad_N', 'glat_N', 'glon_N',
-                                              'vr_N', 'mu_b_N', 'mu_lcosb_N',
-                                              'age_N', 'popid_N', 'ubv_k_N',
-                                              'ubv_i_N',
-                                              'exbv_N', 'obj_id_N',
-                                              'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
-                                              'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
-                                              'sep_LN'))
+        if len(results_bl) != 0:
+            blends_tmp = unique_blends(blends_tmp)
+        blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
+                                                  'zams_mass_N', 'rem_id_N',
+                                                  'mass_N',
+                                                  'px_N', 'py_N', 'pz_N',
+                                                  'vx_N', 'vy_N', 'vz_N',
+                                                  'rad_N', 'glat_N', 'glon_N',
+                                                  'vr_N', 'mu_b_N', 'mu_lcosb_N',
+                                                  'age_N', 'popid_N', 'ubv_k_N',
+                                                  'ubv_i_N',
+                                                  'exbv_N', 'obj_id_N',
+                                                  'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
+                                                  'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                                  'sep_LN'))
 
-    # Save out file 
-    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+        # Save out file
+        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
 
-    t1 = time.time()
+        t1 = time.time()
 
-    ##########
-    # Make log file
-    ##########
-    now = datetime.datetime.now()
-    radius_cut = radius_cut/1000.0 # back to arcsec
-    microlens_path = os.path.split(os.path.abspath(__file__))[0]
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=microlens_path).decode('ascii').strip()
-    dash_line = '-----------------------------' + '\n'
-    empty_line = '\n'
-    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
-    line1 = 'hdf5_file , ' + hdf5_file + '\n'
-    line2 = 'output_root2 , ' + output_root2 + '\n'
-    line3 = 'radius_cut , ' + str(radius_cut) + ' , (arcsec)' + '\n'
-    line4 = 'obs_time , ' + str(obs_time) + ' , (days)' + '\n'
-    line5 = 'n_obs , ' + str(n_obs) + '\n'
-    line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
-    line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
-    line8 = 'n_proc , ' + str(n_proc) + '\n'
-    line9 = 'VERSION INFORMATION' + '\n'
-    line10 = str(now) + ' : creation date' + '\n'
-    line11 = microlens_hash + ' : microlens commit' + '\n'
-    
-    line12 = 'OTHER INFORMATION' + '\n'
-    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+        ##########
+        # Make log file
+        ##########
+        now = datetime.datetime.now()
+        radius_cut = radius_cut/1000.0 # back to arcsec
+        microlens_path = os.path.split(os.path.abspath(__file__))[0]
+        microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=microlens_path).decode('ascii').strip()
+        dash_line = '-----------------------------' + '\n'
+        empty_line = '\n'
+        line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+        line1 = 'hdf5_file , ' + hdf5_file + '\n'
+        line2 = 'output_root2 , ' + output_root2 + '\n'
+        line3 = 'radius_cut , ' + str(radius_cut) + ' , (arcsec)' + '\n'
+        line4 = 'obs_time , ' + str(obs_time) + ' , (days)' + '\n'
+        line5 = 'n_obs , ' + str(n_obs) + '\n'
+        line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
+        line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
+        line8 = 'n_proc , ' + str(n_proc) + '\n'
+        line9 = 'VERSION INFORMATION' + '\n'
+        line10 = str(now) + ' : creation date' + '\n'
+        line11 = microlens_hash + ' : microlens commit' + '\n'
 
-    line14 = 'FILES CREATED' + '\n'
-    line15 = output_root2 + '_events.fits : events file' + '\n'
-    line16 = output_root2 + '_blends.fits : blends file' + '\n'
+        line12 = 'OTHER INFORMATION' + '\n'
+        line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
 
-    with open(output_root2 + '_calc_events.log','w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, line7, line8, empty_line,
-                        line9, dash_line, line10, line11, empty_line,
-                        line12, dash_line, line13, empty_line,
-                        line14, dash_line, line15, line16])
+        line14 = 'FILES CREATED' + '\n'
+        line15 = output_root2 + '_events.fits : events file' + '\n'
+        line16 = output_root2 + '_blends.fits : blends file' + '\n'
 
-    print('Total runtime: {0:f} s'.format(t1 - t0))
+        with open(output_root2 + '_calc_events.log','w') as out:
+            out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, line7, line8, empty_line,
+                            line9, dash_line, line10, line11, empty_line,
+                            line12, dash_line, line13, empty_line,
+                            line14, dash_line, line15, line16])
+
+        print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
 
@@ -1263,7 +1260,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
 
     ll = llbb[0]
     bb = llbb[1]
-        
+
     print('Working on loop ll, bb = ', ll, bb)
     name00 = 'l' + str(ll) + 'b' + str(bb)
     name01 = 'l' + str(ll) + 'b' + str(bb + 1)
@@ -1284,15 +1281,15 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
     for i in np.arange(len(time_array)):
         # Find potential lenses and sources that fall within radius cut.
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch, time_array[i], radius_cut)
-        
+
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch[col_idx['mass']][lens_id], r_t[lens_id], r_t[sorc_id]) # mas
         u = sep[event_id1] / theta_E
-                
+
         # Trim down to those microlensing events that really get close enough
         # to hope that we can detect them. Trim on a Theta_E criteria.
         event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, time_array[i])
-        
+
         if event_lbt is not None:
             # Concatenate the current event table (at this l, b, time) with the rest.
             if events_llbb is not None:
@@ -1309,8 +1306,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
             # Note 2: We don't want to include the lens itself, or the source, in the table.
             ##########
             blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
-            
-            if blends_lbt is not None: 
+
+            if blends_lbt is not None:
                 # Concatenate the current blend table (at this l, b, time) with the rest.
                 if blends_llbb is not None:
                     blends_llbb = np.hstack((blends_llbb, blends_lbt))
@@ -1319,7 +1316,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut, theta_fr
 
                 # Keep only unique blends within our different time stamps    
                 blends_llbb = unique_blends(blends_llbb)
-                    
+
         # END of time loop
 
     return events_llbb, blends_llbb
@@ -1364,16 +1361,16 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     r_t = bigpatch[col_idx['rad']] + timei * bigpatch[col_idx['vr']] * kms_to_kpcday # kpc
     b_t = bigpatch[col_idx['glat']] + timei * bigpatch[col_idx['mu_b']] * masyr_to_degday # deg
     l_t = bigpatch[col_idx['glon']] + timei * (bigpatch[col_idx['mu_lcosb']] / np.cos(np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday # deg
-    
+
     ##########
     # Determine nearest neighbor in spherical coordinates.
     ##########
     c = SkyCoord(frame = 'galactic', l = l_t * units.deg, b = b_t * units.deg)
-    
+
     # NOTE: dist has no actual meaning since we didn't input distances from Earth.
     #       It's an auto output. just ignore it.    
     idx, sep, dist = coord.match_coordinates_sky(c, c, nthneighbor = 2)
-    
+
     # Converts separations to milliarcseconds
     sep = (sep.to(units.mas)) / units.mas
 
@@ -1388,7 +1385,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         print('****************** WARNING!!! ********************')
         print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
         print('**************************************************')
-        
+
     ##########
     # Find all objects with a nearest neighbor within an angular distance 
     # equal to sep. The index of the object and its nearest neighbor are
@@ -1404,18 +1401,18 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     # NOTE: lens_id and sorc_id are indices into bigpatch
     idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
     idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
-                                
+
     lens_id = np.zeros(len(event_id1), dtype = 'int')
     sorc_id = np.zeros(len(event_id1), dtype = 'int')
-    
+
     lens_id[idx_l1] = event_id1[idx_l1]
     sorc_id[idx_l1] = event_id2[idx_l1]
-    
+
     lens_id[idx_l2] = event_id2[idx_l2]
     sorc_id[idx_l2] = event_id1[idx_l2]
 
     return lens_id, sorc_id, r_t, sep, event_id1, c
-    
+
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id, timei):
     """
     Get sources and lenses that pass the radius cut.
@@ -1451,33 +1448,33 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id, sorc_id,
 
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
-    adx = np.where(u < theta_frac)[0]                
+    adx = np.where(u < theta_frac)[0]
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
         lens_sorc_id_pairs = np.stack((bigpatch[col_idx['obj_id']][lens_id][adx], bigpatch[col_idx['obj_id']][sorc_id][adx]),
                                       axis=-1)
-        
+
         unique_returns = np.unique(lens_sorc_id_pairs,
-                                   return_index = True, return_inverse = True, 
+                                   return_index = True, return_inverse = True,
                                    return_counts = True, axis = 0)
         unique_tab = unique_returns[0]
         unique_indices = unique_returns[1]
         unique_inverse = unique_returns[2]
         unique_counts = unique_returns[3]
-        
+
         # Define all tables we will need to calculate event properties.
         # These will all have a length of N_events.
         lens_table = bigpatch[:, lens_id][:, adx][:, unique_indices]
         sorc_table = bigpatch[:, sorc_id][:, adx][:, unique_indices]
         theta_E = theta_E[adx][unique_indices]
         u = u[adx][unique_indices]
-    
+
         mu_b_rel = sorc_table[col_idx['mu_b']] - lens_table[col_idx['mu_b']] # mas/yr
         mu_lcosb_rel = sorc_table[col_idx['mu_lcosb']] - lens_table[col_idx['mu_lcosb']] # mas/yr
         mu_rel = np.sqrt(mu_b_rel**2 + mu_lcosb_rel**2) # mas/yr
         t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
-        
+
         # This is all the events for this l, b, time
         event_lbt = np.vstack((lens_table, sorc_table, theta_E, u, mu_rel, t_event))
 
@@ -1521,8 +1518,8 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     kdtree_cache = c.cache['kdtree_sky']
 
     # Define the center of the blending disk (the lens)
-    coords_lbt = SkyCoord(frame = 'galactic', 
-                          l = np.array(event_lbt[col_idx['glon']]) * units.deg, 
+    coords_lbt = SkyCoord(frame = 'galactic',
+                          l = np.array(event_lbt[col_idx['glon']]) * units.deg,
                           b = np.array(event_lbt[col_idx['glat']]) * units.deg)
 
     ##########
@@ -1543,15 +1540,15 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     # Query ball against the existing (cached) tree.
     # NOTE: results is an array of lists.
     results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
-    
+
     # Figure out the number of blends for each lens.
     blend_lens_obj_id = []
     blend_sorc_obj_id = []
     blend_neigh_obj_id = []
     blend_neigh_idx = []
     sep_LN_list = []
-    
-    for ii in range(len(results)):               
+
+    for ii in range(len(results)):
         # results indexes into bigpatch. 
         # ii corresponds to coords_lbt.
         if len(results[ii]) == 0:
@@ -1564,13 +1561,13 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
         # 2 * len(col_idx) + 1 = u
         # 2 * len(col_idx) + 2 = mu_rel
         # 2 * len(col_idx) + 3 = t_event
-        
+
         # bidx indexes into results.
         # It should be that len(results[ii]) = len(bidx) + 2 (we get rid of source and lens.)
         nid = bigpatch[col_idx['obj_id'], results[ii]] # neighbor star object id
         lid = np.array(event_lbt[col_idx['obj_id'], ii]) # lens star object id
         sid = np.array(event_lbt[col_idx['obj_id'] + len(col_idx), ii]) # source star object id
-        
+
         # Fetch the things that are not the lens and the source.
         bidx = np.where((nid != lid) &
                         (nid != sid))[0]
@@ -1579,19 +1576,19 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
             continue
 
         # Make a list of the lens and source IDs for each neighbor... these are just repeats.
-        tmp_lens_id = np.repeat(lid, len(bidx)).tolist() 
-        tmp_sorc_id = np.repeat(sid, len(bidx)).tolist() 
+        tmp_lens_id = np.repeat(lid, len(bidx)).tolist()
+        tmp_sorc_id = np.repeat(sid, len(bidx)).tolist()
 
         # Calculate the distance from lens to each neighbor.
-        lens_lb = SkyCoord(frame = 'galactic', 
-                           l = np.array(event_lbt[col_idx['glon']][ii]) * units.deg, 
+        lens_lb = SkyCoord(frame = 'galactic',
+                           l = np.array(event_lbt[col_idx['glon']][ii]) * units.deg,
                            b = np.array(event_lbt[col_idx['glat']][ii]) * units.deg)
         neigh_lb = SkyCoord(frame = 'galactic',
                             l = bigpatch[col_idx['glon']][results[ii]][bidx] * units.deg,
                             b = bigpatch[col_idx['glat']][results[ii]][bidx] * units.deg)
         sep_LN = lens_lb.separation(neigh_lb)
         sep_LN = (sep_LN.to(units.arcsec))/units.arcsec
-        
+
         # Add the non-lens, non-source blended object IDs to a list.
         # Add the lens and the source object ID to a new list as well.
         # Add the index of the neighbors.
@@ -1609,11 +1606,11 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     sep_LN_list = np.array(sep_LN_list)
 
     if len(blend_neigh_obj_id) > 0:
-        blends_lbt = np.vstack((blend_lens_obj_id, blend_sorc_obj_id, bigpatch[:, blend_neigh_idx], sep_LN_list))        
+        blends_lbt = np.vstack((blend_lens_obj_id, blend_sorc_obj_id, bigpatch[:, blend_neigh_idx], sep_LN_list))
     else:
         blends_lbt = None
 
-    return blends_lbt                    
+    return blends_lbt
 
 def unique_events(event_table):
     """
@@ -1639,7 +1636,7 @@ def unique_events(event_table):
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
     """
-    
+
     # event_table indexing:
     # col_idx for lens keys
     # len(col_idx) + col_idx for source keys
@@ -1653,10 +1650,10 @@ def unique_events(event_table):
     lens_uid = event_table[col_idx['obj_id'], :]
     sorc_uid = event_table[col_idx['obj_id'] + len(col_idx), :]
     events_uid = np.swapaxes(np.vstack((lens_uid, sorc_uid)), 0, 1)
-        
+
     # Determine if we have unique events (and how many duplicates there are).
     unique_returns = np.unique(events_uid,
-                               return_index = True, return_inverse = True, 
+                               return_index = True, return_inverse = True,
                                return_counts = True, axis = 0)
     unique_tab = unique_returns[0]
     unique_indices = unique_returns[1]
@@ -1673,7 +1670,7 @@ def unique_events(event_table):
         dup_events = event_table[:, dup_idx]
         min_idx = np.argmin(dup_events[len(col_idx) + len(col_idx) + 2 - 1])
         new_event_table[:, dpdx[ii]] = event_table[:, dup_idx[min_idx]]
-        
+
     return new_event_table
 
 def unique_blends(blend_table):
@@ -1737,11 +1734,11 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
         lens_id = blend[i]['obj_id_L']
         sorc_id = blend[i]['obj_id_S']
         event_idx = np.where((event['obj_id_L'] == lens_id) & (event['obj_id_S'] == sorc_id))[0]
-        
+
         l_L = event[event_idx]['glon_L']
         b_L = event[event_idx]['glat_L']
         c_L = SkyCoord(frame = 'galactic', l = l_L * units.deg, b = b_L * units.deg)
-    
+
         l_N = blend[i]['glon_N']
         b_N = blend[i]['glat_N']
         c_N = SkyCoord(frame = 'galactic', l = l_N * units.deg, b = b_N * units.deg)
@@ -1755,8 +1752,8 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
                 diff_limit_blend = blend[i]
 
     diff_limit_blend.write('diff_limit_blend_' + str(blend_rad) + '.fits')
-    
-    return            
+
+    return
 
 def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
     """
@@ -1792,7 +1789,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
     new_event_log_name = output_root + '_calc_events.log'
     new_blend_tab_name = output_root + '_blends.fits'
 
-    os.system('cp %s %s'%(event_tab_name, new_event_tab_name)) 
+    os.system('cp %s %s'%(event_tab_name, new_event_tab_name))
     os.system('cp %s %s'%(event_log_name, new_event_log_name))
 
     now = datetime.datetime.now()
@@ -1806,15 +1803,15 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
 
     with open(new_event_log_name, 'a') as my_file:
         my_file.writelines(['\n', line0, dash_line, line1, line2, line3, line4])
-   
+
     old_blends = Table.read(blend_tab)
     good_idx = np.where(old_blends['sep_LN'] < new_blend_rad)[0]
     new_blends = old_blends[good_idx]
 
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
-    
+
     return
- 
+
 ############################################################################
 ######### Refined event rate calculation and associated functions ##########
 ############################################################################
@@ -1858,7 +1855,7 @@ def refine_events(input_root, filter_name, red_law,
     """
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(input_root, filter_name, red_law)
-    
+
     # Error handling.
     if os.path.isfile(output_file) == True:
         raise Exception('That refined_events.fits file name is taken! Either delete the .fits file, or pick a new name.')
@@ -1876,7 +1873,7 @@ def refine_events(input_root, filter_name, red_law,
     convert_photometric_99_to_nan(blend_tab)
 
     # Only keep events with luminous sources
-    event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])] 
+    event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])]
 
     with open(input_root + '_calc_events.log') as my_file:
         for num, line in enumerate(my_file):
@@ -1884,7 +1881,7 @@ def refine_events(input_root, filter_name, red_law,
                 obs_time = line.split(',')[1]
                 obs_time = int(obs_time)
                 break
-    
+
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table! 
     # It trims out events that peak outside the survey range! 
@@ -1904,7 +1901,7 @@ def refine_events(input_root, filter_name, red_law,
     # Einstein crossing time
     # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
     t_E = event_tab['theta_E']/event_tab['mu_rel'] # yr
-    t_E *= 365.25 # days 
+    t_E *= 365.25 # days
     event_tab['t_E'] = t_E # days
 
     # Add stuff to event_tab... shouldn't have any direct outputs
@@ -1942,7 +1939,7 @@ def refine_events(input_root, filter_name, red_law,
     line5 = str(now) + ' : creation date' + '\n'
     line6 = popstar_hash + ' : PopStar commit' + '\n'
     line7 = microlens_hash + ' : microlens commit' + '\n'
-    
+
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
 
@@ -1956,7 +1953,7 @@ def refine_events(input_root, filter_name, red_law,
                         line10, dash_line, line11])
 
     print('Total runtime: {0:f} s'.format(t_1 - t_0))
-    return 
+    return
 
 def calc_closest_approach(event_tab, survey_duration):
     """
@@ -1990,12 +1987,12 @@ def calc_closest_approach(event_tab, survey_duration):
     # Parametrization coefficients
     cos_glat_S = np.cos(np.radians(event_tab['glat_S']))
     cos_glat_L = np.cos(np.radians(event_tab['glat_L']))
-   
+
     l_0 = (event_tab['glon_S'] - event_tab['glon_L']) * cos_glat_L * 3600.0 * 1.0e3 # position, mas
     l_1 = (event_tab['mu_lcosb_S'] - event_tab['mu_lcosb_L'])  # pm, mas/yr
     b_0 = (event_tab['glat_S'] - event_tab['glat_L']) * 3600.0 * 1.0e3 # position, mas
     b_1 = (event_tab['mu_b_S'] - event_tab['mu_b_L']) # pm, mas/yr
-    
+
     # Calculate the critical time (time of closest approach), global minimum
     t_crit = -(l_0 * l_1 + b_0 * b_1)/(l_1**2 + b_1**2) # years
     t_crit *= 365.25 # days
@@ -2011,7 +2008,7 @@ def calc_closest_approach(event_tab, survey_duration):
     # NOTE: THIS WILL OVERWRITE CURRENT VALUES
     t0 = np.zeros(len(event_tab))
     u0 = np.zeros(len(event_tab))
-    
+
     # Assign values to closest approach values
     t0 = t_crit[good]
     u0 = calc_distance(event_tab, t0)
@@ -2040,11 +2037,11 @@ def calc_distance(event_tab, time):
     l_L = (event_tab['glon_L'] + time * event_tab['mu_lcosb_L'] * masyr_to_degday/cos_glat_L)
     b_L = (event_tab['glat_L'] + time * event_tab['mu_b_L'] * masyr_to_degday)
     l_S = (event_tab['glon_S'] + time * event_tab['mu_lcosb_S'] * masyr_to_degday/cos_glat_S)
-    b_S = (event_tab['glat_S'] + time * event_tab['mu_b_S'] * masyr_to_degday) 
-    
+    b_S = (event_tab['glat_S'] + time * event_tab['mu_b_S'] * masyr_to_degday)
+
     c_L = SkyCoord(frame = 'galactic', l = l_L * units.deg, b = b_L * units.deg)
     c_S = SkyCoord(frame = 'galactic', l = l_S * units.deg, b = b_S * units.deg)
-    
+
     sep = (c_L.separation(c_S)).mas
     u = sep/event_tab['theta_E']
 
@@ -2062,8 +2059,8 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab):
     f_i = filt_dict[filter_name][red_law]
 
     # Calculate apparent magnitudes 
-    app_N = calc_app_mag(blend_tab['rad_N'], blend_tab['ubv_' + filter_name + '_N'], blend_tab['exbv_N'], f_i)  
-    
+    app_N = calc_app_mag(blend_tab['rad_N'], blend_tab['ubv_' + filter_name + '_N'], blend_tab['exbv_N'], f_i)
+
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10**(app_N / -2.5)
     flux_N = np.nan_to_num(flux_N)
@@ -2082,7 +2079,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab):
 
     # Total blended magnitude
     app_blended = -2.5 * np.log10(flux_N_tot)
-    
+
     return app_blended, flux_N_tot, cent_l, cent_b
 
 def _calc_observables(filter_name, red_law, event_tab, blend_tab):
@@ -2114,7 +2111,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
 
     flux_L = np.nan_to_num(flux_L)
     flux_S = np.nan_to_num(flux_S)
- 
+
     # Find the blends.
     LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']), axis = -1)
     blend_pairs = np.stack((blend_tab['obj_id_L'], blend_tab['obj_id_S']), axis = -1)
@@ -2146,9 +2143,9 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
             end = uni_bidxx[idx+1][0]
             app_blended, flux_N_tot, cent_l, cent_b = calc_blend_and_centroid(filter_name, red_law, blend_tab[start:end])
             flux_N[pp] = flux_N_tot
-            event_tab['cent_glon_' + filter_name + '_N'][pp] = cent_l 
+            event_tab['cent_glon_' + filter_name + '_N'][pp] = cent_l
             event_tab['cent_glat_' + filter_name + '_N'][pp] = cent_b
-            
+
     # Total blended flux in i-band
     flux_tot = flux_L + flux_S + flux_N
 
@@ -2168,11 +2165,11 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     # Bump amplitude (in magnitudes)
     delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N)
     event_tab['delta_m_' + filter_name] = delta_m
-    
+
     # Calculate the blend fraction (commonly used in microlensing): f_source / f_total
     f_blend = flux_S / flux_tot
     event_tab['f_blend_' + filter_name] = f_blend
-    
+
     return
 
 ##################################################################
@@ -2207,7 +2204,7 @@ def make_ebf_log(ebf_table):
     for ii in range(len(log_list)):
         if len(log_list[ii]) == 0:
             continue
-        
+
         if log_list[ii].startswith(b'#'):
             continue
 
@@ -2245,11 +2242,11 @@ def make_label_file(h5file_name):
     l_array = hf['long_bin_edges']
     b_array = hf['lat_bin_edges']
 
-    for ll in range(len(l_array)-1): 
+    for ll in range(len(l_array)-1):
         for bb in range(len(b_array)-1):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
             dataset = hf[dset_name]
-            
+
             N_stars = len(np.where(dataset[1] == 0)[0])
             N_WD = len(np.where(dataset[1] == 101)[0])
             N_NS = len(np.where(dataset[1] == 102)[0])
@@ -2268,7 +2265,7 @@ def make_label_file(h5file_name):
 
     hf.close()
 
-    label_file = Table(dict, names = ('file_name', 'long_start', 'long_end', 
+    label_file = Table(dict, names = ('file_name', 'long_start', 'long_end',
                                       'lat_start', 'lat_end', 'objects',
                                       'N_stars', 'N_WD', 'N_NS', 'N_BH'))
     label_file['long_start'].format = '08.3f'
@@ -2280,7 +2277,7 @@ def make_label_file(h5file_name):
     label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
 
     label_file.write(h5file_name + '_label.fits')
-    
+
     return
 
 ###########################################################################
@@ -2338,7 +2335,7 @@ def galactic_to_heliocentric(r, b, l):
     y = r * np.cos(b) * np.sin(l)
     z = r * np.sin(b)
 
-    return x, y, z    
+    return x, y, z
 
 def einstein_radius(M, d_L, d_S):
     """
@@ -2387,13 +2384,13 @@ def calc_sph_motion(vx, vy, vz, r, b, l):
     sinb = np.sin(b)
     cosl = np.cos(l)
     sinl = np.sin(l)
-    
+
     vr = vz * sinb + cosb * (vx * cosl + vy * sinl)
     vb = vz * cosb - sinb * (vx * cosl + vy * sinl)
     vl = vy * cosl - vx * sinl
 
     mu_b = vb/r
-    mu_lcosb = vl/r 
+    mu_lcosb = vl/r
 
     ##########
     # Convert between radians*(km/s)/kpc into mas/year.
@@ -2468,8 +2465,8 @@ def calc_delta_c_LL(fratio, u0, thetaE):
         max_idx = np.argmax(delta_array)
         final_delta_array[j] = delta_array[max_idx]
         final_u_array[j] = u_array[max_idx]
-    final_delta_array = final_delta_array * thetaE    
-    
+    final_delta_array = final_delta_array * thetaE
+
     return final_delta_array, final_u_array
 
 def max_delta_c(u0, thetaE):
@@ -2585,7 +2582,7 @@ def calc_new_position(l0, b0, mu_lcosb, mu_b, t):
 
     l = l0 + t * mu_lcosb * masyr_to_degday/cos_b0
     b = b0 + t * mu_b * masyr_to_degday
-    
+
     return l, b
 
 def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
@@ -2620,7 +2617,7 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
 
     glat_c_lensed = (t1a1_t2a2 * f_S * glat_S + glat_N * f_N) / (a1_a2 * f_S + f_L + f_N)
     glon_c_lensed = (t1a1_t2a2 * f_S * glon_S + glon_N * f_N) / (a1_a2 * f_S + f_L + f_N)
-    
+
     glat_c_unlensed = (glat_S * f_S + glat_N * f_N)/(f_S + f_L + f_N)
     glon_c_unlensed = (glon_S * f_S + glon_N * f_N)/(f_S + f_L + f_N)
 
@@ -2628,9 +2625,9 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
     glon_delta_c = glon_c_lensed - glon_c_unlensed
 
     delta_c_obs = np.sqrt(glat_delta_c**2 + glon_delta_c**2 * np.cos(np.radians(glat_S))**2)
-    
+
     # Convert from degrees to mas
-    delta_c_obs *= 3.6 * 10**6 
+    delta_c_obs *= 3.6 * 10**6
 
     return delta_c_obs
 
@@ -2658,7 +2655,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     """
     A = calc_magnification(u0)
     m_bump = 2.5 * np.log10((A * f_S + f_L + f_N)/(f_S + f_L + f_N))
-    
+
     return m_bump
 
 def calc_app_mag(r, M, E, f):
@@ -2732,7 +2729,7 @@ def calc_ext(E, f):
     """
     m_E = E * f
 
-    return m_E 
+    return m_E
 
 def sample_spherical(npoints, speed, ndim = 3):
     """

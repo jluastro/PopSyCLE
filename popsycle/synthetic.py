@@ -19,7 +19,6 @@ import gc
 import subprocess
 import os
 from sklearn import neighbors
-from multiprocessing import Pool
 import itertools
 
 ##########

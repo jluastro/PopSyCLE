@@ -5,6 +5,8 @@ Generate and execute slurm scripts for parallel execution of PopSyCLE runs.
 """
 
 import subprocess
+import argparse
+
 
 def execute(cmd,
             shell=False):
@@ -34,3 +36,40 @@ def execute(cmd,
     stdout, stderr = process.communicate()
 
     return stdout, stderr
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    arguments = parser.add_argument_group('arguments')
+    arguments.add_argument('--galaxy-l', type=float,
+                           help='Galactic longitude (degrees)',
+                           required=True)
+    arguments.add_argument('--galaxy-b', type=float,
+                           help='Galactic latitude (degrees)',
+                           required=True)
+    arguments.add_argument('--area', type=float,
+                           help='Area on sky (square degrees)',
+                           required=True)
+    arguments.add_argument('--N-nodes', type=int,
+                           help='Number of nodes for running calc_events',
+                           required=True)
+    arguments.add_argument('--N-cores-per-node', type=int,
+                           help='Number of cores on a single node',
+                           required=True)
+    arguments.add_argument('--walltime-1', type=float,
+                           help='Walltime (hours) for running Galaxia '
+                                'and perform_pop_sny',
+                           required=True)
+    arguments.add_argument('--walltime-2', type=float,
+                           help='Walltime (hours) for running calc_events',
+                           required=True)
+    arguments.add_argument('--walltime-3', type=float,
+                           help='Walltime (hours) for running refine_events'
+                                'and perform_pop_sny',
+                           required=True)
+
+    args = parser.parse_args()
+
+
+if __name__ == '__main__':
+    main()

@@ -2,6 +2,7 @@
 """
 supercomputer.py
 Generate and execute slurm scripts for parallel execution of PopSyCLE runs.
+Scripts created will be formatted for submission to a SLURM scheduler.
 """
 
 import subprocess
@@ -69,6 +70,7 @@ def main():
                            required=True)
 
     args = parser.parse_args()
+
 
 
 if __name__ == '__main__':

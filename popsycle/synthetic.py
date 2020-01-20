@@ -10,7 +10,7 @@ from astropy.coordinates import Angle, Latitude, Longitude # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
-from popstar import synthetic, evolution, reddening, i  
+from popstar import synthetic, evolution, reddening #, i NOT SURE I SHOULD HAVE DONE THIS  
 from scipy.spatial import cKDTree
 import time
 import datetime
@@ -351,11 +351,19 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
+                BH_kick_speed=100 #FIXME
+                NS_kick_speed=350 #FIXME
+                
+
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                     BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc,
-                                                     scale=BH_kick_speed_scale, size=1) ,
-                                                     NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc,
-                                                     scale=NS_kick_speed_scale, size=1 )
+                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
+
+                #comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
+                                                     #BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc,
+                                                     #scale=BH_kick_speed_scale),
+                                                     #NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc,
+                                                     #scale=NS_kick_speed_scale)
+                                                     #set_random_seed=set_random_seed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -383,7 +391,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if len(hf[key].shape) > 1:
             binned_counter += (hf[key].shape)[1]            
 
-    ##########
+     ##########
     # Make label file containing information about l,b bins
     ##########
     make_label_file(output_root)

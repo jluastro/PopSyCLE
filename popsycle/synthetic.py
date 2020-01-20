@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 import math
 from astropy import units
+from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord # High-level coordinates
@@ -9,8 +10,7 @@ from astropy.coordinates import Angle, Latitude, Longitude # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
-from popstar import synthetic, evolution, reddening, ifmr
-from scipy.interpolate import interp1d
+from popstar import synthetic, evolution, reddening, i  
 from scipy.spatial import cKDTree
 import time
 import datetime
@@ -70,7 +70,8 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ###########################################################################
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350):
+                    bin_edges_number = None, BH_kick_speed_loc = 100,BH_kick_speed_scale = 1,
+                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1 ):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -97,11 +98,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Number of edges for the bins (bins = bin_edges_number - 1)
          Total number of bins is (bin_edges_number - 1)**2
 
-    BH_kick_speed : float 
-        Kick speed for BH (in km/s)
+    BH_kick_speed_loc : float 
+       Location of the kick speed for BH (in km/s) maxwellian using scipy's maxwellian distrubution
 
-    NS_kick_speed : float 
-        Kick speed of NS (in km/s)
+    BH_kick_speed_scale : float 
+        Scale of the kick speed for BH (in km/s) maxwellian using scipy's maxwellian distrubution
+
+    NS_kick_speed_loc : float 
+        Scale of the kick speed of NS (in km/s) maxwellian using scipy's maxwellian distrubution
+
+    NS_kick_speed_scale : float 
+       Scale of the kick speed of NS (in km/s) maxwellian using scipy's maxwellian distrubution
 
     Outputs
     -------
@@ -138,13 +145,21 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if type(bin_edges_number) != int:
             raise Exception('bin_edges_number must be an integer.')
         
-    if type(BH_kick_speed) != int:
-        if type(BH_kick_speed) != float:
-            raise Exception('BH_kick_speed must be an integer or a float.')
+    if type(BH_kick_speed_loc) != int:
+        if type(BH_kick_speed_loc) != float:
+            raise Exception('BH_kick_speed_loc must be an integer or a float.')
 
-    if type(NS_kick_speed) != int:
-        if type(NS_kick_speed) != float:
-            raise Exception('NS_kick_speed must be an integer or a float.')
+    if type(BH_kick_speed_scale) != int:
+        if type(BH_kick_speed_scale) != float:
+            raise Exception('BH_kick_speed_scale must be an integer or a float.')
+
+    if type(NS_kick_speed_loc) != int:
+        if type(NS_kick_speed_loc) != float:
+            raise Exception('NS_kick_speed_loc must be an integer or a float.')
+
+    if type(NS_kick_speed_scale) != int:
+        if type(NS_kick_speed_scale) != float:
+            raise Exception('NS_kick_speed_scale must be an integer or a float.')
 
     if type(iso_dir) != str:
         raise Exception('iso_dir must be a string.')
@@ -315,7 +330,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                       star_dict['vy'],
                                                       star_dict['vz'],
                                                       star_dict['rad'],
-                                                      star_dict['glat'],
+                                                       star_dict['glat'],
                                                       star_dict['glon'])
                 #########
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
@@ -337,7 +352,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     stars_in_bin[key] = val
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
+                                                     BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc,
+                                                     scale=BH_kick_speed_scale, size=1) ,
+                                                     NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc,
+                                                     scale=NS_kick_speed_scale, size=1 )
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -527,7 +545,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
 
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
-                    BH_kick_speed = 100, NS_kick_speed = 350):
+                    BH_kick_speed_loc = 100, BH_kick_speed_scale = 1,
+                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1):
     """
     Perform population synthesis.  
 
@@ -550,11 +569,17 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BHKickSpeed : float or int
-        Kick speed for BH (in km/s)
+    BH_kick_speed_loc : float or int
+        Location of kick speed for BH (in km/s) maxwellian using scipy's maxwellian distribution
 
-    NSKickSpeed : float or int
-        Kick speed of NS (in km/s)
+    BH_kick_speed_scale : float or int
+        Scale of kick speed for BH (in km/s) maxwellian using scipy's maxwellian distribution
+
+    NS_kick_speed_loc : float or int
+        Location of kick speed for NS (in km/s) maxwellian using scipy's maxwellian distribution
+
+    NS_kick_speed_loc : float or int
+        Scale of kick speed for NS (in km/s) maxwellian using scipy's maxwellian distribution
 
     Returns
     -------
@@ -651,8 +676,12 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             # Add kicks to NSs and BHs.
             ##########
+            test_kicks_NS=np.array([]) #TEST LINE
+            test_kicks_BH=np.array([]) #TEST LINE
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
+                NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale, size=1)
+                test_kicks_NS.append(NS_kick_speed) #TEST LINE
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
@@ -660,6 +689,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
+                BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc, scale=BH_kick_speed_scale, size=1)
+                test_kicks_BH.append(BH_kick_speed) #TEST LINE
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
@@ -862,6 +893,12 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 dataset[:, old_size:new_size] = save_data
 
             hf.close()
+            plt.figure() #TEST LINE
+            plt.title('NS Kick Speeds') #TEST LINE
+            plt.hist(test_kicks_NS) #TEST LINE
+            plt.figure() #TEST LINE
+            plt.title('BH Kick Speeds') #TEST LINE
+            plt.hist(test_kicks_BH) #TEST LINE
             
     return
 

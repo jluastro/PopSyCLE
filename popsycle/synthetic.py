@@ -451,9 +451,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     plt.figure() #TEST LINE
     plt.title('NS Kick Speeds') #TEST LINE
     plt.hist(test_kicks_NS) #TEST LINE
+    plt.savefig('NS_kick_speeds.png') #TEST LINE
     plt.figure() #TEST LINE
     plt.title('BH Kick Speeds') #TEST LINE
     plt.hist(test_kicks_BH) #TEST LINE
+    plt.savefig('BH_kick_speeds') #TEST LINE
 
     return
 
@@ -704,21 +706,23 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
-                NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale)
-                test_kicks_NS.append(NS_kick_speed) #TEST LINE
-                NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
-                comp_dict['vx'][NS_idx] += NS_kick[0]
-                comp_dict['vy'][NS_idx] += NS_kick[1]
-                comp_dict['vz'][NS_idx] += NS_kick[2]
+                for i in NS_idx:
+                    NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale)
+                    test_kicks_NS.append(NS_kick_speed) #TEST LINE
+                    NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
+                    comp_dict['vx'][NS_idx] += NS_kick[0]
+                    comp_dict['vy'][NS_idx] += NS_kick[1]
+                    comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
-                BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc, scale=BH_kick_speed_scale)
-                test_kicks_BH.append(BH_kick_speed) #TEST LINE
-                BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
-                comp_dict['vx'][BH_idx] += BH_kick[0]
-                comp_dict['vy'][BH_idx] += BH_kick[1]
-                comp_dict['vz'][BH_idx] += BH_kick[2]
+                for i in BH_idx:
+                    BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc, scale=BH_kick_speed_scale)
+                    test_kicks_BH.append(BH_kick_speed) #TEST LINE
+                    BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
+                    comp_dict['vx'][BH_idx] += BH_kick[0]
+                    comp_dict['vy'][BH_idx] += BH_kick[1]
+                    comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
             comp_dict['rad'] = add_precision64(comp_dict['rad'], -4)

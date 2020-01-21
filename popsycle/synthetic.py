@@ -10,7 +10,7 @@ from astropy.coordinates import Angle, Latitude, Longitude # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
-from popstar import synthetic, evolution, reddening #, i NOT SURE I SHOULD HAVE DONE THIS  
+from popstar import synthetic, evolution, reddening, i 
 from scipy.spatial import cKDTree
 import time
 import datetime
@@ -71,7 +71,8 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed_loc = 100,BH_kick_speed_scale = 1,
-                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1 ):
+                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1,
+                    set_random_seed = False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -351,19 +352,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
-                BH_kick_speed=100 #FIXME
-                NS_kick_speed=350 #FIXME
-                
-
-                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed)
-
-                #comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                     #BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc,
-                                                     #scale=BH_kick_speed_scale),
-                                                     #NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc,
-                                                     #scale=NS_kick_speed_scale)
-                                                     #set_random_seed=set_random_seed)
+                comp_dict, next_id, test_kicks_NS, test_kicks_BH = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin,
+                                                     next_id,
+                                                     BH_kick_speed_loc=BH_kick_speed_loc,
+                                                     BH_kick_speed_scale=BH_kick_speed_scale,
+                                                     NS_kick_speed_loc=NS_kick_speed_loc,
+                                                     NS_kick_speed_scale=NS_kick_speed_scale,
+                                                     set_random_seed=set_random_seed) #MODIFIED LINE FOR TEST
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -448,6 +443,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     print('Total number of stars from Galaxia: ' + str(n_stars))
     print('Total number of compact objects made: ' + str(comp_counter))
     print('Total number of things binned: ' + str(binned_counter))
+
+    plt.figure() #TEST LINE
+    plt.title('NS Kick Speeds') #TEST LINE
+    plt.hist(test_kicks_NS) #TEST LINE
+    plt.figure() #TEST LINE
+    plt.title('BH Kick Speeds') #TEST LINE
+    plt.hist(test_kicks_BH) #TEST LINE
 
     return
 
@@ -554,7 +556,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
                     BH_kick_speed_loc = 100, BH_kick_speed_scale = 1,
-                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1):
+                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1,
+                    set_random_seed=False):
     """
     Perform population synthesis.  
 
@@ -589,6 +592,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     NS_kick_speed_loc : float or int
         Scale of kick speed for NS (in km/s) maxwellian using scipy's maxwellian distribution
 
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
+
     Returns
     -------
     comp_dict : dictionary (N_keys = 21)
@@ -597,9 +604,15 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
+
+    test_kicks_NS: an array of the birthkicks assigned to the NSs (I hope) for a test #TEST LINE
+
+    test_kicks_BH: an array of the birthkicks assigned to the BHs (I hope) for a test #TEST LINE
         
     """
     comp_dict = None
+    test_kicks_NS=np.array([]) #TEST LINE
+    test_kicks_BH=np.array([]) #TEST LINE
 
     # Calculate the initial cluster mass
     massLimits = np.array([0.1, 0.5, 120]) # changed from 0.08 to 0.1 at start because MIST can't handle.
@@ -684,8 +697,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             # Add kicks to NSs and BHs.
             ##########
-            test_kicks_NS=np.array([]) #TEST LINE
-            test_kicks_BH=np.array([]) #TEST LINE
+            
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
                 NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale, size=1)
@@ -778,7 +790,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     else:
         comp_dict = None
             
-    return comp_dict, next_id
+    return comp_dict, next_id, test_kicks_NS, test_kicks_BH #MODIFIED LINE FOR TEST
 
 def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     """
@@ -901,12 +913,6 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 dataset[:, old_size:new_size] = save_data
 
             hf.close()
-            plt.figure() #TEST LINE
-            plt.title('NS Kick Speeds') #TEST LINE
-            plt.hist(test_kicks_NS) #TEST LINE
-            plt.figure() #TEST LINE
-            plt.title('BH Kick Speeds') #TEST LINE
-            plt.hist(test_kicks_BH) #TEST LINE
             
     return
 

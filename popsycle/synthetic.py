@@ -3,6 +3,7 @@ import h5py
 import math
 from astropy import units
 from scipy.stats import maxwell
+import matplotlib.pyplot as plt
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord # High-level coordinates
@@ -10,7 +11,8 @@ from astropy.coordinates import Angle, Latitude, Longitude # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
-from popstar import synthetic, evolution, reddening, i 
+from popstar import synthetic, evolution, reddening, ifmr
+from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time
 import datetime
@@ -406,30 +408,32 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line1 = 'ebf_file , ' + ebf_file + '\n'
     line2 = 'output_root , ' + output_root + '\n'
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
-    line4 = 'BH_kick_speed , ' + str(BH_kick_speed) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed , ' + str(NS_kick_speed) + ' , (km/s)' + '\n'
-    line6 = 'iso_dir , ' + iso_dir + '\n'
+    line4 = 'BH_kick_speed_loc , ' + str(BH_kick_speed_loc) + ' , (km/s)' + '\n'
+    line5 = 'NS_kick_speed_loc , ' + str(NS_kick_speed_loc) + ' , (km/s)' + '\n'
+    line6 = 'BH_kick_speed_scale , ' + str(BH_kick_speed_scale) + ' , (km/s)' + '\n'
+    line7 = 'NS_kick_speed_scale  , ' + str(NS_kick_speed_scale) + ' , (km/s)' + '\n'
+    line8 = 'iso_dir , ' + iso_dir + '\n'
 
-    line7 = 'VERSION INFORMATION' + '\n'
-    line8 = str(now) + ' : creation date' + '\n'
-    line9 = popstar_hash + ' : PopStar commit' + '\n'
-    line10 = microlens_hash + ' : microlens commit' + '\n'
+    line9 = 'VERSION INFORMATION' + '\n'
+    line10 = str(now) + ' : creation date' + '\n'
+    line11 = popstar_hash + ' : PopStar commit' + '\n'
+    line12 = microlens_hash + ' : microlens commit' + '\n'
     
-    line11 = 'OTHER INFORMATION' + '\n'
-    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line13 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line14 = str(comp_counter) + ' : total compact objects made' + '\n'
-    line15 = str(binned_counter) + ' : total things binned' + '\n'
+    line13 = 'OTHER INFORMATION' + '\n'
+    line14 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line15 = str(n_stars) + ' : total stars from Galaxia' + '\n'
+    line16 = str(comp_counter) + ' : total compact objects made' + '\n'
+    line17 = str(binned_counter) + ' : total things binned' + '\n'
 
-    line16 = 'FILES CREATED' + '\n'
-    line17 = output_root + '.h5 : HDF5 file' + '\n'
-    line18 = output_root + '_label.fits : label file' + '\n'
+    line18 = 'FILES CREATED' + '\n'
+    line19 = output_root + '.h5 : HDF5 file' + '\n'
+    line20 = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log','w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, empty_line,
                         line7, dash_line, line8, line9, line10, empty_line,
                         line11, dash_line, line12, line13, line14, line15, empty_line,
-                        line16, dash_line, line17, line18])
+                        line16, dash_line, line17, line18, line19, line20])
 
     ##########
     # Informative print statements. 
@@ -611,8 +615,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         
     """
     comp_dict = None
-    test_kicks_NS=np.array([]) #TEST LINE
-    test_kicks_BH=np.array([]) #TEST LINE
+    test_kicks_NS=[] #TEST LINE
+    test_kicks_BH=[] #TEST LINE
 
     # Calculate the initial cluster mass
     massLimits = np.array([0.1, 0.5, 120]) # changed from 0.08 to 0.1 at start because MIST can't handle.
@@ -700,7 +704,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
-                NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale, size=1)
+                NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale)
                 test_kicks_NS.append(NS_kick_speed) #TEST LINE
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
@@ -709,7 +713,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
-                BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc, scale=BH_kick_speed_scale, size=1)
+                BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc, scale=BH_kick_speed_scale)
                 test_kicks_BH.append(BH_kick_speed) #TEST LINE
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]

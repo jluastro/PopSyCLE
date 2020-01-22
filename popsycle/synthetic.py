@@ -993,7 +993,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ############################################################################
 
 def calc_events(hdf5_file, output_root2,
-                radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65):
+                radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65,
+                overwrite=False):
     """
     Calculate microlensing events
     
@@ -1176,8 +1177,8 @@ def calc_events(hdf5_file, output_root2,
                                                   'sep_LN'))
 
         # Save out file
-        events_final.write(output_root2 + '_events.fits', overwrite=True)
-        blends_final.write(output_root2 + '_blends.fits', overwrite=True)
+        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
 
         t1 = time.time()
 

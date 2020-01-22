@@ -77,7 +77,8 @@ def submit_script(stage, slurm_config, path_run,
     # Get current directory
     popsycle_directory = os.path.abspath(__file__)
 
-    mpi_template = """#!/bin/sh
+    mpi_template = """
+    #!/bin/sh
     # Job name
     #SBATCH --account={account}
     #SBATCH --qos={queue}

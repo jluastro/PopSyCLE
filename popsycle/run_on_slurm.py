@@ -73,9 +73,10 @@ def submit_script(stage, slurm_config, path_run,
     n_nodes_max = slurm_config[resource]['n_nodes_max']
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
-
     # Get current directory
     popsycle_directory = os.path.abspath(__file__)
+    # Create jobname
+    jobname = 'l%.1f_b%.1f_s%i' % (longitude, latitude, stage)
 
     mpi_template = """#!/bin/sh
 # Job name
@@ -84,6 +85,7 @@ def submit_script(stage, slurm_config, path_run,
 #SBATCH --constraint={resource}
 #SBATCH --nodes={n_nodes}
 #SBATCH --time={walltime}
+#SBATCH --job-name={jobname}
 echo "---------------------------"
 date
 echo "Job id = $SLURM_JOBID"

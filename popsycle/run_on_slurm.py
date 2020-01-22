@@ -106,12 +106,6 @@ echo
     if not os.path.exists(path_run):
         os.makedirs(path_run)
 
-    # Add a dependency if previous_slurm_id is not none
-    if previous_slurm_job_id is None:
-        dependency = ''
-    else:
-        dependency = '--dependency=afterok:{0}'.format(previous_slurm_job_id)
-
     # Get the total number of cores
     n_cores = n_nodes * n_cores_per_node
 
@@ -126,7 +120,13 @@ echo
         f.write(job_script)
 
     # Submit the job
-    stdout, stderr = execute('sbatch {0}'.format(script_filename))
+    # Add a dependency if previous_slurm_id is not none
+    if previous_slurm_job_id is None:
+        stdout, stderr = execute('sbatch {0}'.format(script_filename))
+    else:
+        stdout, stderr = execute('sbatch --dependency=afterok:{0} {1}'.format(
+            previous_slurm_job_id, script_filename))
+
     print(stdout)
     print(stderr)
 

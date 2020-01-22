@@ -184,18 +184,6 @@ def submit_pipeline(slurm_config_file, microlensing_config_file,
                       debugFlag=debugFlag)
 
 
-def run_stage1(microlensing_config):
-
-
-def run_stage2(microlensing_config):
-    return
-
-
-def run_stage3():
-    # refine_events
-    return
-
-
 def load_microlensing_params(output_root):
     params_filename = 'microlensing_params.{0}.yaml'.format(output_root)
     with open(params_filename, 'r') as f:

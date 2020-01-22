@@ -44,19 +44,18 @@ def execute(cmd,
 def generate_script(args,
                     stage,
                     previous_slurm_id=None):
-    slurm_config = yaml.load(open(args.slurm_config_file))
+    with open(args.slurm_config_file, 'r') as stream:
+        slurm_config = yaml.safe_load(stream)
 
     # Folder for outputting PopSyCLE data
     path_run = slurm_config['path_run']
     # Path to the python executable
     path_python = slurm_config['path_python']
-    # Path to the pipeline
-    path_pipeline = slurm_config['path_pipeline']
     # Project account name to charge
     account = slurm_config['account']
     # Queue
     queue = slurm_config['queue']
-    # Number of nodes per run 
+    # Number of nodes per run
     n_nodes = slurm_config['n_nodes']
     # Defult walltime
     if stage == 1:
@@ -82,6 +81,8 @@ def generate_script(args,
     mpi_template = """#!/bin/sh
     # Job name
     #SBATCH --account={account}
+    #SBATCH --qos={queue}
+    #SBATCH --constraint={resource}
     #SBATCH --nodes={n_nodes}
     #SBATCH --time={walltime}
 
@@ -92,7 +93,7 @@ def generate_script(args,
     hostname
     echo "---------------------------"
 
-    cd {path_data}
+    cd {path_run}
     srun {dependency} -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
 
     date
@@ -110,10 +111,10 @@ def generate_script(args,
         os.makedirs(path_run)
 
     # Add a dependency if previous_slurm_id is not none
-    if previous_slurm_id:
-        dependency = '--dependency=afterok:{previous_slurm_id}'
-    else:
+    if previous_slurm_id is None:
         dependency = ''
+    else:
+        dependency = '--dependency=afterok:{previous_slurm_id}'
 
     # Get the total number of cores
     n_cores = n_nodes * n_cores_per_node
@@ -124,15 +125,15 @@ def generate_script(args,
     # Save the script
     if not path_run.endswith('/'):
         path_run = path_run + '/'
-    script_file = path_run + 'run_popsycle_{0}.sh'.format(stage)
-    with open(script_file, 'w') as f:
+    script_filename = path_run + 'run_popsycle_{0}.sh'.format(stage)
+    with open(script_filename, 'w') as f:
         f.write(job_script)
 
     # Submit the job
-    stdout, stderr = execute('sbatch {0}'.format(script_file))
+    stdout, stderr = execute('sbatch {0}'.format(script_filename))
 
     print
-    'Submitted job {0} to {1}'.format(script_file, resource)
+    'Submitted job {0} to {1}'.format(script_filename, resource)
 
     slurm_job_id = stdout[0]  # FIXME Implement correct formatting
 

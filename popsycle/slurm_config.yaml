@@ -1,37 +1,29 @@
-# General configuration parameters
+# Configuration parameters for slurm scheduler
 
-# Path to the folder where PopSyCLE will run
-path_run: /project/projectdirs/uLens/popsycle_test
 # Path to the python executable
 path_python: python
 # Project account name to charge
 account: ulens
 # Queue
 queue: regular
-# Number of nodes per run 
-n_nodes: 1
-# Walltime in hh:mm:ss
-walltime_default: 24:00:00
-
 # Name of the resource that will be used for the run
-# i.e. the one you log into to execute the script
 resource: haswell
 
 # Resource specific properties
 haswell:
-    # Number of cores per node to use
-    # Can be less than the total available
-    n_cores_per_node: 32
-    # Maximum number of nodes
-    n_node_max: 2388
-    # Maximum walltime (hours)
-    walltime_max: 48
+  # Number of cores per node to use
+  # Can be less than the total available
+  n_cores_per_node: 32
+  # Maximum number of nodes
+  n_nodes_max: 2388
+  # Maximum walltime (hours)
+  walltime_max: 48
 
 knl:
-    # Number of cores per node to use
-    # Can be less than the total available
-    n_cores_per_node: 68
-    # Maximum number of nodes
-    n_node_max: 9668
-    # Maximum walltime (hours)
-    walltime_max: 48
+  # Number of cores per node to use
+  # Can be less than the total available
+  n_cores_per_node: 68
+  # Maximum number of nodes
+  n_nodes_max: 9668
+  # Maximum walltime (hours)
+  walltime_max: 48

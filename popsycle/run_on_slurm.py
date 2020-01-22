@@ -1,12 +1,11 @@
 #! /usr/bin/env python
 """
-slurm_launcher.py
+run_on_slurm.py
 Generate and execute scripts for parallel execution of PopSyCLE runs.
 Scripts created will be formatted for submission to a SLURM scheduler.
 """
 
 import subprocess
-from argparse import ArgumentParser
 import yaml
 import os
 
@@ -41,14 +40,11 @@ def execute(cmd,
     return stdout, stderr
 
 
-def generate_script(args,
-                    stage,
-                    previous_slurm_id=None):
-    with open(args.slurm_config_file, 'r') as stream:
-        slurm_config = yaml.safe_load(stream)
-
-    # Folder for outputting PopSyCLE data
-    path_run = slurm_config['path_run']
+# def submit_script(slurm_config, stage, previous_slurm_job_id=None):
+def submit_script(stage, slurm_config, path_run,
+                  longitude, latitude, area, walltime,
+                  N_nodes_calc_events=None, N_cores_calc_events=None,
+                  previous_slurm_job_id=None):
     # Path to the python executable
     path_python = slurm_config['path_python']
     # Project account name to charge
@@ -56,14 +52,17 @@ def generate_script(args,
     # Queue
     queue = slurm_config['queue']
     # Number of nodes per run
-    n_nodes = slurm_config['n_nodes']
+
     # Defult walltime
     if stage == 1:
-        walltime = args.walltime_1
+        n_nodes = 1
+        n_cores = 1
     elif stage == 2:
-        walltime = args.walltime_2
+        n_nodes = N_nodes_calc_events
+        n_cores = N_cores_calc_events
     elif stage == 3:
-        walltime = args.walltime_3
+        n_nodes = 1
+        n_cores = 1
     else:
         raise Exception('stage must be one of [1, 2, 3]')
     # Name of the resource that will be used for the run
@@ -111,10 +110,10 @@ def generate_script(args,
         os.makedirs(path_run)
 
     # Add a dependency if previous_slurm_id is not none
-    if previous_slurm_id is None:
+    if previous_slurm_job_id is None:
         dependency = ''
     else:
-        dependency = '--dependency=afterok:{previous_slurm_id}'
+        dependency = '--dependency=afterok:{0}'.format(previous_slurm_job_id)
 
     # Get the total number of cores
     n_cores = n_nodes * n_cores_per_node
@@ -134,54 +133,25 @@ def generate_script(args,
 
     print('Submitted job {0} to {1}'.format(script_filename, resource))
 
-    slurm_job_id = stdout.decode().replace('\n', '').split()[-1]
+    previous_slurm_job_id = stdout.decode().replace('\n', '').split()[-1]
 
-    return slurm_job_id
-
-
-def main():
-    parser = ArgumentParser(description='Generate and submit slurm scripts '
-                                        'for running PopSyCle')
-    arguments = parser.add_argument_group('arguments')
-    arguments.add_argument('--galaxy-l', type=float,
-                           help='Galactic longitude (degrees)',
-                           required=True)
-    arguments.add_argument('--galaxy-b', type=float,
-                           help='Galactic latitude (degrees)',
-                           required=True)
-    arguments.add_argument('--area', type=float,
-                           help='Area on sky (square degrees)',
-                           required=True)
-    arguments.add_argument('--N-nodes', type=int,
-                           help='Number of nodes for running calc_events',
-                           required=True)
-    arguments.add_argument('--walltime-1', type=float,
-                           help='Walltime (hours) for running Galaxia '
-                                'and perform_pop_sny',
-                           required=True)
-    arguments.add_argument('--walltime-2', type=float,
-                           help='Walltime (hours) for running calc_events',
-                           required=True)
-    arguments.add_argument('--walltime-3', type=float,
-                           help='Walltime (hours) for running refine_events'
-                                'and perform_pop_sny',
-                           required=True)
-    arguments.add_argument('--slurm-config-file', type=str,
-                           default='slurm-config.yaml',
-                           help='A user created YAML configuration file that '
-                                'specifies the scheduler inputs')
-
-    args = parser.parse_args()
-
-    slurm_job_id1 = generate_script(args=args,
-                                    stage=1)
-    slurm_job_id2 = generate_script(args=args,
-                                    stage=2,
-                                    previous_slurm_id=slurm_job_id1)
-    slurm_job_id3 = generate_script(args=args,
-                                    stage=3,
-                                    previous_slurm_id=slurm_job_id2)
+    return previous_slurm_job_id
 
 
-if __name__ == '__main__':
-    main()
+def submit_pipeline(slurm_config_file, path_run, longitude, latitude, area,
+                    N_nodes_calc_events, N_cores_calc_events,
+                    walltime_stage1, walltime_stage2,
+                    walltime_stage3):
+    with open(slurm_config_file, 'r') as stream:
+        slurm_config = yaml.safe_load(stream)
+
+    slurm_job_id1 = submit_script(1, slurm_config, path_run,
+                                  longitude, latitude, area, walltime_stage1)
+    slurm_job_id2 = submit_script(2, slurm_config, path_run, slurm_job_id1,
+                                  longitude, latitude, area, walltime_stage2,
+                                  N_nodes_calc_events=N_nodes_calc_events,
+                                  N_cores_calc_events=N_cores_calc_events,
+                                  previous_slurm_job_id=slurm_job_id1)
+    _ = submit_script(3, slurm_config, path_run, slurm_job_id2,
+                      longitude, latitude, area, walltime_stage3,
+                      previous_slurm_job_id=slurm_job_id2)

@@ -91,7 +91,7 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
 cd {path_run}
-srun {dependency} -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
+srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
 date
 echo
 "All done!"

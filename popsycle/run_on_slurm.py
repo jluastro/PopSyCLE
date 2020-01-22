@@ -8,6 +8,8 @@ Scripts created will be formatted for submission to a SLURM scheduler.
 import subprocess
 import yaml
 import os
+import argparse
+import synthetic
 
 
 def execute(cmd,
@@ -40,9 +42,20 @@ def execute(cmd,
     return stdout, stderr
 
 
+def generate_microlensing_param_file(path_run, output_root,
+                                     longitude, latitude, area):
+    param_filename = '{0}/microlensing_params.{1}.yaml'.format(path_run,
+                                                               output_root)
+    with open(param_filename, 'w') as f:
+        f.write('longitude: %f\n' % longitude)
+        f.write('latitude: %f\n' % latitude)
+        f.write('area: %f\n' % area)
+        f.write('output_root: %s\n' % output_root)
+
+
 # def submit_script(slurm_config, stage, previous_slurm_job_id=None):
-def submit_script(stage, slurm_config, path_run,
-                  longitude, latitude, area, walltime,
+def submit_script(stage, slurm_config, output_root, path_run,
+                  jobname_base, walltime,
                   N_nodes_calc_events=None, N_cores_calc_events=None,
                   previous_slurm_job_id=None, debugFlag=False):
     # Path to the python executable
@@ -64,7 +77,7 @@ def submit_script(stage, slurm_config, path_run,
         n_nodes = 1
         n_cores = 1
     else:
-        raise Exception('stage must be one of [1, 2, 3]')
+        raise Exception('Error: stage must be one of [1, 2, 3]. Exiting...')
     # Name of the resource that will be used for the run
     resource = slurm_config['resource']
     # Number of cores per node to use
@@ -76,7 +89,7 @@ def submit_script(stage, slurm_config, path_run,
     # Get current directory
     popsycle_directory = os.path.abspath(__file__)
     # Create jobname
-    jobname = 'l%.1f_b%.1f_s%i' % (longitude, latitude, stage)
+    jobname = '%s_s%i' % (jobname_base, stage)
 
     mpi_template = """#!/bin/sh
 # Job name
@@ -93,7 +106,7 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
+srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --output_root={output_root} --stage={stage} 
 date
 echo
 "All done!"
@@ -101,8 +114,8 @@ echo
 
     # Check that the specified number of nodes does not exceed the resource max
     if n_nodes > n_nodes_max:
-        print('Error: specified number of nodes exceeds limit. Exiting')
-        os.exit()
+        raise Exception('Error: specified number of nodes exceeds limit. '
+                        'Exiting...')
 
     # Make a run directory within the field file
     if not os.path.exists(path_run):
@@ -142,23 +155,115 @@ echo
     return previous_slurm_job_id
 
 
-def submit_pipeline(slurm_config_file, path_run, longitude, latitude, area,
+def submit_pipeline(slurm_config_file, microlensing_config_file,
+                    path_run, output_root,
+                    longitude, latitude, area,
                     N_nodes_calc_events, N_cores_calc_events,
                     walltime_stage1, walltime_stage2,
                     walltime_stage3, debugFlag=False):
-    with open(slurm_config_file, 'r') as stream:
-        slurm_config = yaml.safe_load(stream)
+    generate_microlensing_param_file(path_run, output_root,
+                                     longitude, latitude, area,
+                                     microlensing_config_file)
 
-    slurm_job_id1 = submit_script(1, slurm_config, path_run,
-                                  longitude, latitude, area, walltime_stage1,
+    with open(slurm_config_file, 'r') as f:
+        slurm_config = yaml.safe_load(f)
+
+    jobname_base = 'l%.1f_b%.1f' % (longitude, latitude)
+    slurm_job_id1 = submit_script(1, slurm_config, path_run, output_root,
+                                  jobname_base, walltime_stage1,
                                   debugFlag=debugFlag)
-    slurm_job_id2 = submit_script(2, slurm_config, path_run,
-                                  longitude, latitude, area, walltime_stage2,
+    slurm_job_id2 = submit_script(2, slurm_config, path_run, output_root,
+                                  jobname_base, walltime_stage2,
                                   N_nodes_calc_events=N_nodes_calc_events,
                                   N_cores_calc_events=N_cores_calc_events,
                                   previous_slurm_job_id=slurm_job_id1,
                                   debugFlag=debugFlag)
-    _ = submit_script(3, slurm_config, path_run,
-                      longitude, latitude, area, walltime_stage3,
+    _ = submit_script(3, slurm_config, path_run, output_root,
+                      jobname_base, walltime_stage3,
                       previous_slurm_job_id=slurm_job_id2,
                       debugFlag=debugFlag)
+
+
+def run_stage1(microlensing_config):
+
+
+def run_stage2(microlensing_config):
+    return
+
+
+def run_stage3():
+    # refine_events
+    return
+
+
+def load_microlensing_params(output_root):
+    params_filename = 'microlensing_params.{0}.yaml'.format(output_root)
+    with open(params_filename, 'r') as f:
+        microlensing_params = yaml.safe_load(f)
+    return microlensing_params
+
+
+def load_microlensing_config(microlensing_config_filename):
+    with open(microlensing_config_filename, 'r') as f:
+        microlensing_config = yaml.safe_load(f)
+    return microlensing_config
+
+
+def run():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output-root', type=str,
+                        required=True)
+    parser.add_argument('--microlensing-config-filename', type=str,
+                        required=True)
+    parser.add_argument('--stage', type=int,
+                        required=True)
+    args = parser.parse_args()
+
+    microlensing_params = load_microlensing_params(args.output_root)
+    microlensing_config = load_microlensing_config(
+        args.microlensing_config_filename)
+    if args.stage == 1:
+        # Galaxia
+        synthetic.write_galaxia_params(
+            output_root=microlensing_params['output_root'],
+            longitude=microlensing_params['longitude'],
+            latitude=microlensing_params['latitude'],
+            area=microlensing_params['area'],
+            seed=None)
+        # perform_pop_syn
+        ebf_filename = '%s.ebf' % microlensing_params['output_root']
+        isochrones_dir = './isochrones'
+        if not os.path.exists(isochrones_dir):
+            os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
+
+        synthetic.perform_pop_syn(
+            ebf_file=ebf_filename,
+            output_root=microlensing_params['output_root'],
+            iso_dir=microlensing_config['isochrones_dir'],
+            bin_edges_number=microlensing_config['bin_edges_number'],
+            BH_kick_speed=microlensing_config['BH_kick_speed'],
+            NS_kick_speed=microlensing_config['NS_kick_speed'],
+            overwrite=True)
+    elif args.stage == 2:
+        # calc_events
+        hdf5_file = '%s.h5' % microlensing_params['output_root']
+        synthetic.calc_events(hdf5_file=hdf5_file,
+                              output_root2=microlensing_params['output_root'],
+                              radius_cut=2,
+                              obs_time=1095,
+                              n_obs=5,
+                              theta_frac=2,
+                              blend_rad=0.75,
+                              overwrite=True)
+    elif args.stage == 3:
+        synthetic.refine_events(input_root=microlensing_params['output_root'],
+                                filter_name=microlensing_config['filter_name'],
+                                red_law=microlensing_config['red_law'],
+                                overwrite=True,
+                                output_file='default')
+    else:
+        raise Exception('Error: stage must be one of [1, 2, 3]. Exiting...')
+
+
+if __name__ == '__main__':
+    run()

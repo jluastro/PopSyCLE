@@ -1,0 +1,13 @@
+# Configuration parameters for microlensing parameters
+
+radius_cut: 2
+obs_time: 1095
+n_obs: 10
+theta_frac: 2
+blend_rad: 0.75
+iso_dir: isochrones_dir
+bin_edges_number: None
+BH_kick_speed: 100
+NS_kick_speed: 350
+filter_name: r
+red_law: Schlafly11

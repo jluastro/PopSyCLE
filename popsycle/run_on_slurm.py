@@ -130,6 +130,8 @@ def submit_script(stage, slurm_config, path_run,
 
     # Submit the job
     stdout, stderr = execute('sbatch {0}'.format(script_filename))
+    print(stdout)
+    print(stderr)
 
     print('Submitted job {0} to {1}'.format(script_filename, resource))
 

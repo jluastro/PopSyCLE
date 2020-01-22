@@ -77,25 +77,21 @@ def submit_script(stage, slurm_config, path_run,
     # Get current directory
     popsycle_directory = os.path.abspath(__file__)
 
-    mpi_template = """
-    #!/bin/sh
+    mpi_template = """#!/bin/sh
     # Job name
     #SBATCH --account={account}
     #SBATCH --qos={queue}
     #SBATCH --constraint={resource}
     #SBATCH --nodes={n_nodes}
     #SBATCH --time={walltime}
-
     echo "---------------------------"
     date
     echo "Job id = $SLURM_JOBID"
     echo "Proc id = $SLURM_PROCID"
     hostname
     echo "---------------------------"
-
     cd {path_run}
     srun {dependency} -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
-
     date
     echo
     "All done!"

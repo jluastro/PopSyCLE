@@ -70,7 +70,7 @@ def submit_script(stage, slurm_config, path_run,
     # Number of cores per node to use
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
-    n_node_max = slurm_config[resource]['n_node_max']
+    n_nodes_max = slurm_config[resource]['n_nodes_max']
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
 
@@ -101,7 +101,7 @@ def submit_script(stage, slurm_config, path_run,
     """
 
     # Check that the specified number of nodes does not exceed the resource max
-    if n_nodes > n_node_max:
+    if n_nodes > n_nodes_max:
         print('Error: specified number of nodes exceeds limit. Exiting')
         os.exit()
 

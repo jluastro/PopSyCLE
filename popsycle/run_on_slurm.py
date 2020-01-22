@@ -44,7 +44,7 @@ def execute(cmd,
 def submit_script(stage, slurm_config, path_run,
                   longitude, latitude, area, walltime,
                   N_nodes_calc_events=None, N_cores_calc_events=None,
-                  previous_slurm_job_id=None):
+                  previous_slurm_job_id=None, debugFlag=False):
     # Path to the python executable
     path_python = slurm_config['path_python']
     # Project account name to charge
@@ -129,8 +129,11 @@ echo
         stdout, stderr = execute('sbatch --dependency=afterok:{0} {1}'.format(
             previous_slurm_job_id, script_filename))
 
-    print(stdout)
-    print(stderr)
+    if debugFlag:
+        print('** Standard Out **')
+        print(stdout)
+        print('** Standard Err **')
+        print(stderr)
 
     print('Submitted job {0} to {1}'.format(script_filename, resource))
 
@@ -142,17 +145,20 @@ echo
 def submit_pipeline(slurm_config_file, path_run, longitude, latitude, area,
                     N_nodes_calc_events, N_cores_calc_events,
                     walltime_stage1, walltime_stage2,
-                    walltime_stage3):
+                    walltime_stage3, debugFlag=False):
     with open(slurm_config_file, 'r') as stream:
         slurm_config = yaml.safe_load(stream)
 
     slurm_job_id1 = submit_script(1, slurm_config, path_run,
-                                  longitude, latitude, area, walltime_stage1)
+                                  longitude, latitude, area, walltime_stage1,
+                                  debugFlag=debugFlag)
     slurm_job_id2 = submit_script(2, slurm_config, path_run,
                                   longitude, latitude, area, walltime_stage2,
                                   N_nodes_calc_events=N_nodes_calc_events,
                                   N_cores_calc_events=N_cores_calc_events,
-                                  previous_slurm_job_id=slurm_job_id1)
+                                  previous_slurm_job_id=slurm_job_id1,
+                                  debugFlag=debugFlag)
     _ = submit_script(3, slurm_config, path_run,
                       longitude, latitude, area, walltime_stage3,
-                      previous_slurm_job_id=slurm_job_id2)
+                      previous_slurm_job_id=slurm_job_id2,
+                      debugFlag=debugFlag)

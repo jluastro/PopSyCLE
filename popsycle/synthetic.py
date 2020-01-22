@@ -993,9 +993,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ############################################################################
 
 def calc_events(hdf5_file, output_root2,
-                radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65,
-                overwrite=False,
-                n_proc = 1):
+                radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65):
     """
     Calculate microlensing events
     
@@ -1020,10 +1018,6 @@ def calc_events(hdf5_file, output_root2,
         Stars within this distance of the lens are said to be blended. 
         Units are in ARCSECONDS.
 
-    n_proc : int
-        Number of processors to use. Should not exceed the number of (cores?) 
-        Default is one processor (no parallelization).
-
 
     Output
     ------
@@ -1038,7 +1032,7 @@ def calc_events(hdf5_file, output_root2,
     # Error handling: check whether files exist and whether input types are correct.
     ##########
 
-    # Check if .fits file exists already. If it does, throw an error message to complain and exit. 
+    # Check if .fits file exists already. If it does, throw an error message to complain and exit.
     if os.path.isfile(output_root2 + '_events.fits') == True:
         raise Exception('That events.fits file name is taken! Either delete the .fits file, or pick a new name.')
     if os.path.isfile(output_root2 + '_blends.fits') == True:
@@ -1182,8 +1176,8 @@ def calc_events(hdf5_file, output_root2,
                                                   'sep_LN'))
 
         # Save out file
-        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+        events_final.write(output_root2 + '_events.fits', overwrite=True)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=True)
 
         t1 = time.time()
 
@@ -1204,7 +1198,6 @@ def calc_events(hdf5_file, output_root2,
         line5 = 'n_obs , ' + str(n_obs) + '\n'
         line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
         line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
-        line8 = 'n_proc , ' + str(n_proc) + '\n'
         line9 = 'VERSION INFORMATION' + '\n'
         line10 = str(now) + ' : creation date' + '\n'
         line11 = microlens_hash + ' : microlens commit' + '\n'

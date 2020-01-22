@@ -132,10 +132,9 @@ def generate_script(args,
     # Submit the job
     stdout, stderr = execute('sbatch {0}'.format(script_filename))
 
-    print
-    'Submitted job {0} to {1}'.format(script_filename, resource)
+    print('Submitted job {0} to {1}'.format(script_filename, resource))
 
-    slurm_job_id = stdout[0]  # FIXME Implement correct formatting
+    slurm_job_id = stdout.decode().replace('\n', '').split()[-1]
 
     return slurm_job_id
 

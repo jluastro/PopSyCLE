@@ -1,7 +1,7 @@
 # General configuration parameters
 
-# Path to the folder which will contain the data
-popsycle_directory: /project/projectdirs/uLens/popsycle_test
+# Path to the folder where PopSyCLE will run
+path_run: /project/projectdirs/uLens/popsycle_test
 # Path to the python executable
 path_python: python
 # Project account name to charge

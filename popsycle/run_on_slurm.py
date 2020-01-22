@@ -78,24 +78,24 @@ def submit_script(stage, slurm_config, path_run,
     popsycle_directory = os.path.abspath(__file__)
 
     mpi_template = """#!/bin/sh
-    # Job name
-    #SBATCH --account={account}
-    #SBATCH --qos={queue}
-    #SBATCH --constraint={resource}
-    #SBATCH --nodes={n_nodes}
-    #SBATCH --time={walltime}
-    echo "---------------------------"
-    date
-    echo "Job id = $SLURM_JOBID"
-    echo "Proc id = $SLURM_PROCID"
-    hostname
-    echo "---------------------------"
-    cd {path_run}
-    srun {dependency} -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
-    date
-    echo
-    "All done!"
-    """
+# Job name
+#SBATCH --account={account}
+#SBATCH --qos={queue}
+#SBATCH --constraint={resource}
+#SBATCH --nodes={n_nodes}
+#SBATCH --time={walltime}
+echo "---------------------------"
+date
+echo "Job id = $SLURM_JOBID"
+echo "Proc id = $SLURM_PROCID"
+hostname
+echo "---------------------------"
+cd {path_run}
+srun {dependency} -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
+date
+echo
+"All done!"
+"""
 
     # Check that the specified number of nodes does not exceed the resource max
     if n_nodes > n_nodes_max:

@@ -9,7 +9,7 @@ import subprocess
 import yaml
 import os
 import argparse
-import synthetic
+from popsycle import synthetic
 
 
 def execute(cmd,

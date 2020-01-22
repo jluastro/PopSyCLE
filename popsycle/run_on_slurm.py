@@ -146,11 +146,11 @@ def submit_pipeline(slurm_config_file, path_run, longitude, latitude, area,
 
     slurm_job_id1 = submit_script(1, slurm_config, path_run,
                                   longitude, latitude, area, walltime_stage1)
-    slurm_job_id2 = submit_script(2, slurm_config, path_run, slurm_job_id1,
+    slurm_job_id2 = submit_script(2, slurm_config, path_run,
                                   longitude, latitude, area, walltime_stage2,
                                   N_nodes_calc_events=N_nodes_calc_events,
                                   N_cores_calc_events=N_cores_calc_events,
                                   previous_slurm_job_id=slurm_job_id1)
-    _ = submit_script(3, slurm_config, path_run, slurm_job_id2,
+    _ = submit_script(3, slurm_config, path_run,
                       longitude, latitude, area, walltime_stage3,
                       previous_slurm_job_id=slurm_job_id2)

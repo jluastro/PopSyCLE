@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 """
-supercomputer.py
-Generate and execute slurm scripts for parallel execution of PopSyCLE runs.
+slurm_launcher.py
+Generate and execute scripts for parallel execution of PopSyCLE runs.
 Scripts created will be formatted for submission to a SLURM scheduler.
 """
 
@@ -9,6 +9,39 @@ import subprocess
 from argparse import ArgumentParser
 import yaml
 import os
+
+
+def write_galaxia_params(output_dir, output_basename='ZTF1',
+                         seed=0,
+                         longitude=45.19260648,
+                         latitude=4.93717557,
+                         area=10.00):
+    params = [
+        "outputFile %s" % output_basename,
+        "outputDir %s" % output_dir,
+        "photoSys UBV",
+        "magcolorNames V,B-V",
+        "appMagLimits[0] -1000",
+        "appMagLimits[1] 1000",
+        "absMagLimits[0] -1000",
+        "absMagLimits[1] 1000",
+        "colorLimits[0] -1000",
+        "colorLimits[1] 1000",
+        "geometryOption 1",
+        "longitude %f" % longitude,
+        "latitude %f" % latitude,
+        "surveyArea %.2f" % area,
+        "fSample 1",
+        "popID -1",
+        "warpFlareOn 1",
+        "seed %i" % seed,
+        "r_max 30",
+        "starType 0",
+        "photoError 0"
+    ]
+    with open(output_dir + '/galaxia_params.%i.txt' % seed, 'w') as f:
+        for param in params:
+            f.write(param + '\n')
 
 
 def execute(cmd,
@@ -54,12 +87,6 @@ def generate_script(args,
     path_pipeline = slurm_config['path_pipeline']
     # Project account name to charge
     account = slurm_config['account']
-    # Flag to mute warning output to log file
-    mute_warnings = slurm_config['mute_warnings']
-    # MPI version to use
-    version_mpi = slurm_config['version_mpi']
-    # HDF5 version to use
-    version_hdf5 = slurm_config['version_hdf5']
     # Queue
     queue = slurm_config['queue']
     # Number of nodes per run 
@@ -82,68 +109,44 @@ def generate_script(args,
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
 
-    mpi_template = """#!/bin/csh
+    # Get current directory
+    popsycle_directory = os.path.abspath(__file__)
+
+    mpi_template = """#!/bin/sh
     # Job name
-    #SBATCH -N {name}
-    #SBATCH -A {account}
-    #
-    # Combine stdout and stderr
-    #SBATCH -j oe
-    #SBATCH -o {path_run}/slurm.log
-    #SBATCH -m bea
-    #
-    #SBATCH -q {queue}
-    #SBATCH -l nodes={n_nodes}
-    #SBATCH -l walltime={walltime}
-    #SBATCH -V
+    #SBATCH --account={account}
+    #SBATCH --nodes={n_nodes}
+    #SBATCH --time={walltime}
 
     echo "---------------------------"
     date
     echo "Job id = $SLURM_JOBID"
     echo "Proc id = $SLURM_PROCID"
     hostname
+    echo "---------------------------"
 
-    # Specify a consistent mpi version
-    use {version_mpi}
-    # Specify a consistent hdf5 version
-    use {version_hdf5}
+    cd {path_run}
+    srun {dependency} -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --stage={stage} 
 
-    # There is no need to activate the environment as long as you specify the
-    # environments python.
+    date
+    echo
+    "All done!"
     """
-
-    if previous_slurm_id:
-        mpi_template_append = """
-        srun --dependency=afterok:{previous_slurm_id} -N{n_nodes} -n{n_cores} {path_python} {warning_opt} {path_pipeline} -f {file_name} -c {inject_params}
-
-        date
-        echo
-        "All done!"
-        """
-    else:
-        mpi_template_append = """
-        srun -N{n_nodes} -n{n_cores} {path_python} {warning_opt} {path_pipeline} -f {file_name} -c {inject_params}
-
-        date
-        echo
-        "All done!"
-        """
-    mpi_template += mpi_template_append
 
     # Check that the specified number of nodes does not exceed the resource max
     if n_nodes > n_node_max:
-        print 'Error: specified number of nodes exceeds limit. Exiting'
+        print('Error: specified number of nodes exceeds limit. Exiting')
         os.exit()
 
     # Make a run directory within the field file
     if not os.path.exists(path_run):
         os.makedirs(path_run)
 
-    # Set the warning log option for output log files
-    if mute_warnings == True:
-        warning_opt = '-W ignore'
+    # Add a dependency if previous_slurm_id is not none
+    if previous_slurm_id:
+        dependency = '--dependency=afterok:{previous_slurm_id}'
     else:
-        warning_opt = ''
+        dependency = ''
 
     # Get the total number of cores
     n_cores = n_nodes * n_cores_per_node
@@ -161,7 +164,8 @@ def generate_script(args,
     # Submit the job
     stdout, stderr = execute('sbatch {0}'.format(script_file))
 
-    print 'Submitted job {0} to {1}'.format(script_file, resource)
+    print
+    'Submitted job {0} to {1}'.format(script_file, resource)
 
     slurm_job_id = stdout[0]  # FIXME Implement correct formatting
 

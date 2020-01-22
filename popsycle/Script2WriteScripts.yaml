@@ -1,48 +1,37 @@
 # General configuration parameters
 
-# Path to the folder containing all of the field tile file data
-# Important: make sure this is on a luster drive (e.g. lscratchh)
-path_run: /p/lscratchh/dawson29/macho_photometry/rerun_bulge4
+# Path to the folder which will contain the data
+popsycle_directory: /project/projectdirs/uLens/popsycle_test
 # Path to the python executable
-path_python: /p/lscratchh/dawson29/macho/detection_pipeline/env/sysdefup/bin/python
-# Path to the pipeline
-path_pipeline: /p/lscratchh/dawson29/macho/detection_pipeline/micro_detect_inject_mpi.py
+path_python: python
 # Project account name to charge
-account: immacho
-# Flag to mute warning output to log file
-mute_warnings: True
-# MPI version to use
-version_mpi: mvapich2-2.2-intel-16.0.3
-# HDF5 version to use
-version_hdf5: hdf5-parallel-1.8.18-intel-16.0.3-mvapich2-2.2
+account: ulens
 # Queue
-queue: pbatch
+queue: regular
 # Number of nodes per run 
 n_nodes: 1
-# If walltime_default == auto, then will estimate the walltime based on
-# empirical scaling, else specify a walltime to apply to all runs in the form
-# hh:mm:ss
-walltime_default: 23:00:00 
+# Walltime in hh:mm:ss
+walltime_default: 24:00:00
 
 # Name of the resource that will be used for the run
 # i.e. the one you log into to execute the script
-resource: quartz
+resource: haswell
 
 # Resource specific properties
-quartz:
-    # Number of cores per node to use (36 total for quartz)
+haswell:
+    # Number of cores per node to use
     # Can be less than the total available
-    n_cores_per_node: 36
+    n_cores_per_node: 32
     # Maximum number of nodes
-    n_node_max: 1200
+    n_node_max: 2388
     # Maximum walltime (hours)
-    walltime_max: 24
+    walltime_max: 48
 
-cab:
-    # Number of cores per node to use (36 total for quartz)
+knl:
+    # Number of cores per node to use
     # Can be less than the total available
-    n_cores_per_node: 16
+    n_cores_per_node: 68
     # Maximum number of nodes
-    n_node_max: 258
+    n_node_max: 9668
     # Maximum walltime (hours)
-    walltime_max: 16
+    walltime_max: 48

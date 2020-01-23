@@ -1199,6 +1199,7 @@ def calc_events(hdf5_file, output_root2,
         line5 = 'n_obs , ' + str(n_obs) + '\n'
         line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
         line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
+        line8 = 'n_proc , ' + str(size) + '\n'
         line9 = 'VERSION INFORMATION' + '\n'
         line10 = str(now) + ' : creation date' + '\n'
         line11 = microlens_hash + ' : microlens commit' + '\n'

@@ -38,12 +38,13 @@ function from ``run_on_slurm.py`` will create and submit slurm batch scripts
 that execute the entire PopSyCLE pipeline.
 
 To begin, create a slurm configuration file that contains the linux cluster
-parameters necessary to submit a batch scripts. These parameters are universal
-to all PopSyCLE runs and should only need to be created once. An example can be
+parameters necessary to submit a batch scripts. These parameters outline
+features of the slurm scheduler and the config file should only need to be
+created once. An example can be
 found in `<popsycle/data/slurm_config.yaml>`_. Next, create a PopSyCLE
 configuration file that contains the parameters necessary to run the PopSyCLE
-pipeline. You may want to create a PopSyCLE configuration file for
-each project in order to keep the operation of PopSyCLE the same over multiple
+pipeline. You may want to create a single PopSyCLE configuration file for
+each project in order to keep the execution of PopSyCLE the same over multiple
 fields. An example can be found in
 `<popsycle/data/popsycle_config.yaml>`_. Lastly, run the
 ``generate_slurm_scripts`` function along with information
@@ -51,6 +52,15 @@ about a single PopSyCLE field that you would like to run. These parameters
 could be different for each field and allow for the user to launch multiple
 instances of PopSyCLE at once by running this function multiple times with
 different input.
+
+Running ``generate_slurm_scripts`` creates three batch scripts that are each
+submitted to the slurm scheduler. These three batch scripts are referred to as
+stages 1, 2, and 3, and what each stage contains can be read in the below
+docstring. The purpose of breaking the pipeline into three stages is so that
+the user can run the second stage (containing ``calc_events``)
+with multiple processors. Each stage is submitted to the slurm scheduler with
+a dependency such that a stage will only be launched by the scheduler once the
+previous stage is completed.
 
 The function ``generate_slurm_scripts`` can be executed by running:
 
@@ -149,12 +159,6 @@ The ``generate_slurm_scripts`` docstring explains the function's parameters::
     ------
     None
 
-Running ``generate_slurm_scripts`` creates three batch scripts that are each
-submitted to the slurm scheduler. These three batch scripts are referred to as
-stages 1, 2, and 3, and what each stage contains can be read in the above
-docstring. Each stage is submitted to the slurm scheduler with a dependency
-such that the previous stage must complete before a stage will be launched by
-the scheduler.
 
 License
 -------

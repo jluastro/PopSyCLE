@@ -1089,7 +1089,7 @@ def calc_events(hdf5_file, output_root2,
     nbb = len(b_array[:]) - 2
     N_boxes = nll * nbb
 
-    llbb = itertools.product(range(nll), range(nbb))
+    llbb = [lb for lb in itertools.product(range(nll), range(nbb))]
 
     ##########
     # Loop through galactic latitude and longitude bins. For each bin vertex, take

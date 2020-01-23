@@ -175,7 +175,7 @@ def generate_stage_script(stage, slurm_config, popsycle_config_filename,
     queue = slurm_config['queue']
     # Name of the resource that will be used for the run
     resource = slurm_config['resource']
-    # Maximum number of cores per node
+    # Maximum number of ores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
     n_nodes_max = slurm_config[resource]['n_nodes_max']
@@ -192,7 +192,7 @@ def generate_stage_script(stage, slurm_config, popsycle_config_filename,
 #SBATCH --account={account}
 #SBATCH --qos={queue}
 #SBATCH --constraint={resource}
-#SBATCH --nodes={n_nodes}
+#SBATCH --nodes={N_nodes}
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
 echo "---------------------------"

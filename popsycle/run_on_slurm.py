@@ -54,7 +54,8 @@ def generate_microlensing_param_file(path_run, output_root,
 
 
 # def submit_script(slurm_config, stage, previous_slurm_job_id=None):
-def submit_script(stage, slurm_config, output_root, path_run,
+def submit_script(stage, slurm_config, microlensing_config_filename,
+                  output_root, path_run,
                   jobname_base, walltime,
                   N_nodes_calc_events=None, N_cores_calc_events=None,
                   previous_slurm_job_id=None, debugFlag=False):
@@ -106,7 +107,7 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --output_root={output_root} --stage={stage} 
+srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --output_root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
 date
 echo
 "All done!"
@@ -155,30 +156,32 @@ echo
     return previous_slurm_job_id
 
 
-def submit_pipeline(slurm_config_file, microlensing_config_file,
+def submit_pipeline(slurm_config_file, microlensing_config_filename,
                     path_run, output_root,
                     longitude, latitude, area,
                     N_nodes_calc_events, N_cores_calc_events,
                     walltime_stage1, walltime_stage2,
                     walltime_stage3, debugFlag=False):
     generate_microlensing_param_file(path_run, output_root,
-                                     longitude, latitude, area,
-                                     microlensing_config_file)
+                                     longitude, latitude, area)
 
     with open(slurm_config_file, 'r') as f:
         slurm_config = yaml.safe_load(f)
 
     jobname_base = 'l%.1f_b%.1f' % (longitude, latitude)
-    slurm_job_id1 = submit_script(1, slurm_config, path_run, output_root,
+    slurm_job_id1 = submit_script(1, slurm_config, microlensing_config_filename,
+                                  path_run, output_root,
                                   jobname_base, walltime_stage1,
                                   debugFlag=debugFlag)
-    slurm_job_id2 = submit_script(2, slurm_config, path_run, output_root,
+    slurm_job_id2 = submit_script(2, slurm_config, microlensing_config_filename,
+                                  path_run, output_root,
                                   jobname_base, walltime_stage2,
                                   N_nodes_calc_events=N_nodes_calc_events,
                                   N_cores_calc_events=N_cores_calc_events,
                                   previous_slurm_job_id=slurm_job_id1,
                                   debugFlag=debugFlag)
-    _ = submit_script(3, slurm_config, path_run, output_root,
+    _ = submit_script(3, slurm_config, microlensing_config_filename,
+                      path_run, output_root,
                       jobname_base, walltime_stage3,
                       previous_slurm_job_id=slurm_job_id2,
                       debugFlag=debugFlag)

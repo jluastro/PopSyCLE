@@ -223,8 +223,23 @@ def run():
     microlensing_params = load_microlensing_params(args.output_root)
     microlensing_config = load_microlensing_config(
         args.microlensing_config_filename)
+    if microlensing_config['bin_edges_number'] == 'None':
+        microlensing_config['bin_edges_number'] = None
+
+    isochrones_dir = './isochrones'
+    if not os.path.exists(isochrones_dir):
+        os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
+
+    ebf_filename = '%s.ebf' % microlensing_params['output_root']
+    hdf5_filename = '%s.h5' % microlensing_params['output_root']
+    events_filename = '%s_events.fits' % microlensing_params['output_root']
+    blends_filename = '%s_blends.fits' % microlensing_params['output_root']
+
     if args.stage == 1:
         # Galaxia
+        if os.path.exists(ebf_filename):
+            os.remove(ebf_filename)
+
         synthetic.write_galaxia_params(
             output_root=microlensing_params['output_root'],
             longitude=microlensing_params['longitude'],
@@ -232,14 +247,10 @@ def run():
             area=microlensing_params['area'],
             seed=None)
         _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
-        # perform_pop_syn
-        isochrones_dir = './isochrones'
-        if not os.path.exists(isochrones_dir):
-            os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
 
-        ebf_filename = '%s.ebf' % microlensing_params['output_root']
-        if microlensing_config['bin_edges_number'] == 'None':
-            microlensing_config['bin_edges_number'] = None
+        # perform_pop_syn
+        if os.path.exists(hdf5_filename):
+            os.remove(hdf5_filename)
 
         synthetic.perform_pop_syn(
             ebf_file=ebf_filename,
@@ -250,8 +261,13 @@ def run():
             NS_kick_speed=microlensing_config['NS_kick_speed'])
     elif args.stage == 2:
         # calc_events
-        hdf5_file = '%s.h5' % microlensing_params['output_root']
-        synthetic.calc_events(hdf5_file=hdf5_file,
+        if os.path.exists(events_filename):
+            os.remove(events_filename)
+
+        if os.path.exists(blends_filename):
+            os.remove(blends_filename)
+
+        synthetic.calc_events(hdf5_file=hdf5_filename,
                               output_root2=microlensing_params['output_root'],
                               radius_cut=2,
                               obs_time=1095,

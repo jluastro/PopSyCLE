@@ -117,13 +117,13 @@ echo
     if n_nodes > n_nodes_max:
         raise Exception('Error: specified number of nodes exceeds limit. '
                         'Exiting...')
+    if n_cores > n_cores_per_node:
+        raise Exception('Error: specified number of cores exceeds limit. '
+                        'Exiting...')
 
     # Make a run directory within the field file
     if not os.path.exists(path_run):
         os.makedirs(path_run)
-
-    # Get the total number of cores
-    n_cores = n_nodes * n_cores_per_node
 
     # Populate the mpi_template specified inputs
     job_script = mpi_template.format(**locals())

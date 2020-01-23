@@ -89,7 +89,7 @@ def submit_script(stage, slurm_config, microlensing_config_filename,
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
     # Get current directory
-    popsycle_directory = os.path.abspath(__file__)
+    run_on_slurm_path = os.path.abspath(__file__)
     # Create jobname
     jobname = '%s_s%i' % (jobname_base, stage)
 
@@ -108,7 +108,7 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run_on_slurm.py --output_root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
+srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output_root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
 date
 echo
 "All done!"

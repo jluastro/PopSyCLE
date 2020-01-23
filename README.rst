@@ -73,7 +73,7 @@ The function ``generate_slurm_scripts`` can be executed by running:
                        debugFlag=False)
 
 
-The ``generate_slurm_scripts`` docstring explains these different settings::
+The ``generate_slurm_scripts`` docstring explains the function's parameters::
 
     Generates all stages of slurm scripts that executes the PopSyCLE pipeline
 

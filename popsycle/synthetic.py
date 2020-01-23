@@ -177,6 +177,8 @@ def write_galaxia_params(output_root,
             f.write(param + '\n')
             print('-- %s' % param)
 
+    return seed
+
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350,

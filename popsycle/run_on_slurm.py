@@ -107,7 +107,7 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run.py --output_root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
+srun -N{n_nodes} -n{n_cores} {path_python} {popsycle_directory}/run_on_slurm.py --output_root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
 date
 echo
 "All done!"
@@ -169,11 +169,13 @@ def submit_pipeline(slurm_config_file, microlensing_config_filename,
         slurm_config = yaml.safe_load(f)
 
     jobname_base = 'l%.1f_b%.1f' % (longitude, latitude)
-    slurm_job_id1 = submit_script(1, slurm_config, microlensing_config_filename,
+    slurm_job_id1 = submit_script(1, slurm_config,
+                                  microlensing_config_filename,
                                   path_run, output_root,
                                   jobname_base, walltime_stage1,
                                   debugFlag=debugFlag)
-    slurm_job_id2 = submit_script(2, slurm_config, microlensing_config_filename,
+    slurm_job_id2 = submit_script(2, slurm_config,
+                                  microlensing_config_filename,
                                   path_run, output_root,
                                   jobname_base, walltime_stage2,
                                   N_nodes_calc_events=N_nodes_calc_events,
@@ -215,12 +217,13 @@ def run():
         args.microlensing_config_filename)
     if args.stage == 1:
         # Galaxia
-        synthetic.write_galaxia_params(
+        random_seed = synthetic.write_galaxia_params(
             output_root=microlensing_params['output_root'],
             longitude=microlensing_params['longitude'],
             latitude=microlensing_params['latitude'],
             area=microlensing_params['area'],
             seed=None)
+        _ = execute('galaxia -r galaxia_params.%i.txt' % random_seed)
         # perform_pop_syn
         ebf_filename = '%s.ebf' % microlensing_params['output_root']
         isochrones_dir = './isochrones'

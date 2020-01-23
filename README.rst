@@ -12,12 +12,137 @@ Dependencies
 ------------
 `Galaxia <http://galaxia.sourceforge.net>`_
 
+`PyPopStar <https://pypopstar.readthedocs.io/en/latest/>`_
+
 
 Installation
 ------------
 
-PopSyCLE can be installed as a standard python package. 
+PopSyCLE can be installed as a standard python package.
 
+Example
+-------
+
+An example of implementing PopSyCLE can be found
+[in our example notebook](docs/PopSyCLE_example.ipynb).
+
+Running PopSyCLE on Slurm Scheduler
+-----------------------------------
+
+Slurm is an open source, fault-tolerant, and highly scalable cluster management
+and job scheduling system for large and small Linux clusters
+(https://slurm.schedmd.com/overview.html). Many instances of the PopSyCLE
+pipeline can be executed in parallel if running on a system that both has
+PopSyCLE and a slurm scheduler installed. ``generate_slurm_scripts`` from
+``run_on_slurm.py`` will create and submit slurm batch scripts provided
+parameters for how to setup the linux cluster, popsycle parameters and where
+PopSyCLE should simulate the sky.
+
+To begin, create a slurm configuration file that contains the slurm parameters
+necessary to submit a batch scripts. An example can be found in
+``popsycle/data/slurm_config.yaml``. Create a PopSyCLE configuration file that
+contains the parameters necessary to run the PopSyCLE pipeline. An example can
+be found in ``popsycle/data/popsycle_config.yaml``.
+
+Scripts can be generated and submitted using the ``generate_slurm_scripts``
+function:
+
+.. code-block:: python
+
+   from popsycle.run_on_slurm import generate_slurm_scripts
+   generate_slurm_scripts(slurm_config_filename='slurm_config.yaml',
+                       popsycle_config_filename='popsycle_config.yaml',
+                       path_run='./',
+                       output_root='run0',
+                       longitude='10.0',
+                       latitude='5.0',
+                       area='0.33',
+                       N_nodes_calc_events=1,
+                       N_cores_calc_events=12,
+                       walltime_stage1='01:00:00',
+                       walltime_stage2='03:00:00',
+                       walltime_stage3='01:00:00',
+                       submitFlag=True,
+                       debugFlag=False)
+
+
+The ``generate_slurm_scripts`` docstring explains these different settings:
+
+.. code-block:: python
+
+    Generates all stages of slurm scripts that executes the PopSyCLE pipeline
+
+    Parameters
+    ----------
+    stage : int
+        Number 1, 2 or 3 indicating the stage of the PopSyCLE pipeline.
+        Stage 1: (serial)
+            - Galaxia
+            - synthetic.perform_pop_syn
+        Stage 2: (parallel)
+            - synthetic.calc_events
+        Stage 3: (serial)
+            - synthetic.refine_events
+
+    slurm_config_filename : str
+        Name of slurm_config.yaml file containing the slurm parameters
+        that will be used the generate the slurm script header.
+
+    popsycle_config_filename : str
+        Name of popsycle_config.yaml file containing the PopSyCLE parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
+    path_run : str
+        Directory containing the parameter file and PopSyCLE output files
+
+    output_root : str
+        Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    N_nodes_calc_events : int
+        Number of nodes for stage 2 where synthetic.calc_events is executed
+
+    N_cores_calc_events : int
+        Number of cores for stage 2 where synthetic.calc_events is executed
+
+    walltime_stage1 : str
+        Amount of walltime that the script will request from slurm for stage 1
+        Format must be 'hh:mm:ss'
+
+    walltime_stage2 : str
+        Amount of walltime that the script will request from slurm for stage 2
+        Format must be 'hh:mm:ss'
+
+    walltime_stage3 : str
+        Amount of walltime that the script will request from slurm for stage 3
+        Format must be 'hh:mm:ss'
+
+    submitFlag : bool
+        If set to True, scripts will be submitted to the slurm scheduler after
+        being written to disk. If set to False, they will not be submitted.
+        Default is True
+
+    debugFlag : bool
+        If set to True, scripts will be run with a fixed seed that produces
+        identical output. If set to False, a random seed will be selected.
+        Default is False
+
+    Output
+    ------
+    None
 
 License
 -------

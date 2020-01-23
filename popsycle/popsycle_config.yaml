@@ -1,4 +1,4 @@
-# Configuration parameters for microlensing parameters
+# Configuration parameters for PopSyCLE pipeline
 
 radius_cut: 2
 obs_time: 1095

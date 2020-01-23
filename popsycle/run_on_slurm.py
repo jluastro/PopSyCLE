@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 """
 run_on_slurm.py
-Generate and execute scripts for parallel execution of PopSyCLE runs.
-Scripts created will be formatted for submission to a SLURM scheduler.
+Generate and execute scripts for parallel execution of PopSyCLE runs. Scripts
+created will be formatted for submission to a SLURM scheduler. This file
+also serves as the executed of the PopSyCLE pipeline by those slurm scripts.
 """
 
 import subprocess
@@ -43,24 +44,123 @@ def execute(cmd,
     return stdout, stderr
 
 
-def generate_microlensing_param_file(path_run, output_root,
-                                     longitude, latitude, area):
-    param_filename = '{0}/microlensing_params.{1}.yaml'.format(path_run,
-                                                               output_root)
-    with open(param_filename, 'w') as f:
+def generate_galactic_config_file(path_run, output_root,
+                                  longitude, latitude, area):
+    """
+    Generate a yaml file that contains the microlensing parameters specific to
+    a PopSyCLE run.
+
+    Parameters
+    ----------
+    path_run : str
+        Directory containing the parameter file and PopSyCLE output files
+
+    output_root : str
+        Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+
+    Output
+    ------
+    None
+
+    """
+    config_filename = '{0}/galactic_config.{1}.yaml'.format(path_run,
+                                                            output_root)
+    with open(config_filename, 'w') as f:
         f.write('longitude: %f\n' % longitude)
         f.write('latitude: %f\n' % latitude)
         f.write('area: %f\n' % area)
-        f.write('output_root: %s\n' % output_root)
 
 
-# def submit_script(slurm_config, stage, previous_slurm_job_id=None):
-def submit_script(stage, slurm_config, microlensing_config_filename,
-                  path_run, output_root,
-                  jobname_base, walltime,
-                  N_nodes_calc_events=None, N_cores_calc_events=None,
-                  previous_slurm_job_id=None,
-                  submitFlag=True, debugFlag=False):
+def generate_script(stage, slurm_config, popsycle_config_filename,
+                    path_run, output_root,
+                    jobname_base, walltime,
+                    N_nodes=1, N_cores=1,
+                    previous_slurm_job_id=None,
+                    submitFlag=True, debugFlag=False):
+    """
+    Generate a slurm script that executes a stage of the PopSyCLE pipeline
+
+    Parameters
+    ----------
+    stage : int
+        Number 1, 2 or 3 indicating the stage of the PopSyCLE pipeline.
+        Stage 1: (serial)
+            - Galaxia
+            - synthetic.perform_pop_syn
+        Stage 2: (parallel)
+            - synthetic.calc_events
+        Stage 3: (serial)
+            - synthetic.refine_events
+
+    slurm_config : dict
+        Loaded from a slurm_config.yaml file
+
+    popsycle_config_filename : str
+        Name of popsycle_config.yaml file containing the PopSyCLE parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
+    path_run : str
+        Directory containing the parameter file and PopSyCLE output files
+
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    jobname_base : str
+        Name of slurm jobname, appended by the stage of the script.
+        Default format is 'l10.00_b1.00' for a position of (l,b) = (10, 1)
+
+    walltime : str
+        Amount of walltime that the script will request from slurm.
+        Format must be 'hh:mm:ss'
+
+    N_nodes : int
+        Number of nodes to run the stage
+
+    N_cores : int
+        Number of cores to run the stage
+
+    previous_slurm_job_id : str
+        Slurm Job ID of the previous stage which must be completed before
+        this stage can be exected
+
+    submitFlag : bool
+        If set to True, scripts will be submitted to the slurm scheduler after
+        being written to disk. If set to False, they will not be submitted.
+        Default is True
+
+    debugFlag : bool
+        If set to True, scripts will be run with a fixed seed that produces
+        identical output. If set to False, a random seed will be selected.
+        Default is False
+
+    Output
+    ------
+    None
+
+    """
+    if stage not in [1, 2, 3]:
+        print('Error: stage must be one of [1, 2, 3]. Exiting...')
+        os.exit(1)
+
     # Path to the python executable
     path_python = slurm_config['path_python']
     # Project account name to charge
@@ -68,19 +168,6 @@ def submit_script(stage, slurm_config, microlensing_config_filename,
     # Queue
     queue = slurm_config['queue']
     # Number of nodes per run
-
-    # Defult walltime
-    if stage == 1:
-        n_nodes = 1
-        n_cores = 1
-    elif stage == 2:
-        n_nodes = N_nodes_calc_events
-        n_cores = N_cores_calc_events
-    elif stage == 3:
-        n_nodes = 1
-        n_cores = 1
-    else:
-        raise Exception('Error: stage must be one of [1, 2, 3]. Exiting...')
     # Name of the resource that will be used for the run
     resource = slurm_config['resource']
     # Number of cores per node to use
@@ -111,17 +198,17 @@ echo "---------------------------"
 module load cray-hdf5/1.10.5.2
 export HDF5_USE_FILE_LOCKING=FALSE
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output-root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} {debug_cmd} 
+srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output-root={output_root} --stage={stage} --microlensing-config-filename={popsycle_config_filename} {debug_cmd} 
 date
 echo
 "All done!"
 """
 
     # Check that the specified number of nodes does not exceed the resource max
-    if n_nodes > n_nodes_max:
+    if N_nodes > n_nodes_max:
         raise Exception('Error: specified number of nodes exceeds limit. '
                         'Exiting...')
-    if n_cores > n_cores_per_node:
+    if N_cores > n_cores_per_node:
         raise Exception('Error: specified number of cores exceeds limit. '
                         'Exiting...')
 
@@ -170,71 +257,181 @@ echo
     return previous_slurm_job_id
 
 
-def submit_pipeline(slurm_config_file, microlensing_config_filename,
-                    path_run, output_root,
-                    longitude, latitude, area,
-                    N_nodes_calc_events, N_cores_calc_events,
-                    walltime_stage1, walltime_stage2,
-                    walltime_stage3, submitFlag=True, debugFlag=False):
-    generate_microlensing_param_file(path_run, output_root,
-                                     longitude, latitude, area)
+def generate_all_scripts(slurm_config_filename, popsycle_config_filename,
+                         path_run, output_root,
+                         longitude, latitude, area,
+                         N_nodes_calc_events, N_cores_calc_events,
+                         walltime_stage1, walltime_stage2,
+                         walltime_stage3, submitFlag=True, debugFlag=False):
+    """
+    Generates all stages of slurm scripts that executes the PopSyCLE pipeline
 
-    with open(slurm_config_file, 'r') as f:
+    Parameters
+    ----------
+    stage : int
+        Number 1, 2 or 3 indicating the stage of the PopSyCLE pipeline.
+        Stage 1: (serial)
+            - Galaxia
+            - synthetic.perform_pop_syn
+        Stage 2: (parallel)
+            - synthetic.calc_events
+        Stage 3: (serial)
+            - synthetic.refine_events
+
+    slurm_config_filename : str
+        Name of slurm_config.yaml file containing the slurm parameters
+        that will be used the generate the slurm script header.
+
+    popsycle_config_filename : str
+        Name of popsycle_config.yaml file containing the PopSyCLE parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
+    path_run : str
+        Directory containing the parameter file and PopSyCLE output files
+
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    N_nodes_calc_events : int
+        Number of nodes for stage 2 where synthetic.calc_events is executed
+
+    N_cores_calc_events : int
+        Number of cores for stage 2 where synthetic.calc_events is executed
+
+    walltime_stage1 : str
+        Amount of walltime that the script will request from slurm for stage 1
+        Format must be 'hh:mm:ss'
+
+    walltime_stage2 : str
+        Amount of walltime that the script will request from slurm for stage 2
+        Format must be 'hh:mm:ss'
+
+    walltime_stage3 : str
+        Amount of walltime that the script will request from slurm for stage 3
+        Format must be 'hh:mm:ss'
+
+    submitFlag : bool
+        If set to True, scripts will be submitted to the slurm scheduler after
+        being written to disk. If set to False, they will not be submitted.
+        Default is True
+
+    debugFlag : bool
+        If set to True, scripts will be run with a fixed seed that produces
+        identical output. If set to False, a random seed will be selected.
+        Default is False
+
+    Output
+    ------
+    None
+
+    """
+    generate_galactic_config_file(path_run, output_root,
+                                  longitude, latitude, area)
+
+    with open(slurm_config_filename, 'r') as f:
         slurm_config = yaml.safe_load(f)
 
     jobname_base = 'l%.1f_b%.1f' % (longitude, latitude)
-    slurm_job_id1 = submit_script(1, slurm_config,
-                                  microlensing_config_filename,
-                                  path_run, output_root,
-                                  jobname_base, walltime_stage1,
-                                  submitFlag=submitFlag,
-                                  debugFlag=debugFlag)
-    slurm_job_id2 = submit_script(2, slurm_config,
-                                  microlensing_config_filename,
-                                  path_run, output_root,
-                                  jobname_base, walltime_stage2,
-                                  N_nodes_calc_events=N_nodes_calc_events,
-                                  N_cores_calc_events=N_cores_calc_events,
-                                  previous_slurm_job_id=slurm_job_id1,
-                                  submitFlag=submitFlag,
-                                  debugFlag=debugFlag)
-    _ = submit_script(3, slurm_config, microlensing_config_filename,
-                      path_run, output_root,
-                      jobname_base, walltime_stage3,
-                      previous_slurm_job_id=slurm_job_id2,
-                      submitFlag=submitFlag,
-                      debugFlag=debugFlag)
+    slurm_job_id1 = generate_script(1, slurm_config,
+                                    popsycle_config_filename,
+                                    path_run, output_root,
+                                    jobname_base, walltime_stage1,
+                                    submitFlag=submitFlag,
+                                    debugFlag=debugFlag)
+    slurm_job_id2 = generate_script(2, slurm_config,
+                                    popsycle_config_filename,
+                                    path_run, output_root,
+                                    jobname_base, walltime_stage2,
+                                    N_nodes=N_nodes_calc_events,
+                                    N_cores=N_cores_calc_events,
+                                    previous_slurm_job_id=slurm_job_id1,
+                                    submitFlag=submitFlag,
+                                    debugFlag=debugFlag)
+    _ = generate_script(3, slurm_config, popsycle_config_filename,
+                        path_run, output_root,
+                        jobname_base, walltime_stage3,
+                        previous_slurm_job_id=slurm_job_id2,
+                        submitFlag=submitFlag,
+                        debugFlag=debugFlag)
 
 
-def load_microlensing_params(output_root):
-    params_filename = 'microlensing_params.{0}.yaml'.format(output_root)
-    with open(params_filename, 'r') as f:
-        microlensing_params = yaml.safe_load(f)
-    return microlensing_params
+def load_galactic_config(output_root):
+    """
+    Load the galactic parameters from the yaml file
+
+    Parameters
+    ----------
+    output_root : str
+        Base filename of the output files
+
+    Output
+    ------
+    galactic_config : dict
+        Dictionary containing the galactic parameters for the PopSyCLE run
+
+    """
+    config_filename = 'galactic_config.{0}.yaml'.format(output_root)
+    with open(config_filename, 'r') as f:
+        galactic_config = yaml.safe_load(f)
+    return galactic_config
 
 
-def load_microlensing_config(microlensing_config_filename):
-    with open(microlensing_config_filename, 'r') as f:
-        microlensing_config = yaml.safe_load(f)
-    return microlensing_config
+def load_popsycle_config(popsycle_config_filename):
+    """
+    Load the PopSyCLE parameters from the yaml file
+
+    Parameters
+    ----------
+    popsycle_config_filename : str
+        Name of popsycle_config.yaml file containing the PopSyCLE parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
+    Output
+    ------
+    popsycle_config : dict
+        Dictionary containing the PopSyCLE parameters for the PopSyCLE run
+
+    """
+    with open(popsycle_config_filename, 'r') as f:
+        popsycle_config = yaml.safe_load(f)
+    return popsycle_config
 
 
-def return_microlensing_params_and_config(args):
-    microlensing_params = load_microlensing_params(args.output_root)
-    microlensing_config = load_microlensing_config(
-        args.microlensing_config_filename)
-    if microlensing_config['bin_edges_number'] == 'None':
-        microlensing_config['bin_edges_number'] = None
+def return_filename_dict(output_root):
+    """
+    Return the filenames of the files output by the pipeline
 
-    return microlensing_params, microlensing_config
+    Parameters
+    ----------
+    output_root : str
+        Base filename of the output files
 
+    Output
+    ------
+    filename_dict : dict
+        Dictionary containing the names of the files output by the pipeline
 
-def return_filename_dict(microlensing_params):
-    ebf_filename = '%s.ebf' % microlensing_params['output_root']
-    hdf5_filename = '%s.h5' % microlensing_params['output_root']
-    events_filename = '%s_events.fits' % microlensing_params['output_root']
-    blends_filename = '%s_blends.fits' % microlensing_params['output_root']
-    noevents_filename = '%s_NOEVENTS.txt' % microlensing_params['output_root']
+    """
+    ebf_filename = '%s.ebf' % output_root
+    hdf5_filename = '%s.h5' % output_root
+    events_filename = '%s_events.fits' % output_root
+    blends_filename = '%s_blends.fits' % output_root
+    noevents_filename = '%s_NOEVENTS.txt' % output_root
 
     filename_dict = {
         'ebf_filename': ebf_filename,
@@ -247,14 +444,43 @@ def return_filename_dict(microlensing_params):
     return filename_dict
 
 
-def run_stage1(args,
-               microlensing_params, microlensing_config,
-               filename_dict):
+def run_stage1(output_root,
+               galactic_config, popsycle_config,
+               filename_dict, debugFlag=False):
+    """
+    Run stage 1 of the PopSyCLE pipeline:
+        - Galaxia
+        - synthetic.perform_pop_syn
+
+    Parameters
+    ----------
+    output_root : str
+        Base filename of the output files
+
+    galactic_config : dict
+        Dictionary containing the galactic parameters for the PopSyCLE run
+
+    popsycle_config : dict
+        Dictionary containing the PopSyCLE parameters for the PopSyCLE run
+
+    filename_dict : dict
+        Dictionary containing the names of the files output by the pipeline
+
+    debugFlag : bool
+        If set to True, scripts will be run with a fixed seed that produces
+        identical output. If set to False, a random seed will be selected.
+        Default is False
+
+    Output
+    ------
+    None
+
+    """
     # Galaxia
     if os.path.exists(filename_dict['ebf_filename']):
         os.remove(filename_dict['ebf_filename'])
 
-    if args.debug:
+    if debugFlag:
         seed = 0
         set_random_seed = True
     else:
@@ -263,14 +489,14 @@ def run_stage1(args,
 
     print('-- Generating galaxia params')
     synthetic.write_galaxia_params(
-        output_root=microlensing_params['output_root'],
-        longitude=microlensing_params['longitude'],
-        latitude=microlensing_params['latitude'],
-        area=microlensing_params['area'],
+        output_root=galactic_config['output_root'],
+        longitude=galactic_config['longitude'],
+        latitude=galactic_config['latitude'],
+        area=galactic_config['area'],
         seed=seed)
 
     print('-- Executing galaxia')
-    _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
+    _ = execute('galaxia -r galaxia_params.%s.txt' % output_root)
 
     # perform_pop_syn
     if os.path.exists(filename_dict['hdf5_filename']):
@@ -279,16 +505,55 @@ def run_stage1(args,
     print('-- Executing perform_pop_syn')
     synthetic.perform_pop_syn(
         ebf_file=filename_dict['ebf_filename'],
-        output_root=microlensing_params['output_root'],
-        iso_dir=microlensing_config['isochrones_dir'],
-        bin_edges_number=microlensing_config['bin_edges_number'],
-        BH_kick_speed=microlensing_config['BH_kick_speed'],
-        NS_kick_speed=microlensing_config['NS_kick_speed'],
+        output_root=galactic_config['output_root'],
+        iso_dir=popsycle_config['isochrones_dir'],
+        bin_edges_number=popsycle_config['bin_edges_number'],
+        BH_kick_speed=popsycle_config['BH_kick_speed'],
+        NS_kick_speed=popsycle_config['NS_kick_speed'],
         set_random_seed=set_random_seed)
 
 
-def run_stage2(microlensing_params, microlensing_config,
-               filename_dict, rank, comm):
+def run_stage2(galactic_config, popsycle_config,
+               filename_dict,
+               parallelFlag=False,
+               rank=0,
+               comm=None):
+    """
+    Run stage 2 of the PopSyCLE pipeline:
+        - synthetic.calc_events
+
+    Parameters
+    ----------
+    galactic_config : dict
+        Dictionary containing the galactic parameters for the PopSyCLE run
+
+    popsycle_config : dict
+        Dictionary containing the PopSyCLE parameters for the PopSyCLE run
+
+    filename_dict : dict
+        Dictionary containing the names of the files output by the pipeline
+
+    parallelFlag : bool
+        If set to True, scripts will be run assuming that it has been launched
+        in parallel using mpi4py. If set to False, script will run in serial.
+        Default is False
+
+    rank : int
+        Number of rank for running script in parallel using mpi4py.
+        Default is 0.
+
+    comm : mpi4py.MPI.Intracomm
+        Intracommunicator for running script in parallel using mpi4py.
+        For example:
+            from mpi4py import MPI
+            comm = MPI.COMM_WORLD
+
+
+    Output
+    ------
+    None
+
+    """
     # calc_events
     if os.path.exists(filename_dict['events_filename']):
         os.remove(filename_dict['events_filename'])
@@ -299,30 +564,52 @@ def run_stage2(microlensing_params, microlensing_config,
     if rank == 0:
         print('-- Executing calc_events')
     synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
-                          output_root2=microlensing_params['output_root'],
-                          radius_cut=microlensing_config['radius_cut'],
-                          obs_time=microlensing_config['obs_time'],
-                          n_obs=microlensing_config['n_obs'],
-                          theta_frac=microlensing_config['theta_frac'],
-                          blend_rad=microlensing_config['blend_rad'],
+                          output_root2=galactic_config['output_root'],
+                          radius_cut=popsycle_config['radius_cut'],
+                          obs_time=popsycle_config['obs_time'],
+                          n_obs=popsycle_config['n_obs'],
+                          theta_frac=popsycle_config['theta_frac'],
+                          blend_rad=popsycle_config['blend_rad'],
                           overwrite=True)
 
-    comm.Barrier()
+    if parallelFlag:
+        comm.Barrier()
     if rank == 0:
         if not os.path.exists(filename_dict['events_filename']):
             Path(filename_dict['noevents_filename']).touch()
 
 
-def run_stage3(microlensing_params, microlensing_config,
+def run_stage3(galactic_config, popsycle_config,
                filename_dict):
+    """
+    Run stage 3 of the PopSyCLE pipeline:
+        - synthetic.refine_events
+
+    Parameters
+    ----------
+    galactic_config : dict
+        Dictionary containing the galactic parameters for the PopSyCLE run
+
+    popsycle_config : dict
+        Dictionary containing the PopSyCLE parameters for the PopSyCLE run
+
+    filename_dict : dict
+        Dictionary containing the names of the files output by the pipeline
+
+
+    Output
+    ------
+    None
+
+    """
     if os.path.exists(filename_dict['noevents_filename']):
         print('No events present, skipping refine_events')
         os.exit(1)
 
     print('-- Executing refine_events')
-    synthetic.refine_events(input_root=microlensing_params['output_root'],
-                            filter_name=microlensing_config['filter_name'],
-                            red_law=microlensing_config['red_law'],
+    synthetic.refine_events(input_root=galactic_config['output_root'],
+                            filter_name=popsycle_config['filter_name'],
+                            red_law=popsycle_config['red_law'],
                             overwrite=True,
                             output_file='default')
 
@@ -339,14 +626,16 @@ def run():
                         action='store_true')
     args = parser.parse_args()
 
-    microlensing_params, \
-    microlensing_config = return_microlensing_params_and_config(args)
+    galactic_config = load_galactic_config(args.output_root)
+    popsycle_config = load_popsycle_config(args.popsycle_config_filename)
+    if popsycle_config['bin_edges_number'] == 'None':
+        popsycle_config['bin_edges_number'] = None
 
     isochrones_dir = './isochrones'
     if not os.path.exists(isochrones_dir):
-        os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
+        os.symlink(popsycle_config['isochrones_dir'], isochrones_dir)
 
-    filename_dict = return_filename_dict(microlensing_params)
+    filename_dict = return_filename_dict(galactic_config['output_root'])
 
     # Detect parallel processes
     from mpi4py import MPI
@@ -362,17 +651,20 @@ def run():
         if size != 1:
             print('Stage 1 must be run with only one rank. Exiting...')
             os.exit(1)
-        run_stage1(args,
-                   microlensing_params, microlensing_config,
-                   filename_dict)
+        run_stage1(args.output_root,
+                   galactic_config, popsycle_config,
+                   filename_dict, debugFlag=args.debug)
     elif args.stage == 2:
-        run_stage2(microlensing_params, microlensing_config,
-                   filename_dict, rank, comm)
+        run_stage2(galactic_config, popsycle_config,
+                   filename_dict,
+                   parallelFlag=True,
+                   rank=rank,
+                   comm=comm)
     elif args.stage == 3:
         if size != 1:
             print('Stage 3 must be run with only one rank. Exiting...')
             os.exit(1)
-        run_stage3(microlensing_params, microlensing_config,
+        run_stage3(galactic_config, popsycle_config,
                    filename_dict)
     else:
         print('Error: stage must be one of [1, 2, 3]. Exiting...')

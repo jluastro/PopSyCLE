@@ -5,7 +5,7 @@ obs_time: 1095
 n_obs: 10
 theta_frac: 2
 blend_rad: 0.75
-iso_dir: isochrones_dir
+isochrones_dir: /project/projectdirs/uLens/code/src/PopSyCLE_isochrones
 bin_edges_number: None
 BH_kick_speed: 100
 NS_kick_speed: 350

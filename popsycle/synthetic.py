@@ -1084,9 +1084,10 @@ def calc_events(hdf5_file, output_root2,
     rank = comm.rank
     size = comm.size
 
-    # Set up inputs to be able to be read by pool.map
+    # Set up inputs
     nll = len(l_array[:]) - 2
     nbb = len(b_array[:]) - 2
+    N_boxes = nll * nbb
 
     llbb = itertools.product(range(nll), range(nbb))
 
@@ -1099,21 +1100,20 @@ def calc_events(hdf5_file, output_root2,
 
     my_results = []
     idx = rank
-    while idx < len(llbb):
+    while idx < N_boxes:
         my_results.append(_calc_event_time_loop(llbb[idx],
                                                 hdf5_file, obs_time,
                                                 n_obs, radius_cut,
                                                 theta_frac, blend_rad))
         idx += size
 
+    results = comm.gather(my_results, root=0)
+
     if rank == 0:
-        results = comm.Gather(my_results, root=0)  # FIXME check on syntax
-
-
         # Remove all the None values
         # (occurs for patches with less than 10 objects)
-
         results = [i for i in results if i is not None]
+        results = list(itertools.chain.from_iterable(results))
 
         results_ev = []
         results_bl = []

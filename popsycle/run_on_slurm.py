@@ -233,10 +233,13 @@ def run():
             seed=None)
         _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
         # perform_pop_syn
-        ebf_filename = '%s.ebf' % microlensing_params['output_root']
         isochrones_dir = './isochrones'
         if not os.path.exists(isochrones_dir):
             os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
+
+        ebf_filename = '%s.ebf' % microlensing_params['output_root']
+        if microlensing_params['bin_edges_number'] == 'None':
+            microlensing_params['bin_edges_number'] = None
 
         synthetic.perform_pop_syn(
             ebf_file=ebf_filename,

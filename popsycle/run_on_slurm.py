@@ -219,6 +219,114 @@ def load_microlensing_config(microlensing_config_filename):
     return microlensing_config
 
 
+def return_microlensing_params_and_config(args):
+    microlensing_params = load_microlensing_params(args.output_root)
+    microlensing_config = load_microlensing_config(
+        args.microlensing_config_filename)
+    if microlensing_config['bin_edges_number'] == 'None':
+        microlensing_config['bin_edges_number'] = None
+
+    return microlensing_params, microlensing_config
+
+
+def return_filename_dict(microlensing_params):
+    ebf_filename = '%s.ebf' % microlensing_params['output_root']
+    hdf5_filename = '%s.h5' % microlensing_params['output_root']
+    events_filename = '%s_events.fits' % microlensing_params['output_root']
+    blends_filename = '%s_blends.fits' % microlensing_params['output_root']
+    noevents_filename = '%s_NOEVENTS.txt' % microlensing_params['output_root']
+
+    filename_dict = {
+        'ebf_filename': ebf_filename,
+        'hdf5_filename': hdf5_filename,
+        'events_filename': events_filename,
+        'blends_filename': blends_filename,
+        'noevents_filename': noevents_filename
+    }
+
+    return filename_dict
+
+
+def run_stage1(args,
+               microlensing_params, microlensing_config,
+               filename_dict):
+    # Galaxia
+    if os.path.exists(filename_dict['ebf_filename']):
+        os.remove(filename_dict['ebf_filename'])
+
+    if args.debug:
+        seed = 0
+        set_random_seed = True
+    else:
+        seed = None
+        set_random_seed = False
+
+    print('-- Generating galaxia params')
+    synthetic.write_galaxia_params(
+        output_root=microlensing_params['output_root'],
+        longitude=microlensing_params['longitude'],
+        latitude=microlensing_params['latitude'],
+        area=microlensing_params['area'],
+        seed=seed)
+
+    print('-- Executing galaxia')
+    _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
+
+    # perform_pop_syn
+    if os.path.exists(filename_dict['hdf5_filename']):
+        os.remove(filename_dict['hdf5_filename'])
+
+    print('-- Executing perform_pop_syn')
+    synthetic.perform_pop_syn(
+        ebf_file=filename_dict['ebf_filename'],
+        output_root=microlensing_params['output_root'],
+        iso_dir=microlensing_config['isochrones_dir'],
+        bin_edges_number=microlensing_config['bin_edges_number'],
+        BH_kick_speed=microlensing_config['BH_kick_speed'],
+        NS_kick_speed=microlensing_config['NS_kick_speed'],
+        set_random_seed=set_random_seed)
+
+
+def run_stage2(microlensing_params, microlensing_config,
+               filename_dict, rank, comm):
+    # calc_events
+    if os.path.exists(filename_dict['events_filename']):
+        os.remove(filename_dict['events_filename'])
+
+    if os.path.exists(filename_dict['blends_filename']):
+        os.remove(filename_dict['blends_filename'])
+
+    if rank == 0:
+        print('-- Executing calc_events')
+    synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
+                          output_root2=microlensing_params['output_root'],
+                          radius_cut=microlensing_config['radius_cut'],
+                          obs_time=microlensing_config['obs_time'],
+                          n_obs=microlensing_config['n_obs'],
+                          theta_frac=microlensing_config['theta_frac'],
+                          blend_rad=microlensing_config['blend_rad'],
+                          overwrite=True)
+
+    comm.Barrier()
+    if rank == 0:
+        if not os.path.exists(filename_dict['events_filename']):
+            Path(filename_dict['noevents_filename']).touch()
+
+
+def run_stage3(microlensing_params, microlensing_config,
+               filename_dict):
+    if os.path.exists(filename_dict['noevents_filename']):
+        print('No events present, skipping refine_events')
+        os.exit(1)
+
+    print('-- Executing refine_events')
+    synthetic.refine_events(input_root=microlensing_params['output_root'],
+                            filter_name=microlensing_config['filter_name'],
+                            red_law=microlensing_config['red_law'],
+                            overwrite=True,
+                            output_file='default')
+
+
 def run():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output-root', type=str,
@@ -231,22 +339,14 @@ def run():
                         action='store_true')
     args = parser.parse_args()
 
-    microlensing_params = load_microlensing_params(args.output_root)
-    microlensing_config = load_microlensing_config(
-        args.microlensing_config_filename)
-    if microlensing_config['bin_edges_number'] == 'None':
-        microlensing_config['bin_edges_number'] = None
+    microlensing_params, \
+    microlensing_config = return_microlensing_params_and_config(args)
 
     isochrones_dir = './isochrones'
     if not os.path.exists(isochrones_dir):
         os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
 
-    # Define filenames
-    ebf_filename = '%s.ebf' % microlensing_params['output_root']
-    hdf5_filename = '%s.h5' % microlensing_params['output_root']
-    events_filename = '%s_events.fits' % microlensing_params['output_root']
-    blends_filename = '%s_blends.fits' % microlensing_params['output_root']
-    noevents_filename = '%s_NOEVENTS.txt' % microlensing_params['output_root']
+    filename_dict = return_filename_dict(microlensing_params)
 
     # Detect parallel processes
     from mpi4py import MPI
@@ -259,76 +359,24 @@ def run():
                                                         args.output_root))
 
     if args.stage == 1:
-        # Galaxia
-        if os.path.exists(ebf_filename):
-            os.remove(ebf_filename)
-
-        if args.debug:
-            seed = 0
-            set_random_seed = True
-        else:
-            seed = None
-            set_random_seed = False
-
-        print('-- Generating galaxia params')
-        synthetic.write_galaxia_params(
-            output_root=microlensing_params['output_root'],
-            longitude=microlensing_params['longitude'],
-            latitude=microlensing_params['latitude'],
-            area=microlensing_params['area'],
-            seed=seed)
-
-        print('-- Executing galaxia')
-        _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
-
-        # perform_pop_syn
-        if os.path.exists(hdf5_filename):
-            os.remove(hdf5_filename)
-
-        print('-- Executing perform_pop_syn')
-        synthetic.perform_pop_syn(
-            ebf_file=ebf_filename,
-            output_root=microlensing_params['output_root'],
-            iso_dir=microlensing_config['isochrones_dir'],
-            bin_edges_number=microlensing_config['bin_edges_number'],
-            BH_kick_speed=microlensing_config['BH_kick_speed'],
-            NS_kick_speed=microlensing_config['NS_kick_speed'],
-            set_random_seed=set_random_seed)
+        if size != 1:
+            print('Stage 1 must be run with only one rank. Exiting...')
+            os.exit(1)
+        run_stage1(args,
+                   microlensing_params, microlensing_config,
+                   filename_dict)
     elif args.stage == 2:
-        # calc_events
-        if os.path.exists(events_filename):
-            os.remove(events_filename)
-
-        if os.path.exists(blends_filename):
-            os.remove(blends_filename)
-
-        if rank == 0:
-            print('-- Executing calc_events')
-        synthetic.calc_events(hdf5_file=hdf5_filename,
-                              output_root2=microlensing_params['output_root'],
-                              radius_cut=microlensing_config['radius_cut'],
-                              obs_time=microlensing_config['obs_time'],
-                              n_obs=microlensing_config['n_obs'],
-                              theta_frac=microlensing_config['theta_frac'],
-                              blend_rad=microlensing_config['blend_rad'],
-                              overwrite=True)
-
-        comm.Barrier()
-        if rank == 0:
-            if not os.path.exists(events_filename):
-                Path(noevents_filename).touch()
+        run_stage2(microlensing_params, microlensing_config,
+                   filename_dict, rank, comm)
     elif args.stage == 3:
-        if os.path.exists(noevents_filename):
-            raise Exception('No events present, skipping refine_events')
-
-        print('-- Executing refine_events')
-        synthetic.refine_events(input_root=microlensing_params['output_root'],
-                                filter_name=microlensing_config['filter_name'],
-                                red_law=microlensing_config['red_law'],
-                                overwrite=True,
-                                output_file='default')
+        if size != 1:
+            print('Stage 3 must be run with only one rank. Exiting...')
+            os.exit(1)
+        run_stage3(microlensing_params, microlensing_config,
+                   filename_dict)
     else:
-        raise Exception('Error: stage must be one of [1, 2, 3]. Exiting...')
+        print('Error: stage must be one of [1, 2, 3]. Exiting...')
+        os.exit(1)
 
 
 if __name__ == '__main__':

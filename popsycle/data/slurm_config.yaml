@@ -1,4 +1,5 @@
 # Example configuration parameters for slurm scheduler
+# These values are for the NERSC supercomputer as of Jan 2020
 # Loaded by `run_on_slurm.py:load_slurm_config`
 
 # Path to the python executable

@@ -352,8 +352,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
                                   longitude, latitude, area)
 
     # Load the slurm configuration file
-    with open(slurm_config_filename, 'r') as f:
-        slurm_config = yaml.safe_load(f)
+    slurm_config = load_slurm_config(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
     jobname_base = 'l%.1f_b%.1f' % (longitude, latitude)
@@ -431,6 +430,28 @@ def load_popsycle_config(popsycle_config_filename):
     with open(popsycle_config_filename, 'r') as f:
         popsycle_config = yaml.safe_load(f)
     return popsycle_config
+
+
+def load_slurm_config(slurm_config_filename):
+    """
+    Load the slurm parameters from the yaml file
+
+    Parameters
+    ----------
+    slurm_config_filename : str
+        Name of slurm_config.yaml file containing the slurm parameters
+        that will be used the generate the slurm script header.
+
+    Output
+    ------
+    slurm_config : dict
+        Dictionary containing the slurm parameters for the PopSyCLE run
+
+    """
+    # Load the configuration file containing slurm parameters
+    with open(slurm_config_filename, 'r') as f:
+        slurm_config = yaml.safe_load(f)
+    return slurm_config
 
 
 def return_filename_dict(output_root):

@@ -1,4 +1,5 @@
-# Configuration parameters for PopSyCLE pipeline
+# Example configuration parameters for PopSyCLE pipeline
+# Loaded by `run_on_slurm:load_popsycle_config`
 
 radius_cut: 2
 obs_time: 1095

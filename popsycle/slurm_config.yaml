@@ -1,4 +1,5 @@
-# Configuration parameters for slurm scheduler
+# Example configuration parameters for slurm scheduler
+# Loaded by `run_on_slurm:load_slurm_config`
 
 # Path to the python executable
 path_python: python

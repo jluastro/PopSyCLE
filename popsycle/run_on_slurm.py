@@ -237,23 +237,29 @@ def run():
     events_filename = '%s_events.fits' % microlensing_params['output_root']
     blends_filename = '%s_blends.fits' % microlensing_params['output_root']
 
+    print('**** Processing stage %i for %s ****' % (args.stage,
+                                                    args.output_root))
+
     if args.stage == 1:
         # Galaxia
         if os.path.exists(ebf_filename):
             os.remove(ebf_filename)
 
+        print('-- Generating galaxia params')
         synthetic.write_galaxia_params(
             output_root=microlensing_params['output_root'],
             longitude=microlensing_params['longitude'],
             latitude=microlensing_params['latitude'],
             area=microlensing_params['area'],
             seed=None)
+        print('-- Executing galaxia')
         _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
 
         # perform_pop_syn
         if os.path.exists(hdf5_filename):
             os.remove(hdf5_filename)
 
+        print('-- Executing perform_pop_syn')
         synthetic.perform_pop_syn(
             ebf_file=ebf_filename,
             output_root=microlensing_params['output_root'],
@@ -269,6 +275,7 @@ def run():
         if os.path.exists(blends_filename):
             os.remove(blends_filename)
 
+        print('-- Executing calc_events')
         synthetic.calc_events(hdf5_file=hdf5_filename,
                               output_root2=microlensing_params['output_root'],
                               radius_cut=2,
@@ -278,6 +285,7 @@ def run():
                               blend_rad=0.75,
                               overwrite=True)
     elif args.stage == 3:
+        print('-- Executing refine_events')
         synthetic.refine_events(input_root=microlensing_params['output_root'],
                                 filter_name=microlensing_config['filter_name'],
                                 red_law=microlensing_config['red_law'],

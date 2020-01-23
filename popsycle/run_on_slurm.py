@@ -110,7 +110,7 @@ echo "---------------------------"
 module load cray-hdf5/1.10.5.2
 export HDF5_USE_FILE_LOCKING=FALSE
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output-root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
+srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output-root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} {debug_cmd} 
 date
 echo
 "All done!"
@@ -127,6 +127,12 @@ echo
     # Make a run directory within the field file
     if not os.path.exists(path_run):
         os.makedirs(path_run)
+
+    # If debugFlag == True, add debug flag to srun command
+    if debugFlag:
+        debug_cmd = '--debug'
+    else:
+        debug_cmd = ''
 
     # Populate the mpi_template specified inputs
     job_script = mpi_template.format(**locals())
@@ -220,6 +226,8 @@ def run():
                         required=True)
     parser.add_argument('--stage', type=int,
                         required=True)
+    parser.add_argument('--debug', help='Fix random seeds.',
+                        action='store_true')
     args = parser.parse_args()
 
     microlensing_params = load_microlensing_params(args.output_root)
@@ -245,13 +253,21 @@ def run():
         if os.path.exists(ebf_filename):
             os.remove(ebf_filename)
 
+        if args.debug:
+            seed = 0
+            set_random_seed = True
+        else:
+            seed = None
+            set_random_seed = False
+
         print('-- Generating galaxia params')
         synthetic.write_galaxia_params(
             output_root=microlensing_params['output_root'],
             longitude=microlensing_params['longitude'],
             latitude=microlensing_params['latitude'],
             area=microlensing_params['area'],
-            seed=None)
+            seed=seed)
+
         print('-- Executing galaxia')
         _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
 
@@ -266,7 +282,8 @@ def run():
             iso_dir=microlensing_config['isochrones_dir'],
             bin_edges_number=microlensing_config['bin_edges_number'],
             BH_kick_speed=microlensing_config['BH_kick_speed'],
-            NS_kick_speed=microlensing_config['NS_kick_speed'])
+            NS_kick_speed=microlensing_config['NS_kick_speed'],
+            set_random_seed=set_random_seed)
     elif args.stage == 2:
         # calc_events
         if os.path.exists(events_filename):

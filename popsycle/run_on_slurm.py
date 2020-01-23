@@ -204,7 +204,7 @@ echo "---------------------------"
 module load cray-hdf5/1.10.5.2
 export HDF5_USE_FILE_LOCKING=FALSE
 cd {path_run}
-srun -N{N_nodes} -n{N_cores} {path_python} {run_on_slurm_filepath} --output-root={output_root} --stage={stage} --microlensing-config-filename={popsycle_config_filename} {debug_cmd} 
+srun -N{N_nodes} -n{N_cores} {path_python} {run_on_slurm_filepath} --output-root={output_root} --stage={stage} --popsycle-config-filename={popsycle_config_filename} {debug_cmd} 
 date
 echo
 "All done!"

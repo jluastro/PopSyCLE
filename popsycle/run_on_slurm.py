@@ -240,13 +240,21 @@ def run():
     if not os.path.exists(isochrones_dir):
         os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
 
+    # Define filenames
     ebf_filename = '%s.ebf' % microlensing_params['output_root']
     hdf5_filename = '%s.h5' % microlensing_params['output_root']
     events_filename = '%s_events.fits' % microlensing_params['output_root']
     blends_filename = '%s_blends.fits' % microlensing_params['output_root']
 
-    print('**** Processing stage %i for %s ****' % (args.stage,
-                                                    args.output_root))
+    # Detect parallel processes
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    size = comm.size
+
+    if rank == 0:
+        print('**** Processing stage %i for %s ****' % (args.stage,
+                                                        args.output_root))
 
     if args.stage == 1:
         # Galaxia
@@ -292,14 +300,15 @@ def run():
         if os.path.exists(blends_filename):
             os.remove(blends_filename)
 
-        print('-- Executing calc_events')
+        if rank == 0:
+            print('-- Executing calc_events')
         synthetic.calc_events(hdf5_file=hdf5_filename,
                               output_root2=microlensing_params['output_root'],
-                              radius_cut=2,
-                              obs_time=1095,
-                              n_obs=5,
-                              theta_frac=2,
-                              blend_rad=0.75,
+                              radius_cut=microlensing_config['radius_cut'],
+                              obs_time=microlensing_config['obs_time'],
+                              n_obs=microlensing_config['n_obs'],
+                              theta_frac=microlensing_config['theta_frac'],
+                              blend_rad=microlensing_config['blend_rad'],
                               overwrite=True)
     elif args.stage == 3:
         print('-- Executing refine_events')

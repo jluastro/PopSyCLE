@@ -615,15 +615,20 @@ def run_stage2(output_root,
     None
 
     """
-    # Remove calc_events output if already exists
-    if os.path.exists(filename_dict['events_filename']):
-        os.remove(filename_dict['events_filename'])
-    if os.path.exists(filename_dict['blends_filename']):
-        os.remove(filename_dict['blends_filename'])
 
     # Run calc_events
     if rank == 0:
         print('-- Executing calc_events')
+        # Remove calc_events output if already exists
+        if os.path.exists(filename_dict['events_filename']):
+            os.remove(filename_dict['events_filename'])
+        if os.path.exists(filename_dict['blends_filename']):
+            os.remove(filename_dict['blends_filename'])
+
+    # If execution is parallel, all processes wait to proceed
+    if parallelFlag:
+        comm.Barrier()
+
     synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
                           output_root2=output_root,
                           radius_cut=popsycle_config['radius_cut'],
@@ -633,8 +638,7 @@ def run_stage2(output_root,
                           blend_rad=popsycle_config['blend_rad'],
                           overwrite=True)
 
-    # If script is run in parallel, wait for all processes to
-    # finish calc_events
+    # If execution is parallel, wait for all processes to finish calc_events
     if parallelFlag:
         comm.Barrier()
 

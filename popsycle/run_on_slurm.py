@@ -55,7 +55,7 @@ def generate_microlensing_param_file(path_run, output_root,
 
 # def submit_script(slurm_config, stage, previous_slurm_job_id=None):
 def submit_script(stage, slurm_config, microlensing_config_filename,
-                  output_root, path_run,
+                  path_run, output_root,
                   jobname_base, walltime,
                   N_nodes_calc_events=None, N_cores_calc_events=None,
                   previous_slurm_job_id=None, debugFlag=False):

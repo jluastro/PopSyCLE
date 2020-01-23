@@ -40,12 +40,12 @@ that execute the entire PopSyCLE pipeline.
 To begin, create a slurm configuration file that contains the linux cluster
 parameters necessary to submit a batch scripts. These parameters are universal
 to all PopSyCLE runs and should only need to be created once. An example can be
-found in `popsycle/data/slurm_config.yaml`_. Next, create a PopSyCLE
+found in `<popsycle/data/slurm_config.yaml>`_. Next, create a PopSyCLE
 configuration file that contains the parameters necessary to run the PopSyCLE
 pipeline. You may want to create a PopSyCLE configuration file for
 each project in order to keep the operation of PopSyCLE the same over multiple
 fields. An example can be found in
-`popsycle/data/popsycle_config.yaml`_. Lastly, run the
+`<popsycle/data/popsycle_config.yaml>`_. Lastly, run the
 ``generate_slurm_scripts`` function along with information
 about a single PopSyCLE field that you would like to run. These parameters
 could be different for each field and allow for the user to launch multiple

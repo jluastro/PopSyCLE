@@ -244,8 +244,7 @@ def run():
             iso_dir=microlensing_config['isochrones_dir'],
             bin_edges_number=microlensing_config['bin_edges_number'],
             BH_kick_speed=microlensing_config['BH_kick_speed'],
-            NS_kick_speed=microlensing_config['NS_kick_speed'],
-            overwrite=True)
+            NS_kick_speed=microlensing_config['NS_kick_speed'])
     elif args.stage == 2:
         # calc_events
         hdf5_file = '%s.h5' % microlensing_params['output_root']

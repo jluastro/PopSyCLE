@@ -225,13 +225,13 @@ def run():
         args.microlensing_config_filename)
     if args.stage == 1:
         # Galaxia
-        random_seed = synthetic.write_galaxia_params(
+        synthetic.write_galaxia_params(
             output_root=microlensing_params['output_root'],
             longitude=microlensing_params['longitude'],
             latitude=microlensing_params['latitude'],
             area=microlensing_params['area'],
             seed=None)
-        _ = execute('galaxia -r galaxia_params.%i.txt' % random_seed)
+        _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
         # perform_pop_syn
         ebf_filename = '%s.ebf' % microlensing_params['output_root']
         isochrones_dir = './isochrones'

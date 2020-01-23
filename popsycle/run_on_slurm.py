@@ -238,8 +238,8 @@ def run():
             os.symlink(microlensing_config['isochrones_dir'], isochrones_dir)
 
         ebf_filename = '%s.ebf' % microlensing_params['output_root']
-        if microlensing_params['bin_edges_number'] == 'None':
-            microlensing_params['bin_edges_number'] = None
+        if microlensing_config['bin_edges_number'] == 'None':
+            microlensing_config['bin_edges_number'] = None
 
         synthetic.perform_pop_syn(
             ebf_file=ebf_filename,

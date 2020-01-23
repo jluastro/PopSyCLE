@@ -26,26 +26,32 @@ Example
 An example of implementing PopSyCLE can be found
 [in our example notebook](docs/PopSyCLE_example.ipynb).
 
-Running PopSyCLE on Slurm Scheduler
------------------------------------
+Running PopSyCLE on a Slurm Scheduler
+-------------------------------------
 
 Slurm is an open source, fault-tolerant, and highly scalable cluster management
 and job scheduling system for large and small Linux clusters
-(https://slurm.schedmd.com/overview.html). Many instances of the PopSyCLE
+(https://slurm.schedmd.com/overview.html). Multiple instances of the PopSyCLE
 pipeline can be executed in parallel if running on a system that both has
-PopSyCLE and a slurm scheduler installed. ``generate_slurm_scripts`` from
-``run_on_slurm.py`` will create and submit slurm batch scripts provided
-parameters for how to setup the linux cluster, popsycle parameters and where
-PopSyCLE should simulate the sky.
+PopSyCLE and a slurm scheduler installed. The ``generate_slurm_scripts``
+function from ``run_on_slurm.py`` will create and submit slurm batch scripts
+that execute the entire PopSyCLE pipeline.
 
-To begin, create a slurm configuration file that contains the slurm parameters
-necessary to submit a batch scripts. An example can be found in
-``popsycle/data/slurm_config.yaml``. Create a PopSyCLE configuration file that
-contains the parameters necessary to run the PopSyCLE pipeline. An example can
-be found in ``popsycle/data/popsycle_config.yaml``.
+To begin, create a slurm configuration file that contains the linux cluster
+parameters necessary to submit a batch scripts. These parameters are universal
+to all PopSyCLE runs and should only need to be created once. An example can be
+found in ``popsycle/data/slurm_config.yaml``. Next, create a PopSyCLE
+configuration file that contains the parameters necessary to run the PopSyCLE
+pipeline. You may want to create a PopSyCLE configuration file for
+each project in order to keep the operation of PopSyCLE the same over multiple
+fields. An example can be found in ``popsycle/data/popsycle_config.yaml``.
+Lastly, run the ``generate_slurm_scripts`` function along with information
+about a single PopSyCLE field that you would like to run. These parameters
+could be different for each field and allow for the user to launch multiple
+instances of PopSyCLE at once by running this function multiple times with
+different input.
 
-Scripts can be generated and submitted using the ``generate_slurm_scripts``
-function:
+The function ``generate_slurm_scripts`` can be executed by running:
 
 .. code-block:: python
 
@@ -66,9 +72,7 @@ function:
                        debugFlag=False)
 
 
-The ``generate_slurm_scripts`` docstring explains these different settings:
-
-.. code-block:: python
+The ``generate_slurm_scripts`` docstring explains these different settings::
 
     Generates all stages of slurm scripts that executes the PopSyCLE pipeline
 
@@ -143,6 +147,13 @@ The ``generate_slurm_scripts`` docstring explains these different settings:
     Output
     ------
     None
+
+Running ``generate_slurm_scripts`` creates three batch scripts that are each
+submitted to the slurm scheduler. These three batch scripts are referred to as
+stages 1, 2, and 3, and what each stage contains can be read in the above
+docstring. Each stage is submitted to the slurm scheduler with a dependency
+such that the previous stage must complete before a stage will be launched by
+the scheduler.
 
 License
 -------

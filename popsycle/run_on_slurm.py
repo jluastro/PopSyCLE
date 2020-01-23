@@ -741,7 +741,7 @@ def run():
         os.symlink(popsycle_config['isochrones_dir'], isochrones_dir)
 
     # Return the dictionary containing PopSyCLE output filenames
-    filename_dict = return_filename_dict(galactic_config['output_root'])
+    filename_dict = return_filename_dict(args.output_root)
 
     # Detect parallel processes
     from mpi4py import MPI

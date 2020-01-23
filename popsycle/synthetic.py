@@ -163,7 +163,7 @@ def write_galaxia_params(output_root,
         "popID -1",
         "warpFlareOn 1",
         "seed %i" % seed,
-        "r_max 20",
+        "r_max 30",
         "starType 0",
         "photoError 0"
     ]

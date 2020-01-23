@@ -313,8 +313,10 @@ def run():
                               blend_rad=microlensing_config['blend_rad'],
                               overwrite=True)
 
-        if not os.path.exists(events_filename):
-            Path(noevents_filename).touch()
+        comm.Barrier()
+        if rank == 0:
+            if not os.path.exists(events_filename):
+                Path(noevents_filename).touch()
     elif args.stage == 3:
         if os.path.exists(noevents_filename):
             raise Exception('No events present, skipping refine_events')

@@ -107,6 +107,8 @@ echo "Job id = $SLURM_JOBID"
 echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
+module load cray-hdf5/1.10.5.2
+export HDF5_USE_FILE_LOCKING=FALSE
 cd {path_run}
 srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output-root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
 date

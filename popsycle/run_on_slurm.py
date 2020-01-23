@@ -108,7 +108,7 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output_root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
+srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path}π --output-root={output_root} --stage={stage} --microlensing-config-filename={microlensing_config_filename} 
 date
 echo
 "All done!"

@@ -8,6 +8,7 @@ Scripts created will be formatted for submission to a SLURM scheduler.
 import subprocess
 import yaml
 import os
+from pathlib import Path
 import argparse
 from popsycle import synthetic
 
@@ -245,6 +246,7 @@ def run():
     hdf5_filename = '%s.h5' % microlensing_params['output_root']
     events_filename = '%s_events.fits' % microlensing_params['output_root']
     blends_filename = '%s_blends.fits' % microlensing_params['output_root']
+    noevents_filename = '%s_NOEVENTS.txt' % microlensing_params['output_root']
 
     # Detect parallel processes
     from mpi4py import MPI
@@ -310,7 +312,13 @@ def run():
                               theta_frac=microlensing_config['theta_frac'],
                               blend_rad=microlensing_config['blend_rad'],
                               overwrite=True)
+
+        if not os.path.exists(events_filename):
+            Path(noevents_filename).touch()
     elif args.stage == 3:
+        if os.path.exists(noevents_filename):
+            raise Exception('No events present, skipping refine_events')
+
         print('-- Executing refine_events')
         synthetic.refine_events(input_root=microlensing_params['output_root'],
                                 filter_name=microlensing_config['filter_name'],

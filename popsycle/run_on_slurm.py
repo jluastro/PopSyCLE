@@ -118,11 +118,11 @@ def generate_script(stage, slurm_config, popsycle_config_filename,
         Directory containing the parameter file and PopSyCLE output files
 
     output_root : str
-        The thing you want the output files to be named
+        Base filename of the output files
         Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     jobname_base : str
         Name of slurm jobname, appended by the stage of the script.
@@ -291,11 +291,11 @@ def generate_all_scripts(slurm_config_filename, popsycle_config_filename,
         Directory containing the parameter file and PopSyCLE output files
 
     output_root : str
-        The thing you want the output files to be named
+        Base filename of the output files
         Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -377,6 +377,10 @@ def load_galactic_config(output_root):
     ----------
     output_root : str
         Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     Output
     ------
@@ -420,6 +424,10 @@ def return_filename_dict(output_root):
     ----------
     output_root : str
         Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     Output
     ------
@@ -456,6 +464,10 @@ def run_stage1(output_root,
     ----------
     output_root : str
         Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     galactic_config : dict
         Dictionary containing the galactic parameters for the PopSyCLE run
@@ -489,7 +501,7 @@ def run_stage1(output_root,
 
     print('-- Generating galaxia params')
     synthetic.write_galaxia_params(
-        output_root=galactic_config['output_root'],
+        output_root=output_root,
         longitude=galactic_config['longitude'],
         latitude=galactic_config['latitude'],
         area=galactic_config['area'],
@@ -505,7 +517,7 @@ def run_stage1(output_root,
     print('-- Executing perform_pop_syn')
     synthetic.perform_pop_syn(
         ebf_file=filename_dict['ebf_filename'],
-        output_root=galactic_config['output_root'],
+        output_root=output_root,
         iso_dir=popsycle_config['isochrones_dir'],
         bin_edges_number=popsycle_config['bin_edges_number'],
         BH_kick_speed=popsycle_config['BH_kick_speed'],
@@ -513,8 +525,8 @@ def run_stage1(output_root,
         set_random_seed=set_random_seed)
 
 
-def run_stage2(galactic_config, popsycle_config,
-               filename_dict,
+def run_stage2(output_root,
+               popsycle_config, filename_dict,
                parallelFlag=False,
                rank=0,
                comm=None):
@@ -524,8 +536,12 @@ def run_stage2(galactic_config, popsycle_config,
 
     Parameters
     ----------
-    galactic_config : dict
-        Dictionary containing the galactic parameters for the PopSyCLE run
+    output_root : str
+        Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     popsycle_config : dict
         Dictionary containing the PopSyCLE parameters for the PopSyCLE run
@@ -564,7 +580,7 @@ def run_stage2(galactic_config, popsycle_config,
     if rank == 0:
         print('-- Executing calc_events')
     synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
-                          output_root2=galactic_config['output_root'],
+                          output_root2=output_root,
                           radius_cut=popsycle_config['radius_cut'],
                           obs_time=popsycle_config['obs_time'],
                           n_obs=popsycle_config['n_obs'],
@@ -579,16 +595,19 @@ def run_stage2(galactic_config, popsycle_config,
             Path(filename_dict['noevents_filename']).touch()
 
 
-def run_stage3(galactic_config, popsycle_config,
-               filename_dict):
+def run_stage3(output_root, popsycle_config, filename_dict):
     """
     Run stage 3 of the PopSyCLE pipeline:
         - synthetic.refine_events
 
     Parameters
     ----------
-    galactic_config : dict
-        Dictionary containing the galactic parameters for the PopSyCLE run
+    output_root : str
+        Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
 
     popsycle_config : dict
         Dictionary containing the PopSyCLE parameters for the PopSyCLE run
@@ -607,7 +626,7 @@ def run_stage3(galactic_config, popsycle_config,
         os.exit(1)
 
     print('-- Executing refine_events')
-    synthetic.refine_events(input_root=galactic_config['output_root'],
+    synthetic.refine_events(input_root=output_root,
                             filter_name=popsycle_config['filter_name'],
                             red_law=popsycle_config['red_law'],
                             overwrite=True,
@@ -652,20 +671,18 @@ def run():
             print('Stage 1 must be run with only one rank. Exiting...')
             os.exit(1)
         run_stage1(args.output_root,
-                   galactic_config, popsycle_config,
-                   filename_dict, debugFlag=args.debug)
+                   galactic_config, popsycle_config, filename_dict,
+                   debugFlag=args.debug)
     elif args.stage == 2:
-        run_stage2(galactic_config, popsycle_config,
-                   filename_dict,
-                   parallelFlag=True,
-                   rank=rank,
-                   comm=comm)
+        run_stage2(args.output_root,
+                   popsycle_config, filename_dict,
+                   parallelFlag=True, rank=rank, comm=comm)
     elif args.stage == 3:
         if size != 1:
             print('Stage 3 must be run with only one rank. Exiting...')
             os.exit(1)
-        run_stage3(galactic_config, popsycle_config,
-                   filename_dict)
+        run_stage3(args.output_root,
+                   popsycle_config, filename_dict)
     else:
         print('Error: stage must be one of [1, 2, 3]. Exiting...')
         os.exit(1)

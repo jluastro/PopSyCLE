@@ -59,7 +59,7 @@ def submit_script(stage, slurm_config, microlensing_config_filename,
                   jobname_base, walltime,
                   N_nodes_calc_events=None, N_cores_calc_events=None,
                   previous_slurm_job_id=None,
-                  skipSubmitFlag=False, debugFlag=False):
+                  submitFlag=True, debugFlag=False):
     # Path to the python executable
     path_python = slurm_config['path_python']
     # Project account name to charge
@@ -146,9 +146,7 @@ echo
 
     # Submit the job
     # Add a dependency if previous_slurm_id is not none
-    if skipSubmitFlag:
-        previous_slurm_job_id = None
-    else:
+    if submitFlag:
         if previous_slurm_job_id is None:
             stdout, stderr = execute('sbatch {0}'.format(script_filename))
         else:
@@ -165,6 +163,8 @@ echo
         print('Submitted job {0} to {1}'.format(script_filename, resource))
 
         previous_slurm_job_id = stdout.decode().replace('\n', '').split()[-1]
+    else:
+        previous_slurm_job_id = None
 
     return previous_slurm_job_id
 
@@ -174,7 +174,7 @@ def submit_pipeline(slurm_config_file, microlensing_config_filename,
                     longitude, latitude, area,
                     N_nodes_calc_events, N_cores_calc_events,
                     walltime_stage1, walltime_stage2,
-                    walltime_stage3, skipSubmitFlag=False, debugFlag=False):
+                    walltime_stage3, submitFlag=True, debugFlag=False):
     generate_microlensing_param_file(path_run, output_root,
                                      longitude, latitude, area)
 
@@ -186,7 +186,7 @@ def submit_pipeline(slurm_config_file, microlensing_config_filename,
                                   microlensing_config_filename,
                                   path_run, output_root,
                                   jobname_base, walltime_stage1,
-                                  skipSubmitFlag=skipSubmitFlag,
+                                  submitFlag=submitFlag,
                                   debugFlag=debugFlag)
     slurm_job_id2 = submit_script(2, slurm_config,
                                   microlensing_config_filename,
@@ -195,13 +195,13 @@ def submit_pipeline(slurm_config_file, microlensing_config_filename,
                                   N_nodes_calc_events=N_nodes_calc_events,
                                   N_cores_calc_events=N_cores_calc_events,
                                   previous_slurm_job_id=slurm_job_id1,
-                                  skipSubmitFlag=skipSubmitFlag,
+                                  submitFlag=submitFlag,
                                   debugFlag=debugFlag)
     _ = submit_script(3, slurm_config, microlensing_config_filename,
                       path_run, output_root,
                       jobname_base, walltime_stage3,
                       previous_slurm_job_id=slurm_job_id2,
-                      skipSubmitFlag=skipSubmitFlag,
+                      submitFlag=submitFlag,
                       debugFlag=debugFlag)
 
 

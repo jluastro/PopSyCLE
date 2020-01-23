@@ -77,20 +77,22 @@ def generate_galactic_config_file(path_run, output_root,
     None
 
     """
+    # Name the config file using the output root
     config_filename = '{0}/galactic_config.{1}.yaml'.format(path_run,
                                                             output_root)
+    # Write galactic parameters to the config file
     with open(config_filename, 'w') as f:
         f.write('longitude: %f\n' % longitude)
         f.write('latitude: %f\n' % latitude)
         f.write('area: %f\n' % area)
 
 
-def generate_script(stage, slurm_config, popsycle_config_filename,
-                    path_run, output_root,
-                    jobname_base, walltime,
-                    N_nodes=1, N_cores=1,
-                    previous_slurm_job_id=None,
-                    submitFlag=True, debugFlag=False):
+def generate_stage_script(stage, slurm_config, popsycle_config_filename,
+                          path_run, output_root,
+                          jobname_base, walltime,
+                          N_nodes=1, N_cores=1,
+                          previous_slurm_job_id=None,
+                          submitFlag=True, debugFlag=False):
     """
     Generate a slurm script that executes a stage of the PopSyCLE pipeline
 
@@ -157,9 +159,13 @@ def generate_script(stage, slurm_config, popsycle_config_filename,
     None
 
     """
+    # Check that the stage is one of the acceptable inputs
     if stage not in [1, 2, 3]:
         print('Error: stage must be one of [1, 2, 3]. Exiting...')
         os.exit(1)
+
+    ## Bring the slurm_config values into the namespace so that down before
+    ## the **locals() command can be executed
 
     # Path to the python executable
     path_python = slurm_config['path_python']
@@ -167,20 +173,20 @@ def generate_script(stage, slurm_config, popsycle_config_filename,
     account = slurm_config['account']
     # Queue
     queue = slurm_config['queue']
-    # Number of nodes per run
     # Name of the resource that will be used for the run
     resource = slurm_config['resource']
-    # Number of cores per node to use
+    # Maximum number of cores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
     n_nodes_max = slurm_config[resource]['n_nodes_max']
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
-    # Get current directory
-    run_on_slurm_path = os.path.abspath(__file__)
+    # Get filepath of the run_on_slurm file
+    run_on_slurm_filepath = os.path.abspath(__file__)
     # Create jobname
     jobname = '%s_s%i' % (jobname_base, stage)
 
+    # Template for writing slurm script. Text must be left adjusted.
     mpi_template = """#!/bin/sh
 # Job name
 #SBATCH --account={account}
@@ -198,7 +204,7 @@ echo "---------------------------"
 module load cray-hdf5/1.10.5.2
 export HDF5_USE_FILE_LOCKING=FALSE
 cd {path_run}
-srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_path} --output-root={output_root} --stage={stage} --microlensing-config-filename={popsycle_config_filename} {debug_cmd} 
+srun -N{n_nodes} -n{n_cores} {path_python} {run_on_slurm_filepath} --output-root={output_root} --stage={stage} --microlensing-config-filename={popsycle_config_filename} {debug_cmd} 
 date
 echo
 "All done!"
@@ -206,13 +212,14 @@ echo
 
     # Check that the specified number of nodes does not exceed the resource max
     if N_nodes > n_nodes_max:
-        raise Exception('Error: specified number of nodes exceeds limit. '
-                        'Exiting...')
+        print('Error: specified number of nodes exceeds limit. Exiting...')
+        os.exit(1)
+    # Check that the specified number of cores does not exceed the resource max
     if N_cores > n_cores_per_node:
-        raise Exception('Error: specified number of cores exceeds limit. '
-                        'Exiting...')
+        print('Error: specified number of cores exceeds limit. Exiting...')
+        os.exit(1)
 
-    # Make a run directory within the field file
+    # Make a run directory for the PopSyCLE output
     if not os.path.exists(path_run):
         os.makedirs(path_run)
 
@@ -225,16 +232,16 @@ echo
     # Populate the mpi_template specified inputs
     job_script = mpi_template.format(**locals())
 
-    # Save the script
+    # Write the script to the path_run folder
     if not path_run.endswith('/'):
         path_run = path_run + '/'
     script_filename = path_run + 'run_popsycle_{0}.sh'.format(stage)
     with open(script_filename, 'w') as f:
         f.write(job_script)
 
-    # Submit the job
-    # Add a dependency if previous_slurm_id is not none
+    # Submit the job to disk
     if submitFlag:
+        # Add a dependency if previous_slurm_id is not none
         if previous_slurm_job_id is None:
             stdout, stderr = execute('sbatch {0}'.format(script_filename))
         else:
@@ -250,6 +257,7 @@ echo
 
         print('Submitted job {0} to {1}'.format(script_filename, resource))
 
+        # Extract slurm job ID of submitted job from stdout
         previous_slurm_job_id = stdout.decode().replace('\n', '').split()[-1]
     else:
         previous_slurm_job_id = None
@@ -257,12 +265,12 @@ echo
     return previous_slurm_job_id
 
 
-def generate_all_scripts(slurm_config_filename, popsycle_config_filename,
-                         path_run, output_root,
-                         longitude, latitude, area,
-                         N_nodes_calc_events, N_cores_calc_events,
-                         walltime_stage1, walltime_stage2,
-                         walltime_stage3, submitFlag=True, debugFlag=False):
+def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
+                           path_run, output_root,
+                           longitude, latitude, area,
+                           N_nodes_calc_events, N_cores_calc_events,
+                           walltime_stage1, walltime_stage2,
+                           walltime_stage3, submitFlag=True, debugFlag=False):
     """
     Generates all stages of slurm scripts that executes the PopSyCLE pipeline
 
@@ -339,34 +347,41 @@ def generate_all_scripts(slurm_config_filename, popsycle_config_filename,
     None
 
     """
+    # Write a galactic configuration file to disk in path_run
     generate_galactic_config_file(path_run, output_root,
                                   longitude, latitude, area)
 
+    # Load the slurm configuration file
     with open(slurm_config_filename, 'r') as f:
         slurm_config = yaml.safe_load(f)
 
+    # Create a slurm jobname base that all stages will be appended to
     jobname_base = 'l%.1f_b%.1f' % (longitude, latitude)
-    slurm_job_id1 = generate_script(1, slurm_config,
-                                    popsycle_config_filename,
-                                    path_run, output_root,
-                                    jobname_base, walltime_stage1,
-                                    submitFlag=submitFlag,
-                                    debugFlag=debugFlag)
-    slurm_job_id2 = generate_script(2, slurm_config,
-                                    popsycle_config_filename,
-                                    path_run, output_root,
-                                    jobname_base, walltime_stage2,
-                                    N_nodes=N_nodes_calc_events,
-                                    N_cores=N_cores_calc_events,
-                                    previous_slurm_job_id=slurm_job_id1,
-                                    submitFlag=submitFlag,
-                                    debugFlag=debugFlag)
-    _ = generate_script(3, slurm_config, popsycle_config_filename,
-                        path_run, output_root,
-                        jobname_base, walltime_stage3,
-                        previous_slurm_job_id=slurm_job_id2,
-                        submitFlag=submitFlag,
-                        debugFlag=debugFlag)
+
+    # Create the first stage script and submit it if submitFlag == True
+    slurm_job_id1 = generate_stage_script(1, slurm_config,
+                                          popsycle_config_filename,
+                                          path_run, output_root,
+                                          jobname_base, walltime_stage1,
+                                          submitFlag=submitFlag,
+                                          debugFlag=debugFlag)
+    # Create the second stage script and submit it if submitFlag == True
+    slurm_job_id2 = generate_stage_script(2, slurm_config,
+                                          popsycle_config_filename,
+                                          path_run, output_root,
+                                          jobname_base, walltime_stage2,
+                                          N_nodes=N_nodes_calc_events,
+                                          N_cores=N_cores_calc_events,
+                                          previous_slurm_job_id=slurm_job_id1,
+                                          submitFlag=submitFlag,
+                                          debugFlag=debugFlag)
+    # Create the third stage script and submit it if submitFlag == True
+    _ = generate_stage_script(3, slurm_config, popsycle_config_filename,
+                              path_run, output_root,
+                              jobname_base, walltime_stage3,
+                              previous_slurm_job_id=slurm_job_id2,
+                              submitFlag=submitFlag,
+                              debugFlag=debugFlag)
 
 
 def load_galactic_config(output_root):
@@ -388,6 +403,7 @@ def load_galactic_config(output_root):
         Dictionary containing the galactic parameters for the PopSyCLE run
 
     """
+    # Load the configuration file containing galactic parameters
     config_filename = 'galactic_config.{0}.yaml'.format(output_root)
     with open(config_filename, 'r') as f:
         galactic_config = yaml.safe_load(f)
@@ -411,6 +427,7 @@ def load_popsycle_config(popsycle_config_filename):
         Dictionary containing the PopSyCLE parameters for the PopSyCLE run
 
     """
+    # Load the configuration file containing popsycle parameters
     with open(popsycle_config_filename, 'r') as f:
         popsycle_config = yaml.safe_load(f)
     return popsycle_config
@@ -435,12 +452,14 @@ def return_filename_dict(output_root):
         Dictionary containing the names of the files output by the pipeline
 
     """
+    # Write out all of the filenames using the output_root
     ebf_filename = '%s.ebf' % output_root
     hdf5_filename = '%s.h5' % output_root
     events_filename = '%s_events.fits' % output_root
     blends_filename = '%s_blends.fits' % output_root
     noevents_filename = '%s_NOEVENTS.txt' % output_root
 
+    # Add the filenames to a dictionary
     filename_dict = {
         'ebf_filename': ebf_filename,
         'hdf5_filename': hdf5_filename,
@@ -488,10 +507,12 @@ def run_stage1(output_root,
     None
 
     """
-    # Galaxia
+    # Remove Galaxia output if already exists
     if os.path.exists(filename_dict['ebf_filename']):
         os.remove(filename_dict['ebf_filename'])
 
+    # If debugFlag == True, force Galaxia and PyPopStar (within PopSycLE) to
+    # run with fixed seeds
     if debugFlag:
         seed = 0
         set_random_seed = True
@@ -499,6 +520,7 @@ def run_stage1(output_root,
         seed = None
         set_random_seed = False
 
+    # Write out parameters for Galaxia run to disk
     print('-- Generating galaxia params')
     synthetic.write_galaxia_params(
         output_root=output_root,
@@ -507,13 +529,15 @@ def run_stage1(output_root,
         area=galactic_config['area'],
         seed=seed)
 
+    # Run Galaxia from that parameter file
     print('-- Executing galaxia')
     _ = execute('galaxia -r galaxia_params.%s.txt' % output_root)
 
-    # perform_pop_syn
+    # Remove perform_pop_syn output if already exists
     if os.path.exists(filename_dict['hdf5_filename']):
         os.remove(filename_dict['hdf5_filename'])
 
+    # Run perform_pop_syn
     print('-- Executing perform_pop_syn')
     synthetic.perform_pop_syn(
         ebf_file=filename_dict['ebf_filename'],
@@ -570,13 +594,13 @@ def run_stage2(output_root,
     None
 
     """
-    # calc_events
+    # Remove calc_events output if already exists
     if os.path.exists(filename_dict['events_filename']):
         os.remove(filename_dict['events_filename'])
-
     if os.path.exists(filename_dict['blends_filename']):
         os.remove(filename_dict['blends_filename'])
 
+    # Run calc_events
     if rank == 0:
         print('-- Executing calc_events')
     synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
@@ -588,9 +612,14 @@ def run_stage2(output_root,
                           blend_rad=popsycle_config['blend_rad'],
                           overwrite=True)
 
+    # If script is run in parallel, wait for all processes to
+    # finish calc_events
     if parallelFlag:
         comm.Barrier()
+
     if rank == 0:
+        # Write a fle to disk stating that there are no events if
+        # calc_events does not produce an events file
         if not os.path.exists(filename_dict['events_filename']):
             Path(filename_dict['noevents_filename']).touch()
 
@@ -621,10 +650,13 @@ def run_stage3(output_root, popsycle_config, filename_dict):
     None
 
     """
+    # If calc_events failed to produce an event files and instead created a
+    # no-events file, exit before running refine_events
     if os.path.exists(filename_dict['noevents_filename']):
         print('No events present, skipping refine_events')
         os.exit(1)
 
+    # Run refine_events
     print('-- Executing refine_events')
     synthetic.refine_events(input_root=output_root,
                             filter_name=popsycle_config['filter_name'],
@@ -634,26 +666,60 @@ def run_stage3(output_root, popsycle_config, filename_dict):
 
 
 def run():
-    parser = argparse.ArgumentParser()
+    description_str = """
+    Run the stages of the PopSyCLE pipeline. This executable is intended to be 
+    run by slurm scripts generated by `generate_slurm_scripts`. 
+    
+    Serial stages should be run with 
+    `python run_on_slurm.py ...`. Parallel stages should be run with 
+    `mpiexec -n 4 run_on_slurm.py ...` or the equivalent way to launch a 
+    python script that will run with mpi4py.
+    
+    Script must be executed in a folder containing a galactic_config file 
+    generated by `generate_galactic_config_file`.
+    
+    Stage 1: (serial)
+        - Galaxia
+        - synthetic.perform_pop_syn
+    Stage 2: (parallel)
+        - synthetic.calc_events
+    Stage 3: (serial)
+        - synthetic.refine_events
+        """
+    parser = argparse.ArgumentParser(description=description_str)
     parser.add_argument('--output-root', type=str,
+                        help='Base filename of the output files',
                         required=True)
-    parser.add_argument('--microlensing-config-filename', type=str,
+    parser.add_argument('--popsycle-config-filename', type=str,
+                        help='Name of popsycle_config.yaml file containing '
+                             'the PopSyCLE parameters',
                         required=True)
     parser.add_argument('--stage', type=int,
+                        help='Number of the stage to be executed. Must be '
+                             'either 1, 2 or 3',
                         required=True)
-    parser.add_argument('--debug', help='Fix random seeds.',
+    parser.add_argument('--debug', help='Force Galaxia and PyPopStar '
+                                        '(within PopSyCLE) to fix their '
+                                        'random seeds to set numbers. This '
+                                        'guarantees identical output for '
+                                        'all stages.',
                         action='store_true')
     args = parser.parse_args()
 
+    # Load the config files for galactic parameters
     galactic_config = load_galactic_config(args.output_root)
+    # Load the config files for popsycle parameters. If the `bin_edges_number`
+    # has been set to the string `None`, instead set it to the boolean None.
     popsycle_config = load_popsycle_config(args.popsycle_config_filename)
     if popsycle_config['bin_edges_number'] == 'None':
         popsycle_config['bin_edges_number'] = None
 
+    # Create an isochrones mirror in the current directory
     isochrones_dir = './isochrones'
     if not os.path.exists(isochrones_dir):
         os.symlink(popsycle_config['isochrones_dir'], isochrones_dir)
 
+    # Return the dictionary containing PopSyCLE output filenames
     filename_dict = return_filename_dict(galactic_config['output_root'])
 
     # Detect parallel processes
@@ -666,10 +732,13 @@ def run():
         print('**** Processing stage %i for %s ****' % (args.stage,
                                                         args.output_root))
 
+    # Confirm that stages 1 and 3 are only run with a single processer
+    if args.stage in [1, 3] and size != 1:
+        print('Stage 1 or 3 must be run with only one rank. Exiting...')
+        os.exit(1)
+
+    # Run a different stage depending on the stage parameter
     if args.stage == 1:
-        if size != 1:
-            print('Stage 1 must be run with only one rank. Exiting...')
-            os.exit(1)
         run_stage1(args.output_root,
                    galactic_config, popsycle_config, filename_dict,
                    debugFlag=args.debug)
@@ -678,13 +747,10 @@ def run():
                    popsycle_config, filename_dict,
                    parallelFlag=True, rank=rank, comm=comm)
     elif args.stage == 3:
-        if size != 1:
-            print('Stage 3 must be run with only one rank. Exiting...')
-            os.exit(1)
         run_stage3(args.output_root,
                    popsycle_config, filename_dict)
     else:
-        print('Error: stage must be one of [1, 2, 3]. Exiting...')
+        print('Error: stage must be either 1, 2, or 3. Exiting...')
         os.exit(1)
 
 

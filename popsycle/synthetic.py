@@ -1121,7 +1121,8 @@ def calc_events(hdf5_file, output_root2,
 
     parallelFlag : bool
         If True, script will execute in parallel will all processors
-        accessible by mpi4py. If False, script will execute in serial.
+        accessible by mpi4py. If False, script will execute in serial and
+        skip over mpi4py import.
 
 
     Output

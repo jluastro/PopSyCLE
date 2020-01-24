@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import argparse
 from popsycle import synthetic
-from popsycle.run import execute
+from popsycle.slurm import execute
 
 
 def load_galactic_config(output_root):

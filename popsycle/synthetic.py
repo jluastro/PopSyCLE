@@ -776,14 +776,16 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
-                NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
+                NS_kick = sample_spherical(len(NS_idx), NS_kick_speed,
+                                           fix_direction=set_random_seed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
-                BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
+                BH_kick = sample_spherical(len(BH_idx), BH_kick_speed,
+                                           fix_direction=set_random_seed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
                 comp_dict['vz'][BH_idx] += BH_kick[2]
@@ -2726,7 +2728,8 @@ def calc_ext(E, f):
 
     return m_E
 
-def sample_spherical(npoints, speed, ndim = 3):
+def sample_spherical(npoints, speed,
+                     ndim = 3, fix_direction = False):
     """
     Randomly sample points on a sphere.
     I found this code on stackexchange.
@@ -2743,14 +2746,25 @@ def sample_spherical(npoints, speed, ndim = 3):
         The dimension of the space in which the sphere is embedded 
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
+    fix_direction : bool
+        If set to True, fix the velocity of the kick to be equally distributed
+        between all three axes. If set to False, randomly sample velocities
+        from the surface of a sphere.
+
     Return
     ------
     An array of the vectors.
     """
 
-    vec = np.random.randn(ndim, npoints)
-    vec /= np.linalg.norm(vec, axis = 0)
-    return speed * vec
+    if not fix_direction:
+        vec = np.random.randn(ndim, npoints)
+        vec /= np.linalg.norm(vec, axis = 0)
+        vec *= speed
+    else:
+        vec = np.zeros((ndim, npoints))
+        for i in range(ndim):
+            vec[i, :] = speed / np.sqrt(3)
+    return vec
 
 def wrap180(angle_input):
     """

@@ -190,7 +190,7 @@ def write_galaxia_params(output_root,
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None, BH_kick_speed=100,
                     NS_kick_speed=350,
-                    set_random_seed=False):
+                    debug=False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -223,9 +223,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     NS_kick_speed : float 
         Kick speed of NS (in km/s)
 
-    set_random_seed : bool
-        Forces PyPopStar to fix the random seed to 42,
-        enforcing identical output.
+    debug : bool
+        If set to True, removes all random sampling and forces identical
+        output for Galaxia, PyPopStar and PopSyCLE.
+        Default False.
 
     Outputs
     -------
@@ -456,17 +457,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
                 star_dict['rad'] = add_precision64(star_dict['rad'], -4,
-                                                   skip_perturb=set_random_seed)
+                                                   debug=debug)
                 star_dict['glat'] = add_precision64(star_dict['glat'], -4,
-                                                    skip_perturb=set_random_seed)
+                                                    debug=debug)
                 star_dict['glon'] = add_precision64(star_dict['glon'], -4,
-                                                    skip_perturb=set_random_seed)
+                                                    debug=debug)
                 star_dict['vr'] = add_precision64(vr, -4,
-                                                  skip_perturb=set_random_seed)
+                                                  debug=debug)
                 star_dict['mu_b'] = add_precision64(mu_b, -4,
-                                                    skip_perturb=set_random_seed)
+                                                    debug=debug)
                 star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4,
-                                                        skip_perturb=set_random_seed)
+                                                        debug=debug)
 
                 ##########
                 # Perform population synthesis.
@@ -482,7 +483,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      next_id,
                                                      BH_kick_speed=BH_kick_speed,
                                                      NS_kick_speed=NS_kick_speed,
-                                                     set_random_seed=set_random_seed)
+                                                     debug=debug)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -581,7 +582,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
 def calc_current_initial_ratio(iso_dir,
                                out_file='current_initial_stellar_mass_ratio.txt',
-                               set_random_seed=False):
+                               debug=False):
     """
     Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the ratio of
     current to initial cluster mass. The range of ages goes from 6 to 10.089 log(age/yr).
@@ -596,9 +597,10 @@ def calc_current_initial_ratio(iso_dir,
     iso_dir : filepath
         Where you are storing isochrones
 
-    set_random_seed : bool
-        Forces PyPopStar to fix the random seed to 42,
-        enforcing identical output.
+    debug : bool
+        If set to True, removes all random sampling and forces identical
+        output for PyPopStar and PopSyCLE.
+        Default False.
 
     Output
     ------
@@ -628,7 +630,7 @@ def calc_current_initial_ratio(iso_dir,
         trunc_kroupa = imf.IMF_broken_powerlaw(mass_limits,
                                                powers)  # define IMF
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass,
-                                            set_random_seed=set_random_seed)  # make cluster
+                                            set_random_seed=debug)  # make cluster
         output = cluster.star_systems
 
         # Find the stars in MIST not in Galaxia (i.e. WDs) and figure out how much mass they contribute
@@ -657,7 +659,7 @@ def calc_current_initial_ratio(iso_dir,
     return
 
 
-def current_initial_ratio(logage, ratio_file, iso_dir, set_random_seed=False):
+def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
     """
     Calculates the ratio of the current cluster mass to the initial
     mass of the cluster.
@@ -673,9 +675,10 @@ def current_initial_ratio(logage, ratio_file, iso_dir, set_random_seed=False):
     iso_dir : filepath 
         Where are the isochrones stored (for PopStar)
 
-    set_random_seed : bool
-        Forces PyPopStar to fix the random seed to 42,
-        enforcing identical output.
+    debug : bool
+        If set to True, removes all random sampling and forces identical
+        output for PyPopStar and PopSyCLE.
+        Default False.
 
     Return
     ------
@@ -689,7 +692,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, set_random_seed=False):
             boop = np.loadtxt(ratio_file)
         except Exception as e:
             calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file,
-                                       set_random_seed=set_random_seed)
+                                       debug=debug)
             boop = np.loadtxt(ratio_file)
 
         logage_vec = boop[:, 0]
@@ -701,7 +704,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, set_random_seed=False):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed=100, NS_kick_speed=350,
-                    set_random_seed=False):
+                    debug=False):
     """
     Perform population synthesis.  
 
@@ -730,9 +733,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     NSKickSpeed : float or int
         Kick speed of NS (in km/s)
 
-    set_random_seed : bool
-        Forces PyPopStar to fix the random seed to 42,
-        enforcing identical output.
+    debug : bool
+        If set to True, removes all random sampling and forces identical
+        output for PyPopStar and PopSyCLE.
+        Default False.
 
     Returns
     -------
@@ -754,7 +758,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file='current_initial_stellar_mass_ratio.txt',
                                   iso_dir=iso_dir,
-                                  set_random_seed=set_random_seed)
+                                  debug=debug)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
                  'ukirt,K', 'ukirt,J']
@@ -778,7 +782,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # MAKE cluster
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             initialClusterMass, ifmr=my_ifmr,
-                                            set_random_seed=set_random_seed)
+                                            set_random_seed=debug)
         output = cluster.star_systems
 
         # Create the PopStar table with just compact objects
@@ -819,7 +823,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             kde = neighbors.KernelDensity(bandwidth=0.0001)
             kde.fit(kde_in_data)
 
-            if set_random_seed:
+            if debug:
                 seed = 0
             else:
                 seed = None
@@ -847,7 +851,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed,
-                                           fix_direction=set_random_seed)
+                                           debug=debug)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
@@ -855,18 +859,18 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed,
-                                           fix_direction=set_random_seed)
+                                           debug=debug)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
                 comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
             comp_dict['rad'] = add_precision64(comp_dict['rad'], -4,
-                                               skip_perturb=set_random_seed)
+                                               debug=debug)
             comp_dict['glat'] = add_precision64(comp_dict['glat'], -4,
-                                                skip_perturb=set_random_seed)
+                                                debug=debug)
             comp_dict['glon'] = add_precision64(comp_dict['glon'], -4,
-                                                skip_perturb=set_random_seed)
+                                                debug=debug)
 
             # Assign vr, mu_b, mu_lcosb.
             comp_dict['vr'], comp_dict['mu_b'], comp_dict[
@@ -879,11 +883,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
             # Add precision to vr, mu_b, mu_lcosb
             comp_dict['vr'] = add_precision64(comp_dict['vr'], -4,
-                                              skip_perturb=set_random_seed)
+                                              debug=debug)
             comp_dict['mu_b'] = add_precision64(comp_dict['mu_b'], -4,
-                                                skip_perturb=set_random_seed)
+                                                debug=debug)
             comp_dict['mu_lcosb'] = add_precision64(comp_dict['mu_lcosb'], -4,
-                                                    skip_perturb=set_random_seed)
+                                                    debug=debug)
 
             # Assign age.
             comp_dict['age'] = log_age * np.ones(len(comp_dict['vx']))
@@ -2932,7 +2936,7 @@ def calc_ext(E, f):
 
 
 def sample_spherical(npoints, speed,
-                     ndim=3, fix_direction=False):
+                     ndim=3, debug=False):
     """
     Randomly sample points on a sphere.
     I found this code on stackexchange.
@@ -2949,17 +2953,19 @@ def sample_spherical(npoints, speed,
         The dimension of the space in which the sphere is embedded 
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
-    fix_direction : bool
-        If set to True, fix the velocity of the kick to be equally distributed
-        between all three axes. If set to False, randomly sample velocities
-        from the surface of a sphere.
+    debug : bool
+        If set to True, fix the velocity of the kick
+        to be equally distributed between all three axes.
+        If set to False, randomly sample velocities from
+        the surface of a sphere.
+        Defauly False.
 
     Return
     ------
     An array of the vectors.
     """
 
-    if not fix_direction:
+    if not debug:
         vec = np.random.randn(ndim, npoints)
         vec /= np.linalg.norm(vec, axis=0)
         vec *= speed
@@ -2992,7 +2998,7 @@ def wrap180(angle_input):
     return angle_output
 
 
-def add_precision64(input_array, power, skip_perturb=False):
+def add_precision64(input_array, power, debug=False):
     """
     Need more precision for kdtree to run properly. Convert inputs from
     float32 to float64, and add a random perturbation beginning in the 
@@ -3006,10 +3012,10 @@ def add_precision64(input_array, power, skip_perturb=False):
     power : float
         To what place you want the perturbation.
 
-    skip_perturb : bool
-        If True, do NOT add a random perturbation to the precision.
+    debug : bool
+        If True, skip adding a random perturbation to the precision.
         If False, add a random perturbation to the precision.
-        Default False
+        Default False.
     
     Return
     ------
@@ -3024,7 +3030,7 @@ def add_precision64(input_array, power, skip_perturb=False):
     output_array = np.atleast_1d(np.float64(input_array))
 
     # Add the perturbation.
-    if not skip_perturb:
+    if not debug:
         output_array = output_array + pert
 
     return output_array

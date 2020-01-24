@@ -150,9 +150,9 @@ def generate_stage_script(stage, slurm_config, popsycle_config_filename,
         Default is True
 
     debugFlag : bool
-        If set to True, scripts will be run with a fixed seed that produces
-        identical output. If set to False, a random seed will be selected.
-        Default is False
+        If set to True, removes all random sampling and forces identical
+        output for Galaxia, PyPopStar and PopSyCLE.
+        Default False.
 
     Output
     ------
@@ -494,7 +494,7 @@ def return_filename_dict(output_root):
 
 def run_stage1(output_root,
                galactic_config, popsycle_config,
-               filename_dict, debugFlag=False):
+               filename_dict, debug=False):
     """
     Run stage 1 of the PopSyCLE pipeline:
         - Galaxia
@@ -518,10 +518,10 @@ def run_stage1(output_root,
     filename_dict : dict
         Dictionary containing the names of the files output by the pipeline
 
-    debugFlag : bool
-        If set to True, scripts will be run with a fixed seed that produces
-        identical output. If set to False, a random seed will be selected.
-        Default is False
+    debug : bool
+        If set to True, removes all random sampling and forces identical
+        output for Galaxia, PyPopStar and PopSyCLE.
+        Default False.
 
     Output
     ------
@@ -534,12 +534,10 @@ def run_stage1(output_root,
 
     # If debugFlag == True, force Galaxia and PyPopStar (within PopSycLE) to
     # run with fixed seeds
-    if debugFlag:
+    if debug:
         seed = 0
-        set_random_seed = True
     else:
         seed = None
-        set_random_seed = False
 
     # Write out parameters for Galaxia run to disk
     print('-- Generating galaxia params')
@@ -567,7 +565,7 @@ def run_stage1(output_root,
         bin_edges_number=popsycle_config['bin_edges_number'],
         BH_kick_speed=popsycle_config['BH_kick_speed'],
         NS_kick_speed=popsycle_config['NS_kick_speed'],
-        set_random_seed=set_random_seed)
+        debug=debug)
 
 
 def run_stage2(output_root,
@@ -767,7 +765,7 @@ def run():
     if args.stage == 1:
         run_stage1(args.output_root,
                    galactic_config, popsycle_config, filename_dict,
-                   debugFlag=args.debug)
+                   debug=args.debug)
     elif args.stage == 2:
         run_stage2(args.output_root,
                    popsycle_config, filename_dict,

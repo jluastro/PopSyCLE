@@ -438,12 +438,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 #########
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
-                star_dict['rad'] = add_precision64(star_dict['rad'], -4)
-                star_dict['glat'] = add_precision64(star_dict['glat'], -4)
-                star_dict['glon'] = add_precision64(star_dict['glon'], -4)
-                star_dict['vr'] = add_precision64(vr, -4)
-                star_dict['mu_b'] = add_precision64(mu_b, -4)
-                star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4)
+                star_dict['rad'] = add_precision64(star_dict['rad'], -4, skip_perturb=set_random_seed)
+                star_dict['glat'] = add_precision64(star_dict['glat'], -4, skip_perturb=set_random_seed)
+                star_dict['glon'] = add_precision64(star_dict['glon'], -4, skip_perturb=set_random_seed)
+                star_dict['vr'] = add_precision64(vr, -4, skip_perturb=set_random_seed)
+                star_dict['mu_b'] = add_precision64(mu_b, -4, skip_perturb=set_random_seed)
+                star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4, skip_perturb=set_random_seed)
 
                 ##########
                 # Perform population synthesis.
@@ -544,7 +544,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     return
 
-def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_ratio.txt'):
+def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_ratio.txt',
+                               set_random_seed=False):
     """
     Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the ratio of
     current to initial cluster mass. The range of ages goes from 6 to 10.089 log(age/yr).
@@ -558,6 +559,10 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
 
     iso_dir : filepath
         Where you are storing isochrones
+
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
 
     Output
     ------
@@ -581,7 +586,8 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
                                          iso_dir = iso_dir) # make isochrone
 
         trunc_kroupa = imf.IMF_broken_powerlaw(mass_limits, powers) # define IMF
-        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass) # make cluster
+        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass,
+                                            set_random_seed=set_random_seed) # make cluster
         output = cluster.star_systems
 
         # Find the stars in MIST not in Galaxia (i.e. WDs) and figure out how much mass they contribute
@@ -608,7 +614,7 @@ def calc_current_initial_ratio(iso_dir, out_file='current_initial_stellar_mass_r
 
     return
 
-def current_initial_ratio(logage, ratio_file, iso_dir):
+def current_initial_ratio(logage, ratio_file, iso_dir, set_random_seed=False):
     """
     Calculates the ratio of the current cluster mass to the initial
     mass of the cluster.
@@ -624,6 +630,10 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
     iso_dir : filepath 
         Where are the isochrones stored (for PopStar)
 
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
+
     Return
     ------
         The current-initial cluster mass ratio (float)
@@ -635,7 +645,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
         try:
             boop = np.loadtxt(ratio_file)
         except Exception as e:
-            calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file)
+            calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file,
+                                       set_random_seed=set_random_seed)
             boop = np.loadtxt(ratio_file)
 
         logage_vec = boop[:, 0]
@@ -697,7 +708,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     my_ifmr = ifmr.IFMR()
     ratio = current_initial_ratio(logage = log_age,
                                   ratio_file = 'current_initial_stellar_mass_ratio.txt',
-                                  iso_dir = iso_dir)
+                                  iso_dir = iso_dir,
+                                  set_random_seed=set_random_seed)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H', 'ukirt,K', 'ukirt,J']
 
@@ -756,7 +768,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # .T because kde.fit needs the rows/columns this way.
             kde = neighbors.KernelDensity(bandwidth = 0.0001)
             kde.fit(kde_in_data)
-            kde_out_data = kde.sample(len(comp_dict['mass']))
+
+            if set_random_seed:
+                seed = 0
+            else:
+                seed = None
+
+            kde_out_data = kde.sample(len(comp_dict['mass']), random_state=seed)
             comp_dict['rad'] = kde_out_data[:, 0]
             comp_dict['glat'] = kde_out_data[:, 1]
             comp_dict['glon'] = kde_out_data[:, 2]
@@ -791,9 +809,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
-            comp_dict['rad'] = add_precision64(comp_dict['rad'], -4)
-            comp_dict['glat'] = add_precision64(comp_dict['glat'], -4)
-            comp_dict['glon'] = add_precision64(comp_dict['glon'], -4)
+            comp_dict['rad'] = add_precision64(comp_dict['rad'], -4, skip_perturb=set_random_seed)
+            comp_dict['glat'] = add_precision64(comp_dict['glat'], -4, skip_perturb=set_random_seed)
+            comp_dict['glon'] = add_precision64(comp_dict['glon'], -4, skip_perturb=set_random_seed)
 
             # Assign vr, mu_b, mu_lcosb.
             comp_dict['vr'], comp_dict['mu_b'], comp_dict['mu_lcosb'] =  calc_sph_motion(comp_dict['vx'],
@@ -804,9 +822,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                                                                          comp_dict['glon'])
 
             # Add precision to vr, mu_b, mu_lcosb
-            comp_dict['vr'] = add_precision64(comp_dict['vr'], -4)
-            comp_dict['mu_b'] = add_precision64(comp_dict['mu_b'], -4)
-            comp_dict['mu_lcosb'] = add_precision64(comp_dict['mu_lcosb'], -4)
+            comp_dict['vr'] = add_precision64(comp_dict['vr'], -4, skip_perturb=set_random_seed)
+            comp_dict['mu_b'] = add_precision64(comp_dict['mu_b'], -4, skip_perturb=set_random_seed)
+            comp_dict['mu_lcosb'] = add_precision64(comp_dict['mu_lcosb'], -4, skip_perturb=set_random_seed)
 
             # Assign age.
             comp_dict['age'] = log_age * np.ones(len(comp_dict['vx']))
@@ -2787,7 +2805,7 @@ def wrap180(angle_input):
 
     return angle_output
 
-def add_precision64(input_array, power):
+def add_precision64(input_array, power, skip_perturb=False):
     """
     Need more precision for kdtree to run properly. Convert inputs from
     float32 to float64, and add a random perturbation beginning in the 
@@ -2800,6 +2818,11 @@ def add_precision64(input_array, power):
 
     power : float
         To what place you want the perturbation.
+
+    skip_perturb : bool
+        If True, do NOT add a random perturbation to the precision.
+        If False, add a random perturbation to the precision.
+        Default False
     
     Return
     ------
@@ -2813,8 +2836,9 @@ def add_precision64(input_array, power):
     # Convert to float64.
     output_array = np.float64(input_array)
 
-    # Add the perturbation. 
-    output_array = output_array + pert
+    # Add the perturbation.
+    if not skip_perturb:
+        output_array = output_array + pert
 
     return output_array
 

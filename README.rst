@@ -33,9 +33,9 @@ Slurm is an open source, fault-tolerant, and highly scalable cluster management
 and job scheduling system for large and small Linux clusters
 (https://slurm.schedmd.com/overview.html). Multiple instances of the PopSyCLE
 pipeline can be executed in parallel if running on a system that both has
-PopSyCLE and a slurm scheduler installed. The ``generate_slurm_scripts``
-function from ``run_on_slurm.py`` will create and submit slurm batch scripts
-that execute the entire PopSyCLE pipeline.
+PopSyCLE and a slurm scheduler installed. The
+``popsycle.slurm.generate_slurm_scripts`` function will create and submit
+slurm batch scripts that execute the entire PopSyCLE pipeline.
 
 To begin, create a slurm configuration file that contains the linux cluster
 parameters necessary to submit a batch scripts. These parameters outline
@@ -47,7 +47,7 @@ pipeline. You may want to create a single PopSyCLE configuration file for
 each project in order to keep the execution of PopSyCLE the same over multiple
 fields. An example can be found in
 `<popsycle/data/popsycle_config.yaml>`_. Lastly, run the
-``generate_slurm_scripts`` function along with information
+``popsycle.slurm.generate_slurm_scripts`` function along with information
 about a single PopSyCLE field that you would like to run. These parameters
 could be different for each field and allow for the user to launch multiple
 instances of PopSyCLE at once by running this function multiple times with
@@ -151,14 +151,21 @@ The ``generate_slurm_scripts`` docstring explains the function's parameters::
         Default is True
 
     debugFlag : bool
-        If set to True, scripts will be run with a fixed seed that produces
-        identical output. If set to False, a random seed will be selected.
-        Default is False
+        If set to True, removes all random sampling and forces identical
+        output for Galaxia, PyPopStar and PopSyCLE.
+        Default False.
 
     Output
     ------
     None
 
+The PopSyCLE pipeline can also be run without using slurm scripts using the
+executable located at `<popsycle/run.py>`_. Running this executable from the
+command line requires the creation of a galactic configuration file using
+```popsycle.slurm.generate_galactic_config_file``` and a Popsycle
+configuration file to be provided as a command line argument. More details on
+how to run this executable can be found by running
+```python {PATH_TO_POPSYCLE}/popsycle/run.py -h```.
 
 License
 -------

@@ -636,6 +636,7 @@ def run_stage2(output_root,
                           n_obs=popsycle_config['n_obs'],
                           theta_frac=popsycle_config['theta_frac'],
                           blend_rad=popsycle_config['blend_rad'],
+                          parallelFlag=True,
                           overwrite=True)
 
     # If execution is parallel, wait for all processes to finish calc_events

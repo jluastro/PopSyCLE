@@ -1014,7 +1014,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut = 2, obs_time = 1000, n_obs = 101, theta_frac = 2, blend_rad = 0.65,
-                overwrite=False):
+                parallelFlag=True, overwrite=False):
     """
     Calculate microlensing events
     
@@ -1038,6 +1038,10 @@ def calc_events(hdf5_file, output_root2,
     blend_rad : float
         Stars within this distance of the lens are said to be blended. 
         Units are in ARCSECONDS.
+
+    parallelFlag : bool
+        If True, script will execute in parallel will all processors
+        accessible by mpi4py. If False, script will execute in serial.
 
 
     Output
@@ -1099,10 +1103,14 @@ def calc_events(hdf5_file, output_root2,
     radius_cut *= 1000.0
 
     # Set up the multiprocessing
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.rank
-    size = comm.size
+    if parallelFlag:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.rank
+        size = comm.size
+    else:
+        rank = 0
+        size = 1
 
     # Set up inputs
     nll = len(l_array[:]) - 2
@@ -1127,7 +1135,10 @@ def calc_events(hdf5_file, output_root2,
                                                 theta_frac, blend_rad))
         idx += size
 
-    results = comm.gather(my_results, root=0)
+    if parallelFlag:
+        results = comm.gather(my_results, root=0)
+    else:
+        results = my_results
 
     if rank == 0:
         # Remove all the None values

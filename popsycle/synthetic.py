@@ -3021,7 +3021,7 @@ def add_precision64(input_array, power, skip_perturb=False):
     pert = 10 ** power * (np.random.rand(len(input_array)) - 0.5)
 
     # Convert to float64.
-    output_array = np.float64(input_array)
+    output_array = np.atleast_1d(np.float64(input_array))
 
     # Add the perturbation.
     if not skip_perturb:

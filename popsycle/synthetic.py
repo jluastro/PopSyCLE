@@ -3,7 +3,7 @@ import h5py
 import math
 from astropy import units
 from scipy.stats import maxwell
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt #TEST LINE
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord # High-level coordinates
@@ -72,9 +72,8 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ###########################################################################
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    bin_edges_number = None, BH_kick_speed_loc = 100,BH_kick_speed_scale = 1,
-                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1,
-                    set_random_seed = False):
+                    bin_edges_number = None, BH_kick_speed_mean = 50,
+                    NS_kick_speed_mean = 400, set_random_seed = False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -102,16 +101,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Total number of bins is (bin_edges_number - 1)**2
 
     BH_kick_speed_loc : float 
-       Location of the kick speed for BH (in km/s) maxwellian using scipy's maxwellian distrubution
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
 
-    BH_kick_speed_scale : float 
-        Scale of the kick speed for BH (in km/s) maxwellian using scipy's maxwellian distrubution
+    NS_kick_speed_mean : float 
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
 
-    NS_kick_speed_loc : float 
-        Scale of the kick speed of NS (in km/s) maxwellian using scipy's maxwellian distrubution
-
-    NS_kick_speed_scale : float 
-       Scale of the kick speed of NS (in km/s) maxwellian using scipy's maxwellian distrubution
 
     Outputs
     -------
@@ -148,21 +142,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if type(bin_edges_number) != int:
             raise Exception('bin_edges_number must be an integer.')
         
-    if type(BH_kick_speed_loc) != int:
-        if type(BH_kick_speed_loc) != float:
-            raise Exception('BH_kick_speed_loc must be an integer or a float.')
+    if type(BH_kick_speed_mean) != int:
+        if type(BH_kick_speed_mean) != float:
+            raise Exception('BH_kick_speed_mean must be an integer or a float.')
 
-    if type(BH_kick_speed_scale) != int:
-        if type(BH_kick_speed_scale) != float:
-            raise Exception('BH_kick_speed_scale must be an integer or a float.')
-
-    if type(NS_kick_speed_loc) != int:
-        if type(NS_kick_speed_loc) != float:
-            raise Exception('NS_kick_speed_loc must be an integer or a float.')
-
-    if type(NS_kick_speed_scale) != int:
-        if type(NS_kick_speed_scale) != float:
-            raise Exception('NS_kick_speed_scale must be an integer or a float.')
+    if type(NS_kick_speed_mean) != int:
+        if type(NS_kick_speed_mean) != float:
+            raise Exception('NS_kick_speed_mean must be an integer or a float.')
 
     if type(iso_dir) != str:
         raise Exception('iso_dir must be a string.')
@@ -356,10 +342,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 comp_dict, next_id, test_kicks_NS, test_kicks_BH = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin,
                                                      next_id,
-                                                     BH_kick_speed_loc=BH_kick_speed_loc,
-                                                     BH_kick_speed_scale=BH_kick_speed_scale,
-                                                     NS_kick_speed_loc=NS_kick_speed_loc,
-                                                     NS_kick_speed_scale=NS_kick_speed_scale,
+                                                     BH_kick_speed_mean=BH_kick_speed_mean,
+                                                     NS_kick_speed_mean=NS_kick_speed_mean,
                                                      set_random_seed=set_random_seed) #MODIFIED LINE FOR TEST
 
                 ##########
@@ -408,32 +392,30 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line1 = 'ebf_file , ' + ebf_file + '\n'
     line2 = 'output_root , ' + output_root + '\n'
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
-    line4 = 'BH_kick_speed_loc , ' + str(BH_kick_speed_loc) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed_loc , ' + str(NS_kick_speed_loc) + ' , (km/s)' + '\n'
-    line6 = 'BH_kick_speed_scale , ' + str(BH_kick_speed_scale) + ' , (km/s)' + '\n'
-    line7 = 'NS_kick_speed_scale  , ' + str(NS_kick_speed_scale) + ' , (km/s)' + '\n'
-    line8 = 'iso_dir , ' + iso_dir + '\n'
+    line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
+    line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
+    line6 = 'iso_dir , ' + iso_dir + '\n'
 
-    line9 = 'VERSION INFORMATION' + '\n'
-    line10 = str(now) + ' : creation date' + '\n'
-    line11 = popstar_hash + ' : PopStar commit' + '\n'
-    line12 = microlens_hash + ' : microlens commit' + '\n'
+    line7 = 'VERSION INFORMATION' + '\n'
+    line8 = str(now) + ' : creation date' + '\n'
+    line9 = popstar_hash + ' : PopStar commit' + '\n'
+    line10 = microlens_hash + ' : microlens commit' + '\n'
     
-    line13 = 'OTHER INFORMATION' + '\n'
-    line14 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line15 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line16 = str(comp_counter) + ' : total compact objects made' + '\n'
-    line17 = str(binned_counter) + ' : total things binned' + '\n'
+    line11 = 'OTHER INFORMATION' + '\n'
+    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line13 = str(n_stars) + ' : total stars from Galaxia' + '\n'
+    line14 = str(comp_counter) + ' : total compact objects made' + '\n'
+    line15 = str(binned_counter) + ' : total things binned' + '\n'
 
-    line18 = 'FILES CREATED' + '\n'
-    line19 = output_root + '.h5 : HDF5 file' + '\n'
-    line20 = output_root + '_label.fits : label file' + '\n'
+    line16 = 'FILES CREATED' + '\n'
+    line17 = output_root + '.h5 : HDF5 file' + '\n'
+    line18  = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log','w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, empty_line,
                         line7, dash_line, line8, line9, line10, empty_line,
                         line11, dash_line, line12, line13, line14, line15, empty_line,
-                        line16, dash_line, line17, line18, line19, line20])
+                        line16, dash_line, line17, line18])
 
     ##########
     # Informative print statements. 
@@ -561,8 +543,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
 
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
-                    BH_kick_speed_loc = 100, BH_kick_speed_scale = 1,
-                    NS_kick_speed_loc = 350, NS_kick_speed_scale = 1,
+                    BH_kick_speed_mean = 50, NS_kick_speed_mean = 400,
                     set_random_seed=False):
     """
     Perform population synthesis.  
@@ -586,17 +567,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BH_kick_speed_loc : float or int
-        Location of kick speed for BH (in km/s) maxwellian using scipy's maxwellian distribution
+    BH_kick_speed_mean : float or int
+        Mean of the BH birth kick speed (in km/s) maxwellian distribution.
 
-    BH_kick_speed_scale : float or int
-        Scale of kick speed for BH (in km/s) maxwellian using scipy's maxwellian distribution
-
-    NS_kick_speed_loc : float or int
-        Location of kick speed for NS (in km/s) maxwellian using scipy's maxwellian distribution
-
-    NS_kick_speed_loc : float or int
-        Scale of kick speed for NS (in km/s) maxwellian using scipy's maxwellian distribution
+    NS_kick_speed_mean : float or int
+        Mean of the NS birth kick speed (in km/s) maxwellian distribution.
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,
@@ -617,8 +592,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         
     """
     comp_dict = None
-    test_kicks_NS=[] #TEST LINE
-    test_kicks_BH=[] #TEST LINE
+    test_kicks_NS = [] #TEST LINE
+    test_kicks_BH = [] #TEST LINE
+
 
     # Calculate the initial cluster mass
     massLimits = np.array([0.1, 0.5, 120]) # changed from 0.08 to 0.1 at start because MIST can't handle.
@@ -705,8 +681,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
+            NS_kick_speed_scale=NS_kick_speed_mean/(2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
-                NS_kick_speed=maxwell.rvs(loc=NS_kick_speed_loc, scale=NS_kick_speed_scale, size=len(NS_idx))
+                NS_kick_speed=maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 test_kicks_NS.append(NS_kick_speed) #TEST LINE
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
@@ -714,8 +691,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
+            BH_kick_speed_scale=BH_kick_speed_mean/(2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
-                BH_kick_speed=maxwell.rvs(loc=BH_kick_speed_loc, scale=BH_kick_speed_scale, size=len(BH_idx))
+                BH_kick_speed=maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 test_kicks_BH.append(BH_kick_speed) #TEST LINE
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]

@@ -3,7 +3,6 @@ import h5py
 import math
 from astropy import units
 from scipy.stats import maxwell
-import matplotlib.pyplot as plt #TEST LINE
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord # High-level coordinates
@@ -340,11 +339,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
-                comp_dict, next_id, test_kicks_NS, test_kicks_BH = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin,
+                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin,
                                                      next_id,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
-                                                     set_random_seed=set_random_seed) #MODIFIED LINE FOR TEST
+                                                     set_random_seed=set_random_seed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -430,14 +429,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     print('Total number of compact objects made: ' + str(comp_counter))
     print('Total number of things binned: ' + str(binned_counter))
 
-    plt.figure() #TEST LINE
-    plt.title('NS Kick Speeds') #TEST LINE
-    plt.hist(test_kicks_NS) #TEST LINE
-    plt.savefig('NS_kick_speeds.png') #TEST LINE
-    plt.figure() #TEST LINE
-    plt.title('BH Kick Speeds') #TEST LINE
-    plt.hist(test_kicks_BH) #TEST LINE
-    plt.savefig('BH_kick_speeds') #TEST LINE
 
     return
 
@@ -585,15 +576,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
-
-    test_kicks_NS: an array of the birthkicks assigned to the NSs (I hope) for a test #TEST LINE
-
-    test_kicks_BH: an array of the birthkicks assigned to the BHs (I hope) for a test #TEST LINE
         
     """
     comp_dict = None
-    test_kicks_NS = [] #TEST LINE
-    test_kicks_BH = [] #TEST LINE
 
 
     # Calculate the initial cluster mass
@@ -684,7 +669,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             NS_kick_speed_scale=NS_kick_speed_mean/(2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
                 NS_kick_speed=maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
-                test_kicks_NS.append(NS_kick_speed) #TEST LINE
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
@@ -694,7 +678,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             BH_kick_speed_scale=BH_kick_speed_mean/(2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
                 BH_kick_speed=maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
-                test_kicks_BH.append(BH_kick_speed) #TEST LINE
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
@@ -774,7 +757,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     else:
         comp_dict = None
             
-    return comp_dict, next_id, test_kicks_NS, test_kicks_BH #MODIFIED LINE FOR TEST
+    return comp_dict, next_id
 
 def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     """

@@ -558,11 +558,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BH_kick_speed_mean : float or int
-        Mean of the BH birth kick speed (in km/s) maxwellian distribution.
-
-    NS_kick_speed_mean : float or int
-        Mean of the NS birth kick speed (in km/s) maxwellian distribution.
+    BH_kick_speed_loc : float 
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 50 km/s.
+        
+    NS_kick_speed_mean : float 
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,

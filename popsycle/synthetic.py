@@ -20,6 +20,7 @@ import subprocess
 import os
 from sklearn import neighbors
 import itertools
+from multiprocessing import Pool
 
 ##########
 # Conversions.
@@ -1094,7 +1095,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65,
-                parallelFlag=True, overwrite=False):
+                n_proc=True, overwrite=False):
     """
     Calculate microlensing events
     
@@ -1119,10 +1120,9 @@ def calc_events(hdf5_file, output_root2,
         Stars within this distance of the lens are said to be blended. 
         Units are in ARCSECONDS.
 
-    parallelFlag : bool
-        If True, script will execute in parallel will all processors
-        accessible by mpi4py. If False, script will execute in serial and
-        skip over mpi4py import.
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
 
 
     Output
@@ -1185,160 +1185,148 @@ def calc_events(hdf5_file, output_root2,
     radius_cut *= 1000.0
 
     # Set up the multiprocessing
-    if parallelFlag:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.rank
-        size = comm.size
-    else:
-        rank = 0
-        size = 1
+    pool = Pool(n_proc)
 
-    # Set up inputs
+    # Set up inputs to be able to be read by pool.map
     nll = len(l_array[:]) - 2
     nbb = len(b_array[:]) - 2
-    N_boxes = nll * nbb
 
-    llbb = [lb for lb in itertools.product(range(nll), range(nbb))]
+    llbb = itertools.product(range(nll), range(nbb))
+
+    reps = nll * nbb
+
+    hd = itertools.repeat(hdf5_file, reps)
+    ot = itertools.repeat(obs_time, reps)
+    no = itertools.repeat(n_obs, reps)
+    rc = itertools.repeat(radius_cut, reps)
+    tf = itertools.repeat(theta_frac, reps)
+    br = itertools.repeat(blend_rad, reps)
+
+    inputs = zip(llbb, hd, ot, no, rc, tf, br)
 
     ##########
     # Loop through galactic latitude and longitude bins. For each bin vertex, take
     # the nearest 4 bin samples and calculate microlensing events. We do this
     # to properly handle bin edges (i.e. a sliding window analysis of 2x2 bins).
-    # Duplicate events are removed. 
+    # Duplicate events are removed.
     ##########
+    # Should I use starmap_async?
+    results = pool.starmap(_calc_event_time_loop, inputs)
 
-    my_results = []
-    idx = rank
-    while idx < N_boxes:
-        my_results.append(_calc_event_time_loop(llbb[idx],
-                                                hdf5_file, obs_time,
-                                                n_obs, radius_cut,
-                                                theta_frac, blend_rad))
-        idx += size
+    pool.close()
+    pool.join()
 
-    if parallelFlag:
-        results = comm.gather(my_results, root=0)
+    # Remove all the None values
+    # (occurs for patches with less than 10 objects)
+    results = [i for i in results if i is not None]
+
+    results_ev = []
+    results_bl = []
+
+    for ii in range(len(results)):
+        if results[ii] is not None:
+            if results[ii][0] is not None:
+                results_ev.append(results[ii][0])
+            if results[ii][1] is not None:
+                results_bl.append(results[ii][1])
+
+    if len(results_ev) == 0:
+        print('No events!')
+        return
     else:
-        results = my_results
-
-    if rank == 0:
-        # Remove all the None values
-        # (occurs for patches with less than 10 objects)
-        results = [i for i in results if i is not None]
-        results = list(itertools.chain.from_iterable(results))
-
-        results_ev = []
-        results_bl = []
-
-        for ii in range(len(results)):
-            if results[ii] is not None:
-                if results[ii][0] is not None:
-                    results_ev.append(results[ii][0])
-                if results[ii][1] is not None:
-                    results_bl.append(results[ii][1])
-
-        if len(results_ev) == 0:
-            print('No events!')
-            return
+        events_tmp = np.concatenate(results_ev, axis=1)
+        if len(results_bl) == 0:
+            blends_tmp = np.array([])
         else:
-            events_tmp = np.concatenate(results_ev, axis=1)
-            if len(results_bl) == 0:
-                blends_tmp = np.array([])
-            else:
-                blends_tmp = np.concatenate(results_bl, axis=1)
+            blends_tmp = np.concatenate(results_bl, axis=1)
 
-        # Convert the events numpy array into an Astropy Table for easier consumption.
-        # The dimensions of events_tmp is 58 x Nevents
-        # The dimensions of blends_tmp is 30 x Nblends
-        events_tmp = unique_events(events_tmp)
-        events_final = Table(events_tmp.T,
-                             names=('zams_mass_L', 'rem_id_L', 'mass_L',
-                                    'px_L', 'py_L', 'pz_L',
-                                    'vx_L', 'vy_L', 'vz_L',
-                                    'rad_L', 'glat_L', 'glon_L',
-                                    'vr_L', 'mu_b_L', 'mu_lcosb_L',
-                                    'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
-                                    'exbv_L', 'obj_id_L',
-                                    'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
-                                    'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
-                                    'zams_mass_S', 'rem_id_S', 'mass_S',
-                                    'px_S', 'py_S', 'pz_S',
-                                    'vx_S', 'vy_S', 'vz_S',
-                                    'rad_S', 'glat_S', 'glon_S',
-                                    'vr_S', 'mu_b_S', 'mu_lcosb_S',
-                                    'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
-                                    'exbv_S', 'obj_id_S',
-                                    'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
-                                    'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
-                                    'theta_E', 'u0', 'mu_rel', 't0'))
+    # Convert the events numpy array into an Astropy Table for easier consumption.
+    # The dimensions of events_tmp is 58 x Nevents
+    # The dimensions of blends_tmp is 30 x Nblends
+    events_tmp = unique_events(events_tmp)
+    events_final = Table(events_tmp.T,
+                         names=('zams_mass_L', 'rem_id_L', 'mass_L',
+                                'px_L', 'py_L', 'pz_L',
+                                'vx_L', 'vy_L', 'vz_L',
+                                'rad_L', 'glat_L', 'glon_L',
+                                'vr_L', 'mu_b_L', 'mu_lcosb_L',
+                                'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
+                                'exbv_L', 'obj_id_L',
+                                'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
+                                'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                'zams_mass_S', 'rem_id_S', 'mass_S',
+                                'px_S', 'py_S', 'pz_S',
+                                'vx_S', 'vy_S', 'vz_S',
+                                'rad_S', 'glat_S', 'glon_S',
+                                'vr_S', 'mu_b_S', 'mu_lcosb_S',
+                                'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
+                                'exbv_S', 'obj_id_S',
+                                'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
+                                'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
+                                'theta_E', 'u0', 'mu_rel', 't0'))
 
-        if len(results_bl) != 0:
-            blends_tmp = unique_blends(blends_tmp)
-        blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
-                                                  'zams_mass_N', 'rem_id_N',
-                                                  'mass_N',
-                                                  'px_N', 'py_N', 'pz_N',
-                                                  'vx_N', 'vy_N', 'vz_N',
-                                                  'rad_N', 'glat_N', 'glon_N',
-                                                  'vr_N', 'mu_b_N',
-                                                  'mu_lcosb_N',
-                                                  'age_N', 'popid_N',
-                                                  'ubv_k_N',
-                                                  'ubv_i_N',
-                                                  'exbv_N', 'obj_id_N',
-                                                  'ubv_j_N', 'ubv_u_N',
-                                                  'ubv_r_N',
-                                                  'ubv_b_N', 'ubv_h_N',
-                                                  'ubv_v_N',
-                                                  'sep_LN'))
+    if len(results_bl) != 0:
+        blends_tmp = unique_blends(blends_tmp)
+    blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
+                                              'zams_mass_N', 'rem_id_N',
+                                              'mass_N',
+                                              'px_N', 'py_N', 'pz_N',
+                                              'vx_N', 'vy_N', 'vz_N',
+                                              'rad_N', 'glat_N', 'glon_N',
+                                              'vr_N', 'mu_b_N', 'mu_lcosb_N',
+                                              'age_N', 'popid_N', 'ubv_k_N',
+                                              'ubv_i_N',
+                                              'exbv_N', 'obj_id_N',
+                                              'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
+                                              'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                              'sep_LN'))
 
-        # Save out file
-        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+    # Save out file
+    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
 
-        t1 = time.time()
+    t1 = time.time()
 
-        ##########
-        # Make log file
-        ##########
-        now = datetime.datetime.now()
-        radius_cut = radius_cut / 1000.0  # back to arcsec
-        microlens_path = os.path.split(os.path.abspath(__file__))[0]
-        microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                                 cwd=microlens_path).decode(
-            'ascii').strip()
-        dash_line = '-----------------------------' + '\n'
-        empty_line = '\n'
-        line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
-        line1 = 'hdf5_file , ' + hdf5_file + '\n'
-        line2 = 'output_root2 , ' + output_root2 + '\n'
-        line3 = 'radius_cut , ' + str(radius_cut) + ' , (arcsec)' + '\n'
-        line4 = 'obs_time , ' + str(obs_time) + ' , (days)' + '\n'
-        line5 = 'n_obs , ' + str(n_obs) + '\n'
-        line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
-        line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
-        line8 = 'n_proc , ' + str(size) + '\n'
-        line9 = 'VERSION INFORMATION' + '\n'
-        line10 = str(now) + ' : creation date' + '\n'
-        line11 = microlens_hash + ' : microlens commit' + '\n'
+    ##########
+    # Make log file
+    ##########
+    now = datetime.datetime.now()
+    radius_cut = radius_cut / 1000.0  # back to arcsec
+    microlens_path = os.path.split(os.path.abspath(__file__))[0]
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=microlens_path).decode(
+        'ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'hdf5_file , ' + hdf5_file + '\n'
+    line2 = 'output_root2 , ' + output_root2 + '\n'
+    line3 = 'radius_cut , ' + str(radius_cut) + ' , (arcsec)' + '\n'
+    line4 = 'obs_time , ' + str(obs_time) + ' , (days)' + '\n'
+    line5 = 'n_obs , ' + str(n_obs) + '\n'
+    line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
+    line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
+    line8 = 'n_proc , ' + str(n_proc) + '\n'
+    line9 = 'VERSION INFORMATION' + '\n'
+    line10 = str(now) + ' : creation date' + '\n'
+    line11 = microlens_hash + ' : microlens commit' + '\n'
 
-        line12 = 'OTHER INFORMATION' + '\n'
-        line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
 
-        line14 = 'FILES CREATED' + '\n'
-        line15 = output_root2 + '_events.fits : events file' + '\n'
-        line16 = output_root2 + '_blends.fits : blends file' + '\n'
+    line14 = 'FILES CREATED' + '\n'
+    line15 = output_root2 + '_events.fits : events file' + '\n'
+    line16 = output_root2 + '_blends.fits : blends file' + '\n'
 
-        with open(output_root2 + '_calc_events.log', 'w') as out:
-            out.writelines(
-                [line0, dash_line, line1, line2, line3, line4, line5, line6,
-                 line7, line8, empty_line,
-                 line9, dash_line, line10, line11, empty_line,
-                 line12, dash_line, line13, empty_line,
-                 line14, dash_line, line15, line16])
+    with open(output_root2 + '_calc_events.log', 'w') as out:
+        out.writelines(
+            [line0, dash_line, line1, line2, line3, line4, line5, line6, line7,
+             line8, empty_line,
+             line9, dash_line, line10, line11, empty_line,
+             line12, dash_line, line13, empty_line,
+             line14, dash_line, line15, line16])
 
-        print('Total runtime: {0:f} s'.format(t1 - t0))
+    print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
 
@@ -1486,8 +1474,8 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     b_t = bigpatch[col_idx['glat']] + timei * bigpatch[
         col_idx['mu_b']] * masyr_to_degday  # deg
     l_t = bigpatch[col_idx['glon']] + timei * (
-                bigpatch[col_idx['mu_lcosb']] / np.cos(
-            np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday  # deg
+            bigpatch[col_idx['mu_lcosb']] / np.cos(
+        np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday  # deg
 
     ##########
     # Determine nearest neighbor in spherical coordinates.
@@ -2651,8 +2639,8 @@ def calc_delta_c_LL(fratio, u0, thetaE):
         for i in np.arange(len(u_array)):
             u = u_array[i]
             delta_array[i] = (u - f * u ** 2 * np.sqrt(u ** 2 + 4)) / (
-                        2 + u ** 2 + f * u * np.sqrt(u ** 2 + 4)) + (u * f) / (
-                                         1 + f)
+                    2 + u ** 2 + f * u * np.sqrt(u ** 2 + 4)) + (u * f) / (
+                                     1 + f)
         max_idx = np.argmax(delta_array)
         final_delta_array[j] = delta_array[max_idx]
         final_u_array[j] = u_array[max_idx]
@@ -2813,9 +2801,9 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
     a1_a2 = calc_magnification(u)
 
     glat_c_lensed = (t1a1_t2a2 * f_S * glat_S + glat_N * f_N) / (
-                a1_a2 * f_S + f_L + f_N)
+            a1_a2 * f_S + f_L + f_N)
     glon_c_lensed = (t1a1_t2a2 * f_S * glon_S + glon_N * f_N) / (
-                a1_a2 * f_S + f_L + f_N)
+            a1_a2 * f_S + f_L + f_N)
 
     glat_c_unlensed = (glat_S * f_S + glat_N * f_N) / (f_S + f_L + f_N)
     glon_c_unlensed = (glon_S * f_S + glon_N * f_N) / (f_S + f_L + f_N)

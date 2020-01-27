@@ -183,8 +183,6 @@ def write_galaxia_params(output_root,
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed_mean = 50,
                     NS_kick_speed_mean = 400, set_random_seed = False):
-                    bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350,
-                    set_random_seed = False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -211,12 +209,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Number of edges for the bins (bins = bin_edges_number - 1)
          Total number of bins is (bin_edges_number - 1)**2
 
-    BH_kick_speed_loc : float 
+    BH_kick_speed_mean : float 
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 50 km/s.
 
     NS_kick_speed_mean : float 
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,
@@ -678,15 +675,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BH_kick_speed_loc : float 
+    BH_kick_speed_mean : float 
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 50 km/s.
         
     NS_kick_speed_mean : float 
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-
-    set_random_seed : bool
-        Forces PyPopStar to fix the random seed to 42,
-        enforcing identical output.
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,

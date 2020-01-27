@@ -88,8 +88,10 @@ def execute(cmd, shell=False):
     cmd : str
         Command line instruction, including any executables and parameters
 
+    Optional Parameters
+    -------------------
     shell : bool
-        Determines if the command is run through the shell
+        Determines if the command is run through the shell. Default is False.
 
     Outputs
     -------
@@ -296,6 +298,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Start of code
     #########
 
+    # Set random seed
+    np.random.seed(seed)
+    if seed is None:
+        debug = False
+    else:
+        debug = True
+
     t0 = time.time()
 
     #########
@@ -499,6 +508,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      next_id,
                                                      BH_kick_speed=BH_kick_speed,
                                                      NS_kick_speed=NS_kick_speed,
+                                                     debug=debug,
                                                      seed=seed)
 
                 ##########
@@ -604,7 +614,7 @@ def calc_current_initial_ratio(iso_dir,
     current to initial cluster mass. The range of ages goes from 6 to 10.089 log(age/yr).
     Creates a text file, the first column is the ages, and second column is the ratio.
 
-    Optional parameters
+    Parameters
     -------------------
     out_file : string
         Full name of the file to store the output columns: 
@@ -613,6 +623,8 @@ def calc_current_initial_ratio(iso_dir,
     iso_dir : filepath
         Where you are storing isochrones
 
+    Optional Parameters
+    -------------------
     debug : bool
         If set to True, removes all random sampling and forces identical
         output for PyPopStar and PopSyCLE.
@@ -691,6 +703,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
     iso_dir : filepath 
         Where are the isochrones stored (for PopStar)
 
+    Optional Parameters
+    -------------------
     debug : bool
         If set to True, removes all random sampling and forces identical
         output for PyPopStar and PopSyCLE.
@@ -708,7 +722,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
             boop = np.loadtxt(ratio_file)
         except Exception as e:
             calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file,
-                                       seed=seed)
+                                       debug=debug)
             boop = np.loadtxt(ratio_file)
 
         logage_vec = boop[:, 0]
@@ -720,7 +734,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed=100, NS_kick_speed=350,
-                    seed=None):
+                    debug=None, seed=None):
     """
     Perform population synthesis.  
 
@@ -754,6 +768,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         output for PyPopStar and PopSyCLE.
         Default False.
 
+    seed : int
+         Seed used to sample the kde tree. Default is None.
+
     Returns
     -------
     comp_dict : dictionary (N_keys = 21)
@@ -774,7 +791,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file='current_initial_stellar_mass_ratio.txt',
                                   iso_dir=iso_dir,
-                                  seed=seed)
+                                  debug=debug)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
                  'ukirt,K', 'ukirt,J']
@@ -839,11 +856,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             kde = neighbors.KernelDensity(bandwidth=0.0001)
             kde.fit(kde_in_data)
 
-            if debug:
-                seed = 0
-            else:
-                seed = None
-
             kde_out_data = kde.sample(len(comp_dict['mass']),
                                       random_state=seed)
             comp_dict['rad'] = kde_out_data[:, 0]
@@ -866,27 +878,22 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
-                NS_kick = sample_spherical(len(NS_idx), NS_kick_speed,
-                                           seed=seed)
+                NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
-                BH_kick = sample_spherical(len(BH_idx), BH_kick_speed,
-                                           seed=seed)
+                BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
                 comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
-            comp_dict['rad'] = add_precision64(comp_dict['rad'], -4,
-                                               seed=seed)
-            comp_dict['glat'] = add_precision64(comp_dict['glat'], -4,
-                                                debug=debug)
-            comp_dict['glon'] = add_precision64(comp_dict['glon'], -4,
-                                                debug=debug)
+            comp_dict['rad'] = add_precision64(comp_dict['rad'], -4)
+            comp_dict['glat'] = add_precision64(comp_dict['glat'], -4)
+            comp_dict['glon'] = add_precision64(comp_dict['glon'], -4)
 
             # Assign vr, mu_b, mu_lcosb.
             comp_dict['vr'], comp_dict['mu_b'], comp_dict[
@@ -898,12 +905,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                               comp_dict['glon'])
 
             # Add precision to vr, mu_b, mu_lcosb
-            comp_dict['vr'] = add_precision64(comp_dict['vr'], -4,
-                                              debug=debug)
-            comp_dict['mu_b'] = add_precision64(comp_dict['mu_b'], -4,
-                                                debug=debug)
-            comp_dict['mu_lcosb'] = add_precision64(comp_dict['mu_lcosb'], -4,
-                                                    debug=debug)
+            comp_dict['vr'] = add_precision64(comp_dict['vr'], -4)
+            comp_dict['mu_b'] = add_precision64(comp_dict['mu_b'], -4)
+            comp_dict['mu_lcosb'] = add_precision64(comp_dict['mu_lcosb'], -4)
 
             # Assign age.
             comp_dict['age'] = log_age * np.ones(len(comp_dict['vx']))
@@ -1110,7 +1114,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65,
-                n_proc=True, overwrite=False):
+                n_proc=True, seed=None, overwrite=False):
     """
     Calculate microlensing events
     
@@ -1135,9 +1139,16 @@ def calc_events(hdf5_file, output_root2,
         Stars within this distance of the lens are said to be blended. 
         Units are in ARCSECONDS.
 
+    Optional Parameters
+    -------------------
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
+
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a random number from 0 to 100. Setting this seed guarantees
+         identical results.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -1190,9 +1201,16 @@ def calc_events(hdf5_file, output_root2,
         if type(theta_frac) != float:
             raise Exception('theta_frac must be an integer or a float.')
 
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception('seed must be an integer.')
+
     ##########
     # Start of code
     #########
+
+    # Set random seed
+    np.random.seed(seed + 1)
 
     t0 = time.time()
 
@@ -1989,6 +2007,7 @@ def convert_photometric_99_to_nan(table):
 
 
 def refine_events(input_root, filter_name, red_law,
+                  seed=None,
                   overwrite=False,
                   output_file='default'):
     """
@@ -2010,6 +2029,13 @@ def refine_events(input_root, filter_name, red_law,
     red_law : str
         The name of the reddening law to use from PopStar.
 
+    Optional Parameters
+    -------------------
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a random number from 0 to 100. Setting this seed guarantees
+         identical results.
+
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
@@ -2023,16 +2049,43 @@ def refine_events(input_root, filter_name, red_law,
     columns of data. 
 
     """
-    if output_file == 'default':
-        output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(
-            input_root, filter_name, red_law)
+    ##########
+    # Error handling: check whether files exist and
+    # whether input types are correct.
+    ##########
 
+    # Error handling/complaining if input types are not right.
+    if type(input_root) != str:
+        raise Exception('input_root must be a string.')
+
+    if type(filter_name) != str:
+        raise Exception('filter_name must be a string.')
+
+    if type(red_law) != str:
+        raise Exception('red_law must be a string.')
+
+    if type(output_file) != str:
+        raise Exception('output_file must be a string.')
+
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception('seed must be an integer.')
+
+    # Check if .fits file exists already. If it does, throw an error message
+    # to complain and exit.
     # Error handling.
     if not overwrite and os.path.isfile(output_file):
         raise Exception('That refined_events.fits file name is taken! '
                         'Either delete the .fits file, or pick a new name.')
 
+    # Set random seed
+    np.random.seed(seed + 2)
+
     t_0 = time.time()
+
+    if output_file == 'default':
+        output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(
+            input_root, filter_name, red_law)
 
     event_fits_file = input_root + '_events.fits'
     blend_fits_file = input_root + '_blends.fits'
@@ -2956,7 +3009,7 @@ def calc_ext(E, f):
 
 
 def sample_spherical(npoints, speed,
-                     ndim=3, debug=False):
+                     ndim=3):
     """
     Randomly sample points on a sphere.
     I found this code on stackexchange.
@@ -2973,26 +3026,14 @@ def sample_spherical(npoints, speed,
         The dimension of the space in which the sphere is embedded 
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
-    debug : bool
-        If set to True, fix the velocity of the kick
-        to be equally distributed between all three axes.
-        If set to False, randomly sample velocities from
-        the surface of a sphere.
-        Defauly False.
-
     Return
     ------
     An array of the vectors.
     """
 
-    if not debug:
-        vec = np.random.randn(ndim, npoints)
-        vec /= np.linalg.norm(vec, axis=0)
-        vec *= speed
-    else:
-        vec = np.zeros((ndim, npoints))
-        for i in range(ndim):
-            vec[i, :] = speed / np.sqrt(3)
+    vec = np.random.randn(ndim, npoints)
+    vec /= np.linalg.norm(vec, axis=0)
+    vec *= speed
     return vec
 
 
@@ -3018,7 +3059,7 @@ def wrap180(angle_input):
     return angle_output
 
 
-def add_precision64(input_array, power, debug=False):
+def add_precision64(input_array, power):
     """
     Need more precision for kdtree to run properly. Convert inputs from
     float32 to float64, and add a random perturbation beginning in the 
@@ -3031,11 +3072,6 @@ def add_precision64(input_array, power, debug=False):
 
     power : float
         To what place you want the perturbation.
-
-    debug : bool
-        If True, skip adding a random perturbation to the precision.
-        If False, add a random perturbation to the precision.
-        Default False.
     
     Return
     ------
@@ -3050,8 +3086,7 @@ def add_precision64(input_array, power, debug=False):
     output_array = np.atleast_1d(np.float64(input_array))
 
     # Add the perturbation.
-    if not debug:
-        output_array = output_array + pert
+    output_array = output_array + pert
 
     return output_array
 

@@ -200,7 +200,8 @@ def run():
                           theta_frac=popsycle_config['theta_frac'],
                           blend_rad=popsycle_config['blend_rad'],
                           n_proc=args.n_proc,
-                          overwrite=True)
+                          seed=args.seed,
+                          overwrite=args.overwrite)
 
     # Write a fle to disk stating that there are no events if
     # calc_events does not produce an events file
@@ -221,7 +222,8 @@ def run():
     synthetic.refine_events(input_root=args.output_root,
                             filter_name=popsycle_config['filter_name'],
                             red_law=popsycle_config['red_law'],
-                            overwrite=True,
+                            seed=args.seed,
+                            overwrite=args.overwrite,
                             output_file='default')
 
 

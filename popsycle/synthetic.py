@@ -70,9 +70,121 @@ col_idx = {'zams_mass' : 0, 'rem_id': 1, 'mass' : 2,
 ############# Population synthesis and associated functions ###############
 ###########################################################################
 
+def execute(cmd, shell=False):
+    """
+    Executes a command line instruction, captures the stdout and stderr
+
+    Parameters
+    ----------
+    cmd : str
+        Command line instruction, including any executables and parameters
+
+    shell : bool
+        Determines if the command is run through the shell
+
+    Outputs
+    -------
+    stdout : str
+        Contains the standard output of the executed process
+
+    stderr : str
+        Contains the standard error of the executed process
+
+    """
+    # Split the argument into a list suitable for Popen
+    args = cmd.split()
+    # subprocess.PIPE indicates that a pipe
+    # to the standard stream should be opened.
+    process = subprocess.Popen(args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               shell=shell)
+    stdout, stderr = process.communicate()
+
+    return stdout, stderr
+
+
+def write_galaxia_params(output_root,
+                         longitude, latitude, area,
+                         seed=None):
+    """
+    Given an object root, sky location and area, creates the parameter
+    file that Galaxia requires for running. User can also specify a seed for
+    Galaxia to use in its object generation.
+
+    Parameters
+    ----------
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    Optional Parameters
+    -------------------
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a random number from 0 to 100. This may want to be set for
+         reproducibility.
+
+    Outputs
+    -------
+    galaxia_params.<output_root>.txt : text file
+        A text file with the parameters that Galaxia requires to run.
+    """
+
+    if seed is None:
+        seed = np.random.uniform(0, 100, size=1).astype(int)[0]
+
+    params = [
+        "outputFile %s" % output_root,
+        "outputDir ./",
+        "photoSys UBV",
+        "magcolorNames V,B-V",
+        "appMagLimits[0] -1000",
+        "appMagLimits[1] 1000",
+        "absMagLimits[0] -1000",
+        "absMagLimits[1] 1000",
+        "colorLimits[0] -1000",
+        "colorLimits[1] 1000",
+        "geometryOption 1",
+        "longitude %f" % longitude,
+        "latitude %f" % latitude,
+        "surveyArea %.5f" % area,
+        "fSample 1",
+        "popID -1",
+        "warpFlareOn 1",
+        "seed %i" % seed,
+        "r_max 20",
+        "starType 0",
+        "photoError 0"
+    ]
+
+    galaxia_param_fname = 'galaxia_params.%s.txt' % output_root
+
+    print('** Generating %s **' % galaxia_param_fname)
+
+    with open(galaxia_param_fname, 'w') as f:
+        for param in params:
+            f.write(param + '\n')
+            print('-- %s' % param)
+
+
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed_mean = 50,
                     NS_kick_speed_mean = 400, set_random_seed = False):
+                    bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350,
+                    set_random_seed = False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -105,6 +217,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     NS_kick_speed_mean : float 
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
 
+
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
 
     Outputs
     -------
@@ -234,6 +350,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             print('No stars with this pid. Skipping!')
             continue
         popid_idx = np.where(popid_array == pid)[0]
+        if len(popid_idx) == 0:
+            print('No stars with this pid. Skipping!')
+            continue
+
         logage_min = np.min(age_array[popid_idx])
         logage_max = np.max(age_array[popid_idx])
 
@@ -568,6 +688,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         Forces PyPopStar to fix the random seed to 42,
         enforcing identical output.
 
+    set_random_seed : bool
+        Forces PyPopStar to fix the random seed to 42,
+        enforcing identical output.
+
     Returns
     -------
     comp_dict : dictionary (N_keys = 21)
@@ -608,7 +732,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers)
 
         # MAKE cluster
-        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, initialClusterMass, ifmr=my_ifmr)
+        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, initialClusterMass, ifmr=my_ifmr, set_random_seed=set_random_seed)
         output = cluster.star_systems
 
         # Create the PopStar table with just compact objects
@@ -1026,54 +1150,57 @@ def calc_events(hdf5_file, output_root2,
                 results_ev.append(results[ii][0])
             if results[ii][1] is not None:
                 results_bl.append(results[ii][1])
-                
-    events_tmp = np.concatenate(results_ev, axis = 1)
-    blends_tmp = np.concatenate(results_bl, axis = 1)
-        
-    # Convert the events numpy array into an Astropy Table for easier consumption. 
+
+    if len(results_ev) == 0:
+        print('No events!')
+        return
+    else:
+        events_tmp = np.concatenate(results_ev, axis=1)
+        if len(results_bl) == 0:
+            blends_tmp = np.array([])
+        else:
+            blends_tmp = np.concatenate(results_bl, axis=1)
+
+    # Convert the events numpy array into an Astropy Table for easier consumption.
     # The dimensions of events_tmp is 58 x Nevents
     # The dimensions of blends_tmp is 30 x Nblends
-    if events_tmp is not None:
-        events_tmp = unique_events(events_tmp)
-        events_final = Table(events_tmp.T, 
-                             names = ('zams_mass_L', 'rem_id_L', 'mass_L', 
-                                      'px_L', 'py_L', 'pz_L', 
-                                      'vx_L', 'vy_L', 'vz_L', 
-                                      'rad_L', 'glat_L', 'glon_L',
-                                      'vr_L', 'mu_b_L', 'mu_lcosb_L',
-                                      'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
-                                      'exbv_L', 'obj_id_L',
-                                      'ubv_j_L', 'ubv_u_L', 'ubv_r_L', 
-                                      'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
-                                      'zams_mass_S', 'rem_id_S', 'mass_S', 
-                                      'px_S', 'py_S', 'pz_S', 
-                                      'vx_S', 'vy_S', 'vz_S', 
-                                      'rad_S', 'glat_S', 'glon_S',
-                                      'vr_S', 'mu_b_S', 'mu_lcosb_S',
-                                      'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
-                                      'exbv_S', 'obj_id_S', 
-                                      'ubv_j_S', 'ubv_u_S', 'ubv_r_S', 
-                                      'ubv_b_S', 'ubv_h_S', 'ubv_v_S', 
-                                      'theta_E', 'u0', 'mu_rel', 't0'))
+    events_tmp = unique_events(events_tmp)
+    events_final = Table(events_tmp.T,
+                         names=('zams_mass_L', 'rem_id_L', 'mass_L',
+                                'px_L', 'py_L', 'pz_L',
+                                'vx_L', 'vy_L', 'vz_L',
+                                'rad_L', 'glat_L', 'glon_L',
+                                'vr_L', 'mu_b_L', 'mu_lcosb_L',
+                                'age_L', 'popid_L', 'ubv_k_L', 'ubv_i_L',
+                                'exbv_L', 'obj_id_L',
+                                'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
+                                'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                'zams_mass_S', 'rem_id_S', 'mass_S',
+                                'px_S', 'py_S', 'pz_S',
+                                'vx_S', 'vy_S', 'vz_S',
+                                'rad_S', 'glat_S', 'glon_S',
+                                'vr_S', 'mu_b_S', 'mu_lcosb_S',
+                                'age_S', 'popid_S', 'ubv_k_S', 'ubv_i_S',
+                                'exbv_S', 'obj_id_S',
+                                'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
+                                'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
+                                'theta_E', 'u0', 'mu_rel', 't0'))
 
-    if blends_tmp is not None:
+    if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
-        blends_final = Table(blends_tmp.T, names = ('obj_id_L', 'obj_id_S',
-                                                    'zams_mass_N', 'rem_id_N', 'mass_N', 
-                                                    'px_N', 'py_N', 'pz_N', 
-                                                    'vx_N', 'vy_N', 'vz_N', 
-                                                    'rad_N', 'glat_N', 'glon_N',
-                                                    'vr_N', 'mu_b_N', 'mu_lcosb_N',
-                                                    'age_N', 'popid_N', 'ubv_k_N', 'ubv_i_N',
-                                                    'exbv_N', 'obj_id_N', 
-                                                    'ubv_j_N', 'ubv_u_N', 'ubv_r_N', 
-                                                    'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
-                                                    'sep_LN'))
-
-    if events_tmp is None:
-        print('No events!')
-
-        return
+    blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
+                                              'zams_mass_N', 'rem_id_N',
+                                              'mass_N',
+                                              'px_N', 'py_N', 'pz_N',
+                                              'vx_N', 'vy_N', 'vz_N',
+                                              'rad_N', 'glat_N', 'glon_N',
+                                              'vr_N', 'mu_b_N', 'mu_lcosb_N',
+                                              'age_N', 'popid_N', 'ubv_k_N',
+                                              'ubv_i_N',
+                                              'exbv_N', 'obj_id_N',
+                                              'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
+                                              'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                              'sep_LN'))
 
     # Save out file 
     events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
@@ -1710,6 +1837,14 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite = False):
 ######### Refined event rate calculation and associated functions ##########
 ############################################################################
 
+
+def convert_photometric_99_to_nan(table):
+    for name in table.colnames:
+        if ('ubv' in name) or ('exbv' in name):
+            cond = table[name] == -99
+            table[name][cond] = np.nan
+
+
 def refine_events(input_root, filter_name, red_law,
                   overwrite = False,
                   output_file = 'default'):
@@ -1753,6 +1888,10 @@ def refine_events(input_root, filter_name, red_law,
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
+
+    # If photometric fields contain -99, convert to nan
+    convert_photometric_99_to_nan(event_tab)
+    convert_photometric_99_to_nan(blend_tab)
 
     # Only keep events with luminous sources
     event_tab = event_tab[~np.isnan(event_tab['ubv_' + filter_name + '_S'])] 
@@ -2003,10 +2142,15 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
 
     # Get the unique blend_pairs and the first instance of each.
-    uni_blends, uni_bidx = np.unique(blend_pairs, return_index = True, axis = 0)
-
-    # Add a "dummy" idx onto uni_bidx so that I can do idx+1 later.
-    uni_bidxx = np.append(uni_bidx, len(blend_pairs))
+    if len(blend_pairs) > 0:
+        uni_blends, uni_bidx = np.unique(blend_pairs, return_index = True, axis = 0)
+        # Add a "dummy" idx onto uni_bidx so that I can do idx+1 later.
+        uni_bidxx = np.append(uni_bidx, len(blend_pairs))
+    else:
+        # obj_id always >= 0, so these negative values serve as dummies that
+        # cannot be matched in the below `where` statement
+        uni_blends = np.array([[-1, -1]])
+        uni_bidxx = np.array([])
 
     # FIXME: Put in a check that uni_bidx is monotonically increasing???
     # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???    
@@ -2040,7 +2184,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     event_tab['ubv_' + filter_name + '_app_LSN'] = app_LSN
 
     # Bump amplitude (in magnitudes)
-    delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N_tot)
+    delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N)
     event_tab['delta_m_' + filter_name] = delta_m
     
     # Calculate the blend fraction (commonly used in microlensing): f_source / f_total

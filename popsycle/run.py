@@ -9,7 +9,6 @@ from pathlib import Path
 import argparse
 from argparse import RawTextHelpFormatter
 from popsycle import synthetic
-from popsycle.slurm import execute
 
 
 def return_filename_dict(output_root):
@@ -101,7 +100,7 @@ def run():
                                'the PopSyCLE parameters. '
                                'Default: popsycle_config.yaml',
                           default='popsycle_config.yaml')
-    required.add_argument('--n-cores', type=int,
+    required.add_argument('--n_cores_calc_events', type=int,
                           help='Number of cores to use in the calc_events '
                                'function (the only piece of the '
                                'PopSyCLE pipeline that uses multiprocessing). '
@@ -169,7 +168,8 @@ def run():
 
     # Run Galaxia from that parameter file
     print('-- Executing galaxia')
-    _ = execute('galaxia -r galaxia_params.%s.txt' % args.output_root)
+    _ = synthetic.execute('galaxia -r '
+                          'galaxia_params.%s.txt' % args.output_root)
 
     # Remove perform_pop_syn output if already exists and overwrite=True
     check_for_output(filename_dict['hdf5_filename'], args.overwrite)
@@ -199,7 +199,7 @@ def run():
                           n_obs=popsycle_config['n_obs'],
                           theta_frac=popsycle_config['theta_frac'],
                           blend_rad=popsycle_config['blend_rad'],
-                          n_proc=args.n_proc,
+                          n_proc=args.n_cores_calc_events,
                           seed=args.seed,
                           overwrite=args.overwrite)
 

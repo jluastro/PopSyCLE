@@ -210,10 +210,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Total number of bins is (bin_edges_number - 1)**2
 
     BH_kick_speed_mean : float 
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 50 km/s.
+        Mean of the birth kick speed of black holes (in km/s) maxwellian distrubution. Defaults to 50 km/s.
 
     NS_kick_speed_mean : float 
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        Mean of the birth kick speed of neutron stars (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,
@@ -676,10 +676,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     Optional Parameters
     -------------------
     BH_kick_speed_mean : float 
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 50 km/s.
+        Mean of the birth kick speed of black holes (in km/s) maxwellian distrubution. Defaults to 50 km/s.
         
     NS_kick_speed_mean : float 
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        Mean of the birth kick speed of neutron stars (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,

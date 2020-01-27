@@ -40,11 +40,11 @@ def execute(cmd,
     return stdout, stderr
 
 
-def generate_galactic_config_file(path_run, output_root,
-                                  longitude, latitude, area):
+def generate_field_config_file(path_run, output_root,
+                               longitude, latitude, area):
     """
     Generate a yaml file that contains the microlensing parameters specific to
-    a PopSyCLE run.
+    a PopSyCLE field.
 
     Parameters
     ----------
@@ -344,8 +344,8 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 
     """
     # Write a galactic configuration file to disk in path_run
-    generate_galactic_config_file(path_run, output_root,
-                                  longitude, latitude, area)
+    generate_field_config_file(path_run, output_root,
+                               longitude, latitude, area)
 
     # Load the slurm configuration file
     slurm_config = load_slurm_config(slurm_config_filename)

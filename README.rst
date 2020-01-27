@@ -162,7 +162,7 @@ The ``generate_slurm_scripts`` docstring explains the function's parameters::
 The PopSyCLE pipeline can also be run without using slurm scripts using the
 executable located at `<popsycle/run.py>`_. Running this executable from the
 command line requires the creation of a galactic configuration file using
-```popsycle.slurm.generate_galactic_config_file``` and a Popsycle
+```popsycle.slurm.generate_field_config_file``` and a Popsycle
 configuration file to be provided as a command line argument. More details on
 how to run this executable can be found by running
 ```python {PATH_TO_POPSYCLE}/popsycle/run.py -h```.

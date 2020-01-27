@@ -21,6 +21,7 @@ import os
 from sklearn import neighbors
 import itertools
 from multiprocessing import Pool
+import yaml
 
 ##########
 # Conversions.
@@ -142,8 +143,8 @@ def write_galaxia_params(output_root,
     -------------------
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
-         generate a random number from 0 to 100. This may want to be set for
-         reproducibility.
+         generate a random number from 0 to 100. Setting this seed guarantees
+         identical results.
 
     Outputs
     -------
@@ -191,7 +192,7 @@ def write_galaxia_params(output_root,
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None, BH_kick_speed=100,
                     NS_kick_speed=350,
-                    debug=False):
+                    overwrite=False, seed=None):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -224,10 +225,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     NS_kick_speed : float 
         Kick speed of NS (in km/s)
 
-    debug : bool
-        If set to True, removes all random sampling and forces identical
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is True.
+
+    seed : int
+        If set to non-zero, removes all random sampling and forces identical
         output for Galaxia, PyPopStar and PopSyCLE.
-        Default False.
+        Default None.
 
     Outputs
     -------
@@ -242,18 +248,23 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         longitude, and number of objects in that bin.
     """
     ##########
-    # Error handling: check whether files exist and whether input types are correct.
+    # Error handling: check whether files exist and
+    # whether input types are correct.
     ##########
 
-    # Check if HDF5 file exists already. If it does, throw an error message to complain and exit.
-    if os.path.isfile(output_root + '.h5') == True:
-        raise Exception(
-            'That .h5 file name is taken! Either delete the .h5 file, or pick a new name.')
+    if not overwrite:
+        # Check if HDF5 file exists already. If it does, throw an error message
+        # to complain and exit.
+        if os.path.isfile(output_root + '.h5'):
+            raise Exception(
+                'That .h5 file name is taken! Either delete the .h5 file, '
+                'or pick a new name.')
 
-    # Ditto with the fits label file.
-    if os.path.isfile(output_root + '_label.fits') == True:
-        raise Exception(
-            'That .fits file name is taken! Either delete the .fits file, or pick a new name.')
+        # Ditto with the fits label file.
+        if os.path.isfile(output_root + '_label.fits'):
+            raise Exception(
+                'That .fits file name is taken! Either delete the .fits file, '
+                'or pick a new name.')
 
     # Error handling/complaining if input types are not right.
     if ebf_file[-4:] != '.ebf':
@@ -276,6 +287,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     if type(iso_dir) != str:
         raise Exception('iso_dir must be a string.')
+
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception('seed must be an integer.')
 
     ##########
     # Start of code
@@ -458,17 +473,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
                 star_dict['rad'] = add_precision64(star_dict['rad'], -4,
-                                                   debug=debug)
+                                                   seed=seed)
                 star_dict['glat'] = add_precision64(star_dict['glat'], -4,
-                                                    debug=debug)
+                                                    seed=seed)
                 star_dict['glon'] = add_precision64(star_dict['glon'], -4,
-                                                    debug=debug)
+                                                    seed=seed)
                 star_dict['vr'] = add_precision64(vr, -4,
-                                                  debug=debug)
+                                                  seed=seed)
                 star_dict['mu_b'] = add_precision64(mu_b, -4,
-                                                    debug=debug)
+                                                    seed=seed)
                 star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4,
-                                                        debug=debug)
+                                                        seed=seed)
 
                 ##########
                 # Perform population synthesis.
@@ -484,7 +499,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      next_id,
                                                      BH_kick_speed=BH_kick_speed,
                                                      NS_kick_speed=NS_kick_speed,
-                                                     debug=debug)
+                                                     seed=seed)
 
                 ##########
                 #  Bin in l, b all stars and compact objects. 
@@ -693,7 +708,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
             boop = np.loadtxt(ratio_file)
         except Exception as e:
             calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file,
-                                       debug=debug)
+                                       seed=seed)
             boop = np.loadtxt(ratio_file)
 
         logage_vec = boop[:, 0]
@@ -705,7 +720,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed=100, NS_kick_speed=350,
-                    debug=False):
+                    seed=None):
     """
     Perform population synthesis.  
 
@@ -759,7 +774,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file='current_initial_stellar_mass_ratio.txt',
                                   iso_dir=iso_dir,
-                                  debug=debug)
+                                  seed=seed)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
                  'ukirt,K', 'ukirt,J']
@@ -852,7 +867,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             if len(NS_idx) > 0:
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed,
-                                           debug=debug)
+                                           seed=seed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
@@ -860,14 +875,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             if len(BH_idx) > 0:
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed,
-                                           debug=debug)
+                                           seed=seed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
                 comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
             comp_dict['rad'] = add_precision64(comp_dict['rad'], -4,
-                                               debug=debug)
+                                               seed=seed)
             comp_dict['glat'] = add_precision64(comp_dict['glat'], -4,
                                                 debug=debug)
             comp_dict['glon'] = add_precision64(comp_dict['glon'], -4,
@@ -1124,6 +1139,11 @@ def calc_events(hdf5_file, output_root2,
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
 
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is True.
+
 
     Output
     ------
@@ -1135,16 +1155,21 @@ def calc_events(hdf5_file, output_root2,
     """
 
     ##########
-    # Error handling: check whether files exist and whether input types are correct.
+    # Error handling: check whether files exist and
+    # whether input types are correct.
     ##########
 
-    # Check if .fits file exists already. If it does, throw an error message to complain and exit.
-    if os.path.isfile(output_root2 + '_events.fits') == True:
-        raise Exception(
-            'That events.fits file name is taken! Either delete the .fits file, or pick a new name.')
-    if os.path.isfile(output_root2 + '_blends.fits') == True:
-        raise Exception(
-            'That blends.fits file name is taken! Either delete the .fits file, or pick a new name.')
+    # Check if .fits file exists already. If it does, throw an error message
+    # to complain and exit.
+    if not overwrite:
+        if os.path.isfile(output_root2 + '_events.fits'):
+            raise Exception(
+                'That events.fits file name is taken! Either delete the .fits '
+                'file, or pick a new name.')
+        if os.path.isfile(output_root2 + '_blends.fits'):
+            raise Exception(
+                'That blends.fits file name is taken! Either delete the .fits '
+                'file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
     if type(output_root2) != str:
@@ -1985,10 +2010,16 @@ def refine_events(input_root, filter_name, red_law,
     red_law : str
         The name of the reddening law to use from PopStar.
 
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is True.
+
     Output:
     ----------
-    A file will be created named <input_root>_refined_events_<filt>_<red_law>.fits
-    that contains all the same objects, only now with lots of extra
+    A file will be created named
+    <input_root>_refined_events_<filt>_<red_law>.fits that contains all the
+    same objects, only now with lots of extra
     columns of data. 
 
     """
@@ -1997,9 +2028,9 @@ def refine_events(input_root, filter_name, red_law,
             input_root, filter_name, red_law)
 
     # Error handling.
-    if os.path.isfile(output_file) == True:
-        raise Exception(
-            'That refined_events.fits file name is taken! Either delete the .fits file, or pick a new name.')
+    if not overwrite and os.path.isfile(output_file):
+        raise Exception('That refined_events.fits file name is taken! '
+                        'Either delete the .fits file, or pick a new name.')
 
     t_0 = time.time()
 
@@ -3063,3 +3094,23 @@ def calc_f(lambda_eff):
     f = L * (B - V) ** -1
 
     return f
+
+
+def load_config(config_filename):
+    """
+    Load configuration parameters from a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    Output
+    ------
+    galactic_config : dict
+        Dictionary containing the configuration parameters
+
+    """
+    with open(config_filename, 'r') as f:
+        config = yaml.safe_load(f)
+    return config

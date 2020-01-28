@@ -171,8 +171,8 @@ def run():
         output_root=args.output_root,
         iso_dir=popsycle_config['isochrones_dir'],
         bin_edges_number=popsycle_config['bin_edges_number'],
-        BH_kick_speed=popsycle_config['BH_kick_speed'],
-        NS_kick_speed=popsycle_config['NS_kick_speed'],
+        BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+        NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
         seed=args.seed)
 
     # Remove calc_events output if already exists and overwrite=True

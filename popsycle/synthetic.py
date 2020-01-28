@@ -482,18 +482,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 #########
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
-                star_dict['rad'] = add_precision64(star_dict['rad'], -4,
-                                                   seed=seed)
-                star_dict['glat'] = add_precision64(star_dict['glat'], -4,
-                                                    seed=seed)
-                star_dict['glon'] = add_precision64(star_dict['glon'], -4,
-                                                    seed=seed)
-                star_dict['vr'] = add_precision64(vr, -4,
-                                                  seed=seed)
-                star_dict['mu_b'] = add_precision64(mu_b, -4,
-                                                    seed=seed)
-                star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4,
-                                                        seed=seed)
+                star_dict['rad'] = add_precision64(star_dict['rad'], -4)
+                star_dict['glat'] = add_precision64(star_dict['glat'], -4)
+                star_dict['glon'] = add_precision64(star_dict['glon'], -4)
+                star_dict['vr'] = add_precision64(vr, -4)
+                star_dict['mu_b'] = add_precision64(mu_b, -4)
+                star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4)
 
                 ##########
                 # Perform population synthesis.

@@ -3482,7 +3482,7 @@ echo
     # Check that the specified number of cores does not exceed the resource max
     if n_cores_calc_events > n_cores_per_node:
         print('Error: specified number of cores exceeds limit. Exiting...')
-        sys.exit(1)
+        return None
 
     # Pass along optional parameters if present
     if overwrite:

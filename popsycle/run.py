@@ -111,7 +111,7 @@ def run():
         field configuration file using 
         popsycle.synthetic.generate_field_config_file. 
         Exiting...""".format(args.field_config_filename))
-        os.exit(1)
+        sys.exit(1)
 
     # Check for popsycle config file. Exit if not present.
     if not os.path.exists(args.popsycle_config_filename):
@@ -120,7 +120,7 @@ def run():
         popsycle configuration file using 
         popsycle.synthetic.generate_popsycle_config_file. 
         Exiting...""".format(args.popsycle_config_filename))
-        os.exit(1)
+        sys.exit(1)
 
     # Load the config files for field parameters
     field_config = synthetic.load_config(args.field_config_filename)
@@ -142,7 +142,7 @@ def run():
     # Remove Galaxia output if already exists and overwrite=True
     if synthetic.check_for_output(filename_dict['ebf_filename'],
                                   args.overwrite):
-        os.exit(1)
+        sys.exit(1)
 
     # Write out parameters for Galaxia run to disk
     print('-- Generating galaxia params')
@@ -161,7 +161,7 @@ def run():
     # Remove perform_pop_syn output if already exists and overwrite=True
     if synthetic.check_for_output(filename_dict['hdf5_filename'],
                                   args.overwrite):
-        os.exit(1)
+        sys.exit(1)
 
     # Run perform_pop_syn
     print('-- Executing perform_pop_syn')
@@ -177,10 +177,10 @@ def run():
     # Remove calc_events output if already exists and overwrite=True
     if synthetic.check_for_output(filename_dict['events_filename'],
                                   args.overwrite):
-        os.exit(1)
+        sys.exit(1)
     if synthetic.check_for_output(filename_dict['blends_filename'],
                                   args.overwrite):
-        os.exit(1)
+        sys.exit(1)
 
     # Run calc_events
     print('-- Executing calc_events')
@@ -201,7 +201,7 @@ def run():
     if not os.path.exists(filename_dict['events_filename']):
         Path(filename_dict['noevents_filename']).touch()
         print('No events present, skipping refine_events')
-        os.exit(0)
+        sys.exit(0)
 
     # Remove refine_events output if already exists and overwrite=True
     filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
@@ -209,7 +209,7 @@ def run():
                              popsycle_config['filter_name'],
                              popsycle_config['red_law'])
     if synthetic.check_for_output(filename, args.overwrite):
-        os.exit(1)
+        sys.exit(1)
 
     # Run refine_events
     print('-- Executing refine_events')

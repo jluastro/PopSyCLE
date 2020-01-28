@@ -3151,9 +3151,155 @@ def load_config(config_filename):
     return config
 
 
+def generate_field_config_file(config_filename, longitude, latitude, area):
+    """
+    Save field configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    Output
+    ------
+    None
+    """
+
+    config = {'longitude': longitude,
+              'latitutde': latitude,
+              'area': area}
+    generate_config_file(config_filename, config)
+
+
+def generate_slurm_config_file(config_filename, path_python, account, queue,
+                               resource, n_cores_per_node, n_nodes_max,
+                               walltime_max):
+    """
+    Save slurm configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    path_python : str
+        Path to the python executable
+
+    account : str
+        Project account name to charge
+
+    queue : str
+        Scheduler queue type
+
+    resource : str
+        Computing resource name
+
+    n_cores_per_node : int
+        Number of cores in each node of the compute resource
+
+    n_nodes_max : int
+        Total number of nodes in the compute resource
+
+    walltime_max : int
+        Maximum number of hours for single job on the compute resource
+
+    Output
+    ------
+    None
+    """
+
+    config = {'path_python': path_python,
+              'account': account,
+              'queue': queue,
+              'resource': {'n_cores_per_node': n_cores_per_node,
+                           'n_nodes_max': n_nodes_max,
+                           'walltime_max': walltime_max}}
+    generate_config_file(config_filename, config)
+
+
+def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
+                                  n_obs, theta_frac, blend_rad,
+                                  isochrones_dir,
+                                  bin_edges_number,
+                                  BH_kick_speed, NS_kick_speed,
+                                  filter_name, red_law):
+    """
+    Save popsycle configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    radius_cut : float
+        Initial radius cut, in ARCSECONDS.
+
+    obs_time : float
+        Survey duration, in DAYS.
+
+    n_obs : float
+        Number of observations.
+
+    theta_frac : float
+        Another cut, in multiples of Einstein radii.
+
+    blend_rad : float
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
+
+    isochrones_dir : str
+        Directory for PyPopStar isochrones
+
+    bin_edges_number : int
+         Number of edges for the bins (bins = bin_edges_number - 1)
+         Total number of bins is (bin_edges_number - 1)**2
+
+    BH_kick_speed : float
+        Kick speed for BH (in km/s)
+
+    NS_kick_speed : float
+        Kick speed of NS (in km/s)
+
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    red_law : str
+        The name of the reddening law to use from PopStar.
+
+    Output
+    ------
+    None
+    """
+
+    config = {'radius_cut': radius_cut,
+              'obs_time': obs_time,
+              'n_obs': n_obs,
+              'theta_frac': theta_frac,
+              'blend_rad': blend_rad,
+              'isochrones_dir': isochrones_dir,
+              'bin_edges_number': bin_edges_number,
+              'BH_kick_speed': BH_kick_speed,
+              'NS_kick_speed': NS_kick_speed,
+              'filter_name': filter_name,
+              'red_law': red_law}
+    generate_config_file(config_filename, config)
+
+
 def generate_config_file(config_filename, config):
     """
-    Save configuration parameters from a dictionary inot a yaml file
+    Save configuration parameters from a dictionary into a yaml file
 
     Parameters
     ----------

@@ -236,8 +236,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Default is False.
 
     seed : int
-        If set to non-zero, removes all random sampling and forces identical
-        output for Galaxia, PyPopStar and PopSyCLE.
+        If set to non-zero, all random sampling will be seeded with the
+        specified seed, fircing identical output for Galaxia, PyPopStar and
+        PopSyCLE.
         Default None.
 
     Outputs
@@ -1143,8 +1144,8 @@ def calc_events(hdf5_file, output_root2,
         Default is one processor (no parallelization).
 
     seed : int
-        If set to non-zero, removes all random sampling and forces identical
-        output for PyPopStar and PopSyCLE.
+        If set to non-zero, all random sampling will be seeded with the
+        specified seed, fircing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool
@@ -3367,8 +3368,8 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     Optional Parameters
     -------------------
     seed : int
-        If set to non-zero, removes all random sampling and forces identical
-        output for Galaxia, PyPopStar and PopSyCLE.
+        If set to non-zero, all random sampling will be seeded with the
+        specified seed, fircing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool

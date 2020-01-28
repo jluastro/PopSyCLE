@@ -117,8 +117,8 @@ The ``generate_slurm_scripts`` docstring explains the function's parameters::
     Optional Parameters
     -------------------
     seed : int
-        If set to non-zero, removes all random sampling and forces identical
-        output for Galaxia, PyPopStar and PopSyCLE.
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool

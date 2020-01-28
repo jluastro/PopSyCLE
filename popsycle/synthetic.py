@@ -239,7 +239,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Default is False.
 
     seed : int
-        If set to non-zero, all random sampling will be seeded with the
+        If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
@@ -608,7 +608,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
 def calc_current_initial_ratio(iso_dir,
                                out_file='current_initial_stellar_mass_ratio.txt',
-                               debug=False):
+                               seed=None):
     """
     Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the
     ratio of current to initial cluster mass. The range of ages goes
@@ -626,10 +626,10 @@ def calc_current_initial_ratio(iso_dir,
 
     Optional Parameters
     -------------------
-    debug : bool
-        If set to True, removes all random sampling and forces identical
-        output for PyPopStar and PopSyCLE.
-        Default False.
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
 
     Output
     ------
@@ -663,7 +663,7 @@ def calc_current_initial_ratio(iso_dir,
         trunc_kroupa = imf.IMF_broken_powerlaw(mass_limits, powers)
         # make cluster
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass,
-                                            set_random_seed=debug)
+                                            seed=seed)
         output = cluster.star_systems
 
         # Find the stars in MIST not in Galaxia (i.e. WDs)
@@ -693,7 +693,7 @@ def calc_current_initial_ratio(iso_dir,
     return
 
 
-def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
+def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     """
     Calculates the ratio of the current cluster mass to the initial
     mass of the cluster.
@@ -712,10 +712,10 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
 
     Optional Parameters
     -------------------
-    debug : bool
-        If set to True, removes all random sampling and forces identical
-        output for PyPopStar and PopSyCLE.
-        Default False.
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
 
     Return
     ------
@@ -729,7 +729,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
             boop = np.loadtxt(ratio_file)
         except Exception as e:
             calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file,
-                                       debug=debug)
+                                       seed=seed)
             boop = np.loadtxt(ratio_file)
 
         logage_vec = boop[:, 0]
@@ -786,11 +786,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         the new compact objects created.
         
     """
-    if seed is None:
-        debug = False
-    else:
-        debug = True
-
     comp_dict = None
 
     # Calculate the initial cluster mass
@@ -801,7 +796,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file='current_initial_stellar_mass_ratio.txt',
                                   iso_dir=iso_dir,
-                                  debug=debug)
+                                  seed=seed)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
                  'ukirt,K', 'ukirt,J']
@@ -827,7 +822,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # MAKE cluster
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             initialClusterMass, ifmr=my_ifmr,
-                                            set_random_seed=debug)
+                                            seed=seed)
         output = cluster.star_systems
 
         # Create the PopStar table with just compact objects
@@ -1155,7 +1150,7 @@ def calc_events(hdf5_file, output_root2,
         Default is one processor (no parallelization).
 
     seed : int
-        If set to non-zero, all random sampling will be seeded with the
+        If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
@@ -3366,7 +3361,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     Optional Parameters
     -------------------
     seed : int
-        If set to non-zero, all random sampling will be seeded with the
+        If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 

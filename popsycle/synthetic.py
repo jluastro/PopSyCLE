@@ -789,9 +789,15 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             # Add kicks to NSs and BHs.
             ##########
+
+            # Maxwellian pdf is sqrt(2/pi) * x^2 * exp[-x^2/(2 * a^2)] / a^3,
+            # with a scale parameter `a`.
+            # The Maxwellian mean is 2 * a * sqrt(2/pi).
+            # Here we calculate the scipy.stats `scale` by dividing the
+            # user defined mean by the Maxwellian mean.
             
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
-            NS_kick_speed_scale=NS_kick_speed_mean/(2*np.sqrt(2/np.pi))
+            NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
                 NS_kick_speed=maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
@@ -800,7 +806,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
-            BH_kick_speed_scale=BH_kick_speed_mean/(2*np.sqrt(2/np.pi))
+            BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
                 BH_kick_speed=maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)

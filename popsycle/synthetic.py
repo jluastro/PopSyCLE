@@ -229,7 +229,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Total number of bins is (bin_edges_number - 1)**2
 
     BH_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
     NS_kick_speed_mean : float
@@ -769,7 +769,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     Optional Parameters
     -------------------
     BH_kick_speed_mean : float 
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
         
     NS_kick_speed_mean : float 
@@ -3245,7 +3245,7 @@ def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
                                   n_obs, theta_frac, blend_rad,
                                   isochrones_dir,
                                   bin_edges_number,
-                                  BH_kick_speed, NS_kick_speed,
+                                  BH_kick_speed_mean, NS_kick_speed_mean,
                                   filter_name, red_law):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -3278,12 +3278,11 @@ def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
          Number of edges for the bins (bins = bin_edges_number - 1)
          Total number of bins is (bin_edges_number - 1)**2
 
-    BH_kick_speed : float
-        Kick speed for BH (in km/s)
+    BH_kick_speed_mean : float
+        Mean kick speed for BH (in km/s)
 
-    NS_kick_speed : float
-        Kick speed of NS (in km/s)
-
+    NS_kick_speed_mean : float
+        Mean kick speed of NS (in km/s)
 
     filter_name : str
         The name of the filter in which to calculate all the
@@ -3305,8 +3304,8 @@ def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
               'blend_rad': blend_rad,
               'isochrones_dir': isochrones_dir,
               'bin_edges_number': bin_edges_number,
-              'BH_kick_speed': BH_kick_speed,
-              'NS_kick_speed': NS_kick_speed,
+              'BH_kick_speed_mean': BH_kick_speed_mean,
+              'NS_kick_speed_mean': NS_kick_speed_mean,
               'filter_name': filter_name,
               'red_law': red_law}
     generate_config_file(config_filename, config)

@@ -451,7 +451,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
 
-                star_dict = {}
+                star_dict = {} #Need to start here to track more info
                 star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass',
                                                       bin_idx)
                 star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)

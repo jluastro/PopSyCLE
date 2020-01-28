@@ -240,8 +240,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     seed : int
         If set to non-zero, all random sampling will be seeded with the
-        specified seed, fircing identical output for Galaxia, PyPopStar and
-        PopSyCLE.
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     Outputs
@@ -249,12 +248,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     <output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
-        latitude bin edges, and the compact objects and stars sorted into those bins.
+        latitude bin edges, and the compact objects
+        and stars sorted into those bins.
 
     <output_root>_label.fits : fits file
         NOTE: This is what make_label_file returns.
-        A fits file that shows the correspondence between dataset name, latitude,
-        longitude, and number of objects in that bin.
+        A fits file that shows the correspondence between dataset name,
+        latitude, longitude, and number of objects in that bin.
     """
     ##########
     # Error handling: check whether files exist and
@@ -610,9 +610,10 @@ def calc_current_initial_ratio(iso_dir,
                                out_file='current_initial_stellar_mass_ratio.txt',
                                debug=False):
     """
-    Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the ratio of
-    current to initial cluster mass. The range of ages goes from 6 to 10.089 log(age/yr).
-    Creates a text file, the first column is the ages, and second column is the ratio.
+    Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the
+    ratio of current to initial cluster mass. The range of ages goes
+    from 6 to 10.089 log(age/yr). Creates a text file, the first column is
+    the ages, and second column is the ratio.
 
     Parameters
     -------------------
@@ -643,18 +644,20 @@ def calc_current_initial_ratio(iso_dir,
     cluster_mass = 10 ** 7  # mass in m_sol
     # IMF power law boundaries. changed start from 0.08 to 0.1 because of MIST.
     mass_limits = np.array([0.1, 0.5, 120])
-    powers = np.array([-1.3, -2.3])  # IMF powers
-    current_initial_ratio_array = np.zeros(
-        len(logage_vec))  # initialize current-initial ratio vector
+    # IMF powers
+    powers = np.array([-1.3, -2.3])
+    # initialize current-initial ratio vector
+    current_initial_ratio_array = np.zeros(len(logage_vec))
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
                  'ukirt,K', 'ukirt,J']
 
     # Run all the clusters for the different ages in logage_vec
     for i in range(len(logage_vec)):
+        # make isochrone
         my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10,
                                          evo_model=evolution.MISTv1(),
                                          filters=filt_list,
-                                         iso_dir=iso_dir)  # make isochrone
+                                         iso_dir=iso_dir)
 
         # define IMF
         trunc_kroupa = imf.IMF_broken_powerlaw(mass_limits, powers)
@@ -701,7 +704,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
         The age of the cluster, given in log(age/yr)
 
     ratio_file : txt file 
-        The name of the text file that contains the current-initial cluster mass ratio.
+        The name of the text file that contains the
+        current-initial cluster mass ratio.
 
     iso_dir : filepath 
         Where are the isochrones stored (for PopStar)
@@ -767,7 +771,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         Kick speed of NS (in km/s)
 
     seed : int
-         Seed used to sample the kde tree. Default is None.
+         Seed used to sample the kde tree. If set to any number,
+         PyPopStar will also be forced to use 42 as a
+         random seed for calls to ResolvedCluster.
+         Default is None.
 
     Returns
     -------
@@ -854,7 +861,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # Assign spherical positions and velocities to all compact objects.
             ##########
             # Create velocities and positions using Kernel Density Estimation
-            # Galactic position (r, l, b) and heliocentric velocity (vx, vy, vz)
+            # Galactic position (r, l, b)
+            # and heliocentric velocity (vx, vy, vz)
             kde_in_data = np.array([star_dict['rad'], star_dict['glat'],
                                     star_dict['glon'], star_dict['vx'],
                                     star_dict['vy'], star_dict['vz']]).T
@@ -1148,7 +1156,7 @@ def calc_events(hdf5_file, output_root2,
 
     seed : int
         If set to non-zero, all random sampling will be seeded with the
-        specified seed, fircing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool
@@ -3359,7 +3367,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     -------------------
     seed : int
         If set to non-zero, all random sampling will be seeded with the
-        specified seed, fircing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool

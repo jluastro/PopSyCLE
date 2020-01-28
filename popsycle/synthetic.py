@@ -3279,10 +3279,10 @@ def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
          Total number of bins is (bin_edges_number - 1)**2
 
     BH_kick_speed_mean : float
-        Mean kick speed for BH (in km/s)
-
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+        
     NS_kick_speed_mean : float
-        Mean kick speed of NS (in km/s)
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
 
     filter_name : str
         The name of the filter in which to calculate all the

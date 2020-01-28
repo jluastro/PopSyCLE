@@ -3131,9 +3131,23 @@ def calc_f(lambda_eff):
     return f
 
 
+def check_for_output(filename, overwrite):
+    if os.path.exists(filename):
+        if overwrite:
+            os.remove(filename)
+            return False
+        else:
+            print('Error: Output {0} exists, cannot continue. Either '
+                  'rename {0} or rerun run.py with the --overwrite '
+                  'flag.'.format(filename))
+            return True
+    else:
+        return False
+
+
 def load_config(config_filename):
     """
-    Load configuration parameters from a yaml file
+    Load configuration parameters from a yaml file into a dictionary
 
     Parameters
     ----------
@@ -3142,7 +3156,7 @@ def load_config(config_filename):
 
     Output
     ------
-    galactic_config : dict
+    config : dict
         Dictionary containing the configuration parameters
 
     """
@@ -3151,56 +3165,33 @@ def load_config(config_filename):
     return config
 
 
-def generate_field_config_file(path_run, output_root,
-                               longitude, latitude, area):
+def generate_config_file(config_filename, config):
     """
-    Generate a yaml file that contains the microlensing parameters specific to
-    a PopSyCLE field.
+    Save configuration parameters from a dictionary inot a yaml file
 
     Parameters
     ----------
-    path_run : str
-        Directory that will contain the parameter file
+    config_filename : str
+        Name of the configuration file
 
-    output_root : str
-        Base filename of the output files
-        Examples:
-           '{output_root}.h5'
-           '{output_root}.ebf'
-           '{output_root}_events.h5'
-
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
+    config : dict
+        Dictionary containing the configuration parameters
 
     Output
     ------
     None
 
     """
-
-    # Name the config file using the output root
-    config_filename = '{0}/galactic_config.{1}.yaml'.format(path_run,
-                                                            output_root)
-    # Write galactic parameters to the config file
-    with open(config_filename, 'w') as f:
-        f.write('longitude: %f\n' % longitude)
-        f.write('latitude: %f\n' % latitude)
-        f.write('area: %f\n' % area)
+    with open(config_filename, 'w') as outfile:
+        yaml.dump(config, outfile, default_flow_style=True)
 
 
 def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
                            path_run, output_root,
                            longitude, latitude, area,
                            n_cores_calc_events,
-                           walltime, seed=None, overwrite=False,
-                           submitFlag=True):
+                           walltime,
+                           seed=None, overwrite=False, submitFlag=True):
     """
     Generates the slurm script that executes the PopSyCLE pipeline
 
@@ -3262,12 +3253,30 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     None
 
     """
-    # Write a galactic configuration file to disk in path_run
-    synthetic.generate_field_config_file(path_run, output_root,
-                                         longitude, latitude, area)
+    # Check for files
+    if not os.path.exists(slurm_config_filename):
+        raise Exception('Slurm configuration file {0} does not exist. '
+                        'Write out file using synthetic.generate_config_file '
+                        'before proceeding.'.format(slurm_config_filename))
+    if not os.path.exists(popsycle_config_filename):
+        raise Exception('PopSyCLE configuration file {0} does not exist. '
+                        'Write out file using synthetic.generate_config_file '
+                        'before proceeding.'.format(popsycle_config_filename))
+
+    # Make a run directory for the PopSyCLE output
+    if not os.path.exists(path_run):
+        os.makedirs(path_run)
+
+    # Write a field configuration file to disk in path_run
+    config = {'longitude': longitude,
+              'latitude': latitude,
+              'area': area}
+    field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
+                                                               output_root)
+    generate_config_file(field_config_filename, config)
 
     # Load the slurm configuration file
-    slurm_config = synthetic.load_config(slurm_config_filename)
+    slurm_config = load_config(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
     jobname = 'l%.1f_b%.1f' % (longitude, latitude)
@@ -3293,12 +3302,12 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     run_filepath = os.path.dirpath(__file__)
 
     # Template for writing slurm script. Text must be left adjusted.
-    mpi_template = """#!/bin/sh
+    slurm_template = """#!/bin/sh
 # Job name
 #SBATCH --account={account}
 #SBATCH --qos={queue}
 #SBATCH --constraint={resource}
-#SBATCH --nodes={N_nodes}
+#SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
 echo "---------------------------"
@@ -3310,7 +3319,7 @@ echo "---------------------------"
 module load cray-hdf5/1.10.5.2
 export HDF5_USE_FILE_LOCKING=FALSE
 cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
 date
 echo
 "All done!"
@@ -3321,11 +3330,7 @@ echo
         print('Error: specified number of cores exceeds limit. Exiting...')
         os.exit(1)
 
-    # Make a run directory for the PopSyCLE output
-    if not os.path.exists(path_run):
-        os.makedirs(path_run)
-
-    # If debugFlag == True, add debug flag to srun command
+    # Pass along optional parameters if present
     if overwrite:
         overwrite_cmd = '--overwrite'
     else:
@@ -3337,12 +3342,10 @@ echo
         seed_cmd = ''
 
     # Populate the mpi_template specified inputs
-    job_script = mpi_template.format(**locals())
+    job_script = slurm_template.format(**locals())
 
     # Write the script to the path_run folder
-    if not path_run.endswith('/'):
-        path_run = path_run + '/'
-    script_filename = path_run + 'run_popsycle.sh'
+    script_filename = path_run + '/run_popsycle.sh'
     with open(script_filename, 'w') as f:
         f.write(job_script)
 

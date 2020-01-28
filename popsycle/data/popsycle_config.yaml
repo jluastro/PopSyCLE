@@ -1,12 +1,11 @@
 # Example configuration parameters for PopSyCLE pipeline
-# Loaded by `run_on_slurm.py:load_popsycle_config`
 
 radius_cut: 2
 obs_time: 1095
 n_obs: 10
 theta_frac: 2
 blend_rad: 0.75
-isochrones_dir: /Users/michael/PycharmProjects/paper-ZTF-uLens-estimate/data/popsycle_isochrones
+isochrones_dir: /Users/myself/popsycle_isochrones
 bin_edges_number: None
 BH_kick_speed: 100
 NS_kick_speed: 350

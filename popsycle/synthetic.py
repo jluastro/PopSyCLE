@@ -47,6 +47,8 @@ _Mclust_v_age_func = None
 # Calculated using calc_f
 # Schlegel and Schlafly photometric bands:
 # B = 440, V = 543, I = 809, J = 1266, H = 1673, K = 2215, U = 337, R = 651
+# ZTF photometric bands:
+# G = 472.274, R = 633.961, I = 788.613
 ##########
 filt_dict = {}
 filt_dict['j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902,
@@ -65,6 +67,9 @@ filt_dict['i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940,
                   'Damineli16': 1.496}
 filt_dict['r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
                   'Damineli16': 2.102}
+filt_dict['ztf-g'] = {'Damineli16': 2.22834859}
+filt_dict['ztf-r'] = {'Damineli16': 3.45269014}
+filt_dict['ztf-i'] = {'Damineli16': 1.55343993}
 
 ##########
 # Dictionary for going between values in 

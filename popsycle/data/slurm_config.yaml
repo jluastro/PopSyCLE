@@ -1,0 +1,35 @@
+# Example configuration parameters for slurm scheduler
+# These values are for the NERSC supercomputer as of Jan 2020
+
+# Path to the python executable
+path_python: python
+# Project account name to charge
+account: ulens
+# Queue
+queue: regular
+# Name of the resource that will be used for the run
+resource: haswell
+# Additional lines to be run before executing run.py
+additional_lines:
+- module load cray-hdf5/1.10.5.2
+- export HDF5_USE_FILE_LOCKING=FALSE
+
+# Resource specific properties
+haswell:
+  # Number of cores per node to use
+  # Can be less than the total available
+  n_cores_per_node: 32
+  # Maximum number of nodes
+  n_nodes_max: 2388
+  # Maximum walltime (hours)
+  walltime_max: 48
+
+knl:
+  # Number of cores per node to use
+  # Can be less than the total available
+  n_cores_per_node: 68
+  # Maximum number of nodes
+  n_nodes_max: 9668
+  # Maximum walltime (hours)
+  walltime_max: 48
+

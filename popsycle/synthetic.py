@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 import math
 from astropy import units
+from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord # High-level coordinates
@@ -180,8 +181,8 @@ def write_galaxia_params(output_root,
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    bin_edges_number = None, BH_kick_speed=100, NS_kick_speed=350,
-                    set_random_seed = False):
+                    bin_edges_number = None, BH_kick_speed_mean = 50,
+                    NS_kick_speed_mean = 400, set_random_seed = False):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -208,11 +209,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Number of edges for the bins (bins = bin_edges_number - 1)
          Total number of bins is (bin_edges_number - 1)**2
 
-    BH_kick_speed : float 
-        Kick speed for BH (in km/s)
+    BH_kick_speed_loc : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
 
-    NS_kick_speed : float 
-        Kick speed of NS (in km/s)
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,
@@ -253,13 +258,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if type(bin_edges_number) != int:
             raise Exception('bin_edges_number must be an integer.')
         
-    if type(BH_kick_speed) != int:
-        if type(BH_kick_speed) != float:
-            raise Exception('BH_kick_speed must be an integer or a float.')
+    if type(BH_kick_speed_mean) != int:
+        if type(BH_kick_speed_mean) != float:
+            raise Exception('BH_kick_speed_mean must be an integer or a float.')
 
-    if type(NS_kick_speed) != int:
-        if type(NS_kick_speed) != float:
-            raise Exception('NS_kick_speed must be an integer or a float.')
+    if type(NS_kick_speed_mean) != int:
+        if type(NS_kick_speed_mean) != float:
+            raise Exception('NS_kick_speed_mean must be an integer or a float.')
 
     if type(iso_dir) != str:
         raise Exception('iso_dir must be a string.')
@@ -431,11 +436,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Add spherical velocities vr, mu_b, mu_lcosb
                 ##########
                 vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
-                                                      star_dict['vy'],
-                                                      star_dict['vz'],
-                                                      star_dict['rad'],
-                                                      star_dict['glat'],
-                                                      star_dict['glon'])
+                                                     star_dict['vy'],
+                                                     star_dict['vz'],
+                                                     star_dict['rad'],
+                                                     star_dict['glat'],
+                                                     star_dict['glon'])
                 #########
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
@@ -455,8 +460,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
 
-                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin, next_id,
-                                                     BH_kick_speed=BH_kick_speed, NS_kick_speed=NS_kick_speed,
+                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, mass_in_bin, stars_in_bin,
+                                                     next_id,
+                                                     BH_kick_speed_mean=BH_kick_speed_mean,
+                                                     NS_kick_speed_mean=NS_kick_speed_mean,
                                                      set_random_seed=set_random_seed)
 
                 ##########
@@ -485,7 +492,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if len(hf[key].shape) > 1:
             binned_counter += (hf[key].shape)[1]            
 
-    ##########
+     ##########
     # Make label file containing information about l,b bins
     ##########
     make_label_file(output_root)
@@ -505,8 +512,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line1 = 'ebf_file , ' + ebf_file + '\n'
     line2 = 'output_root , ' + output_root + '\n'
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
-    line4 = 'BH_kick_speed , ' + str(BH_kick_speed) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed , ' + str(NS_kick_speed) + ' , (km/s)' + '\n'
+    line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
+    line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
 
     line7 = 'VERSION INFORMATION' + '\n'
@@ -522,7 +529,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     line16 = 'FILES CREATED' + '\n'
     line17 = output_root + '.h5 : HDF5 file' + '\n'
-    line18 = output_root + '_label.fits : label file' + '\n'
+    line18  = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log','w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5, line6, empty_line,
@@ -542,6 +549,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     print('Total number of stars from Galaxia: ' + str(n_stars))
     print('Total number of compact objects made: ' + str(comp_counter))
     print('Total number of things binned: ' + str(binned_counter))
+
 
     return
 
@@ -647,7 +655,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir):
 
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
-                    BH_kick_speed = 100, NS_kick_speed = 350, set_random_seed=False):
+                    BH_kick_speed_mean = 50, NS_kick_speed_mean = 400,
+                    set_random_seed=False):
     """
     Perform population synthesis.  
 
@@ -670,11 +679,15 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BHKickSpeed : float or int
-        Kick speed for BH (in km/s)
-
-    NSKickSpeed : float or int
-        Kick speed of NS (in km/s)
+    BH_kick_speed_loc : float 
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
+        
+    NS_kick_speed_mean : float 
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,
@@ -691,6 +704,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         
     """
     comp_dict = None
+
 
     # Calculate the initial cluster mass
     massLimits = np.array([0.1, 0.5, 120]) # changed from 0.08 to 0.1 at start because MIST can't handle.
@@ -775,15 +789,26 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             # Add kicks to NSs and BHs.
             ##########
+
+            # Maxwellian pdf is sqrt(2/pi) * x^2 * exp[-x^2/(2 * a^2)] / a^3,
+            # with a scale parameter `a`.
+            # The Maxwellian mean is 2 * a * sqrt(2/pi).
+            # Here we calculate the scipy.stats `scale` by dividing the
+            # user defined mean by the Maxwellian mean.
+            
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
+            NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
+                NS_kick_speed=maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
+            BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
+                BH_kick_speed=maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]

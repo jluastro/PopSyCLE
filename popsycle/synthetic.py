@@ -307,10 +307,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Set random seed
     np.random.seed(seed)
-    if seed is None:
-        debug = False
-    else:
-        debug = True
 
     t0 = time.time()
 
@@ -516,7 +512,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      next_id,
                                                      BH_kick_speed=BH_kick_speed,
                                                      NS_kick_speed=NS_kick_speed,
-                                                     debug=debug,
                                                      seed=seed)
 
                 ##########
@@ -742,7 +737,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, debug=False):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed=100, NS_kick_speed=350,
-                    debug=None, seed=None):
+                    seed=None):
     """
     Perform population synthesis.  
 
@@ -765,16 +760,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BHKickSpeed : float or int
+    BH_KickSpeed : float or int
         Kick speed for BH (in km/s)
 
-    NSKickSpeed : float or int
+    NS_KickSpeed : float or int
         Kick speed of NS (in km/s)
-
-    debug : bool
-        If set to True, removes all random sampling and forces identical
-        output for PyPopStar and PopSyCLE.
-        Default False.
 
     seed : int
          Seed used to sample the kde tree. Default is None.
@@ -789,6 +779,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         the new compact objects created.
         
     """
+    if seed is None:
+        debug = False
+    else:
+        debug = True
+
     comp_dict = None
 
     # Calculate the initial cluster mass

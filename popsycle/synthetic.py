@@ -209,11 +209,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
          Number of edges for the bins (bins = bin_edges_number - 1)
          Total number of bins is (bin_edges_number - 1)**2
 
-    BH_kick_speed_mean : float 
-        Mean of the birth kick speed of black holes (in km/s) maxwellian distrubution. Defaults to 50 km/s.
+    BH_kick_speed_loc : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float 
-        Mean of the birth kick speed of neutron stars (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,
@@ -432,11 +436,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Add spherical velocities vr, mu_b, mu_lcosb
                 ##########
                 vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
-                                                      star_dict['vy'],
-                                                      star_dict['vz'],
-                                                      star_dict['rad'],
-                                                       star_dict['glat'],
-                                                      star_dict['glon'])
+                                                     star_dict['vy'],
+                                                     star_dict['vz'],
+                                                     star_dict['rad'],
+                                                     star_dict['glat'],
+                                                     star_dict['glon'])
                 #########
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
@@ -675,11 +679,15 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Optional Parameters
     -------------------
-    BH_kick_speed_mean : float 
-        Mean of the birth kick speed of black holes (in km/s) maxwellian distrubution. Defaults to 50 km/s.
+    BH_kick_speed_loc : float 
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
         
     NS_kick_speed_mean : float 
-        Mean of the birth kick speed of neutron stars (in km/s) maxwellian distrubution. Defaults to 400 km/s based on distributions found by Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     set_random_seed : bool
         Forces PyPopStar to fix the random seed to 42,

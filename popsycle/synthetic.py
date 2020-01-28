@@ -2,8 +2,7 @@ import numpy as np
 import h5py
 import math
 from astropy import units
-from scipy.stats impo
-rt maxwell
+from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
@@ -3436,7 +3435,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     account = slurm_config['account']
     # Queue
     queue = slurm_config['queue']
-    # Name of the resource that will be used for the run
+    # Name of the resource that will be ussed for the run
     resource = slurm_config['resource']
     # Maximum number of ores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']

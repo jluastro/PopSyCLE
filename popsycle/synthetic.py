@@ -147,7 +147,7 @@ def write_galaxia_params(output_root,
     -------------------
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
-         generate a random number from 0 to 100. Setting this seed guarantees
+         generate a seed from the current time. Setting this seed guarantees
          identical results.
 
     Outputs
@@ -157,7 +157,8 @@ def write_galaxia_params(output_root,
     """
 
     if seed is None:
-        seed = np.random.uniform(0, 100, size=1).astype(int)[0]
+        # Grab last two digits of the current Epochal time
+        seed = int(str(time.time())[-2:])
 
     params = [
         "outputFile %s" % output_root,

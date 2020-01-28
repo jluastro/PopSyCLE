@@ -84,14 +84,6 @@ def run():
                                'PopSyCLE pipeline that uses multiprocessing). '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
-    required.add_argument('--isochrones-dir', type=str,
-                          help='Directory for PyPopStar isochrones. If not'
-                               'the default, this directory will be placed in '
-                               'the current directory by a symbolic '
-                               'link, preventing the need for repeated '
-                               'creation of the same isochrones across '
-                               'multiple fields.',
-                          default='./isochrones')
 
     optional = parser.add_argument_group(title='Optional')
     optional.add_argument('--seed', type=int,

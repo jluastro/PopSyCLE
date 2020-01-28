@@ -22,6 +22,7 @@ from sklearn import neighbors
 import itertools
 from multiprocessing import Pool
 import yaml
+import inspect
 
 ##########
 # Conversions.
@@ -3299,7 +3300,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
-    run_filepath = os.path.dirpath(__file__)
+    run_filepath = os.path.abspath(inspect.getfile(load_config))
 
     # Template for writing slurm script. Text must be left adjusted.
     slurm_template = """#!/bin/sh

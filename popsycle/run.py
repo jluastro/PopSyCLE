@@ -72,7 +72,7 @@ def run():
                           help='Name of configuration file containing '
                                'the field parameters. '
                                'Default: field_config.yaml',
-                          default='popsycle_config.yaml')
+                          default='field_config.yaml')
     required.add_argument('--popsycle-config-filename', type=str,
                           help='Name of configuration file containing '
                                'the PopSyCLE parameters. '

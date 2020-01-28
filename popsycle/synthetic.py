@@ -3189,7 +3189,7 @@ def generate_field_config_file(config_filename, longitude, latitude, area):
     """
 
     config = {'longitude': longitude,
-              'latitutde': latitude,
+              'latitude': latitude,
               'area': area}
     generate_config_file(config_filename, config)
 

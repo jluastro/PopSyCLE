@@ -179,3 +179,6 @@ Note: This disclaimer was originally written by
 `PyCon talk <https://www.youtube.com/watch?v=6Uj746j9Heo>`_, and was adapted by
 popsycle based on its use in the README file for the
 `MetPy project <https://github.com/Unidata/MetPy>`_.
+
+We have outlined the process for developing new features, located at
+`<docs/Documentation__PopSyCLE_Development.pdf>`_.

@@ -8,6 +8,6 @@ blend_rad: 0.75
 isochrones_dir: /Users/myself/popsycle_isochrones
 bin_edges_number: None
 BH_kick_speed_mean: 100
-NS_kick_speed_mean: 350
+NS_kick_speed_mean: 400
 filter_name: r
 red_law: Schlafly11

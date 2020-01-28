@@ -9,6 +9,10 @@ account: ulens
 queue: regular
 # Name of the resource that will be used for the run
 resource: haswell
+# Additional lines to be run before executing run.py
+additional_lines:
+- module load cray-hdf5/1.10.5.2
+- export HDF5_USE_FILE_LOCKING=FALSE
 
 # Resource specific properties
 haswell:
@@ -28,3 +32,4 @@ knl:
   n_nodes_max: 9668
   # Maximum walltime (hours)
   walltime_max: 48
+

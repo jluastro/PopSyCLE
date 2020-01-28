@@ -200,7 +200,7 @@ def write_galaxia_params(output_root,
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed_mean = 50,
-                    NS_kick_speed_mean = 400, set_random_seed = False):
+                    NS_kick_speed_mean = 400, overwrite = False, seed = None):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -744,7 +744,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id, 
                     BH_kick_speed_mean = 50, NS_kick_speed_mean = 400,
-                    seed = seed):
+                    seed = None):
     """
     Perform population synthesis.  
 
@@ -3196,7 +3196,7 @@ def generate_field_config_file(config_filename, longitude, latitude, area):
 
 def generate_slurm_config_file(config_filename, path_python, account, queue,
                                resource, n_cores_per_node, n_nodes_max,
-                               walltime_max):
+                               walltime_max, additional_lines):
     """
     Save slurm configuration parameters from a dictionary into a yaml file
 
@@ -3225,6 +3225,10 @@ def generate_slurm_config_file(config_filename, path_python, account, queue,
 
     walltime_max : int
         Maximum number of hours for single job on the compute resource
+        Format: hh:mm:ss
+
+    additional_lines : list of strings
+        Additional lines to be run before executing run.py
 
     Output
     ------
@@ -3234,6 +3238,8 @@ def generate_slurm_config_file(config_filename, path_python, account, queue,
     config = {'path_python': path_python,
               'account': account,
               'queue': queue,
+              'resource': resource,
+              'additional_lines': additional_lines,
               resource: {'n_cores_per_node': n_cores_per_node,
                          'n_nodes_max': n_nodes_max,
                          'walltime_max': walltime_max}}
@@ -3375,6 +3381,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 
     walltime : str
         Amount of walltime that the script will request from slurm.
+        Format: hh:mm:ss
 
     Optional Parameters
     -------------------
@@ -3461,8 +3468,10 @@ echo "Job id = $SLURM_JOBID"
 echo "Proc id = $SLURM_PROCID"
 hostname
 echo "---------------------------"
-module load cray-hdf5/1.10.5.2
-export HDF5_USE_FILE_LOCKING=FALSE
+"""
+    for line in slurm_config['additional_lines']:
+        slurm_template += '%s\n' % line
+    slurm_template += """
 cd {path_run}
 srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
 date

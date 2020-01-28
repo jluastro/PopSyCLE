@@ -9,6 +9,7 @@ from pathlib import Path
 import argparse
 from argparse import RawTextHelpFormatter
 from popsycle import synthetic
+import sys
 
 
 def return_filename_dict(output_root):

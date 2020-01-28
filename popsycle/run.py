@@ -217,7 +217,6 @@ def run():
     synthetic.refine_events(input_root=args.output_root,
                             filter_name=popsycle_config['filter_name'],
                             red_law=popsycle_config['red_law'],
-                            seed=args.seed,
                             overwrite=args.overwrite,
                             output_file='default')
 

@@ -2003,7 +2003,6 @@ def convert_photometric_99_to_nan(table):
 
 
 def refine_events(input_root, filter_name, red_law,
-                  seed=None,
                   overwrite=False,
                   output_file='default'):
     """
@@ -2027,11 +2026,6 @@ def refine_events(input_root, filter_name, red_law,
 
     Optional Parameters
     -------------------
-    seed : int
-        If set to non-zero, removes all random sampling and forces identical
-        output for Galaxia, PyPopStar and PopSyCLE.
-        Default None.
-
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
@@ -2062,10 +2056,6 @@ def refine_events(input_root, filter_name, red_law,
 
     if type(output_file) != str:
         raise Exception('output_file must be a string.')
-
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
 
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.

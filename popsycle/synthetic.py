@@ -24,7 +24,9 @@ import itertools
 from multiprocessing import Pool
 import yaml
 import inspect
-import shutil
+from popstar import atmospheres
+from popstar.imf import multiplicity
+from scipy.interpolate import griddata
 
 ##########
 # Conversions.
@@ -3575,138 +3577,159 @@ echo
         print('Submitted job {0} to {1}'.format(script_filename, resource))
 
 
-def convert_UBV_to_ztf_magnitudes(ubv_U, ubv_V):
-    ztf_G = np.zeros(len(ubv_U))
-    ztf_R = np.ones(len(ubv_V))
-    return ztf_G, ztf_R
+def generate_ubv_to_ztf_r_grid(iso_dir):
+    """
+    #TODO
+    iso_dir : filepath
+        Where are the isochrones stored (for PopStar)
+    """
+    # Define isochrone parameters
+    logAge = np.log10(8 * 10 ** 9)  # Age in log(years)
+    # dist = 4000  # distance in parsec
+    dist = 10  # distance in parsec
+    metallicity = 0  # Metallicity in [M/H]
+
+    # Define evolution/atmosphere models and extinction law
+    evo_model = evolution.MISTv1()
+    atm_func = atmospheres.get_merged_atmosphere
+    red_law = reddening.RedLawDamineli16()
+
+    # Also specify filters for synthetic photometry (optional). Here we use
+    # the HST WFC3-IR F127M, F139M, and F153M filters
+    filt_list = ['ztf,R', 'ubv,B', 'ubv,V', 'ubv,R']
+
+    # Make multiplicity object
+    imf_multi = multiplicity.MultiplicityUnresolved()
+
+    # Make IMF object; we'll use a broken power law with the parameters from Kroupa+01
+    # Define boundaries of each mass segement
+    massLimits = np.array([0.08, 0.5, 1, 120])
+    # Power law slope associated with each mass segment
+    powers = np.array([-1.3, -2.3, -2.3])
+    my_imf = imf.IMF_broken_powerlaw(massLimits, powers, imf_multi)
+
+    # Define total cluster mass
+    mass = 10 ** 5.
+
+    # Make ifmr
+    my_ifmr = ifmr.IFMR()
+
+    ubv_b = np.array([])
+    ubv_v = np.array([])
+    ubv_r = np.array([])
+    delta_m = np.array([])
+
+    for i, AKs in enumerate([0, .2, .4, .6, .8, 1]):
+        my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
+                                         metallicity=metallicity,
+                                         evo_model=evo_model,
+                                         atm_func=atm_func,
+                                         red_law=red_law, filters=filt_list,
+                                         iso_dir=iso_dir)
+        # Make cluster object
+        cluster = synthetic.ResolvedCluster(my_iso, my_imf, mass,
+                                            ifmr=my_ifmr)
+        clust = cluster.star_systems
+        cond = ~np.isnan(clust['m_ubv_V'])
+        clust = clust[cond]
+        clust_cond = np.random.choice(np.arange(len(clust)),
+                                      size=10000, replace=False)
+
+        ubv_b = np.append(ubv_b, clust['m_ubv_B'][clust_cond])
+        ubv_v = np.append(ubv_v, clust['m_ubv_V'][clust_cond])
+        ubv_r = np.append(ubv_r, clust['m_ubv_R'][clust_cond])
+        delta_m = np.append(delta_m, clust['m_ubv_R'][clust_cond] -
+                            clust['m_ztf_R'][clust_cond])
+
+    x_grid_arr = np.linspace(0, 6, 1000)
+    y_grid_arr = np.linspace(0, 6, 1000)
+
+    ubv_to_ztf_grid = griddata((ubv_v - ubv_r, ubv_b - ubv_v),
+                               delta_m,
+                               (x_grid_arr[None, :], y_grid_arr[:, None]),
+                               method='linear')
+
+    xx, yy = np.meshgrid(x_grid_arr, y_grid_arr)
+    xx, yy = xx.flatten(), yy.flatten()
+
+    cond = ~np.isnan(ubv_to_ztf_grid.flatten())
+    xx, yy = xx[cond], yy[cond]
+    ubv_to_ztf_grid_flat = ubv_to_ztf_grid.flatten()[cond]
+
+    ubv_to_ztf_grid_filled = griddata((xx, yy),
+                                      ubv_to_ztf_grid_flat,
+                                      (x_grid_arr[None, :],
+                                       y_grid_arr[:, None]),
+                                      method='linear')
+
+    ubv_to_ztf_grid_nearest = griddata((xx, yy),
+                                       ubv_to_ztf_grid_flat,
+                                       (x_grid_arr[None, :],
+                                        y_grid_arr[:, None]),
+                                       method='nearest')
+
+    cond = np.isnan(ubv_to_ztf_grid_filled)
+    ubv_to_ztf_grid_final = np.zeros_like(ubv_to_ztf_grid_filled)
+    ubv_to_ztf_grid_final[cond] = ubv_to_ztf_grid_nearest[cond]
+    ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
+
+    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn()))
+    np.savez('%s/ubv_to_ztf-r_grid.npz' % data_dir,
+             x_grid_arr=x_grid_arr,
+             y_grid_arr=y_grid_arr,
+             ubv_to_ztf_r_grid=ubv_to_ztf_grid_final)
 
 
-def ztf_mag_vega_to_AB(ztf_mag, filter_name):
-    if filter_name == 'g':
-        ztf_mag_AB = ztf_mag - 0.07
-    elif filter_name == 'r':
-        ztf_mag_AB = ztf_mag + 0.19
-    else:
-        print('filter_name must be either g or r')
-        ztf_mag_AB = None
-    return ztf_mag_AB
+def load_ubv_to_ztf_r_grid():
+    """
+    #TODO
+    """
+    # x_grid_arr: ubv_v - ubv_r
+    # y_grid_arr: ubv_b - ubv_v
+    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn()))
+    ubv_to_ztf_r_grid = np.load('%s/ubv_to_ztf-r_grid.npz' % data_dir)
+    return ubv_to_ztf_r_grid
 
 
-def generate_ztf_magnitudes_ebf(output_root):
-    #FIXME Not working
-    ebf_filename = '%s.ebf' % output_root
-    ebf_new_filename = '%s_ztf.ebf' % output_root
+def transform_ubv_to_ztf_r(ubv_b, ubv_v, ubv_r):
+    """
+    #TODO
+    """
+    ubv_to_ztf_r_grid = load_ubv_to_ztf_r_grid()
+    grid = ubv_to_ztf_r_grid['ubv_to_ztf_grid']
+    x_grid_arr = ubv_to_ztf_r_grid['x_grid_arr']
+    y_grid_arr = ubv_to_ztf_r_grid['y_grid_arr']
 
-    data = ebf.read(ebf_filename)
-    ubv_U = data['ubv_u']
-    ubv_V = data['ubv_v']
-    ztf_G, ztf_R = convert_UBV_to_ztf_magnitudes(ubv_U, ubv_V)
+    x_data = ubv_v - ubv_r
+    y_data = ubv_b - ubv_v
 
-    ebf.write(ebf_new_filename, '/ztf_g', ztf_G, 'w', dataunit='magnitude')
-    ebf.write(ebf_new_filename, '/ztf_r', ztf_R, 'a', dataunit='magnitude')
-
-    for i, key in enumerate(list(data.keys())):
-        print(key, i, len(list(data.keys())))
-        dataunit = ebf.unit(ebf_filename, '/' + key)
-        ebf.write(ebf_new_filename, '/' + key, data[key], 'a', dataunit=dataunit)
-
-
-def generate_ztf_magnitudes_ebf_v2(output_root):
-    # FIXME Not working
-    ebf_filename = '%s.ebf' % output_root
-    ebf_new_filename = '%s_ztf.ebf' % output_root
-
-    data = ebf.read(ebf_filename)
-    ubv_U = data['ubv_u']
-    ubv_V = data['ubv_v']
-    ztf_G, ztf_R = convert_UBV_to_ztf_magnitudes(ubv_U, ubv_V)
-
-    ebf.initialize(ebf_new_filename)
-
-    efile = ebf.EbfFile(ebf_new_filename, '/ztf_g', 'a', 'magnitude')
-    efile.write(ztf_G)
-    efile.close()
-
-    efile = ebf.EbfFile(ebf_new_filename, '/ztf_r', 'a', 'magnitude')
-    efile.write(ztf_R)
-    efile.close()
-
-    for i, key in enumerate(list(data.keys())):
-        print(key, i, len(list(data.keys())))
-
-        dataunit = ebf.unit(ebf_filename, '/' + key)
-        efile = ebf.EbfFile(ebf_new_filename, '/' + key, 'a', dataunit)
-        efile.write(data[key])
-        efile.close()
-
-def generate_ztf_magnitudes_h5(output_root):
-    h5_filename = '%s.h5' % output_root
-    h5_new_filename = '%s_ztf.h5' % output_root
-
-    f_in = h5py.File(h5_filename, 'r')
-    f_out = h5py.File(h5_new_filename, 'w')
-    for i, key in enumerate(f_in.keys()):
-        print(key, i, len(f_in.keys()))
-        if 'bin_edges' in key:
-            f_in.copy(key, f_out)
-            continue
-        data = f_in[key][:]
-        ubv_U = data[col_idx['ubv_u']]
-        ubv_V = data[col_idx['ubv_v']]
-        ztf_G, ztf_R = convert_UBV_to_ztf_magnitudes(ubv_U, ubv_V)
-
-        data = np.vstack((data, np.expand_dims(ztf_G, axis=1).T))
-        data = np.vstack((data, np.expand_dims(ztf_R, axis=1).T))
-
-        f_out[key] = data
-
-    f_in.close()
-    f_out.close()
+    ztf_r = return_nearest_gridpoint(grid,
+                                     x_grid_arr, y_grid_arr,
+                                     x_data, y_data)
+    return ztf_r
 
 
-def generate_ztf_magnitudes_fits(output_root, table_type):
-    fits_filename = '%s_%s.fits' % (output_root, table_type)
-    fits_new_filename = '%s_%s_ztf.fits' % (output_root, table_type)
+def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):
+    """
+    #TODO
+    """
+    # x_grid_arr: ubv_v - ubv_r
+    # y_grid_arr: ubv_b - ubv_v
+    x_data = np.atleast_1d(x_data)
+    y_data = np.atleast_1d(y_data)
 
-    if table_type == 'events':
-        colnames = ['L', 'S']
-    elif table_type == 'blends':
-        colnames = ['N']
+    gridpoint_arr = []
+    for x, y in zip(x_data, y_data):
+        if np.isnan(x) or np.isnan(y):
+            gridpoint = np.nan
+        else:
+            x_idx = np.argmin(np.abs(x - x_grid_arr))
+            y_idx = np.argmin(np.abs(y - y_grid_arr))
+            gridpoint = grid[y_idx, x_idx]
+        gridpoint_arr.append(gridpoint)
+    gridpoint_arr = np.array(gridpoint_arr)
 
-    data = Table.read(fits_filename)
-    for colname in colnames:
-        ubv_U = data['ubv_u_%s' % colname]
-        ubv_V = data['ubv_v_%s' % colname]
-        ztf_G, ztf_R = convert_UBV_to_ztf_magnitudes(ubv_U, ubv_V)
-        data['ztf_g_%s' % colname] = ztf_G
-        data['ztf_r_%s' % colname] = ztf_R
+    if len(gridpoint_arr) == 1:
+        gridpoint_arr = gridpoint_arr[0]
 
-    data.write(fits_new_filename, overwrite=True)
-
-
-def generate_ztf_magnitudes(output_root):
-    ebf_filename = '%s.ebf' % output_root
-    if os.path.exists(ebf_filename):
-        generate_ztf_magnitudes_ebf(output_root)
-
-    h5_filename = '%s.h5' % output_root
-    if os.path.exists(h5_filename):
-        generate_ztf_magnitudes_h5(output_root)
-
-    events_filename = '%s_events.fits' % output_root
-    if os.path.exists(events_filename):
-        generate_ztf_magnitudes_fits(output_root, 'events')
-
-    blends_filename = '%s_blends.fits' % output_root
-    if os.path.exists(blends_filename):
-        generate_ztf_magnitudes_fits(output_root, 'blends')
-
-    calc_events_log_filename = '%s_calc_events.log' % output_root
-    calc_events_log_new_filename = '%s_calc_events_ztf.log' % output_root
-    shutil.copy(calc_events_log_filename, calc_events_log_new_filename)
-
-    refine_events(output_root, 'r', 'Damineli16',
-                  extension='ztf', photometric_system='ztf',
-                  overwrite=True)
-
-    return None
+    return gridpoint_arr

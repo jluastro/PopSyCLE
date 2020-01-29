@@ -103,7 +103,14 @@ def run():
     optional.add_argument('--overwrite',
                           help="Overwrite all output files.",
                           action='store_true')
-    args = parser.parse_args()
+
+
+    optional.add_argument('--pbh-config-filename', type=str,
+                      help='Name of configuration file containing '
+                           'pbh inputs. Default if needed is: '
+                           'pbh_config.yaml',
+                      default=None)
+
 
     # Check for field config file. Exit if not present.
     if not os.path.exists(args.field_config_filename):
@@ -182,6 +189,28 @@ def run():
     if synthetic.check_for_output(filename_dict['blends_filename'],
                                   args.overwrite):
         sys.exit(1)
+
+    # only do stuff if optional config file for pbhs was provided
+    if args.pbh_config_filename is not None:
+      # Check for pbh config file. Exit if not present.
+      if not os.path.exists(args.pbh_config_filename):
+          print("""Error: PBH configuration file {0} missing, 
+          cannot continue. In order to execute run.py, generate a 
+          PBH configuration file using 
+          popsycle.synthetic.generate_pbh_config_file. 
+          Exiting...""".format(args.pbh_config_filename))
+          sys.exit(1)    
+
+      # TODO: check if .h5 file exists from perform popsyn, use as input for following function
+      if not os.path.exists({0}+'.h5'.format(args.output_root)):
+        print("""Error: H5 file was not created properly by 
+          synthetic.perform_pop_syn""")
+        sys.exit(1)
+
+      synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
+                                  output_root2=args.output_root,
+                                  overwrite=args.overwrite,
+                                  seed=args.seed)   
 
     # Run calc_events
     print('-- Executing calc_events')

@@ -1828,15 +1828,11 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
         # Calculate the distance from lens to each neighbor.
         lens_lb = SkyCoord(frame='galactic',
-                           l=np.array(
-                               event_lbt[col_idx['glon']][ii]) * units.deg,
-                           b=np.array(
-                               event_lbt[col_idx['glat']][ii]) * units.deg)
+                           l=np.array(event_lbt[col_idx['glon']][ii]) * units.deg,
+                           b=np.array(event_lbt[col_idx['glat']][ii]) * units.deg)
         neigh_lb = SkyCoord(frame='galactic',
-                            l=bigpatch[col_idx['glon']][results[ii]][
-                                  bidx] * units.deg,
-                            b=bigpatch[col_idx['glat']][results[ii]][
-                                  bidx] * units.deg)
+                            l=bigpatch[col_idx['glon']][results[ii]][bidx] * units.deg,
+                            b=bigpatch[col_idx['glat']][results[ii]][bidx] * units.deg)
         sep_LN = lens_lb.separation(neigh_lb)
         sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
 

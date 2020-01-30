@@ -2083,8 +2083,7 @@ def convert_photometric_99_to_nan(table):
 def refine_events(input_root, filter_name, red_law,
                   overwrite=False,
                   output_file='default',
-                  photometric_system='ubv',
-                  extension=None):
+                  photometric_system='ubv'):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -2114,7 +2113,7 @@ def refine_events(input_root, filter_name, red_law,
     Output:
     ----------
     A file will be created named
-    <input_root>_refined_events_<filt>_<red_law>.fits that contains all the
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
     same objects, only now with lots of extra
     columns of data. 
 
@@ -2147,22 +2146,13 @@ def refine_events(input_root, filter_name, red_law,
     t_0 = time.time()
 
     if output_file == 'default':
-        if extension:
-            output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
-                                                                               filter_name,
-                                                                               red_law,
-                                                                               extension)
-            print(output_file)
-            event_fits_file = input_root + '_events_%s.fits' % extension
-            blend_fits_file = input_root + '_blends_%s.fits' % extension
-            log_file = input_root + '_calc_events_%s.log' % extension
-        else:
-            output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(input_root,
-                                                                               filter_name,
-                                                                               red_law)
-            event_fits_file = input_root + '_events.fits'
-            blend_fits_file = input_root + '_blends.fits'
-            log_file = input_root + '_calc_events.log'
+        output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
+                                                                           photometric_system,
+                                                                           filter_name,
+                                                                           red_law)
+        event_fits_file = input_root + '_events.fits'
+        blend_fits_file = input_root + '_blends.fits'
+        log_file = input_root + '_calc_events.log'
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)

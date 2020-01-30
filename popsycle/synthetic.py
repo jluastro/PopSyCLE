@@ -27,6 +27,7 @@ import inspect
 from popstar import atmospheres
 from popstar.imf import multiplicity
 from scipy.interpolate import griddata
+import pickle
 
 ##########
 # Conversions.
@@ -3668,17 +3669,14 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     xx, yy = xx.flatten(), yy.flatten()
 
     cond = ~np.isnan(ubv_to_ztf_grid.flatten())
-    xx, yy = xx[cond], yy[cond]
-    ubv_to_ztf_grid_flat = ubv_to_ztf_grid.flatten()[cond]
-
-    ubv_to_ztf_grid_filled = griddata((xx, yy),
-                                      ubv_to_ztf_grid_flat,
+    ubv_to_ztf_grid_filled = griddata((xx[cond], yy[cond]),
+                                      ubv_to_ztf_grid.flatten()[cond],
                                       (x_grid_arr[None, :],
                                        y_grid_arr[:, None]),
                                       method='linear')
 
-    ubv_to_ztf_grid_nearest = griddata((xx, yy),
-                                       ubv_to_ztf_grid_flat,
+    ubv_to_ztf_grid_nearest = griddata((xx[cond], yy[cond]),
+                                       ubv_to_ztf_grid.flatten()[cond],
                                        (x_grid_arr[None, :],
                                         y_grid_arr[:, None]),
                                        method='nearest')
@@ -3688,11 +3686,17 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     ubv_to_ztf_grid_final[cond] = ubv_to_ztf_grid_nearest[cond]
     ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
 
+    grid_arr = np.squeeze(np.dstack([xx, yy]), axis=0)
+    kdtree = cKDTree(grid_arr)
+
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
-    np.savez('%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name),
-             x_grid_arr=x_grid_arr,
-             y_grid_arr=y_grid_arr,
-             ubv_to_ztf_grid=ubv_to_ztf_grid_final)
+
+    npy_filename = '%s/ubv_to_ztf-%s_grid.npy' % (data_dir, filter_name)
+    np.save(npy_filename, ubv_to_ztf_grid_final)
+
+    kdtree_filename = '%s/ubv_to_ztf-%s_grid.kdtree' % (data_dir, filter_name)
+    with open(kdtree_filename, 'wb') as f:
+        pickle.dump(kdtree, f)
 
 
 def load_ubv_to_ztf_grid(filter_name):
@@ -3703,37 +3707,36 @@ def load_ubv_to_ztf_grid(filter_name):
     # x_grid_arr: ubv_v - ubv_r
     # y_grid_arr: ubv_b - ubv_v
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
-    ubv_to_ztf_grid = np.load('%s/ubv_to_ztf-%s_grid.npz' % (data_dir,
-                                                             filter_name))
-    return ubv_to_ztf_grid
+    npy_filename = '%s/ubv_to_ztf-%s_grid.npy' % (data_dir, filter_name)
+    ubv_to_ztf_grid = np.load(npy_filename)
+
+    kdtree_filename = '%s/ubv_to_ztf-%s_grid.kdtree' % (data_dir, filter_name)
+    with open(kdtree_filename, 'rb') as f:
+        kdtree = pickle.load(f)
+
+    return ubv_to_ztf_grid, kdtree
 
 
 def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
-    """
-    #TODO
-    """
+    if np.sum(np.isnan(ubv_b)) > 0:
+        print('Error: Cannot use transform_ubv_to_ztf with NaN values')
+        return None, None
+
     x_data = ubv_v - ubv_r
     y_data = ubv_b - ubv_v
+    data = np.squeeze(np.dstack([x_data, y_data]), axis=0)
 
-    ubv_to_ztf_g_grid = load_ubv_to_ztf_grid(filter_name='g')
-    grid = ubv_to_ztf_g_grid['ubv_to_ztf_grid']
-    x_grid_arr = ubv_to_ztf_g_grid['x_grid_arr']
-    y_grid_arr = ubv_to_ztf_g_grid['y_grid_arr']
+    ubv_to_ztf_grid_g, kdtree_g = load_ubv_to_ztf_grid('g')
+    _, indexes = kdtree_g.query(data)
+    ztf_g_diff = ubv_to_ztf_grid_g.flatten()[indexes]
 
-    ztf_g_diff = return_nearest_gridpoint(grid,
-                                          x_grid_arr, y_grid_arr,
-                                          x_data, y_data)
     ztf_g = ubv_v - ztf_g_diff
     # ztf_g = ubv_b - ztf_g_diff
 
-    ubv_to_ztf_r_grid = load_ubv_to_ztf_grid(filter_name='r')
-    grid = ubv_to_ztf_r_grid['ubv_to_ztf_grid']
-    x_grid_arr = ubv_to_ztf_r_grid['x_grid_arr']
-    y_grid_arr = ubv_to_ztf_r_grid['y_grid_arr']
+    ubv_to_ztf_grid_r, kdtree_r = load_ubv_to_ztf_grid('r')
+    _, indexes = kdtree_r.query(data)
+    ztf_r_diff = ubv_to_ztf_grid_r.flatten()[indexes]
 
-    ztf_r_diff = return_nearest_gridpoint(grid,
-                                          x_grid_arr, y_grid_arr,
-                                          x_data, y_data)
     ztf_r = ubv_r - ztf_r_diff
 
     return ztf_g, ztf_r

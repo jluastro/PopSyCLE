@@ -70,8 +70,8 @@ filt_dict['i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940,
                   'Damineli16': 1.496}
 filt_dict['r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
                   'Damineli16': 2.102}
-filt_dict['ztf_g'] = {'Damineli16': 2.22834859}
-filt_dict['ztf_r'] = {'Damineli16': 3.45269014}
+filt_dict['ztf_g'] = {'Damineli16': 3.45269014}
+filt_dict['ztf_r'] = {'Damineli16': 2.22834859}
 filt_dict['ztf_i'] = {'Damineli16': 1.55343993}
 
 ##########
@@ -2080,7 +2080,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
 
 def convert_photometric_99_to_nan(table):
     for name in table.colnames:
-        if ('ubv' in name) or ('exbv' in name):
+        if ('ubv' in name) or ('exbv' in name) or ('ztf' in name):
             cond = table[name] == -99
             table[name][cond] = np.nan
 

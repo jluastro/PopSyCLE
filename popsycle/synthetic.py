@@ -3666,7 +3666,6 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     if filter_name == 'g':
         delta_m = ubv_v - ztf_g
-        # delta_m = ubv_b - ztf_g
     elif filter_name == 'r':
         delta_m = ubv_r - ztf_r
 
@@ -3744,7 +3743,6 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     ztf_g_diff = ubv_to_ztf_grid_g.flatten()[indexes]
 
     ztf_g = ubv_v - ztf_g_diff
-    # ztf_g = ubv_b - ztf_g_diff
 
     ubv_to_ztf_grid_r, kdtree_r = load_ubv_to_ztf_grid('r')
     _, indexes = kdtree_r.query(data)

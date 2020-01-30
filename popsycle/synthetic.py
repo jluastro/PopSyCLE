@@ -496,9 +496,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 # Add ztf magnitudes
                 ##########
-                star_dict['ztf_r'] = transform_ubv_to_ztf_r(star_dict['ubv_b'],
-                                                            star_dict['ubv_v'],
-                                                            star_dict['ubv_r'])
+                ztf_g, ztf_r = transform_ubv_to_ztf(star_dict['ubv_b'],
+                                                    star_dict['ubv_v'],
+                                                    star_dict['ubv_r'])
+                star_dict['ztf_g'] = ztf_g
+                star_dict['ztf_r'] = ztf_r
 
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
@@ -829,7 +831,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                   seed=seed)
     initialClusterMass = currentClusterMass / ratio
     filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
-                 'ukirt,K', 'ukirt,J']
+                 'ukirt,K', 'ukirt,J', 'ztf,G', 'ztf,R']
 
     ##########
     # Create the PopStar table (stars and compact objects).
@@ -979,6 +981,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1000,22 +1004,16 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 dist, indices = kdt.query(comp_xyz)
 
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
-                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][
-                    lum_WD_idx].data
-                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][
-                    lum_WD_idx].data
-                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][
-                    lum_WD_idx].data
-                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][
-                    lum_WD_idx].data
-                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][
-                    lum_WD_idx].data
-                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][
-                    lum_WD_idx].data
-                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][
-                    lum_WD_idx].data
-                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][
-                    lum_WD_idx].data
+                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
+                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
+                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
+                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
+                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
+                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
+                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
+                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
+                comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data
 
                 # Memory cleaning
                 del comp_table

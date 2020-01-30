@@ -1084,6 +1084,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
+        [27] - [28] : ztf_<x> (G, R abs. mag, in that order)
     """
 
     ##########
@@ -1091,9 +1092,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     ##########
     for ll in range(len(long_bin_edges) - 1):
         for bb in range(len(lat_bin_edges) - 1):
-            # HARDCODED: Fix the dimensions of the data set to 27 columns.
+            # HARDCODED: Fix the dimensions of the data set to 29 columns.
             # (Same as star_dict and comp_dict)
-            dset_dim1 = 27
+            dset_dim1 = 29
 
             # Open our HDF5 file for reading and appending.
             # Create as necessary.
@@ -1151,6 +1152,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
                 save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
                 save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
+                save_data[27, :] = np.float64(obj_arr['ztf_g'][id_lb])
+                save_data[28, :] = np.float64(obj_arr['ztf_r'][id_lb])
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[1]

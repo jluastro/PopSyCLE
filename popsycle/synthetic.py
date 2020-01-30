@@ -493,6 +493,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 n_binned_stars += len(bin_idx)
 
                 ##########
+                # Add ztf magnitudes
+                ##########
+                star_dict['ztf_r'] = transform_ubv_to_ztf_r(star_dict['ubv_b'],
+                                                            star_dict['ubv_v'],
+                                                            star_dict['ubv_r'])
+
+                ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
                 ##########
                 vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
@@ -3577,12 +3584,13 @@ echo
         print('Submitted job {0} to {1}'.format(script_filename, resource))
 
 
-def generate_ubv_to_ztf_r_grid(iso_dir):
+def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     """
     #TODO
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
     """
+
     # Define isochrone parameters
     logAge = np.log10(8 * 10 ** 9)  # Age in log(years)
     # dist = 4000  # distance in parsec
@@ -3596,7 +3604,7 @@ def generate_ubv_to_ztf_r_grid(iso_dir):
 
     # Also specify filters for synthetic photometry (optional). Here we use
     # the HST WFC3-IR F127M, F139M, and F153M filters
-    filt_list = ['ztf,R', 'ubv,B', 'ubv,V', 'ubv,R']
+    filt_list = ['ztf,R', 'ztf,G', 'ubv,B', 'ubv,V', 'ubv,R']
 
     # Make multiplicity object
     imf_multi = multiplicity.MultiplicityUnresolved()
@@ -3617,9 +3625,10 @@ def generate_ubv_to_ztf_r_grid(iso_dir):
     ubv_b = np.array([])
     ubv_v = np.array([])
     ubv_r = np.array([])
-    delta_m = np.array([])
+    ztf_g = np.array([])
+    ztf_r = np.array([])
 
-    for i, AKs in enumerate([0, .2, .4, .6, .8, 1]):
+    for AKs in np.arange(0, 1.1, .1):
         my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
                                          metallicity=metallicity,
                                          evo_model=evo_model,
@@ -3638,8 +3647,14 @@ def generate_ubv_to_ztf_r_grid(iso_dir):
         ubv_b = np.append(ubv_b, clust['m_ubv_B'][clust_cond])
         ubv_v = np.append(ubv_v, clust['m_ubv_V'][clust_cond])
         ubv_r = np.append(ubv_r, clust['m_ubv_R'][clust_cond])
-        delta_m = np.append(delta_m, clust['m_ubv_R'][clust_cond] -
-                            clust['m_ztf_R'][clust_cond])
+        ztf_g = np.append(ztf_g, clust['m_ztf_G'][clust_cond])
+        ztf_r = np.append(ztf_r, clust['m_ztf_R'][clust_cond])
+
+    if filter_name == 'g':
+        delta_m = ubv_v - ztf_g
+        # delta_m = ubv_b - ztf_g
+    elif filter_name == 'r':
+        delta_m = ubv_r - ztf_r
 
     x_grid_arr = np.linspace(0, 6, 1000)
     y_grid_arr = np.linspace(0, 6, 1000)
@@ -3673,40 +3688,55 @@ def generate_ubv_to_ztf_r_grid(iso_dir):
     ubv_to_ztf_grid_final[cond] = ubv_to_ztf_grid_nearest[cond]
     ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
 
-    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn()))
-    np.savez('%s/ubv_to_ztf-r_grid.npz' % data_dir,
+    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
+    np.savez('%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name),
              x_grid_arr=x_grid_arr,
              y_grid_arr=y_grid_arr,
-             ubv_to_ztf_r_grid=ubv_to_ztf_grid_final)
+             ubv_to_ztf_grid=ubv_to_ztf_grid_final)
 
 
-def load_ubv_to_ztf_r_grid():
+def load_ubv_to_ztf_grid(filter_name):
     """
+    filter_name: must be g or r
     #TODO
     """
     # x_grid_arr: ubv_v - ubv_r
     # y_grid_arr: ubv_b - ubv_v
-    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn()))
-    ubv_to_ztf_r_grid = np.load('%s/ubv_to_ztf-r_grid.npz' % data_dir)
-    return ubv_to_ztf_r_grid
+    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
+    ubv_to_ztf_grid = np.load('%s/ubv_to_ztf-%s_grid.npz' % (data_dir,
+                                                             filter_name))
+    return ubv_to_ztf_grid
 
 
-def transform_ubv_to_ztf_r(ubv_b, ubv_v, ubv_r):
+def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     """
     #TODO
     """
-    ubv_to_ztf_r_grid = load_ubv_to_ztf_r_grid()
+    x_data = ubv_v - ubv_r
+    y_data = ubv_b - ubv_v
+
+    ubv_to_ztf_g_grid = load_ubv_to_ztf_grid(filter_name='g')
+    grid = ubv_to_ztf_g_grid['ubv_to_ztf_grid']
+    x_grid_arr = ubv_to_ztf_g_grid['x_grid_arr']
+    y_grid_arr = ubv_to_ztf_g_grid['y_grid_arr']
+
+    ztf_g_diff = return_nearest_gridpoint(grid,
+                                          x_grid_arr, y_grid_arr,
+                                          x_data, y_data)
+    ztf_g = ubv_v - ztf_g_diff
+    # ztf_g = ubv_b - ztf_g_diff
+
+    ubv_to_ztf_r_grid = load_ubv_to_ztf_grid(filter_name='r')
     grid = ubv_to_ztf_r_grid['ubv_to_ztf_grid']
     x_grid_arr = ubv_to_ztf_r_grid['x_grid_arr']
     y_grid_arr = ubv_to_ztf_r_grid['y_grid_arr']
 
-    x_data = ubv_v - ubv_r
-    y_data = ubv_b - ubv_v
+    ztf_r_diff = return_nearest_gridpoint(grid,
+                                          x_grid_arr, y_grid_arr,
+                                          x_data, y_data)
+    ztf_r = ubv_r - ztf_r_diff
 
-    ztf_r = return_nearest_gridpoint(grid,
-                                     x_grid_arr, y_grid_arr,
-                                     x_data, y_data)
-    return ztf_r
+    return ztf_g, ztf_r
 
 
 def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):

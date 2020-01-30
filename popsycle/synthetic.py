@@ -873,7 +873,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table.keep_columns(['mass', 'phase', 'mass_current',
                                  'm_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U',
                                  'm_ubv_V', 'm_ukirt_H',
-                                 'm_ukirt_J', 'm_ukirt_K'])
+                                 'm_ukirt_J', 'm_ukirt_K',
+                                 'm_ztf_G', 'm_ztf_R'])
 
         # Fill out the rest of comp_dict 
         if len(comp_table['mass']) > 0:

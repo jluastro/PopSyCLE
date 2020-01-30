@@ -846,6 +846,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                          evo_model=evolution.MISTv1(),
                                          filters=filt_list,
                                          iso_dir=iso_dir)
+
+        # Check that the isochrone has all of the filters in filt_list
+        # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
         my_filt_list = ['m_%s' % f.replace(',', '_') for f in filt_list]
         if set(my_filt_list) != set(my_iso_filters):

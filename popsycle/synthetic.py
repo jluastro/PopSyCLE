@@ -86,7 +86,8 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'age': 15, 'popid': 16, 'ubv_k': 17,
            'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
            'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
-           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26}
+           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
+           'ztf_g': 27, 'ztf_r': 28}
 
 
 ###########################################################################
@@ -1591,13 +1592,9 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         Coordinates of all the stars.
     """
     # Propagate r, b, l positions forward in time.
-    r_t = bigpatch[col_idx['rad']] + timei * bigpatch[
-        col_idx['vr']] * kms_to_kpcday  # kpc
-    b_t = bigpatch[col_idx['glat']] + timei * bigpatch[
-        col_idx['mu_b']] * masyr_to_degday  # deg
-    l_t = bigpatch[col_idx['glon']] + timei * (
-                bigpatch[col_idx['mu_lcosb']] / np.cos(
-            np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday  # deg
+    r_t = bigpatch[col_idx['rad']] + timei * bigpatch[col_idx['vr']] * kms_to_kpcday  # kpc
+    b_t = bigpatch[col_idx['glat']] + timei * bigpatch[col_idx['mu_b']] * masyr_to_degday  # deg
+    l_t = bigpatch[col_idx['glon']] + timei * (bigpatch[col_idx['mu_lcosb']] / np.cos(np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday  # deg
 
     ##########
     # Determine nearest neighbor in spherical coordinates.
@@ -1712,10 +1709,8 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         theta_E = theta_E[adx][unique_indices]
         u = u[adx][unique_indices]
 
-        mu_b_rel = sorc_table[col_idx['mu_b']] - lens_table[
-            col_idx['mu_b']]  # mas/yr
-        mu_lcosb_rel = sorc_table[col_idx['mu_lcosb']] - lens_table[
-            col_idx['mu_lcosb']]  # mas/yr
+        mu_b_rel = sorc_table[col_idx['mu_b']] - lens_table[col_idx['mu_b']]  # mas/yr
+        mu_lcosb_rel = sorc_table[col_idx['mu_lcosb']] - lens_table[col_idx['mu_lcosb']]  # mas/yr
         mu_rel = np.sqrt(mu_b_rel ** 2 + mu_lcosb_rel ** 2)  # mas/yr
         t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
 
@@ -3729,27 +3724,36 @@ def load_ubv_to_ztf_grid(filter_name):
 
 
 def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
-    if np.sum(np.isnan(ubv_b)) > 0:
-        print('Error: Cannot use transform_ubv_to_ztf with NaN values')
-        return None, None
-
     x_data = ubv_v - ubv_r
     y_data = ubv_b - ubv_v
     data = np.squeeze(np.dstack([x_data, y_data]), axis=0)
 
-    ubv_to_ztf_grid_g, kdtree_g = load_ubv_to_ztf_grid('g')
-    _, indexes = kdtree_g.query(data)
-    ztf_g_diff = ubv_to_ztf_grid_g.flatten()[indexes]
+    cond_lum = ~np.isnan(data).any(axis=1)
 
-    ztf_g = ubv_v - ztf_g_diff
+    for filter_name in ['g', 'r']:
+        ztf_diff = np.full(len(ubv_b), np.nan)
 
-    ubv_to_ztf_grid_r, kdtree_r = load_ubv_to_ztf_grid('r')
-    _, indexes = kdtree_r.query(data)
-    ztf_r_diff = ubv_to_ztf_grid_r.flatten()[indexes]
+        ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
+        _, indexes = kdtree.query(data[cond_lum])
+        ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
 
-    ztf_r = ubv_r - ztf_r_diff
+        if filter_name == 'g':
+            ztf_g = ubv_v - ztf_diff
+        elif filter_name == 'r':
+            ztf_r = ubv_r - ztf_diff
 
     return ztf_g, ztf_r
+
+
+def ztf_mag_vega_to_AB(ztf_vega_mag, filter_name):
+    if filter_name == 'g':
+        ztf_mag_AB = ztf_vega_mag - 0.07
+    elif filter_name == 'r':
+        ztf_mag_AB = ztf_vega_mag + 0.19
+    else:
+        print('filter_name must be either g or r')
+        ztf_mag_AB = None
+    return ztf_mag_AB
 
 
 def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):

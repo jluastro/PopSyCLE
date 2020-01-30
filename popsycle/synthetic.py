@@ -846,6 +846,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                          evo_model=evolution.MISTv1(),
                                          filters=filt_list,
                                          iso_dir=iso_dir)
+        my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
+        my_filt_list = ['m_%s' % f.replace(',', '_') for f in filt_list]
+        if set(my_filt_list) != set(my_iso_filters):
+            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                             evo_model=evolution.MISTv1(),
+                                             filters=filt_list,
+                                             iso_dir=iso_dir,
+                                             recomp=True)
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!

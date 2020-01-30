@@ -1369,6 +1369,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_L', 'obj_id_L',
                                 'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
                                 'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                'ztf_g_L', 'ztf_r_L',
                                 'zams_mass_S', 'rem_id_S', 'mass_S',
                                 'px_S', 'py_S', 'pz_S',
                                 'vx_S', 'vy_S', 'vz_S',
@@ -1378,6 +1379,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_S', 'obj_id_S',
                                 'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
                                 'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
+                                'ztf_g_S', 'ztf_r_S',
                                 'theta_E', 'u0', 'mu_rel', 't0'))
 
     if len(results_bl) != 0:
@@ -1394,6 +1396,7 @@ def calc_events(hdf5_file, output_root2,
                                               'exbv_N', 'obj_id_N',
                                               'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
                                               'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                              'ztf_g_N', 'ztf_g_N',
                                               'sep_LN'))
 
     # Save out file

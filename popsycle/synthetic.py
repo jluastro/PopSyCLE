@@ -2365,7 +2365,10 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     Filter name is 'j', 'i', etc.
     red_law is Damineli16, Schlegel99, etc.
     """
-    f_i = filt_dict[filter_name][red_law]
+    if photometric_system == 'ubv':
+        f_i = filt_dict[filter_name][red_law]
+    else:
+        f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
 
     # Calculate apparent magnitudes 
     app_N = calc_app_mag(blend_tab['rad_N'],

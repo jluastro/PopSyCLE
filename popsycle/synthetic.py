@@ -3244,15 +3244,13 @@ def load_config(config_filename):
     return config
 
 
-def generate_field_config_file(config_filename, longitude, latitude, area):
+def generate_field_config_file(longitude, latitude, area,
+                               config_filename='field_config.yaml'):
     """
     Save field configuration parameters from a dictionary into a yaml file
 
     Parameters
     ----------
-    config_filename : str
-        Name of the configuration file
-
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
 
@@ -3261,6 +3259,12 @@ def generate_field_config_file(config_filename, longitude, latitude, area):
 
     area : float
         Area of the sky that will be generated, in square degrees
+
+    Optional Parameters
+    -------------------
+    config_filename : str
+        Name of the configuration file
+        Default: field_config.yaml
 
     Output
     ------
@@ -3273,17 +3277,15 @@ def generate_field_config_file(config_filename, longitude, latitude, area):
     generate_config_file(config_filename, config)
 
 
-def generate_slurm_config_file(config_filename, path_python, account, queue,
+def generate_slurm_config_file(path_python, account, queue,
                                resource, n_cores_per_node, n_nodes_max,
-                               walltime_max, additional_lines):
+                               walltime_max, additional_lines,
+                               config_filename='slurm_config.yaml'):
     """
     Save slurm configuration parameters from a dictionary into a yaml file
 
     Parameters
     ----------
-    config_filename : str
-        Name of the configuration file
-
     path_python : str
         Path to the python executable
 
@@ -3309,6 +3311,12 @@ def generate_slurm_config_file(config_filename, path_python, account, queue,
     additional_lines : list of strings
         Additional lines to be run before executing run.py
 
+    Optional Parameters
+    -------------------
+    config_filename : str
+        Name of the configuration file
+        Default: slurm_config.yaml
+
     Output
     ------
     None
@@ -3325,20 +3333,18 @@ def generate_slurm_config_file(config_filename, path_python, account, queue,
     generate_config_file(config_filename, config)
 
 
-def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
+def generate_popsycle_config_file(radius_cut, obs_time,
                                   n_obs, theta_frac, blend_rad,
                                   isochrones_dir,
                                   bin_edges_number,
                                   BH_kick_speed_mean, NS_kick_speed_mean,
-                                  filter_name, red_law):
+                                  filter_name, red_law,
+                                  config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
 
     Parameters
     ----------
-    config_filename : str
-        Name of the configuration file
-
     radius_cut : float
         Initial radius cut, in ARCSECONDS.
 
@@ -3375,6 +3381,12 @@ def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
 
     red_law : str
         The name of the reddening law to use from PopStar.
+
+    Optional Parameters
+    -------------------
+    config_filename : str
+        Name of the configuration file
+        Default: popsycle_config.yaml
 
     Output
     ------

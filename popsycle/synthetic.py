@@ -301,13 +301,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     if type(BH_kick_speed_mean) != int:
         if type(BH_kick_speed_mean) != float:
-            raise Exception(
-                'BH_kick_speed_mean must be an integer or a float.')
+            raise Exception('BH_kick_speed_mean must be an integer or a float.')
 
     if type(NS_kick_speed_mean) != int:
         if type(NS_kick_speed_mean) != float:
-            raise Exception(
-                'NS_kick_speed_mean must be an integer or a float.')
+            raise Exception('NS_kick_speed_mean must be an integer or a float.')
 
     if type(iso_dir) != str:
         raise Exception('iso_dir must be a string.')
@@ -532,8 +530,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     stars_in_bin[key] = val
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
-                                                     mass_in_bin, stars_in_bin,
-                                                     next_id,
+                                                     mass_in_bin, stars_in_bin, next_id,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      seed=seed)
@@ -588,10 +585,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line1 = 'ebf_file , ' + ebf_file + '\n'
     line2 = 'output_root , ' + output_root + '\n'
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
-    line4 = 'BH_kick_speed_mean , ' + str(
-        BH_kick_speed_mean) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed_mean , ' + str(
-        NS_kick_speed_mean) + ' , (km/s)' + '\n'
+    line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
+    line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
 
     line7 = 'VERSION INFORMATION' + '\n'
@@ -712,8 +707,7 @@ def calc_current_initial_ratio(iso_dir,
 
     # Reshape vectors so they can be concatenated into two columns
     logage_vec = logage_vec.reshape((len(logage_vec), 1))
-    current_initial_ratio_array = current_initial_ratio_array.reshape(
-        (len(logage_vec), 1))
+    current_initial_ratio_array = current_initial_ratio_array.reshape((len(logage_vec), 1))
     tab = np.concatenate((logage_vec, current_initial_ratio_array), axis=1)
     np.savetxt(out_file, tab)
 
@@ -938,8 +932,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             NS_kick_speed_scale = NS_kick_speed_mean / (2 * np.sqrt(2 / np.pi))
             if len(NS_idx) > 0:
-                NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale,
-                                            size=len(NS_idx))
+                NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
@@ -948,8 +941,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             BH_kick_speed_scale = BH_kick_speed_mean / (2 * np.sqrt(2 / np.pi))
             if len(BH_idx) > 0:
-                BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale,
-                                            size=len(BH_idx))
+                BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
@@ -967,8 +959,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                        comp_dict['rad'],
                                        comp_dict['glat'],
                                        comp_dict['glon'])
-            comp_dict['vr'], comp_dict['mu_b'], comp_dict[
-                'mu_lcosb'] = comp_sph
+            comp_dict['vr'], comp_dict['mu_b'], comp_dict['mu_lcosb'] = comp_sph
 
             # Add precision to vr, mu_b, mu_lcosb
             comp_dict['vr'] = add_precision64(comp_dict['vr'], -4)
@@ -1031,8 +1022,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 gc.collect()
 
             # Assign population and object ID.
-            comp_dict['popid'] = star_dict['popid'][0] * np.ones(
-                len(comp_dict['vx']))
+            comp_dict['popid'] = star_dict['popid'][0] * np.ones(len(comp_dict['vx']))
             comp_dict['obj_id'] = np.arange(len(comp_dict['vx'])) + next_id
 
             next_id += len(comp_dict['vx'])
@@ -1502,10 +1492,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     for i in np.arange(len(time_array)):
         # Find potential lenses and sources that fall within radius cut.
-        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(
-            bigpatch,
-            time_array[i],
-            radius_cut)
+        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
+                                                                            time_array[i],
+                                                                            radius_cut)
 
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch[col_idx['mass']][lens_id],
@@ -1686,10 +1675,9 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
-        lens_sorc_id_pairs = np.stack(
-            (bigpatch[col_idx['obj_id']][lens_id][adx],
-             bigpatch[col_idx['obj_id']][sorc_id][adx]),
-            axis=-1)
+        lens_sorc_id_pairs = np.stack((bigpatch[col_idx['obj_id']][lens_id][adx],
+                                       bigpatch[col_idx['obj_id']][sorc_id][adx]),
+                                      axis=-1)
 
         unique_returns = np.unique(lens_sorc_id_pairs,
                                    return_index=True, return_inverse=True,
@@ -2147,9 +2135,10 @@ def refine_events(input_root, filter_name, red_law,
                                                                            photometric_system,
                                                                            filter_name,
                                                                            red_law)
-        event_fits_file = input_root + '_events.fits'
-        blend_fits_file = input_root + '_blends.fits'
-        log_file = input_root + '_calc_events.log'
+
+    event_fits_file = input_root + '_events.fits'
+    blend_fits_file = input_root + '_blends.fits'
+    log_file = input_root + '_calc_events.log'
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
@@ -2277,11 +2266,9 @@ def calc_closest_approach(event_tab, survey_duration):
     cos_glat_S = np.cos(np.radians(event_tab['glat_S']))
     cos_glat_L = np.cos(np.radians(event_tab['glat_L']))
 
-    l_0 = (event_tab['glon_S'] - event_tab[
-        'glon_L']) * cos_glat_L * 3600.0 * 1.0e3  # position, mas
+    l_0 = (event_tab['glon_S'] - event_tab['glon_L']) * cos_glat_L * 3600.0 * 1.0e3  # position, mas
     l_1 = (event_tab['mu_lcosb_S'] - event_tab['mu_lcosb_L'])  # pm, mas/yr
-    b_0 = (event_tab['glat_S'] - event_tab[
-        'glat_L']) * 3600.0 * 1.0e3  # position, mas
+    b_0 = (event_tab['glat_S'] - event_tab['glat_L']) * 3600.0 * 1.0e3  # position, mas
     b_1 = (event_tab['mu_b_S'] - event_tab['mu_b_L'])  # pm, mas/yr
 
     # Calculate the critical time (time of closest approach), global minimum
@@ -2327,11 +2314,9 @@ def calc_distance(event_tab, time):
     cos_glat_S = np.cos(np.radians(event_tab['glat_S']))
     cos_glat_L = np.cos(np.radians(event_tab['glat_L']))
 
-    l_L = (event_tab['glon_L'] + time * event_tab[
-        'mu_lcosb_L'] * masyr_to_degday / cos_glat_L)
+    l_L = (event_tab['glon_L'] + time * event_tab['mu_lcosb_L'] * masyr_to_degday / cos_glat_L)
     b_L = (event_tab['glat_L'] + time * event_tab['mu_b_L'] * masyr_to_degday)
-    l_S = (event_tab['glon_S'] + time * event_tab[
-        'mu_lcosb_S'] * masyr_to_degday / cos_glat_S)
+    l_S = (event_tab['glon_S'] + time * event_tab['mu_lcosb_S'] * masyr_to_degday / cos_glat_S)
     b_S = (event_tab['glat_S'] + time * event_tab['mu_b_S'] * masyr_to_degday)
 
     c_L = SkyCoord(frame='galactic', l=l_L * units.deg, b=b_L * units.deg)
@@ -2453,11 +2438,10 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
         if len(idx) > 0:
             start = uni_bidxx[idx][0]
             end = uni_bidxx[idx + 1][0]
-            app_blended, flux_N_tot, cent_l, cent_b = calc_blend_and_centroid(
-                filter_name,
-                red_law,
-                blend_tab[start:end],
-                photometric_system)
+            app_blended, flux_N_tot, cent_l, cent_b = calc_blend_and_centroid(filter_name,
+                                                                              red_law,
+                                                                              blend_tab[start:end],
+                                                                              photometric_system)
             flux_N[pp] = flux_N_tot
             event_tab['cent_glon_' + filter_name + '_N'][pp] = cent_l
             event_tab['cent_glat_' + filter_name + '_N'][pp] = cent_b
@@ -2789,9 +2773,7 @@ def calc_delta_c_LL(fratio, u0, thetaE):
         delta_array = np.zeros(len(u_array))
         for i in np.arange(len(u_array)):
             u = u_array[i]
-            delta_array[i] = (u - f * u ** 2 * np.sqrt(u ** 2 + 4)) / (
-                        2 + u ** 2 + f * u * np.sqrt(u ** 2 + 4)) + (u * f) / (
-                                         1 + f)
+            delta_array[i] = (u - f * u ** 2 * np.sqrt(u ** 2 + 4)) / (2 + u ** 2 + f * u * np.sqrt(u ** 2 + 4)) + (u * f) / (1 + f)
         max_idx = np.argmax(delta_array)
         final_delta_array[j] = delta_array[max_idx]
         final_u_array[j] = u_array[max_idx]
@@ -2807,9 +2789,8 @@ def max_delta_c(u0, thetaE):
     small_idx = np.where(u0 <= np.sqrt(2))[0]
 
     max_delta_c_array[big_idx] = calc_delta_c(u0[big_idx], thetaE[big_idx])
-    max_delta_c_array[small_idx] = calc_delta_c(
-        np.ones(len(small_idx)) * np.sqrt(2),
-        thetaE[small_idx])
+    max_delta_c_array[small_idx] = calc_delta_c(np.ones(len(small_idx)) * np.sqrt(2),
+                                                thetaE[small_idx])
 
     return max_delta_c_array
 

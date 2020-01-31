@@ -3747,15 +3747,26 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     return ztf_g, ztf_r
 
 
-def ztf_mag_vega_to_AB(ztf_vega_mag, filter_name):
+def ztf_mag_vega_to_AB(ztf_mag, filter_name):
     if filter_name == 'g':
-        ztf_mag_AB = ztf_vega_mag - 0.07
+        ztf_mag_AB = ztf_mag - 0.07
     elif filter_name == 'r':
-        ztf_mag_AB = ztf_vega_mag + 0.19
+        ztf_mag_AB = ztf_mag + 0.19
     else:
         print('filter_name must be either g or r')
         ztf_mag_AB = None
     return ztf_mag_AB
+
+
+def ztf_mag_AB_to_vega(ztf_mag, filter_name):
+    if filter_name == 'g':
+        ztf_mag_vega = ztf_mag + 0.07
+    elif filter_name == 'r':
+        ztf_mag_vega = ztf_mag - 0.19
+    else:
+        print('filter_name must be either g or r')
+        ztf_mag_vega = None
+    return ztf_mag_vega
 
 
 def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):

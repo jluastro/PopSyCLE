@@ -575,14 +575,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.split(os.path.abspath(__file__))[0]
-    popstar_path = os.path.split(os.path.abspath(imf.__file__))[0]
+    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popstar_path = os.path.dirname(inspect.getfile(imf))
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode(
-        'ascii').strip()
+                                             cwd=microlens_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                           cwd=popstar_path).decode(
-        'ascii').strip()
+                                           cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
 
@@ -1411,10 +1409,9 @@ def calc_events(hdf5_file, output_root2,
     ##########
     now = datetime.datetime.now()
     radius_cut = radius_cut / 1000.0  # back to arcsec
-    microlens_path = os.path.split(os.path.abspath(__file__))[0]
+    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode(
-        'ascii').strip()
+                                             cwd=microlens_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
@@ -2212,8 +2209,8 @@ def refine_events(input_root, filter_name, red_law,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.split(os.path.abspath(__file__))[0]
-    popstar_path = os.path.split(os.path.abspath(imf.__file__))[0]
+    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popstar_path = os.path.dirname(inspect.getfile(imf))
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],

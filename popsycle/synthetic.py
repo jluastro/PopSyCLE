@@ -238,7 +238,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
@@ -451,7 +451,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
 
-                star_dict = {} #Need to start here to track more info
+                star_dict = {}
                 star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass',
                                                       bin_idx)
                 star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
@@ -471,9 +471,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
                 star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
+                star_dict['lum'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                #FIXME
                 star_dict['exbv'] = exbv
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
+                star_dict['lum'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                
                 # Angle wrapping for longitude
                 wrap_idx = np.where(star_dict['glon'] > 180)[0]
                 star_dict['glon'][wrap_idx] -= 360

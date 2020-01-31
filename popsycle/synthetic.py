@@ -1397,7 +1397,7 @@ def calc_events(hdf5_file, output_root2,
                                               'exbv_N', 'obj_id_N',
                                               'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
                                               'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
-                                              'ztf_g_N', 'ztf_g_N',
+                                              'ztf_g_N', 'ztf_r_N',
                                               'sep_LN'))
 
     # Save out file

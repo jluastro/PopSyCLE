@@ -1,0 +1,8 @@
+# Example configuration parameters for PBHs
+
+galaxia_area: .001 #How many square degrees are you running galaxia on
+fdm: 1 #Fraction of dark matter that consists of PBHs
+pbh_mass: 40 #Msun
+r_max: 8.3 #kpc, How far from the galactic center that you want to go out
+c: 10 #concentration index
+r_vir: 200 #kpc

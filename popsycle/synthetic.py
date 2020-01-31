@@ -3514,45 +3514,51 @@ echo
         print('Submitted job {0} to {1}'.format(script_filename, resource))
 
 
-def add_pbh(hdf5_file, output_root2, overwrite = False, seed = None):
+def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vir, overwrite = False, seed = None):
     """
-
-    TODO: change comments below for add pbh functionality
-
-    Given some hdf5 file from perform pop syn  output, creates compact objects. Sorts the stars and
-    compact objects into latitude/longitude bins, and saves them in an HDF5 file.
+    Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
+    and saves them in a new HDF5 file with the PBHs added.
 
     Parameters
     ----------
-    ebf_file : str or ebf file
-        str : name of the ebf file from Galaxia
-        ebf file : actually the ebf file from Galaxia
+    hdf5_file : str or hdf5 file
+        str : name of the hdf5 file from the output of perform_pop_syn
 
-    output_root : str
+    output_root2 : str
         The thing you want the output files to be named
         Examples:
            'myout'
            '/some/path/to/myout'
            '../back/to/some/path/myout'
 
-    iso_dir : filepath 
-        Where are the isochrones stored (for PopStar)
-
     Optional Parameters
     -------------------
-    bin_edges_number : int 
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+    galaxia_area : float 
+         How many square degrees did you run galaxia on.
+         This goes into calculating the field of view area, which is used to cut
+         a rectangular mask down into a circular mask for determining positions of
+         PBHs.
 
-    BH_kick_speed_mean : float
-        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
-        Defaults to 50 km/s.
+    fdm : float
+        Fraction of dark matter. 
+        The fraction of dark matter that you want to consist of PBHs.
+        Defaults to 1.
 
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-        Defaults to 400 km/s based on distributions found by
-        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+    pbh_mass : int
+        The single mass that all PBHs will have.
+        Defaults to 40 Msun (from LIGO detections thought to be primordial)
+
+    r_max : float
+        The maximum radius from the galactic center that you want to find PBHs at.
+        Defaults to 8.3 kpc (Where Earth is located)
+
+    c : float
+        Concentration index.
+        Defaults to 10 (concentration index of the Milky Way, multiple papers show it to be anywhere from 10-12)
+
+    r_vir : float
+        The virial radius.
+        Defaults to 200 kpc (The virial radius of the Milky Way)
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -3566,16 +3572,8 @@ def add_pbh(hdf5_file, output_root2, overwrite = False, seed = None):
 
     Outputs
     -------
-    <output_root>.h5 : hdf5 file
-        NOTE: This is what _bin_lb_hdf5 returns.
-        An hdf5 file with datasets that correspond to the longitude bin edges,
-        latitude bin edges, and the compact objects
-        and stars sorted into those bins.
-
-    <output_root>_label.fits : fits file
-        NOTE: This is what make_label_file returns.
-        A fits file that shows the correspondence between dataset name,
-        latitude, longitude, and number of objects in that bin.
+    <output_root2>.h5 : hdf5 file
+        The new .h5 file with PBHs injected in.
     """
     ##########
     # Error handling: check whether files exist and
@@ -3585,38 +3583,39 @@ def add_pbh(hdf5_file, output_root2, overwrite = False, seed = None):
     if not overwrite:
         # Check if HDF5 file exists already. If it does, throw an error message
         # to complain and exit.
-        if os.path.isfile(output_root + '.h5'):
+        if os.path.isfile(output_root2 + '.h5'):
             raise Exception(
                 'That .h5 file name is taken! Either delete the .h5 file, '
                 'or pick a new name.')
 
-        # Ditto with the fits label file.
-        if os.path.isfile(output_root + '_label.fits'):
-            raise Exception(
-                'That .fits file name is taken! Either delete the .fits file, '
-                'or pick a new name.')
-
     # Error handling/complaining if input types are not right.
-    if ebf_file[-4:] != '.ebf':
-        raise Exception('ebf_file must be an ebf file.')
 
-    if type(output_root) != str:
+    if type(output_root2) != str:
         raise Exception('output_root must be a string.')
 
-    if bin_edges_number is not None:
-        if type(bin_edges_number) != int:
-            raise Exception('bin_edges_number must be an integer.')
+    if type(galaxia_area) != float:
+        if type(galaxia_area) != int:
+            raise Exception('galaxia_area must be a float or an integer.')
 
-    if type(BH_kick_speed_mean) != int:
-        if type(BH_kick_speed_mean) != float:
-            raise Exception('BH_kick_speed_mean must be an integer or a float.')
+    if type(fdm) != float:
+        if type(fdm) != int:
+            raise Exception('fdm must be a float or an integer.')
 
-    if type(NS_kick_speed_mean) != int:
-        if type(NS_kick_speed_mean) != float:
-            raise Exception('NS_kick_speed_mean must be an integer or a float.')
+    if type(pbh_mass) != int:
+        if type(pbh_mass) != float:
+            raise Exception('pbh_mass must be an integer or a float.')
 
-    if type(iso_dir) != str:
-        raise Exception('iso_dir must be a string.')
+    if type(r_max) != float:
+        if type(r_max) != int:
+            raise Exception('r_max must be a float or an integer.')
+
+    if type(c) != int:
+        if type(c) != float:
+            raise Exception('c must be an integer or a float.')
+
+    if type(r_vir) != float:
+        if type(r_vir) != int:
+            raise Exception('r_vir must be a float or an integer.')
 
     if seed is not None:
         if type(seed) != int:
@@ -3631,369 +3630,274 @@ def add_pbh(hdf5_file, output_root2, overwrite = False, seed = None):
 
     t0 = time.time()
 
-    #########
-    # Read in only what you need
-    # Control yourself... take only what you need from it
-    # i.e. the log file, popid, and age
-    ########
-    t = ebf.read_ind(ebf_file, '/log', 0)
-    popid_array = ebf.read(ebf_file, '/popid')
-    age_array = ebf.read(ebf_file, '/age')
+    #Define parameters for NFW profile calculations
+    r_s = r_vir/c #kpc, scale radius
+    g = 4.3*(10**-3) #(pc*km^2)/(Msun*s^2)
+    h = 70 #km/(s*Mpc)
 
-    # Just some counting/error checking things
-    n_stars = len(popid_array)  # How many stars from Galaxia
-    comp_counter = 0  # Number of compact objects made
+    #Read in the hdf5 file that doesn't have PBHs. Product of perform_pop_syn.
+    no_pbh_hdf5_file = h5py.File(hdf5_file)
+    key_list = list(no_pbh_hdf5_file)
+    key_list = key_list[:len(key_list)-2]
+    lat_bin = pd.DataFrame(np.array(no_pbh['lat_bin_edges']))
+    long_bin = pd.DataFrame(np.array(no_pbh['long_bin_edges']))
+    no_pbh_hdf5_file.close()
 
-    # Convert log to useful dictionary.
-    ebf_log = make_ebf_log(t)
+    field_of_view_area = 2*((galaxia_area/np.pi)**(1/2))
 
-    ##########
-    ###  Fetch the center point and area of the survey.
-    ##########
-    b = float(ebf_log['latitude'])
-    l = float(ebf_log['longitude'])
-    surveyArea = float(ebf_log['surveyArea'])
+    #NFW Profile calculations to determine mass of dark matter within given distance of galactic center
+    rho_crit = ((3*(h**2))/(8*np.pi*g))*(10**6) #Msun/Mpc^3
+    rho_knot = (200/3)*(rho_crit)*((c**3)/(np.log(c+1)-(c/(1+c)))) # Msun/Mpc^3
+    mass_8_kpc = (4*np.pi*rho_knot*(r_s**3)*(np.log((r_s + r_max)/r_s) - (r_max/(r_s+r_max))))*(((10**3)**3)/((10**6)**3))*fdm #Msun
 
-    ##########
-    ### Make the bins for the latitude and longitude. All the information
-    ### will be sorted into each of these bins in order to
-    # handle large arrays, etc.
-    ##########
-    # Extend the edges a bit, that's what the * 1.1 is for
-    # (to potentially catch any edge cases.)
-    # make bins of size ~1/2 arcmin
-    radius = np.sqrt(surveyArea / np.pi)  # degrees
+    #Determine the number of PBHs within that distance
+    num_pbh_8kpc = (mass_8_kpc/pbh_mass)
+    num_pbh_8kpc = round(num_pbh_8kpc, -1)
 
-    # Define bin_edges_number, if not given in input.
-    if bin_edges_number is None:
-        # st the widths are 1/2 arcmin
-        bin_edges_number = int(60 * 2 * radius) + 1
-
-    # Make sure we have enough bin edges (minimum is 3)
-    if bin_edges_number < 2:
-        bin_edges_number = 3
-    lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
-                                bin_edges_number)
-    long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
-                                 bin_edges_number)
-    # Angle wrapping for longitude
-    wrap_id = np.where(long_bin_edges > 180)[0]
-    long_bin_edges[wrap_id] -= 360
-
-    ##########
-    # Create h5py file to store lat/long binned output
-    ##########
-    h5file = h5py.File(output_root + '.h5', 'w')
-    dataset = h5file.create_dataset('lat_bin_edges', data=lat_bin_edges)
-    dataset = h5file.create_dataset('long_bin_edges', data=long_bin_edges)
-    h5file.close()
-
-    ##########
-    # Reassign ages for stars that are less than logage 6
-    # or greater than logage 10.01, since those are the limits of
-    # PopStar evolution. Justification: in writeup/paper.
-    ##########
-    young_id = np.where(age_array <= 5.01)[0]
-    age_array[young_id] = 5.0101
-    old_id = np.where(age_array >= 10.14)[0]
-    age_array[old_id] = 10.1399
-
-    # Initialize a running counter for the "unique ID".
-    next_id = n_stars  # for compact objects...
-    n_binned_stars = 0  # for stars...
-
-    ##########
-    # Loop through population ID (i.e. bulge, disk, halo, ...) in order to
-    # design bin sizes appropriate for each population. Dividing by population
-    # is convenient because each has very different
-    # age ranges and radius ranges.
-    ##########
-    for pid in range(10):
-        print('*********************** Starting popid ' + str(pid))
-        if np.sum(popid_array == pid) == 0:
-            print('No stars with this pid. Skipping!')
-            continue
-        popid_idx = np.where(popid_array == pid)[0]
-        if len(popid_idx) == 0:
-            print('No stars with this pid. Skipping!')
-            continue
-
-        logage_min = np.min(age_array[popid_idx])
-        logage_max = np.max(age_array[popid_idx])
-
-        # For single age populations (popID = 7-9), have a single age bin...
-        if logage_min == logage_max:
-            logt_bins = np.array([logage_min * 0.99, logage_min * 1.01])
-
-        # ...for multiple age populations (popID = 1-6,
-        # break ages into 4 age bins.
+    #Defining needed functions from the python package "NFWdist".
+    #Used to calculate PBH radii from galactic center assuming NFW profile.
+    #https://github.com/CullanHowlett/NFWdist
+    def pnfwunorm(q, con=5):
+        if hasattr(con, '__len__'):
+            y = np.outer(q,con)
         else:
-            logt_bins = np.log10(
-                np.logspace(logage_min, logage_max * 1.001, 5))
+            y = q*con
+        return np.log(1.0 + y)-y/(1.0 + y)
 
-            # HARDCODED: Special handling for the youngest bin,
-            # popID = 0 (Thin Disk < 150 Myr).
-            if pid == 0:
-                logt_bins = np.array([logage_min, 6.3, 7.0, 7.7, 8.0, 8.2])
+    def pnfw(q, con=5, logp=False):
+        p = pnfwunorm(q, con=con)/pnfwunorm(1, con=con)
+        if hasattr(q, '__len__'):
+            p[q>1] = 1
+            p[q<=0] = 0
+        else:
+            if (q > 1):
+                p = 1
+            elif (q <= 0):
+                p = 0
+        if(logp):
+            return np.log(p)
+        else:
+            return p
 
-        ##########
-        # Loop through age bins
-        #   -- note, don't slice tables as we don't want
-        #   duplicated things carried in memory.
-        ##########
-        for aa in range(len(logt_bins) - 1):
-            print('Starting age bin ', logt_bins[aa])
-            # Mid-point age of bin.
-            age_of_bin = (logt_bins[aa] + logt_bins[aa + 1]) / 2.0
+    def qnfw(p, con=5, logp=False):
+        if (logp):
+            p = np.exp(p)
+        if hasattr(p, '__len__'):
+            p[p>1] = 1
+            p[p<=0] = 0
+        else:
+            if (p > 1):
+                p = 1
+            elif (p <= 0):
+                p = 0
+        if hasattr(con, '__len__'):
+            p = np.outer(p,pnfwunorm(1, con=con))
+        else:
+            p *= pnfwunorm(1, con=con)
+        return (-(1.0/np.real(special.lambertw(-np.exp(-p-1))))-1)/con
 
-            # Fetch the stars in this age bin.
-            age_idx = np.where((age_array[popid_idx] >= logt_bins[aa]) &
-                               (age_array[popid_idx] < logt_bins[aa + 1]))[0]
-            len_adx = len(age_idx)
+    #Calculating radius values for all PBHs within 8.3kpc of the galactic center
+    r_values = (qnfw(np.random.rand(int(num_pbh_8kpc)) * pnfw(r_max/r_vir,con=c, logp=False), con=c)*r_vir)
 
-            # Figure out how many random bins we will need.
-            #   -- breaking up into managable chunks of 2 million stars each.
-            num_stars_in_bin = 2e6
-            num_rand_bins = int(math.ceil(len_adx / num_stars_in_bin))
+    #Sample PBH lattitude and longitude to have full spherical coordinates.
+    sin_lats = np.random.uniform(-1, 1, int(num_pbh_8kpc))
+    lats=np.arcsin(sin_lats)
+    longs = np.random.uniform(0, 2*np.pi, int(num_pbh_8kpc))
 
-            ##########
-            # Loop through random bins of 2 million stars at a time. 
-            ##########
-            for nn in range(num_rand_bins):
-                print('Starting sub-bin ', nn)
-                n_start = int(nn * num_stars_in_bin)
-                n_stop = int((nn + 1) * num_stars_in_bin)
+    #Converting spherical galactocentric coordinates to cartesian galactocentric coordinates
+    cart = astropy.coordinates.spherical_to_cartesian(r_values, lats, longs)
 
-                bin_idx = popid_idx[age_idx[n_start:n_stop]]
+    #Defining galactocentric coordinates
+    c = coord.Galactocentric(x=cart[0] * u.kpc, y=cart[1] * u.kpc, z=cart[2] * u.kpc)
 
-                exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+    #Transforming from galactocentric to galactic (heliocentric) coordinates
+    #outputs l, b, dist in degrees.
+    c = c.transform_to(coord.Galactic(representation_type='cartesian'))
 
-                star_dict = {}
-                star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass',
-                                                      bin_idx)
-                star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
-                star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
-                star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
-                star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
-                star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
-                star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
-                star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
-                star_dict['age'] = age_array[bin_idx]
-                star_dict['popid'] = popid_array[bin_idx]
-                star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
-                star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
-                star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
-                star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
-                star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
-                star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
-                star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                star_dict['exbv'] = exbv
-                star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
-                star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
-                # Angle wrapping for longitude
-                wrap_idx = np.where(star_dict['glon'] > 180)[0]
-                star_dict['glon'][wrap_idx] -= 360
-                star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
-                star_dict['rem_id'] = np.zeros(len(bin_idx))
-                star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
+    #Defining function to use in PBH mask (this portion of the mask creates circular shape 
+    #from a rectangular shape because our field of view is circular)
+    def angdist(ra1, dec1, ra2, dec2):
+        from numpy import pi, sin, cos, arccos
+        d2r = pi / 180.0
+        cosdist = (cos(np.absolute(ra1 - ra2) * d2r) * cos(np.absolute(dec1 * d2r)) * cos(np.absolute(dec2 * d2r)) +
+                   sin(np.absolute(dec1 * d2r)) * sin(np.absolute(dec2 * d2r)))
+        distance = arccos(cosdist) / d2r
+        return distance
 
-                n_binned_stars += len(bin_idx)
+    #Determining the center of the field of view circle.
+    l_mid = np.average((l_min, l_max))
+    b_mid = np.average((b_min, b_max))
 
-                ##########
-                # Add spherical velocities vr, mu_b, mu_lcosb
-                ##########
-                vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
-                                                     star_dict['vy'],
-                                                     star_dict['vz'],
-                                                     star_dict['rad'],
-                                                     star_dict['glat'],
-                                                     star_dict['glon'])
-                #########
-                # Add precision to r, b, l, vr, mu_b, mu_lcosb
-                #########
-                star_dict['rad'] = add_precision64(star_dict['rad'], -4)
-                star_dict['glat'] = add_precision64(star_dict['glat'], -4)
-                star_dict['glon'] = add_precision64(star_dict['glon'], -4)
-                star_dict['vr'] = add_precision64(vr, -4)
-                star_dict['mu_b'] = add_precision64(mu_b, -4)
-                star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4)
+    dists = angdist(l_mid, b_mid, c.l.deg, c.b.deg)
 
-                ##########
-                # Perform population synthesis.
-                ##########
-                mass_in_bin = np.sum(star_dict['zams_mass'])
+    #Set minimum and maximum l, b, and r values for PBH mask.
+    l_min = np.min(long_bin).values
+    l_max = np.max(long_bin).values
+    b_min = np.min(lat_bin).values
+    b_max = np.max(lat_bin).values
+    r_max_mask = 16.6
 
-                stars_in_bin = {}
-                for key, val in star_dict.items():
-                    stars_in_bin[key] = val
+    #Masking the full PBH data for our field of view
+    mask = (c.l.deg >= l_min) & (c.l.deg <= l_max) & (c.b.deg >= b_min) & (c.b.deg <= b_max) & (c.distance.kpc <= r_max_mask) & (dists < field_of_view_area)
+    data_in_field = c[mask]
 
-                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin, 
-                                                     mass_in_bin, stars_in_bin, next_id,
-                                                     BH_kick_speed_mean=BH_kick_speed_mean,
-                                                     NS_kick_speed_mean=NS_kick_speed_mean,
-                                                     seed=seed)
+    #Obtain the radius values for all of the PBHs in our field of view.
+    r = data_in_field.distance.kpc
 
-                ##########
-                #  Bin in l, b all stars and compact objects. 
-                ##########
-                if comp_dict is not None:
-                    comp_counter += len(comp_dict['mass'])
-                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict,
-                                 output_root)
-                _bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin,
-                             output_root)
-                ##########
-                # Done with galaxia output in dictionary t and ebf_log.
-                # Garbage collect in order to save space.
-                ##########
-                del star_dict
-                gc.collect()
+    #Getting radial dispersion vs. radius distribution from the M. Hoeft 2018 paper.
+    disp_data = pd.read_csv('data/radial_velocity_dispersion_digitized.csv')
+    plot_r_val = disp_data['radius'].values
+    plot_dispersion = disp_data.iloc[:,1].values
 
-    t1 = time.time()
-    print('Total run time is {0:f} s'.format(t1 - t0))
+    #Adjusting for the correct units
+    plot_r_val_kpc = plot_r_val*(10**3)
+    plot_dispersion_fixed = plot_dispersion*1000
 
-    ##########
-    # Figure out how much stuff got binned.
-    ##########
-    binned_counter = 0
-    hf = h5py.File(output_root + '.h5', 'r')
-    for key in list(hf.keys()):
-        if len(hf[key].shape) > 1:
-            binned_counter += (hf[key].shape)[1]
+    #Get radial dispersion value for each PBH, given PBH radius.
+    pbh_dispersion = np.interp(r, plot_r_val_kpc, plot_dispersion_fixed)
 
-     ##########
-    # Make label file containing information about l,b bins
-    ##########
-    make_label_file(output_root)
+    #Defining some parameters that are used in the velocity distribution equations
+    v_esc = 525 #km/s
+    v_knot = ((2/3)**(1/2))*pbh_dispersion
+    z=v_esc/v_knot
+    n_esc=scipy.special.erf(z)-(2*(np.pi**(-1/2))*z*(np.exp(-z**2)))
+    v=np.arange(0,525, 525/len(n_esc))
 
-    ##########
-    # Make log file
-    ##########
-    now = datetime.datetime.now()
-    microlens_path = os.path.split(os.path.abspath(__file__))[0]
-    popstar_path = os.path.split(os.path.abspath(imf.__file__))[0]
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                           cwd=popstar_path).decode('ascii').strip()
-    dash_line = '-----------------------------' + '\n'
-    empty_line = '\n'
+    #Getting velocity for each PBH using formulas from Ranjan Laha 2018.
+    for disp in pbh_dispersion:
+        f = ((3/(2*np.pi*(disp**2)))**(3/2))*(np.exp((-(v**2))/(2*(disp**2))))
+        cdf = (3*(3**(1/2))*(1/(disp**2))*disp*scipy.special.erf(v/((2**(1/2))*disp)))/(4*np.pi)
+        rand_cdf = np.random.uniform(0, np.amax(cdf), 1)
+        interpreted_rms_velocities = np.interp(rand_cdf, cdf, v)
 
-    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
-    line1 = 'ebf_file , ' + ebf_file + '\n'
-    line2 = 'output_root , ' + output_root + '\n'
-    line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
-    line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
-    line6 = 'iso_dir , ' + iso_dir + '\n'
+    #Sampling random lattitude and longitude values for velocity to complete the spherical velocities
+    sin_lat_vel = np.random.uniform(-1, 1, len(data_in_field))
+    lat_vel = np.arcsin(sin_lat_vel)
+    long_vel = np.random.uniform(0, 2*np.pi, len(data_in_field))
 
-    line7 = 'VERSION INFORMATION' + '\n'
-    line8 = str(now) + ' : creation date' + '\n'
-    line9 = popstar_hash + ' : PopStar commit' + '\n'
-    line10 = microlens_hash + ' : microlens commit' + '\n'
+    #Transforming velocities to cartesian to get vx, vy, vz values
+    cart_vel = astropy.coordinates.spherical_to_cartesian(interpreted_rms_velocities, lat_vel, long_vel)
+    vx= cart_vel[0]
+    vy= cart_vel[1]
+    vz= cart_vel[2]
 
-    line11 = 'OTHER INFORMATION' + '\n'
-    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line13 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line14 = str(comp_counter) + ' : total compact objects made' + '\n'
-    line15 = str(binned_counter) + ' : total things binned' + '\n'
+    #Getting rest of data for PBHs for the combined .h5 file
+    mass = np.full((len(data_in_field), 1), pbh_mass)
+    mass = np.reshape(mass, (len(data_in_field),))
+    zams_mass = mass
+    age = np.full((len(data_in_field), 1), 14*(10**9))
+    age = np.reshape(age, (len(data_in_field),))
+    pop_id = np.full((len(data_in_field), 1), 10)
+    pop_id = np.reshape(pop_id, (len(data_in_field),))
+    rem_id = np.full((len(data_in_field), 1), 104)
+    rem_id = np.reshape(rem_id, (len(data_in_field),))
 
-    line16 = 'FILES CREATED' + '\n'
-    line17 = output_root + '.h5 : HDF5 file' + '\n'
-    line18  = output_root + '_label.fits : label file' + '\n'
+    l = data_in_field.l.deg
+    b = data_in_field.b.deg
+    b_rad = np.radians(b)
+    l_rad = np.radians(l)
 
-    with open(output_root + '_perform_pop_syn.log', 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
-                        line6, empty_line, line7, dash_line, line8, line9,
-                        line10, empty_line, line11, dash_line, line12, line13,
-                        line14, line15, empty_line, line16, dash_line, line17,
-                        line18])
+    cart_helio = astropy.coordinates.spherical_to_cartesian(r, b_rad, l_rad)
 
-    ##########
-    # Informative print statements. 
-    ##########
-    if (n_stars + comp_counter) != binned_counter:
-        print('***************** WARNING ******************')
-        print('Number of things in != number of things out.')
-        print('********************************************')
+    px = cart_helio[0]
+    py = cart_helio[1]
+    pz = cart_helio[2]
 
-    print('******************** INFO **********************')
-    print('Total number of stars from Galaxia: ' + str(n_stars))
-    print('Total number of compact objects made: ' + str(comp_counter))
-    print('Total number of things binned: ' + str(binned_counter))
+    calc_sph_motion(vx, vy, vz, r, b, l)
 
+    exbv = np.full((len(data_in_field), 1), 0)
+    exbv = np.reshape(exbv, (len(data_in_field),))
+    ubv_k = np.full((len(data_in_field), 1), np.nan)
+    ubv_k = np.reshape(ubv_k, (len(data_in_field),))
+    ubv_j = np.full((len(data_in_field), 1), np.nan)
+    ubv_j = np.reshape(ubv_j, (len(data_in_field),))
+    obj_id = np.arange(1, (len(data_in_field)+1))
+    ubv_i = np.full((len(data_in_field), 1), np.nan)
+    ubv_i = np.reshape(ubv_i, (len(data_in_field),))
+    ubv_u = np.full((len(data_in_field), 1), np.nan)
+    ubv_u = np.reshape(ubv_u, (len(data_in_field),))
+    ubv_r = np.full((len(data_in_field), 1), np.nan)
+    ubv_r = np.reshape(ubv_r, (len(data_in_field),))
+    ubv_b = np.full((len(data_in_field), 1), np.nan)
+    ubv_b = np.reshape(ubv_b, (len(data_in_field),))
+    ubv_h = np.full((len(data_in_field), 1), np.nan)
+    ubv_h = np.reshape(ubv_h, (len(data_in_field),))
+    ubv_v = np.full((len(data_in_field), 1), np.nan)
+    ubv_v = np.reshape(ubv_v, (len(data_in_field),))
+
+    pbh_data = pd.DataFrame({'zams_mass':zams_mass, 'rem_id':rem_id, 'mass':mass, 'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz, 'rad':r, 'glat':b, 'glon':l, 'vr':vr, 'mu_b':mu_b, 'mu_lcosb':mu_lcosb, 'age':age, 'popid':pop_id, 'ubv_k':ubv_k, 'ubv_i':ubv_i, 'exbv':exbv, 'obj_id':obj_id, 'ubv_j':ubv_j, 'ubv_u':ubv_u, 'ubv_r':ubv_r, 'ubv_b':ubv_b, 'ubv_h':ubv_h, 'ubv_v':ubv_v})
+
+    #Getting information out of .h5 file before PBHs
+    no_pbh_hdf5_file = h5py.File(hdf5_file)
+
+    for key in key_list:
+        keys = pd.DataFrame(np.array(no_pbh['{}'.format(key)]))
+        vars()[key+'_max_l'] = np.amax(keys.T[11])
+        vars()[key+'_min_l'] = np.amin(keys.T[11])
+        vars()[key+'_max_b'] = np.amax(keys.T[10])
+        vars()[key+'_min_b'] = np.amin(keys.T[10])
+        vars()[key+'_mask'] = (pbh_data['glon'] >= vars()[key+'_min_l']) & (pbh_data['glon'] <= vars()[key+'_max_l']) & (pbh_data['glat'] >= vars()[key+'_min_b']) & (pbh_data['glat'] <= vars()[key+'_max_b'])
+        vars()['pbh_'+key] = (pbh_data[vars()[key+'_mask']]).T
+        vars()['pbh_'+key].reset_index(drop=True, inplace=True)
+        vars()['full_'+key]=pd.concat([keys, vars()['pbh_'+key]], axis=1)
+    no_pbh_hdf5_file.close()
+
+    #Creating final .h5 file with PBHs injected
+    f = h5py.File(run_key + '_with_PBH.h5', 'w')
+
+    for key in key_list:
+        vars()['d_'+key]=f.create_dataset(key, (vars()['full_'+key].shape[0], vars()['full_'+key].shape[1]), data=vars()['full_'+key])
+
+    d_lat = f.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
+    d_long = f.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
+    f.close()
 
     return
 
-# TODO, write this for pbhs
-def generate_pbh_config_file(config_filename, radius_cut, obs_time,
-                                  n_obs, theta_frac, blend_rad,
-                                  isochrones_dir,
-                                  bin_edges_number,
-                                  BH_kick_speed_mean, NS_kick_speed_mean,
-                                  filter_name, red_law):
+def generate_pbh_config_file(config_filename, galaxia_area, fdm, pbh_mass, r_max, c, r_vir):
     """
-    Save popsycle configuration parameters from a dictionary into a yaml file
+    Save PBH configuration parameters into a yaml file
 
     Parameters
     ----------
-    config_filename : str
-        Name of the configuration file
+    galaxia_area : float 
+         How many square degrees did you run galaxia on.
+         This goes into calculating the field of view area, which is used to cut
+         a rectangular mask down into a circular mask for determining positions of
+         PBHs.
 
-    radius_cut : float
-        Initial radius cut, in ARCSECONDS.
+    fdm : float
+        Fraction of dark matter. 
+        The fraction of dark matter that you want to consist of PBHs.
+        Defaults to 1.
 
-    obs_time : float
-        Survey duration, in DAYS.
+    pbh_mass : int
+        The single mass that all PBHs will have.
+        Defaults to 40 Msun (from LIGO detections thought to be primordial)
 
-    n_obs : float
-        Number of observations.
+    r_max : float
+        The maximum radius from the galactic center that you want to find PBHs at.
+        Defaults to 8.3 kpc (Where Earth is located)
 
-    theta_frac : float
-        Another cut, in multiples of Einstein radii.
+    c : float
+        Concentration index.
+        Defaults to 10 (concentration index of the Milky Way, multiple papers show it to be anywhere from 10-12)
 
-    blend_rad : float
-        Stars within this distance of the lens are said to be blended.
-        Units are in ARCSECONDS.
-
-    isochrones_dir : str
-        Directory for PyPopStar isochrones
-
-    bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
-
-    BH_kick_speed_mean : float
-        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
-        
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    red_law : str
-        The name of the reddening law to use from PopStar.
+    r_vir : float
+        The virial radius.
+        Defaults to 200 kpc (The virial radius of the Milky Way)
 
     Output
     ------
     None
     """
 
-    config = {'radius_cut': radius_cut,
-              'obs_time': obs_time,
-              'n_obs': n_obs,
-              'theta_frac': theta_frac,
-              'blend_rad': blend_rad,
-              'isochrones_dir': isochrones_dir,
-              'bin_edges_number': bin_edges_number,
-              'BH_kick_speed_mean': BH_kick_speed_mean,
-              'NS_kick_speed_mean': NS_kick_speed_mean,
-              'filter_name': filter_name,
-              'red_law': red_law}
+    config = {'galaxia_area': galaxia_area,
+              'fdm': fdm,
+              'pbh_mass': pbh_mass,
+              'r_max': r_max,
+              'c': c,
+              'r_vir': r_vir}
     generate_config_file(config_filename, config)
 
 

@@ -472,6 +472,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
                 star_dict['lum'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                star_dict[] = ebf.read_ind(ebf_file, '/', bin_idx)
+                star_dict[] = ecf.read_ind(ebf_file, '/', bin_idx)
                 #FIXME
                 star_dict['exbv'] = exbv
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
@@ -765,6 +767,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     star_dict : dictionary (N_keys = 21)
         The number of entries for each key is the number of stars.
+#FIXME
 
     next_id : The next unique ID number (int) that will be assigned to
               the new compact objects created. 
@@ -791,7 +794,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     -------
     comp_dict : dictionary (N_keys = 21)
         Keys are the same as star_dict, just for compact objects.
-
+#FIXME
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
@@ -849,7 +852,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                               (output['phase'] == 103))[0]
         comp_table = output[compact_ID]
 
-        # Removes unused columns to conserve memory.     
+        # Removes unused columns to conserve memory.
+        #FIXME
         comp_table.keep_columns(['mass', 'phase', 'mass_current',
                                  'm_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U',
                                  'm_ubv_V', 'm_ukirt_H',
@@ -1032,6 +1036,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
+#FIXME
 
         The indices correspond to the keys as follows:
         [0] : zams_mass
@@ -1094,7 +1099,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
                 if len(id_lb) == 0:
                     continue
-
+#FIXME
                 save_data = np.zeros((len(obj_arr), len(id_lb)))
                 save_data[0, :] = np.float64(obj_arr['zams_mass'][id_lb])
                 save_data[1, :] = np.float64(obj_arr['rem_id'][id_lb])
@@ -1316,6 +1321,7 @@ def calc_events(hdf5_file, output_root2,
     # The dimensions of events_tmp is 58 x Nevents
     # The dimensions of blends_tmp is 30 x Nblends
     events_tmp = unique_events(events_tmp)
+    #FIXME
     events_final = Table(events_tmp.T,
                          names=('zams_mass_L', 'rem_id_L', 'mass_L',
                                 'px_L', 'py_L', 'pz_L',
@@ -1339,6 +1345,7 @@ def calc_events(hdf5_file, output_root2,
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
+    #FIX ME
     blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
                                               'zams_mass_N', 'rem_id_N',
                                               'mass_N',
@@ -1825,6 +1832,7 @@ def unique_events(event_table):
         the source, 27 with the corresponding information about the lens, and
         4 with info about theta_E, u, mu_rel, and tstep. The number of rows
         corresponds to the number of events.
+#FIXME
 
     Return
     ------
@@ -1832,6 +1840,7 @@ def unique_events(event_table):
         Same as event_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
+#FIXME
     """
 
     # event_table indexing:
@@ -1885,6 +1894,7 @@ def unique_blends(blend_table):
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
         separation, and 27 with info about the neighbor (same order as the 
         other "all info" tables).
+#FIXME
 
     Return
     ------

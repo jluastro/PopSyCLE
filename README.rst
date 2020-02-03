@@ -34,7 +34,7 @@ and job scheduling system for large and small Linux clusters
 (https://slurm.schedmd.com/overview.html). Multiple instances of the PopSyCLE
 pipeline can be executed in parallel if running on a system that both has
 PopSyCLE and a slurm scheduler installed. The
-``popsycle.slurm.generate_slurm_scripts`` function will create and submit
+``popsycle.synthetic.generate_slurm_scripts`` function will create and submit
 slurm batch scripts that execute the entire PopSyCLE pipeline.
 
 To begin, create a slurm configuration file that contains the linux cluster

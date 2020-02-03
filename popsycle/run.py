@@ -210,7 +210,8 @@ def run():
                             filter_name=popsycle_config['filter_name'],
                             red_law=popsycle_config['red_law'],
                             overwrite=args.overwrite,
-                            output_file='default')
+                            output_file='default',
+                            photometric_system=popsycle_config['photometric_system'])
 
 
 if __name__ == '__main__':

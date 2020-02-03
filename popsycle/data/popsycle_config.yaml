@@ -11,4 +11,4 @@ BH_kick_speed_mean: 50
 NS_kick_speed_mean: 400
 filter_name: ztf-r
 red_law: Damineli16
-photometric_system: ubv
+photometric_system: ztf

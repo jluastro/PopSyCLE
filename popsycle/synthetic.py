@@ -54,22 +54,14 @@ _Mclust_v_age_func = None
 # G = 472.274, R = 633.961, I = 788.613
 ##########
 filt_dict = {}
-filt_dict['ubv_j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902,
-                  'Damineli16': 0.662}
-filt_dict['ubv_h'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576,
-                  'Damineli16': 0.344}
-filt_dict['ubv_k'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367,
-                  'Damineli16': 0.172}
-filt_dict['ubv_u'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434,
-                  'Damineli16': 5.022}
-filt_dict['ubv_b'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315,
-                  'Damineli16': 3.757}
-filt_dict['ubv_v'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315,
-                  'Damineli16': 2.757}
-filt_dict['ubv_i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940,
-                  'Damineli16': 1.496}
-filt_dict['ubv_r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
-                  'Damineli16': 2.102}
+filt_dict['ubv_j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
+filt_dict['ubv_h'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576, 'Damineli16': 0.344}
+filt_dict['ubv_k'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367, 'Damineli16': 0.172}
+filt_dict['ubv_u'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434, 'Damineli16': 5.022}
+filt_dict['ubv_b'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315, 'Damineli16': 3.757}
+filt_dict['ubv_v'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315, 'Damineli16': 2.757}
+filt_dict['ubv_i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.496}
+filt_dict['ubv_r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
 filt_dict['ztf_g'] = {'Damineli16': 3.45269014}
 filt_dict['ztf_r'] = {'Damineli16': 2.22834859}
 filt_dict['ztf_i'] = {'Damineli16': 1.55343993}

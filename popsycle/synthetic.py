@@ -1,6 +1,8 @@
 import numpy as np
+import pandas as pd
 import h5py
 import math
+import astropy
 from astropy import units
 from scipy.stats import maxwell
 import astropy.coordinates as coord
@@ -11,8 +13,10 @@ from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
 from popstar import synthetic, evolution, reddening, ifmr
+import scipy
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
+from scipy import special
 import time
 import datetime
 from popsycle import ebf
@@ -25,6 +29,7 @@ from multiprocessing import Pool
 import yaml
 import inspect
 import sys
+
 
 ##########
 # Conversions.
@@ -1233,7 +1238,7 @@ def calc_events(hdf5_file, output_root2,
     #########
 
     # Set random seed
-    np.random.seed(seed + 1)
+    np.random.seed(seed)
 
     t0 = time.time()
 
@@ -1727,7 +1732,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     # Query ball against the existing (cached) tree.
     # NOTE: results is an array of lists.
-    results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+    results = kdtree_cache.query_ball_point(flatxyz1.T.copy(order='C'), r_kdt)
 
     # Figure out the number of blends for each lens.
     blend_lens_obj_id = []
@@ -3639,8 +3644,8 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     no_pbh_hdf5_file = h5py.File(hdf5_file)
     key_list = list(no_pbh_hdf5_file)
     key_list = key_list[:len(key_list)-2]
-    lat_bin = pd.DataFrame(np.array(no_pbh['lat_bin_edges']))
-    long_bin = pd.DataFrame(np.array(no_pbh['long_bin_edges']))
+    lat_bin = pd.DataFrame(np.array(no_pbh_hdf5_file['lat_bin_edges']))
+    long_bin = pd.DataFrame(np.array(no_pbh_hdf5_file['long_bin_edges']))
     no_pbh_hdf5_file.close()
 
     field_of_view_area = 2*((galaxia_area/np.pi)**(1/2))
@@ -3708,9 +3713,9 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     cart = astropy.coordinates.spherical_to_cartesian(r_values, lats, longs)
 
     #Defining galactocentric coordinates
-    c = coord.Galactocentric(x=cart[0] * u.kpc, y=cart[1] * u.kpc, z=cart[2] * u.kpc)
+    c = coord.Galactocentric(x=cart[0] * units.kpc, y=cart[1] * units.kpc, z=cart[2] * units.kpc)
 
-    #Transforming from galactocentric to galactic (heliocentric) coordinates
+    #Transforming from galactocentric to galactic coordinates
     #outputs l, b, dist in degrees.
     c = c.transform_to(coord.Galactic(representation_type='cartesian'))
 
@@ -3724,17 +3729,16 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
         distance = arccos(cosdist) / d2r
         return distance
 
+    #Set minimum and maximum l, b, and r values for PBH mask. 
     #Determining the center of the field of view circle.
-    l_mid = np.average((l_min, l_max))
-    b_mid = np.average((b_min, b_max))
-
-    dists = angdist(l_mid, b_mid, c.l.deg, c.b.deg)
-
-    #Set minimum and maximum l, b, and r values for PBH mask.
     l_min = np.min(long_bin).values
     l_max = np.max(long_bin).values
     b_min = np.min(lat_bin).values
     b_max = np.max(lat_bin).values
+    l_mid = np.average((l_min, l_max))
+    b_mid = np.average((b_min, b_max))
+
+    dists = angdist(l_mid, b_mid, c.l.deg, c.b.deg)
     r_max_mask = 16.6
 
     #Masking the full PBH data for our field of view
@@ -3803,7 +3807,7 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     py = cart_helio[1]
     pz = cart_helio[2]
 
-    calc_sph_motion(vx, vy, vz, r, b, l)
+    vr, mu_b, mu_lcosb = calc_sph_motion(vx, vy, vz, r, b, l)
 
     exbv = np.full((len(data_in_field), 1), 0)
     exbv = np.reshape(exbv, (len(data_in_field),))
@@ -3831,7 +3835,7 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     no_pbh_hdf5_file = h5py.File(hdf5_file)
 
     for key in key_list:
-        keys = pd.DataFrame(np.array(no_pbh['{}'.format(key)]))
+        keys = pd.DataFrame(np.array(no_pbh_hdf5_file['{}'.format(key)]))
         vars()[key+'_max_l'] = np.amax(keys.T[11])
         vars()[key+'_min_l'] = np.amin(keys.T[11])
         vars()[key+'_max_b'] = np.amax(keys.T[10])
@@ -3843,7 +3847,7 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     no_pbh_hdf5_file.close()
 
     #Creating final .h5 file with PBHs injected
-    f = h5py.File(run_key + '_with_PBH.h5', 'w')
+    f = h5py.File(output_root2 + '.h5', 'w')
 
     for key in key_list:
         vars()['d_'+key]=f.create_dataset(key, (vars()['full_'+key].shape[0], vars()['full_'+key].shape[1]), data=vars()['full_'+key])

@@ -3676,16 +3676,12 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
 
     grid_arr = np.squeeze(np.dstack([xx, yy]), axis=0)
-    kdtree = cKDTree(grid_arr)
 
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
-
-    npy_filename = '%s/ubv_to_ztf-%s_grid.npy' % (data_dir, filter_name)
-    np.save(npy_filename, ubv_to_ztf_grid_final)
-
-    kdtree_filename = '%s/ubv_to_ztf-%s_grid.kdtree' % (data_dir, filter_name)
-    with open(kdtree_filename, 'wb') as f:
-        pickle.dump(kdtree, f)
+    ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
+    np.savez(ubv_to_ztf_filename,
+             ubv_to_ztf_grid=ubv_to_ztf_grid_final.astype(np.float32),
+             kdtree_grid=grid_arr.astype(np.float32))
 
 
 def load_ubv_to_ztf_grid(filter_name):
@@ -3696,12 +3692,11 @@ def load_ubv_to_ztf_grid(filter_name):
     # x_grid_arr: ubv_v - ubv_r
     # y_grid_arr: ubv_b - ubv_v
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
-    npy_filename = '%s/ubv_to_ztf-%s_grid.npy' % (data_dir, filter_name)
-    ubv_to_ztf_grid = np.load(npy_filename)
+    ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
+    ubv_to_ztf_grid_file = np.load(ubv_to_ztf_filename)
 
-    kdtree_filename = '%s/ubv_to_ztf-%s_grid.kdtree' % (data_dir, filter_name)
-    with open(kdtree_filename, 'rb') as f:
-        kdtree = pickle.load(f)
+    ubv_to_ztf_grid = ubv_to_ztf_grid_file['ubv_to_ztf_grid']
+    kdtree = cKDTree(ubv_to_ztf_grid_file['kdtree_grid'])
 
     return ubv_to_ztf_grid, kdtree
 

@@ -54,21 +54,21 @@ _Mclust_v_age_func = None
 # G = 472.274, R = 633.961, I = 788.613
 ##########
 filt_dict = {}
-filt_dict['j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902,
+filt_dict['ubv_j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902,
                   'Damineli16': 0.662}
-filt_dict['h'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576,
+filt_dict['ubv_h'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576,
                   'Damineli16': 0.344}
-filt_dict['k'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367,
+filt_dict['ubv_k'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367,
                   'Damineli16': 0.172}
-filt_dict['u'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434,
+filt_dict['ubv_u'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434,
                   'Damineli16': 5.022}
-filt_dict['b'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315,
+filt_dict['ubv_b'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315,
                   'Damineli16': 3.757}
-filt_dict['v'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315,
+filt_dict['ubv_v'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315,
                   'Damineli16': 2.757}
-filt_dict['i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940,
+filt_dict['ubv_i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940,
                   'Damineli16': 1.496}
-filt_dict['r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
+filt_dict['ubv_r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
                   'Damineli16': 2.102}
 filt_dict['ztf_g'] = {'Damineli16': 3.45269014}
 filt_dict['ztf_r'] = {'Damineli16': 2.22834859}
@@ -2337,10 +2337,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     Filter name is 'j', 'i', etc.
     red_law is Damineli16, Schlegel99, etc.
     """
-    if photometric_system == 'ubv':
-        f_i = filt_dict[filter_name][red_law]
-    else:
-        f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
 
     # Calculate apparent magnitudes 
     app_N = calc_app_mag(blend_tab['rad_N'],
@@ -2384,10 +2381,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     Return
     ------
     """
-    if photometric_system == 'ubv':
-        f_i = filt_dict[filter_name][red_law]
-    else:
-        f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
 
     # Calculate apparent magnitude of lens and source, and fix bad values
     app_S = calc_app_mag(event_tab['rad_S'],

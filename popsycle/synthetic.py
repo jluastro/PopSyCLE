@@ -450,8 +450,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 bin_idx = popid_idx[age_idx[n_start:n_stop]]
 
-                exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-
                 star_dict = {}
                 star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass',
                                                       bin_idx)
@@ -472,7 +470,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
                 star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                star_dict['exbv'] = exbv
+                star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
                 # Angle wrapping for longitude
@@ -795,7 +793,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Returns
     -------
-    comp_dict : dictionary (N_keys = 21)
+    comp_dict : dictionary (N_keys = 29)
         Keys are the same as star_dict, just for compact objects.
 
     next_id : int

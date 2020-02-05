@@ -765,9 +765,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    star_dict : dictionary (N_keys = 21)
+    star_dict : dictionary (N_keys = 24)
         The number of entries for each key is the number of stars.
-#FIXME
 
     next_id : The next unique ID number (int) that will be assigned to
               the new compact objects created. 
@@ -1200,7 +1199,7 @@ def calc_events(hdf5_file, output_root2,
     Output
     ------
     <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. There are 58 columns 
+        Table of candidate microlensing events. There are 64 columns 
         (see documentation PDF) and the number of rows corresponds to 
         the number of candidate events.
 
@@ -1351,7 +1350,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_S', 'obj_id_S',
                                 'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
                                 'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
-                                'teff_S', 'grav_S', 'lum_s',
+                                'teff_S', 'grav_S', 'lum_S',
                                 'theta_E', 'u0', 'mu_rel', 't0',))
 
     if len(results_bl) != 0:

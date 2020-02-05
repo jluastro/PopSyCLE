@@ -1051,42 +1051,27 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
-
-        The indices correspond to the keys as follows:
-        [0] : zams_mass
-        [1] : rem_id
-        [2] : mass
-        [3] : px
-        [4] : py
-        [5] : pz
-        [6] : vx
-        [7] : vy
-        [8] : vz
-        [9] : rad
-        [10] : glat (b)
-        [11] : glon (l)
-        [12] : vr
-        [13] : mu_b
-        [14] : mu_lcosb
-        [15] : age
-        [16] : popid
-        [17] : ubv_k (UBV K-band abs. mag)
-        [18] : ubv_i (UBV I-band abs. mag)
-        [19] : exbv (3-D Schlegel extinction maps)
-        [20] : obj_id (unique ID number across stars and compact objects)
-        [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
-        [27] - [28] : ztf_<x> (G, R abs. mag, in that order)
     """
+    # Create compound datatype
+    comp_dtype_arr = []
+    for key in obj_arr.keys():
+        if key in ['rem_id', 'popid']:  # small ints
+            d = (key, '<i4')
+        elif key in ['obj_id']:  # large ints
+            d = (key, '>i4')
+        elif key in ['glat', 'glon']:  # doubles
+            d = (key, 'f16')
+        else:
+            d = (key, 'f8')  # floats
+        comp_dtype_arr.append(d)
+    comp_dtype = np.dtype(comp_dtype_arr)
+
 
     ##########
     # Loop through the latitude and longitude bins.
     ##########
     for ll in range(len(long_bin_edges) - 1):
         for bb in range(len(lat_bin_edges) - 1):
-            # HARDCODED: Fix the dimensions of the data set to 29 columns.
-            # (Same as star_dict and comp_dict)
-            dset_dim1 = 29
-
             # Open our HDF5 file for reading and appending.
             # Create as necessary.
             hf = h5py.File(output_root + '.h5', 'r+')
@@ -1095,11 +1080,12 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
 
             # Create data set if needed. Start with 0 stars in the dataset.
+            dataset = hf.create_dataset(dset_name, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=comp_dtype)
             if (dset_name in hf) == False:
-                dataset = hf.create_dataset(dset_name, shape=(dset_dim1, 0),
-                                            chunks=(dset_dim1, 1e4),
-                                            maxshape=(dset_dim1, None),
-                                            dtype='float64')
+                pass
             else:
                 dataset = hf[dset_name]
 
@@ -1115,42 +1101,15 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 if len(id_lb) == 0:
                     continue
 
-                save_data = np.zeros((len(obj_arr), len(id_lb)))
-                save_data[0, :] = np.float64(obj_arr['zams_mass'][id_lb])
-                save_data[1, :] = np.float64(obj_arr['rem_id'][id_lb])
-                save_data[2, :] = np.float64(obj_arr['mass'][id_lb])
-                save_data[3, :] = np.float64(obj_arr['px'][id_lb])
-                save_data[4, :] = np.float64(obj_arr['py'][id_lb])
-                save_data[5, :] = np.float64(obj_arr['pz'][id_lb])
-                save_data[6, :] = np.float64(obj_arr['vx'][id_lb])
-                save_data[7, :] = np.float64(obj_arr['vy'][id_lb])
-                save_data[8, :] = np.float64(obj_arr['vz'][id_lb])
-                save_data[9, :] = np.float64(obj_arr['rad'][id_lb])
-                save_data[10, :] = np.float64(obj_arr['glat'][id_lb])
-                save_data[11, :] = np.float64(obj_arr['glon'][id_lb])
-                save_data[12, :] = np.float64(obj_arr['vr'][id_lb])
-                save_data[13, :] = np.float64(obj_arr['mu_b'][id_lb])
-                save_data[14, :] = np.float64(obj_arr['mu_lcosb'][id_lb])
-                save_data[15, :] = np.float64(obj_arr['age'][id_lb])
-                save_data[16, :] = np.float64(obj_arr['popid'][id_lb])
-                save_data[17, :] = np.float64(obj_arr['ubv_k'][id_lb])
-                save_data[18, :] = np.float64(obj_arr['ubv_i'][id_lb])
-                save_data[19, :] = np.float64(obj_arr['exbv'][id_lb])
-                save_data[20, :] = np.float64(obj_arr['obj_id'][id_lb])
-                save_data[21, :] = np.float64(obj_arr['ubv_j'][id_lb])
-                save_data[22, :] = np.float64(obj_arr['ubv_u'][id_lb])
-                save_data[23, :] = np.float64(obj_arr['ubv_r'][id_lb])
-                save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
-                save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
-                save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
-                save_data[27, :] = np.float64(obj_arr['ztf_g'][id_lb])
-                save_data[28, :] = np.float64(obj_arr['ztf_r'][id_lb])
+                save_data = np.empty(len(id_lb), dtype=comp_dtype)
+                for colname in obj_arr.keys():
+                    save_data[colname] = obj_arr[colname][id_lb]
 
                 # Resize the dataset and add data.
-                old_size = dataset.shape[1]
+                old_size = dataset.shape[0]
                 new_size = old_size + len(id_lb)
-                dataset.resize((dset_dim1, new_size))
-                dataset[:, old_size:new_size] = save_data
+                dataset.resize((new_size, ))
+                dataset[old_size:new_size] = save_data
 
             hf.close()
 

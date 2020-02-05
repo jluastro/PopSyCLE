@@ -568,7 +568,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Make label file containing information about l,b bins
     ##########
-    make_label_file(output_root)
+    make_label_file(output_root, overwrite=overwrite)
 
     ##########
     # Make log file
@@ -2458,7 +2458,7 @@ def make_ebf_log(ebf_table):
     return ebf_log
 
 
-def make_label_file(h5file_name):
+def make_label_file(h5file_name, overwrite=False):
     """
     Given an output root for an .h5 file, creates a table of 
     dataset name, l, b, and number of objects.
@@ -2526,7 +2526,7 @@ def make_label_file(h5file_name):
     now = datetime.datetime.now()
     label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
 
-    label_file.write(h5file_name + '_label.fits')
+    label_file.write(h5file_name + '_label.fits', overwrite=overwrite)
 
     return
 

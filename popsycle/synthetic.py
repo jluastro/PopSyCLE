@@ -2165,7 +2165,7 @@ def refine_events(input_root, filter_name, red_law,
     line10 = 'FILES CREATED' + '\n'
     line11 = output_file + ' : refined events'
 
-    with open(input_root + '_refined_events_' + filter_name + '_' + red_law + '.log', 'w') as out:
+    with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, empty_line,

@@ -1003,7 +1003,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # Approximate extinction from the nearest (in 3-D space) star.
             # Get WD photometry from MIST models.
             ##########
-            lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
+            if 'ubv' in photometric_systems:
+                lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
+            elif 'ztf' in photometric_systems:
+                lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ztf_G']))
 
             if len(lum_WD_idx) > 0:
                 star_xyz = np.array([star_dict['px'],

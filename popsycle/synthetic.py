@@ -3509,6 +3509,7 @@ echo
 
     # Submit the job to disk
     if submitFlag:
+        os.chdir(path_run)
         stdout, stderr = execute('sbatch {0}'.format(script_filename))
         print('** Standard Out **')
         print(stdout)

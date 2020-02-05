@@ -201,7 +201,7 @@ def run():
           Exiting...""".format(args.pbh_config_filename))
           sys.exit(1)    
 
-      # TODO: check if .h5 file exists from perform popsyn, use as input for following function
+      # Check if .h5 file exists from perform popsyn, use as input for following function
       if not os.path.exists({0}+'.h5'.format(args.output_root)):
         print("""Error: H5 file was not created properly by 
           synthetic.perform_pop_syn""")

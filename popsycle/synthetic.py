@@ -27,7 +27,6 @@ import inspect
 from popstar import atmospheres
 from popstar.imf import multiplicity
 from scipy.interpolate import griddata
-import pickle
 
 ##########
 # Conversions.
@@ -1080,12 +1079,11 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
 
             # Create data set if needed. Start with 0 stars in the dataset.
-            dataset = hf.create_dataset(dset_name, shape=(0,),
-                                        chunks=(1e4,),
-                                        maxshape=(None,),
-                                        dtype=comp_dtype)
-            if (dset_name in hf) == False:
-                pass
+            if dset_name not in hf.keys():
+                dataset = hf.create_dataset(dset_name, shape=(0,),
+                                            chunks=(1e4,),
+                                            maxshape=(None,),
+                                            dtype=comp_dtype)
             else:
                 dataset = hf[dset_name]
 

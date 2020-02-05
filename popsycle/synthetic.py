@@ -473,7 +473,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
                 star_dict['lum'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
                 star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
-                star_dict['teff'] = ecf.read_ind(ebf_file, '/teff', bin_idx)
+                star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
                 star_dict['exbv'] = exbv
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)

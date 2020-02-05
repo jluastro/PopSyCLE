@@ -144,6 +144,7 @@ def run():
     # Return the dictionary containing PopSyCLE output filenames
     filename_dict = return_filename_dict(args.output_root)
 
+<<<<<<< HEAD
     if not args.skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True
         if synthetic.check_for_output(filename_dict['ebf_filename'],
@@ -230,6 +231,88 @@ def run():
                                 overwrite=args.overwrite,
                                 output_file='default',
                                 photometric_system=popsycle_config['photometric_system'])
+=======
+    # Remove Galaxia output if already exists and overwrite=True
+    if synthetic.check_for_output(filename_dict['ebf_filename'],
+                                  args.overwrite):
+        sys.exit(1)
+
+    # Write out parameters for Galaxia run to disk
+    print('-- Generating galaxia params')
+    synthetic.write_galaxia_params(
+        output_root=args.output_root,
+        longitude=field_config['longitude'],
+        latitude=field_config['latitude'],
+        area=field_config['area'],
+        seed=args.seed)
+
+    # Run Galaxia from that parameter file
+    cmd = 'galaxia -r galaxia_params.%s.txt' % args.output_root
+    print('** Executing galaxia with {0} **'.format(cmd))
+    _ = synthetic.execute(cmd)
+
+    # Remove perform_pop_syn output if already exists and overwrite=True
+    if synthetic.check_for_output(filename_dict['hdf5_filename'],
+                                  args.overwrite):
+        sys.exit(1)
+
+    # Run perform_pop_syn
+    print('-- Executing perform_pop_syn')
+    synthetic.perform_pop_syn(
+        ebf_file=filename_dict['ebf_filename'],
+        output_root=args.output_root,
+        iso_dir=popsycle_config['isochrones_dir'],
+        bin_edges_number=popsycle_config['bin_edges_number'],
+        BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+        NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+        seed=args.seed,
+        overwrite=args.overwrite)
+
+    # Remove calc_events output if already exists and overwrite=True
+    if synthetic.check_for_output(filename_dict['events_filename'],
+                                  args.overwrite):
+        sys.exit(1)
+    if synthetic.check_for_output(filename_dict['blends_filename'],
+                                  args.overwrite):
+        sys.exit(1)
+
+    # Run calc_events
+    print('-- Executing calc_events')
+
+    synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
+                          output_root2=args.output_root,
+                          radius_cut=popsycle_config['radius_cut'],
+                          obs_time=popsycle_config['obs_time'],
+                          n_obs=popsycle_config['n_obs'],
+                          theta_frac=popsycle_config['theta_frac'],
+                          blend_rad=popsycle_config['blend_rad'],
+                          n_proc=args.n_cores_calc_events,
+                          seed=args.seed,
+                          overwrite=args.overwrite)
+
+    # Write a fle to disk stating that there are no events if
+    # calc_events does not produce an events file
+    if not os.path.exists(filename_dict['events_filename']):
+        Path(filename_dict['noevents_filename']).touch()
+        print('No events present, skipping refine_events')
+        sys.exit(0)
+
+    # Remove refine_events output if already exists and overwrite=True
+    filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
+               'fits'.format(args.output_root,
+                             popsycle_config['filter_name'],
+                             popsycle_config['red_law'])
+    if synthetic.check_for_output(filename, args.overwrite):
+        sys.exit(1)
+
+    # Run refine_events
+    print('-- Executing refine_events')
+    synthetic.refine_events(input_root=args.output_root,
+                            filter_name=popsycle_config['filter_name'],
+                            red_law=popsycle_config['red_law'],
+                            overwrite=args.overwrite,
+                            output_file='default')
+>>>>>>> master
 
 
 if __name__ == '__main__':

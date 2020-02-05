@@ -677,6 +677,7 @@ def calc_current_initial_ratio(iso_dir,
         # make isochrone
         my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10,
                                          evo_model=evolution.MISTv1(),
+                                         filters=all_filt_list,
                                          iso_dir=iso_dir)
 
         # define IMF

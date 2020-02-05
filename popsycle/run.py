@@ -109,7 +109,7 @@ def run():
                       help='Name of configuration file containing '
                            'pbh inputs. Default if needed is: '
                            'pbh_config.yaml',
-                      default=None)
+                      default='pbh_config.yaml')
 
 
     # Check for field config file. Exit if not present.
@@ -209,6 +209,12 @@ def run():
 
       synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                                   output_root2=args.output_root,
+                                  galaxia_area=field_config['area'],
+                                  fdm=pbh_config['fdm'],
+                                  pbh_mass=pbh_config['pbh_mass'],
+                                  r_max=pbh_config['r_max'],
+                                  c=pbh_config['c'],
+                                  r_vir=pbh_config['r_vir'],
                                   overwrite=args.overwrite,
                                   seed=args.seed)   
 

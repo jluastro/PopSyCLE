@@ -3343,7 +3343,7 @@ def generate_config_file(config_filename, config):
 
 
 def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
-                           path_run, output_root,
+                           pbh_config_filename, path_run, output_root,
                            longitude, latitude, area,
                            n_cores_calc_events,
                            walltime,
@@ -3359,6 +3359,11 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 
     popsycle_config_filename : str
         Name of popsycle_config.yaml file containing the PopSyCLE parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
+    pbh_config_filename : str
+        Name of pbh_config.yaml file containing the PBH parameters
         that will be passed along to the run_on_slurm.py command in the
         slurm script.
 
@@ -3518,8 +3523,25 @@ echo
 
         print('Submitted job {0} to {1}'.format(script_filename, resource))
 
+def angdist(ra1, dec1, ra2, dec2):
+    '''
+    Takes two spherical coordinates and determines the angluar distance between
+    them.
+    Input:
+    ra1,dec1 [degrees] angular coordinates of the first point
+    ra2,dec2 [degrees] angular coordinates of the second point
+    Output:
+    distance [degrees] angular distance between the two points
+    '''
+    from numpy import pi, sin, cos, arccos
+        d2r = pi / 180.0
+        cosdist = (cos(np.absolute(ra1 - ra2) * d2r) * cos(np.absolute(dec1 * d2r)) * cos(np.absolute(dec2 * d2r)) +
+                   sin(np.absolute(dec1 * d2r)) * sin(np.absolute(dec2 * d2r)))
+        distance = arccos(cosdist) / d2r
+        return distance
 
-def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vir, overwrite = False, seed = None):
+
+def add_pbh(hdf5_file, output_root2, area, fdm, pbh_mass, r_max, c, r_vir, overwrite = False, seed = None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.
@@ -3536,11 +3558,8 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
            '/some/path/to/myout'
            '../back/to/some/path/myout'
 
-    galaxia_area : float 
-         How many square degrees did you run galaxia on.
-         This goes into calculating the field of view area, which is used to cut
-         a rectangular mask down into a circular mask for determining positions of
-         PBHs.
+    area : float 
+        Area of the sky that will be generated, in square degrees.
 
     fdm : float
         Fraction of dark matter. 
@@ -3562,6 +3581,9 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     r_vir : float
         The virial radius.
         Defaults to 200 kpc (The virial radius of the Milky Way)
+
+    Optional Parameters
+    -------------------
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -3646,7 +3668,7 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     long_bin = pd.DataFrame(np.array(no_pbh_hdf5_file['long_bin_edges']))
     no_pbh_hdf5_file.close()
 
-    field_of_view_area = 2*((galaxia_area/np.pi)**(1/2))
+    field_of_view_area = 2*((area/np.pi)**(1/2))
 
     #NFW Profile calculations to determine mass of dark matter within given distance of galactic center
     rho_crit = ((3*(h**2))/(8*np.pi*g))*(10**6) #Msun/Mpc^3
@@ -3716,16 +3738,6 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
     #Transforming from galactocentric to galactic coordinates
     #outputs l, b, dist in degrees.
     c = c.transform_to(coord.Galactic(representation_type='cartesian'))
-
-    #Defining function to use in PBH mask (this portion of the mask creates circular shape 
-    #from a rectangular shape because our field of view is circular)
-    def angdist(ra1, dec1, ra2, dec2):
-        from numpy import pi, sin, cos, arccos
-        d2r = pi / 180.0
-        cosdist = (cos(np.absolute(ra1 - ra2) * d2r) * cos(np.absolute(dec1 * d2r)) * cos(np.absolute(dec2 * d2r)) +
-                   sin(np.absolute(dec1 * d2r)) * sin(np.absolute(dec2 * d2r)))
-        distance = arccos(cosdist) / d2r
-        return distance
 
     #Set minimum and maximum l, b, and r values for PBH mask. 
     #Determining the center of the field of view circle.
@@ -3856,17 +3868,12 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
 
     return
 
-def generate_pbh_config_file(config_filename, galaxia_area, fdm, pbh_mass, r_max, c, r_vir):
+def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir):
     """
     Save PBH configuration parameters into a yaml file
 
     Parameters
     ----------
-    galaxia_area : float 
-         How many square degrees did you run galaxia on.
-         This goes into calculating the field of view area, which is used to cut
-         a rectangular mask down into a circular mask for determining positions of
-         PBHs.
 
     fdm : float
         Fraction of dark matter. 
@@ -3894,8 +3901,7 @@ def generate_pbh_config_file(config_filename, galaxia_area, fdm, pbh_mass, r_max
     None
     """
 
-    config = {'galaxia_area': galaxia_area,
-              'fdm': fdm,
+    config = {'fdm': fdm,
               'pbh_mass': pbh_mass,
               'r_max': r_max,
               'c': c,

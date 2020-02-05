@@ -179,6 +179,7 @@ def run():
             bin_edges_number=popsycle_config['bin_edges_number'],
             BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+            overwrite=args.overwrite,
             seed=args.seed)
 
     if not args.skip_calc_events:

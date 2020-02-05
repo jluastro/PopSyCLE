@@ -825,13 +825,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                   seed=seed)
     initialClusterMass = currentClusterMass / ratio
 
-    filt_list = []
-    if 'ubv' in photometric_systems:
-        filt_list += ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                      'ukirt,H', 'ukirt,K', 'ukirt,J']
-    if 'ztf' in photometric_systems:
-        filt_list += ['ztf,G', 'ztf,R']
-
     ##########
     # Create the PopStar table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
@@ -843,17 +836,17 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # Using MIST models to get white dwarfs
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=filt_list,
+                                         filters=all_filt_list,
                                          iso_dir=iso_dir)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        my_filt_list = ['m_%s' % f.replace(',', '_') for f in filt_list]
-        if set(my_filt_list) != set(my_iso_filters):
+        filt_list = ['m_%s' % f.replace(',', '_') for f in all_filt_list]
+        if set(filt_list) != set(my_iso_filters):
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
-                                             filters=filt_list,
+                                             filters=all_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True)
 

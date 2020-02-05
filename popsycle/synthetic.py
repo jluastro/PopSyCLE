@@ -65,6 +65,21 @@ filt_dict['ubv_r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
 
+##########
+# Dictionary for going between values in
+# .h5 datasets and keys in astropy table
+##########
+col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
+           'px': 3, 'py': 4, 'pz': 5,
+           'vx': 6, 'vy': 7, 'vz': 8,
+           'rad': 9, 'glat': 10, 'glon': 11,
+           'vr': 12, 'mu_b': 13, 'mu_lcosb': 14,
+           'age': 15, 'popid': 16, 'ubv_k': 17,
+           'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
+           'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
+           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
+           'ztf_g': 27, 'ztf_r': 28}
+
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
 photometric_system_dict['ztf'] = ['g', 'r']

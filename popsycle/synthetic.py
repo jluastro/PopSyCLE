@@ -1039,12 +1039,12 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     # Create compound datatype
     comp_dtype_arr = []
     for key in obj_arr.keys():
-        if key in ['rem_id', 'popid']:  # small ints
-            d = (key, '<i4')
-        elif key in ['obj_id']:  # large ints
-            d = (key, '>i4')
+        if key in ['rem_id', 'popid']:  # int16 (up to 32767)
+            d = (key, 'i2')
+        elif key in ['obj_id']:  # int32 (up to 2147483647)
+            d = (key, 'i4')
         else:
-            d = (key, 'f8')  # float
+            d = (key, 'f4')  # float32
         comp_dtype_arr.append(d)
     comp_dtype = np.dtype(comp_dtype_arr)
 

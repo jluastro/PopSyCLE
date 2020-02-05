@@ -472,9 +472,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
                 star_dict['lum'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
-                star_dict[] = ebf.read_ind(ebf_file, '/', bin_idx)
-                star_dict[] = ecf.read_ind(ebf_file, '/', bin_idx)
-                #FIXME
+                star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+                star_dict['teff'] = ecf.read_ind(ebf_file, '/teff', bin_idx)
                 star_dict['exbv'] = exbv
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
@@ -794,7 +793,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     -------
     comp_dict : dictionary (N_keys = 21)
         Keys are the same as star_dict, just for compact objects.
-#FIXME
+
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
@@ -962,6 +961,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['lum'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1036,7 +1038,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
-#FIXME
+
 
         The indices correspond to the keys as follows:
         [0] : zams_mass
@@ -1061,6 +1063,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
+        [27] : teff
+        [28] : grav
+        [29] : lum
     """
 
     ##########
@@ -1068,9 +1073,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     ##########
     for ll in range(len(long_bin_edges) - 1):
         for bb in range(len(lat_bin_edges) - 1):
-            # HARDCODED: Fix the dimensions of the data set to 27 columns.
+            # HARDCODED: Fix the dimensions of the data set to 30 columns.
             # (Same as star_dict and comp_dict)
-            dset_dim1 = 27
+            dset_dim1 = 30
 
             # Open our HDF5 file for reading and appending.
             # Create as necessary.
@@ -1099,7 +1104,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
                 if len(id_lb) == 0:
                     continue
-#FIXME
+                
                 save_data = np.zeros((len(obj_arr), len(id_lb)))
                 save_data[0, :] = np.float64(obj_arr['zams_mass'][id_lb])
                 save_data[1, :] = np.float64(obj_arr['rem_id'][id_lb])
@@ -1128,6 +1133,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
                 save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
                 save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
+                save_data[27, :] = np.float64(obj_arr['teff'][id_lb])
+                save_data[28, :] = np.float64(obj_arr['grav'][id_lb])
+                save_data[29, :] = np.float64(obj_arr['lum'][id_lb])
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[1]
@@ -1332,6 +1340,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_L', 'obj_id_L',
                                 'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
                                 'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                'teff_L', 'grav_L', 'lum_L',
                                 'zams_mass_S', 'rem_id_S', 'mass_S',
                                 'px_S', 'py_S', 'pz_S',
                                 'vx_S', 'vy_S', 'vz_S',
@@ -1341,7 +1350,8 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_S', 'obj_id_S',
                                 'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
                                 'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
-                                'theta_E', 'u0', 'mu_rel', 't0'))
+                                'teff_S', 'grav_S', 'lum_s',
+                                'theta_E', 'u0', 'mu_rel', 't0',))
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
@@ -1358,6 +1368,7 @@ def calc_events(hdf5_file, output_root2,
                                               'exbv_N', 'obj_id_N',
                                               'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
                                               'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                              'teff_N', 'grav_N', 'lum_N',
                                               'sep_LN'))
 
     # Save out file
@@ -1828,11 +1839,10 @@ def unique_events(event_table):
     Parameters
     ---------
     event_table : numpy array 
-        A table with all the events. There are 58 columns: 27 with info about
-        the source, 27 with the corresponding information about the lens, and
+        A table with all the events. There are 64 columns: 30 with info about
+        the source, 30 with the corresponding information about the lens, and
         4 with info about theta_E, u, mu_rel, and tstep. The number of rows
         corresponds to the number of events.
-#FIXME
 
     Return
     ------
@@ -1840,7 +1850,7 @@ def unique_events(event_table):
         Same as event_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
-#FIXME
+
     """
 
     # event_table indexing:

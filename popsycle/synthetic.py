@@ -3536,8 +3536,6 @@ def add_pbh(hdf5_file, output_root2, galaxia_area, fdm, pbh_mass, r_max, c, r_vi
            '/some/path/to/myout'
            '../back/to/some/path/myout'
 
-    Optional Parameters
-    -------------------
     galaxia_area : float 
          How many square degrees did you run galaxia on.
          This goes into calculating the field of view area, which is used to cut

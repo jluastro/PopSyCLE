@@ -69,6 +69,9 @@ photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
 photometric_system_dict['ztf'] = ['g', 'r']
 
+all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
+                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,G', 'ztf,R']
+
 ###########################################################################
 ############# Population synthesis and associated functions ###############
 ###########################################################################
@@ -668,15 +671,12 @@ def calc_current_initial_ratio(iso_dir,
     powers = np.array([-1.3, -2.3])
     # initialize current-initial ratio vector
     current_initial_ratio_array = np.zeros(len(logage_vec))
-    filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R', 'ukirt,H',
-                 'ukirt,K', 'ukirt,J']
 
     # Run all the clusters for the different ages in logage_vec
     for i in range(len(logage_vec)):
         # make isochrone
         my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=filt_list,
                                          iso_dir=iso_dir)
 
         # define IMF
@@ -823,6 +823,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                                   iso_dir=iso_dir,
                                   seed=seed)
     initialClusterMass = currentClusterMass / ratio
+
     filt_list = []
     if 'ubv' in photometric_systems:
         filt_list += ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',

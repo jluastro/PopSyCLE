@@ -411,8 +411,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         # ...for multiple age populations (popID = 1-6,
         # break ages into 4 age bins.
         else:
-            logt_bins = np.log10(
-                np.logspace(logage_min, logage_max * 1.001, 5))
+            logt_bins = np.log10(np.logspace(logage_min, logage_max * 1.001, 5))
 
             # HARDCODED: Special handling for the youngest bin,
             # popID = 0 (Thin Disk < 150 Myr).

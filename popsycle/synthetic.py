@@ -3508,7 +3508,7 @@ echo
     if pbh_config_filename:
         pbh_cmd = '--pbh-config-filename={0}'.format(pbh_config_filename)
     else:
-        seed_cmd = ''
+        pbh_cmd = ''
 
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())

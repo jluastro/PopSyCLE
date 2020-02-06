@@ -3194,7 +3194,7 @@ def generate_field_config_file(config_filename, longitude, latitude, area):
     """
 
     config = {'longitude': longitude,
-              'latitutde': latitude,
+              'latitude': latitude,
               'area': area}
     generate_config_file(config_filename, config)
 
@@ -3343,10 +3343,10 @@ def generate_config_file(config_filename, config):
 
 
 def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
-                           pbh_config_filename, path_run, output_root,
+                           path_run, output_root,
                            longitude, latitude, area,
                            n_cores_calc_events,
-                           walltime,
+                           walltime, pbh_config_filename=None,
                            seed=None, overwrite=False, submitFlag=True):
     """
     Generates the slurm script that executes the PopSyCLE pipeline
@@ -3359,11 +3359,6 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 
     popsycle_config_filename : str
         Name of popsycle_config.yaml file containing the PopSyCLE parameters
-        that will be passed along to the run_on_slurm.py command in the
-        slurm script.
-
-    pbh_config_filename : str
-        Name of pbh_config.yaml file containing the PBH parameters
         that will be passed along to the run_on_slurm.py command in the
         slurm script.
 
@@ -3395,6 +3390,11 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 
     Optional Parameters
     -------------------
+    pbh_config_filename : str
+        Name of pbh_config.yaml file containing the PBH parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
     seed : int
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
@@ -3483,7 +3483,7 @@ echo "---------------------------"
         slurm_template += '%s\n' % line
     slurm_template += """
 cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} {pbh_cmd}
 date
 echo
 "All done!"
@@ -3502,6 +3502,11 @@ echo
 
     if seed:
         seed_cmd = '--seed=%i' % seed
+    else:
+        seed_cmd = ''
+
+    if pbh_config_filename:
+        pbh_cmd = '--pbh-config-filename={0}'.format(pbh_config_filename)
     else:
         seed_cmd = ''
 

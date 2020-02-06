@@ -3463,7 +3463,11 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
 echo "---------------------------"
-date
+echo Longitude = {longitude}
+echo Latitude = {latitude}
+echo Area = {area}
+echo path_run = {path_run}
+echo jobname = {jobname} 
 echo "Job id = $SLURM_JOBID"
 echo "Proc id = $SLURM_PROCID"
 hostname

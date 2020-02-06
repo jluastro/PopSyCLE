@@ -3475,8 +3475,7 @@ echo "---------------------------"
 cd {path_run}
 srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
 date
-echo
-"All done!"
+echo "All done!"
 """
 
     # Check that the specified number of cores does not exceed the resource max

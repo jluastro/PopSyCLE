@@ -3517,7 +3517,7 @@ echo
     job_script = slurm_template.format(**locals())
 
     # Write the script to the path_run folder
-    script_filename = path_run + '/run_popsycle.sh'
+    script_filename = path_run + '/run_popsycle.%s.sh' % jobname
     with open(script_filename, 'w') as f:
         f.write(job_script)
 

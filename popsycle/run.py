@@ -311,7 +311,6 @@ def run():
                             red_law=popsycle_config['red_law'],
                             overwrite=args.overwrite,
                             output_file='default')
->>>>>>> master
 
 
 if __name__ == '__main__':

@@ -1326,10 +1326,10 @@ def calc_events(hdf5_file, output_root2,
 
     # Convert the events numpy array into an
     # Astropy Table for easier consumption.
-    # The dimensions of events_tmp is 58 x Nevents
-    # The dimensions of blends_tmp is 30 x Nblends
+    # The dimensions of events_tmp is 61 x Nevents
+    # The dimensions of blends_tmp is 33 x Nblends
     events_tmp = unique_events(events_tmp)
-    #FIXME
+    
     events_final = Table(events_tmp.T,
                          names=('zams_mass_L', 'rem_id_L', 'mass_L',
                                 'px_L', 'py_L', 'pz_L',
@@ -1355,7 +1355,7 @@ def calc_events(hdf5_file, output_root2,
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
-    #FIX ME
+
     blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
                                               'zams_mass_N', 'rem_id_N',
                                               'mass_N',
@@ -1900,11 +1900,11 @@ def unique_blends(blend_table):
     Parameters
     ---------
     blend_table : blend array 
-        A table with all the events. There are 30 columns: 1 with the unique
+        A table with all the events. There are 33 columns: 1 with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
-        separation, and 27 with info about the neighbor (same order as the 
+        separation, and 30 with info about the neighbor (same order as the 
         other "all info" tables).
-#FIXME
+
 
     Return
     ------

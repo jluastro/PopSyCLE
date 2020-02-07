@@ -144,7 +144,6 @@ def run():
     # Return the dictionary containing PopSyCLE output filenames
     filename_dict = return_filename_dict(args.output_root)
 
-<<<<<<< HEAD
     if not args.skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True
         if synthetic.check_for_output(filename_dict['ebf_filename'],
@@ -231,7 +230,7 @@ def run():
                                 overwrite=args.overwrite,
                                 output_file='default',
                                 photometric_system=popsycle_config['photometric_system'])
-=======
+
     # Remove Galaxia output if already exists and overwrite=True
     if synthetic.check_for_output(filename_dict['ebf_filename'],
                                   args.overwrite):

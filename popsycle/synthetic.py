@@ -2544,16 +2544,10 @@ def make_label_file(h5file_name, overwrite=False):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
             dataset = hf[dset_name]
 
-            if len(dataset) == 0:
-                N_stars = 0
-                N_WD = 0
-                N_NS = 0
-                N_BH = 0
-            else:
-                N_stars = len(np.where(dataset['popid'] == 0)[0])
-                N_WD = len(np.where(dataset['popid'] == 101)[0])
-                N_NS = len(np.where(dataset['popid'] == 102)[0])
-                N_BH = len(np.where(dataset['popid'] == 103)[0])
+            N_stars = len(np.where(dataset[1] == 0)[0])
+            N_WD = len(np.where(dataset[1] == 101)[0])
+            N_NS = len(np.where(dataset[1] == 102)[0])
+            N_BH = len(np.where(dataset[1] == 103)[0])
 
             data_dict['file_name'].append(dset_name)
             data_dict['long_start'].append(l_array[ll])

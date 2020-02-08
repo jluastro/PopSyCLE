@@ -574,11 +574,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Figure out how much stuff got binned.
     ##########
+    # binned_counter = 0
+    # hf = h5py.File(output_root + '.h5', 'r')
+    # for key in list(hf.keys()):
+    #     if 'bin_edges' not in key:
+    #         binned_counter += len(hf[key])
     binned_counter = 0
     hf = h5py.File(output_root + '.h5', 'r')
     for key in list(hf.keys()):
         if 'bin_edges' not in key:
-            binned_counter += len(hf[key])
+            binned_counter += hf[key].shape[1]
 
     ##########
     # Make label file containing information about l,b bins

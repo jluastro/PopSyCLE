@@ -496,7 +496,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
                     star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
                     star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                    star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
+                    star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
                     star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
 
                 ##########

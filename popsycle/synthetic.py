@@ -206,8 +206,9 @@ def write_galaxia_params(output_root,
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    bin_edges_number=None, BH_kick_speed_mean=50,
-                    NS_kick_speed_mean=400, photometric_systems=['ubv'],
+                    bin_edges_number=None,
+                    BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                    additional_photometric_systems=None,
                     overwrite=False, seed=None):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
@@ -313,13 +314,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if type(seed) != int:
             raise Exception('seed must be an integer.')
 
-    if type(photometric_systems) != list:
-        raise Exception('photometric_systems must be a list of strings.')
+    if additional_photometric_systems is not None:
+        if type(additional_photometric_systems) != list:
+            raise Exception('additional_photometric_systems must either '
+                            'None or a List (of strings).')
 
-    for photometric_system in photometric_systems:
-        if photometric_system not in photometric_system_dict:
-            raise Exception('strings in photometric_systems must be '
-                            'a valid option in the photometric_system_dict.')
+        for photometric_system in additional_photometric_systems:
+            if photometric_system not in photometric_system_dict:
+                raise Exception('strings in additional_photometric_systems '
+                                'must be a valid option '
+                                'in the photometric_system_dict.')
 
     ##########
     # Start of code
@@ -489,29 +493,24 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
 
                 # Add UBV magnitudes
-                if 'ubv' in photometric_systems:
-                    star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
-                    star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
-                    star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
-                    star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
-                    star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
-                    star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                    star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                    star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
+                star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
+                star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
+                star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
+                star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
+                star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
+                star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
+                star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
+                star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
 
                 ##########
                 # Add ztf magnitudes
                 ##########
-                if 'ztf' in photometric_systems:
-                    # Pull out ubv magnitudes needed for photometric conversions
-                    if 'ubv_b' in star_dict:
+                if additional_photometric_systems is not None:
+                    if 'ztf' in additional_photometric_systems:
+                        # Pull out ubv magnitudes needed for photometric conversions
                         ubv_b = star_dict['ubv_b']
                         ubv_v = star_dict['ubv_v']
                         ubv_r = star_dict['ubv_r']
-                    else:
-                        ubv_b = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                        ubv_v = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                        ubv_r = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
 
                     ztf_g, ztf_r = transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r)
                     star_dict['ztf_g'] = ztf_g
@@ -549,7 +548,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      mass_in_bin, stars_in_bin, next_id,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
-                                                     photometric_systems=photometric_systems,
+                                                     additional_photometric_systems=additional_photometric_systems,
                                                      seed=seed)
 
                 ##########
@@ -782,7 +781,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
-                    photometric_systems=['ubv'],
+                    additional_photometric_systems=None,
                     seed=None):
     """
     Perform population synthesis.  
@@ -893,12 +892,12 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
-        keep_columns = ['mass', 'phase', 'mass_current']
-        if 'ubv' in photometric_systems:
-            keep_columns += ['m_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U',
-                             'm_ubv_V', 'm_ukirt_H', 'm_ukirt_J', 'm_ukirt_K']
-        if 'ztf' in photometric_systems:
-            keep_columns += ['m_ztf_G', 'm_ztf_R']
+        keep_columns = ['mass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
+                        'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
+                        'm_ukirt_J', 'm_ukirt_K']
+        if additional_photometric_systems is not None:
+            if 'ztf' in additional_photometric_systems:
+                keep_columns += ['m_ztf_G', 'm_ztf_R']
         comp_table.keep_columns(keep_columns)
 
         # Fill out the rest of comp_dict 
@@ -997,18 +996,18 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
 
-            if 'ubv' in photometric_systems:
-                comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
-            if 'ztf' in photometric_systems:
-                comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
+                    comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1016,10 +1015,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # Approximate extinction from the nearest (in 3-D space) star.
             # Get WD photometry from MIST models.
             ##########
-            if 'ubv' in photometric_systems:
-                lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
-            elif 'ztf' in photometric_systems:
-                lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ztf_G']))
+            lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
             if len(lum_WD_idx) > 0:
                 star_xyz = np.array([star_dict['px'],
@@ -1034,15 +1030,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
 
-                if 'ubv' in photometric_systems:
-                    comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
-                    comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
-                    comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
-                    comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
-                    comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
-                    comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
-                    comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
-                    comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
+                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
+                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
+                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
+                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
+                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
+                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
+                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
                 if 'ztf' in photometric_systems:
                     comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
                     comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data

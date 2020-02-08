@@ -556,10 +556,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 if comp_dict is not None:
                     comp_counter += len(comp_dict['mass'])
-                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict,
-                                 output_root)
-                _bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin,
-                             output_root)
+                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                 comp_dict, output_root,
+                                 additional_photometric_systems=additional_photometric_systems)
+                _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                             stars_in_bin,
+                             output_root,
+                             additional_photometric_systems=additional_photometric_systems)
                 ##########
                 # Done with galaxia output in dictionary t and ebf_log.
                 # Garbage collect in order to save space.
@@ -797,7 +800,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    star_dict : dictionary (N_keys = 21)
+    star_dict : dictionary
         The number of entries for each key is the number of stars.
 
     next_id : The next unique ID number (int) that will be assigned to
@@ -823,7 +826,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Returns
     -------
-    comp_dict : dictionary (N_keys = 29)
+    comp_dict : dictionary
         Keys are the same as star_dict, just for compact objects.
 
     next_id : int
@@ -995,7 +998,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # These are all the outputs from the IFMR of Raithel and Kalirai.
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
-
             comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
@@ -1038,9 +1040,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
                 comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
                 comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
-                if 'ztf' in photometric_systems:
-                    comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
-                    comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data
+                if additional_photometric_systems is not None:
+                    if 'ztf' in additional_photometric_systems:
+                        comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
+                        comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data
 
                 # Memory cleaning
                 del comp_table
@@ -1058,7 +1061,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     return comp_dict, next_id
 
 
-def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
+def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
+                 additional_photometric_systems=None):
     """
     Given stars and compact objects, sort them into latitude and
     longitude bins. Save each latitude and longitude bin, and the edges that
@@ -1104,6 +1108,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
+        [27] - [28] : ztf_<x> (G, R abs. mag, in that order, if selected)
     """
 
     ##########
@@ -1171,8 +1176,10 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
                 save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
                 save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
-                save_data[27, :] = np.float64(obj_arr['ztf_g'][id_lb])
-                save_data[28, :] = np.float64(obj_arr['ztf_r'][id_lb])
+                if additional_photometric_systems is not None:
+                    if 'ztf' in additional_photometric_systems:
+                        save_data[27, :] = np.float64(obj_arr['ztf_g'][id_lb])
+                        save_data[28, :] = np.float64(obj_arr['ztf_r'][id_lb])
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[1]

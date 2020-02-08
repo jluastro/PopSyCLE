@@ -135,6 +135,12 @@ def run():
     popsycle_config = synthetic.load_config(args.popsycle_config_filename)
     if popsycle_config['bin_edges_number'] == 'None':
         popsycle_config['bin_edges_number'] = None
+    if popsycle_config['photometric_system'] not in synthetic.photometric_system_dict:
+        print("""Error: 'photometric_system' in {0} must be a valid option 
+        in 'photometric_system_dict'. 
+        Exiting...""".format(args.popsycle_config_filename))
+        sys.exit(1)
+
 
     # Create an isochrones mirror in the current directory
     isochrones_dir = './isochrones'
@@ -179,7 +185,7 @@ def run():
             bin_edges_number=popsycle_config['bin_edges_number'],
             BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-            photometric_systems=[popsycle_config['photometric_system']],
+            additional_photometric_systems=[popsycle_config['photometric_system']],
             overwrite=args.overwrite,
             seed=args.seed)
 

@@ -78,8 +78,7 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'age': 15, 'popid': 16, 'ubv_k': 17,
            'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
            'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
-           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
-           'ztf_g': 27, 'ztf_r': 28}
+           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26}
 
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']

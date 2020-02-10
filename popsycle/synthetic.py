@@ -3471,6 +3471,7 @@ echo jobname = {jobname}
 echo "Job id = $SLURM_JOBID"
 echo "Proc id = $SLURM_PROCID"
 hostname
+date
 echo "---------------------------"
 """
     for line in slurm_config['additional_lines']:

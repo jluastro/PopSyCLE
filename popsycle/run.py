@@ -179,22 +179,11 @@ def run():
         # Run perform_pop_syn
         print('-- Executing perform_pop_syn')
 
-        additional_photometric_systems = None
         if popsycle_config['photometric_system'] == 'ubv':
             additional_photometric_systems = None
         else:
             additional_photometric_systems = [popsycle_config['photometric_system']]
 
-        # synthetic.perform_pop_syn(
-        #     ebf_file=filename_dict['ebf_filename'],
-        #     output_root=args.output_root,
-        #     iso_dir=popsycle_config['isochrones_dir'],
-        #     bin_edges_number=popsycle_config['bin_edges_number'],
-        #     BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
-        #     NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-        #     additional_photometric_systems=additional_photometric_systems,
-        #     overwrite=args.overwrite,
-        #     seed=args.seed)
         synthetic.perform_pop_syn(
             ebf_file=filename_dict['ebf_filename'],
             output_root=args.output_root,
@@ -202,6 +191,7 @@ def run():
             bin_edges_number=popsycle_config['bin_edges_number'],
             BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+            additional_photometric_systems=additional_photometric_systems,
             overwrite=args.overwrite,
             seed=args.seed)
 

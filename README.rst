@@ -29,14 +29,15 @@ An example of implementing PopSyCLE can be found
 Running the PopSyCLE Pipeline
 -----------------------------
 
-An example of running PopSyCLE on a compute cluster with a slurm scheduled can
-be found `in our example notebook <docs/PopSyCLE_example_run.ipynb>`_.
+An example of running the PopSyCLE pipline from the command line be found
+`in our example notebook <docs/PopSyCLE_example_run.ipynb>`_.
 
 Running the PopSyCLE Pipeline on a Slurm Scheduler
 --------------------------------------------------
 
-An example of running PopSyCLE on a compute cluster with a slurm scheduled can
-be found `in our example notebook <docs/PopSyCLE_example_slurm.ipynb>`_.
+An example of running the PopSyCLE pipline on a compute cluster with a
+slurm scheduler can be found
+`in our example notebook <docs/PopSyCLE_example_slurm.ipynb>`_.
 
 License
 -------

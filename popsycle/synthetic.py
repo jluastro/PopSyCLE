@@ -1095,7 +1095,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         elif key in ['obj_id']:  # int32 (up to 2147483647)
             d = (key, 'i4')
         else:
-            d = (key, 'f4')  # float32
+            d = (key, 'f8')  # float64
         comp_dtype_arr.append(d)
     comp_dtype = np.dtype(comp_dtype_arr)
 

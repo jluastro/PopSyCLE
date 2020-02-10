@@ -20,123 +20,23 @@ Installation
 
 PopSyCLE can be installed as a standard python package.
 
-Example
+Running PopSyCLE
 -------
 
 An example of implementing PopSyCLE can be found
 `in our example notebook <docs/PopSyCLE_example.ipynb>`_.
 
-Running PopSyCLE on a Slurm Scheduler
--------------------------------------
+Running the PopSyCLE Pipeline
+-----------------------------
 
-Slurm is an open source, fault-tolerant, and highly scalable cluster management
-and job scheduling system for large and small Linux clusters
-(https://slurm.schedmd.com/overview.html). Multiple instances of the PopSyCLE
-pipeline can be executed in parallel if running on a system that both has
-PopSyCLE and a slurm scheduler installed. The
-``popsycle.slurm.generate_slurm_scripts`` function will create and submit
-slurm batch scripts that execute the entire PopSyCLE pipeline.
+An example of running PopSyCLE on a compute cluster with a slurm scheduled can
+be found `in our example notebook <docs/PopSyCLE_example_run.ipynb>`_.
 
-To begin, create a slurm configuration file that contains the linux cluster
-parameters necessary to submit a batch scripts. These parameters outline
-features of the slurm scheduler and the config file should only need to be
-created once. An example can be
-found in `<popsycle/data/slurm_config.yaml>`_ and a custom slurm config file
-can be generated using ``popsycle.synthetic.generate_slurm_config_file``.
-Next, create a PopSyCLE
-configuration file that contains the parameters necessary to run the PopSyCLE
-pipeline. You may want to create a single PopSyCLE configuration file for
-each project in order to keep the execution of PopSyCLE the same over multiple
-fields. An example can be found in
-`<popsycle/data/popsycle_config.yaml>`_ and a custom popsycle config file
-can be generated using ``popsycle.synthetic.generate_popsycle_config_file``.
-Lastly, run the
-``popsycle.synethtic.generate_slurm_scripts`` function along with parameters
-about a single PopSyCLE field that you would like to run. These parameters
-could be different for each field and allow for the user to launch multiple
-instances of PopSyCLE at once by running this function multiple times with
-different input.
+Running the PopSyCLE Pipeline on a Slurm Scheduler
+--------------------------------------------------
 
-Running ``generate_slurm_scripts`` creates a slurm batch script that is
-submitted to the slurm scheduler by deafult.
-
-The function ``generate_slurm_scripts`` can be executed by running:
-
-.. code-block:: python
-
-   from popsycle.synthetic import generate_slurm_scripts
-   generate_slurm_scripts(slurm_config_filename='slurm_config.yaml',
-                          popsycle_config_filename='popsycle_config.yaml',
-                          longitude=10.0,
-                          latitude=5.0,
-                          area=0.33,
-                          n_cores_calc_events=4,
-                          walltime='01:00:00,
-                          seed=None, overwrite=True, submitFlag=True):
-
-The ``generate_slurm_scripts`` docstring explains the function's parameters::
-
-    Generates the slurm script that executes the PopSyCLE pipeline
-
-    Parameters
-    ----------
-    slurm_config_filename : str
-        Name of slurm_config.yaml file containing the slurm parameters
-        that will be used the generate the slurm script header.
-
-    popsycle_config_filename : str
-        Name of popsycle_config.yaml file containing the PopSyCLE parameters
-        that will be passed along to the run_on_slurm.py command in the
-        slurm script.
-
-    path_run : str
-        Directory containing the parameter file and PopSyCLE output files
-
-    output_root : str
-        Base filename of the output files
-        Examples:
-           '{output_root}.h5'
-           '{output_root}.ebf'
-           '{output_root}_events.h5'
-
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
-    n_cores_calc_events : int
-        Number of cores for executing synthetic.calc_events
-
-    walltime : str
-        Amount of walltime that the script will request from slurm.
-
-    Optional Parameters
-    -------------------
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
-
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    submitFlag : bool
-        If set to True, script will be submitted to the slurm scheduler
-        after being written to disk. If set to False, it will not be submitted.
-        Default is True
-
-The PopSyCLE pipeline can also be run without using slurm scripts using the
-executable located at `<popsycle/run.py>`_. Running this executable from the
-command line requires the creation of a field configuration file using
-```popsycle.synthetic.generate_field_config_file```. More details on
-how to run this executable can be found by running
-```python {PATH_TO_POPSYCLE}/popsycle/run.py -h```.
+An example of running PopSyCLE on a compute cluster with a slurm scheduled can
+be found `in our example notebook <docs/PopSyCLE_example_slurm.ipynb>`_.
 
 License
 -------

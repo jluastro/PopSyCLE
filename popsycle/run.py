@@ -179,6 +179,7 @@ def run():
         # Run perform_pop_syn
         print('-- Executing perform_pop_syn')
 
+        additional_photometric_systems = None
         if popsycle_config['photometric_system'] == 'ubv':
             additional_photometric_systems = None
         else:

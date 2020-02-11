@@ -50,7 +50,7 @@ def test_h5_output(ebf_file, reference_h5_file, extra_col= False):
     for i in range(0, ref_dset.shape[0]):
         test_col = test_dset[i,:]
         ref_col = ref_dset[i, :]
-        if test_col == ref_col:
+        if test_col.all() == ref_col.all():
             matched_col = matched_col+1
 
         #check to see if disagreements are because of nans
@@ -58,7 +58,7 @@ def test_h5_output(ebf_file, reference_h5_file, extra_col= False):
             bad_idxs = np.where(ref_col != test_col)
             ref_nan_idx = np.where(ref_col == np.nan)
             test_nan_idx = np.where(test_col == np.nan)
-            if test_nan_idx == ref_nan_idx and bad_idxs == ref_nan_idx:
+            if test_nan_idx.all() == ref_nan_idx.all() and bad_idxs.all() == ref_nan_idx.all():
                 matched_col = matched_col+1
             else:
                 matched_col= matched_col

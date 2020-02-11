@@ -952,7 +952,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # user defined mean by the Maxwellian mean.
 
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
-            NS_kick_speed_scale = NS_kick_speed_mean / (2 * np.sqrt(2 / np.pi))
+            NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
                 NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
@@ -961,7 +961,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
-            BH_kick_speed_scale = BH_kick_speed_mean / (2 * np.sqrt(2 / np.pi))
+            BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
                 BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
@@ -1066,18 +1066,23 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
     Given stars and compact objects, sort them into latitude and
     longitude bins. Save each latitude and longitude bin, and the edges that
     define the latitude and longitude bins, as datasets in a hdf5 file.
+
     Parameters
     ----------
     lat_bin_edges : array
         Edges for the latitude binning (deg)
+
     long_bin_edges : array
         Edges for the longitude binning (deg)
+
     object_array : array or None
         Array of stars or compact objects to be binned
         (either comp_dict or star_dict)
+
     output_root : str
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
+
     Output
     ------
     output_root.h5 : hdf5 file
@@ -1107,7 +1112,10 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
+
+        Optional:
         [27] - [28] : ztf_<x> (G, R abs. mag, in that order, if selected)
+
     """
 
     ##########
@@ -1455,7 +1463,6 @@ def calc_events(hdf5_file, output_root2,
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                           theta_frac, blend_rad):
     """
-    What do
     Parameters
     ----------
     llbb : (int, int)
@@ -1463,10 +1470,12 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     obs_time, n_obs, radius_cut, theta_frac, blend_rad
     are all parameters of calc_events()
+
     Return
     ------
     events_llbb : array
         Array of the unique events for the particular (l,b) patch.
+
     blends_llbb : array
         Array of the unique blends for the particular (l,b) patch.
 
@@ -2014,20 +2023,25 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
     i.e. r_new < r_orig. Also makes a corresponding log and events.
+
     Parameters
     ----------
     blend_tab : str
         The name of the blend table.
+
     new_blend_rad : float or int
         The new (smaller) blend radius.
         Units are in ARCSECONDS.
+
     output_root : str
         The name for the new blend table
         (and corresponding event table)
+
     Return
     ------
     new_blend : .fits table
         New table with smaller blend radius.
+
     """
     input_root = blend_tab.rstrip('_blends.fits')
 

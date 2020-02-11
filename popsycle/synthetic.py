@@ -85,118 +85,6 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
 ############# Population synthesis and associated functions ###############
 ###########################################################################
 
-def execute(cmd, shell=False):
-    """
-    Executes a command line instruction, captures the stdout and stderr
-
-    Parameters
-    ----------
-    cmd : str
-        Command line instruction, including any executables and parameters
-
-    Optional Parameters
-    -------------------
-    shell : bool
-        Determines if the command is run through the shell. Default is False.
-
-    Outputs
-    -------
-    stdout : str
-        Contains the standard output of the executed process
-
-    stderr : str
-        Contains the standard error of the executed process
-
-    """
-    # Split the argument into a list suitable for Popen
-    args = cmd.split()
-    # subprocess.PIPE indicates that a pipe
-    # to the standard stream should be opened.
-    process = subprocess.Popen(args,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE,
-                               shell=shell)
-    stdout, stderr = process.communicate()
-
-    return stdout, stderr
-
-
-def write_galaxia_params(output_root,
-                         longitude, latitude, area,
-                         seed=None):
-    """
-    Given an object root, sky location and area, creates the parameter
-    file that Galaxia requires for running. User can also specify a seed for
-    Galaxia to use in its object generation.
-
-    Parameters
-    ----------
-    output_root : str
-        The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
-
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
-    Optional Parameters
-    -------------------
-    seed : int
-         Seed Galaxia will use to generate objects. If not set, script will
-         generate a seed from the current time. Setting this seed guarantees
-         identical results.
-
-    Outputs
-    -------
-    galaxia_params.<output_root>.txt : text file
-        A text file with the parameters that Galaxia requires to run.
-    """
-
-    if seed is None:
-        # Grab last two digits of the current Epochal time
-        seed = int(str(time.time())[-2:])
-
-    params = [
-        "outputFile %s" % output_root,
-        "outputDir ./",
-        "photoSys UBV",
-        "magcolorNames V,B-V",
-        "appMagLimits[0] -1000",
-        "appMagLimits[1] 1000",
-        "absMagLimits[0] -1000",
-        "absMagLimits[1] 1000",
-        "colorLimits[0] -1000",
-        "colorLimits[1] 1000",
-        "geometryOption 1",
-        "longitude %f" % longitude,
-        "latitude %f" % latitude,
-        "surveyArea %.5f" % area,
-        "fSample 1",
-        "popID -1",
-        "warpFlareOn 1",
-        "seed %i" % seed,
-        "r_max 30",
-        "starType 0",
-        "photoError 0"
-    ]
-
-    galaxia_param_fname = 'galaxia_params.%s.txt' % output_root
-
-    print('** Generating %s **' % galaxia_param_fname)
-
-    with open(galaxia_param_fname, 'w') as f:
-        for param in params:
-            f.write(param + '\n')
-            print('-- %s' % param)
-
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number = None, BH_kick_speed_mean = 50,
@@ -2424,6 +2312,512 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab):
     return
 
 
+###########################################################################
+############# Pipeline execution and associated functions #################
+###########################################################################
+
+def execute(cmd, shell=False):
+    """
+    Executes a command line instruction, captures the stdout and stderr
+
+    Parameters
+    ----------
+    cmd : str
+        Command line instruction, including any executables and parameters
+
+    Optional Parameters
+    -------------------
+    shell : bool
+        Determines if the command is run through the shell. Default is False.
+
+    Outputs
+    -------
+    stdout : str
+        Contains the standard output of the executed process
+
+    stderr : str
+        Contains the standard error of the executed process
+
+    """
+    # Split the argument into a list suitable for Popen
+    args = cmd.split()
+    # subprocess.PIPE indicates that a pipe
+    # to the standard stream should be opened.
+    process = subprocess.Popen(args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               shell=shell)
+    stdout, stderr = process.communicate()
+
+    return stdout, stderr
+
+
+def write_galaxia_params(output_root,
+                         longitude, latitude, area,
+                         seed=None):
+    """
+    Given an object root, sky location and area, creates the parameter
+    file that Galaxia requires for running. User can also specify a seed for
+    Galaxia to use in its object generation.
+
+    Parameters
+    ----------
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    Optional Parameters
+    -------------------
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a seed from the current time. Setting this seed guarantees
+         identical results.
+
+    Outputs
+    -------
+    galaxia_params.<output_root>.txt : text file
+        A text file with the parameters that Galaxia requires to run.
+    """
+
+    if seed is None:
+        # Grab last two digits of the current Epochal time
+        seed = int(str(time.time())[-2:])
+
+    params = [
+        "outputFile %s" % output_root,
+        "outputDir ./",
+        "photoSys UBV",
+        "magcolorNames V,B-V",
+        "appMagLimits[0] -1000",
+        "appMagLimits[1] 1000",
+        "absMagLimits[0] -1000",
+        "absMagLimits[1] 1000",
+        "colorLimits[0] -1000",
+        "colorLimits[1] 1000",
+        "geometryOption 1",
+        "longitude %f" % longitude,
+        "latitude %f" % latitude,
+        "surveyArea %.5f" % area,
+        "fSample 1",
+        "popID -1",
+        "warpFlareOn 1",
+        "seed %i" % seed,
+        "r_max 30",
+        "starType 0",
+        "photoError 0"
+    ]
+
+    galaxia_param_fname = 'galaxia_params.%s.txt' % output_root
+
+    print('** Generating %s **' % galaxia_param_fname)
+
+    with open(galaxia_param_fname, 'w') as f:
+        for param in params:
+            f.write(param + '\n')
+            print('-- %s' % param)
+
+
+def check_for_output(filename, overwrite):
+    if os.path.exists(filename):
+        if overwrite:
+            os.remove(filename)
+            return False
+        else:
+            print('Error: Output {0} exists, cannot continue. Either '
+                  'rename {0} or rerun run.py with the --overwrite '
+                  'flag.'.format(filename))
+            return True
+    else:
+        return False
+
+
+def load_config(config_filename):
+    """
+    Load configuration parameters from a yaml file into a dictionary
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    Output
+    ------
+    config : dict
+        Dictionary containing the configuration parameters
+
+    """
+    with open(config_filename, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def generate_field_config_file(config_filename, longitude, latitude, area):
+    """
+    Save field configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    Output
+    ------
+    None
+    """
+
+    config = {'longitude': longitude,
+              'latitude': latitude,
+              'area': area}
+    generate_config_file(config_filename, config)
+
+
+def generate_slurm_config_file(config_filename, path_python, account, queue,
+                               resource, n_cores_per_node, n_nodes_max,
+                               walltime_max, additional_lines):
+    """
+    Save slurm configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    path_python : str
+        Path to the python executable
+
+    account : str
+        Project account name to charge
+
+    queue : str
+        Scheduler queue type
+
+    resource : str
+        Computing resource name
+
+    n_cores_per_node : int
+        Number of cores in each node of the compute resource
+
+    n_nodes_max : int
+        Total number of nodes in the compute resource
+
+    walltime_max : int
+        Maximum number of hours for single job on the compute resource
+        Format: hh:mm:ss
+
+    additional_lines : list of strings
+        Additional lines to be run before executing run.py
+
+    Output
+    ------
+    None
+    """
+
+    config = {'path_python': path_python,
+              'account': account,
+              'queue': queue,
+              'resource': resource,
+              'additional_lines': additional_lines,
+              resource: {'n_cores_per_node': n_cores_per_node,
+                         'n_nodes_max': n_nodes_max,
+                         'walltime_max': walltime_max}}
+    generate_config_file(config_filename, config)
+
+
+def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
+                                  n_obs, theta_frac, blend_rad,
+                                  isochrones_dir,
+                                  bin_edges_number,
+                                  BH_kick_speed_mean, NS_kick_speed_mean,
+                                  filter_name, red_law):
+    """
+    Save popsycle configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    radius_cut : float
+        Initial radius cut, in ARCSECONDS.
+
+    obs_time : float
+        Survey duration, in DAYS.
+
+    n_obs : float
+        Number of observations.
+
+    theta_frac : float
+        Another cut, in multiples of Einstein radii.
+
+    blend_rad : float
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
+
+    isochrones_dir : str
+        Directory for PyPopStar isochrones
+
+    bin_edges_number : int
+         Number of edges for the bins (bins = bin_edges_number - 1)
+         Total number of bins is (bin_edges_number - 1)**2
+
+    BH_kick_speed_mean : float
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    red_law : str
+        The name of the reddening law to use from PopStar.
+
+    Output
+    ------
+    None
+    """
+
+    config = {'radius_cut': radius_cut,
+              'obs_time': obs_time,
+              'n_obs': n_obs,
+              'theta_frac': theta_frac,
+              'blend_rad': blend_rad,
+              'isochrones_dir': isochrones_dir,
+              'bin_edges_number': bin_edges_number,
+              'BH_kick_speed_mean': BH_kick_speed_mean,
+              'NS_kick_speed_mean': NS_kick_speed_mean,
+              'filter_name': filter_name,
+              'red_law': red_law}
+    generate_config_file(config_filename, config)
+
+
+def generate_config_file(config_filename, config):
+    """
+    Save configuration parameters from a dictionary into a yaml file
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    config : dict
+        Dictionary containing the configuration parameters
+
+    Output
+    ------
+    None
+
+    """
+    with open(config_filename, 'w') as outfile:
+        yaml.dump(config, outfile, default_flow_style=True)
+
+
+def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
+                           path_run, output_root,
+                           longitude, latitude, area,
+                           n_cores_calc_events,
+                           walltime,
+                           seed=None, overwrite=False, submitFlag=True):
+    """
+    Generates the slurm script that executes the PopSyCLE pipeline
+
+    Parameters
+    ----------
+    slurm_config_filename : str
+        Name of slurm_config.yaml file containing the slurm parameters
+        that will be used the generate the slurm script header.
+
+    popsycle_config_filename : str
+        Name of popsycle_config.yaml file containing the PopSyCLE parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
+    path_run : str
+        Directory containing the parameter file and PopSyCLE output files
+
+    output_root : str
+        Base filename of the output files
+        Examples:
+           '{output_root}.h5'
+           '{output_root}.ebf'
+           '{output_root}_events.h5'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    n_cores_calc_events : int
+        Number of cores for executing synthetic.calc_events
+
+    walltime : str
+        Amount of walltime that the script will request from slurm.
+        Format: hh:mm:ss
+
+    Optional Parameters
+    -------------------
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+
+    submitFlag : bool
+        If set to True, script will be submitted to the slurm scheduler
+        after being written to disk. If set to False, it will not be submitted.
+        Default is True
+
+    Output
+    ------
+    None
+
+    """
+    # Check for files
+    if not os.path.exists(slurm_config_filename):
+        raise Exception('Slurm configuration file {0} does not exist. '
+                        'Write out file using synthetic.generate_config_file '
+                        'before proceeding.'.format(slurm_config_filename))
+    if not os.path.exists(popsycle_config_filename):
+        raise Exception('PopSyCLE configuration file {0} does not exist. '
+                        'Write out file using synthetic.generate_config_file '
+                        'before proceeding.'.format(popsycle_config_filename))
+
+    # Make a run directory for the PopSyCLE output
+    if not os.path.exists(path_run):
+        os.makedirs(path_run)
+
+    # Write a field configuration file to disk in path_run
+    config = {'longitude': longitude,
+              'latitude': latitude,
+              'area': area}
+    field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
+                                                               output_root)
+    generate_config_file(field_config_filename, config)
+
+    # Load the slurm configuration file
+    slurm_config = load_config(slurm_config_filename)
+
+    # Create a slurm jobname base that all stages will be appended to
+    jobname = 'l%.1f_b%.1f' % (longitude, latitude)
+
+    ## Bring the slurm_config values into the namespace so that down before
+    ## the **locals() command can be executed
+
+    # Path to the python executable
+    path_python = slurm_config['path_python']
+    # Project account name to charge
+    account = slurm_config['account']
+    # Queue
+    queue = slurm_config['queue']
+    # Name of the resource that will be ussed for the run
+    resource = slurm_config['resource']
+    # Maximum number of ores per node
+    n_cores_per_node = slurm_config[resource]['n_cores_per_node']
+    # Maximum number of nodes
+    n_nodes_max = slurm_config[resource]['n_nodes_max']
+    # Maximum walltime (hours)
+    walltime_max = slurm_config[resource]['walltime_max']
+    # Get filepath of the run_on_slurm file
+    run_filepath = os.path.dirname(inspect.getfile(load_config))
+
+    # Template for writing slurm script. Text must be left adjusted.
+    slurm_template = """#!/bin/sh
+# Job name
+#SBATCH --account={account}
+#SBATCH --qos={queue}
+#SBATCH --constraint={resource}
+#SBATCH --nodes=1
+#SBATCH --time={walltime}
+#SBATCH --job-name={jobname}
+echo "---------------------------"
+echo Longitude = {longitude}
+echo Latitude = {latitude}
+echo Area = {area}
+echo path_run = {path_run}
+echo jobname = {jobname} 
+echo "Job id = $SLURM_JOBID"
+echo "Proc id = $SLURM_PROCID"
+hostname
+date
+echo "---------------------------"
+"""
+    for line in slurm_config['additional_lines']:
+        slurm_template += '%s\n' % line
+    slurm_template += """
+cd {path_run}
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
+date
+echo "All done!"
+"""
+
+    # Check that the specified number of cores does not exceed the resource max
+    if n_cores_calc_events > n_cores_per_node:
+        print('Error: specified number of cores exceeds limit. Exiting...')
+        return None
+
+    # Pass along optional parameters if present
+    if overwrite:
+        overwrite_cmd = '--overwrite'
+    else:
+        overwrite_cmd = ''
+
+    if seed:
+        seed_cmd = '--seed=%i' % seed
+    else:
+        seed_cmd = ''
+
+    # Populate the mpi_template specified inputs
+    job_script = slurm_template.format(**locals())
+
+    # Write the script to the path_run folder
+    script_filename = path_run + '/run_popsycle_%s_%s.sh' % (jobname,
+                                                             output_root)
+    with open(script_filename, 'w') as f:
+        f.write(job_script)
+
+    # Submit the job to disk
+    if submitFlag:
+        stdout, stderr = execute('sbatch {0}'.format(script_filename))
+        print('** Standard Out **')
+        print(stdout)
+        print('** Standard Err **')
+        print(stderr)
+
+        print('Submitted job {0} to {1}'.format(script_filename, resource))
+
+
+
 ##################################################################
 ############ Reading/writing and format functions  ###############
 ##################################################################
@@ -3131,389 +3525,3 @@ def calc_f(lambda_eff):
     return f
 
 
-def check_for_output(filename, overwrite):
-    if os.path.exists(filename):
-        if overwrite:
-            os.remove(filename)
-            return False
-        else:
-            print('Error: Output {0} exists, cannot continue. Either '
-                  'rename {0} or rerun run.py with the --overwrite '
-                  'flag.'.format(filename))
-            return True
-    else:
-        return False
-
-
-def load_config(config_filename):
-    """
-    Load configuration parameters from a yaml file into a dictionary
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    Output
-    ------
-    config : dict
-        Dictionary containing the configuration parameters
-
-    """
-    with open(config_filename, 'r') as f:
-        config = yaml.safe_load(f)
-    return config
-
-
-def generate_field_config_file(config_filename, longitude, latitude, area):
-    """
-    Save field configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
-    Output
-    ------
-    None
-    """
-
-    config = {'longitude': longitude,
-              'latitude': latitude,
-              'area': area}
-    generate_config_file(config_filename, config)
-
-
-def generate_slurm_config_file(config_filename, path_python, account, queue,
-                               resource, n_cores_per_node, n_nodes_max,
-                               walltime_max, additional_lines):
-    """
-    Save slurm configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    path_python : str
-        Path to the python executable
-
-    account : str
-        Project account name to charge
-
-    queue : str
-        Scheduler queue type
-
-    resource : str
-        Computing resource name
-
-    n_cores_per_node : int
-        Number of cores in each node of the compute resource
-
-    n_nodes_max : int
-        Total number of nodes in the compute resource
-
-    walltime_max : int
-        Maximum number of hours for single job on the compute resource
-        Format: hh:mm:ss
-
-    additional_lines : list of strings
-        Additional lines to be run before executing run.py
-
-    Output
-    ------
-    None
-    """
-
-    config = {'path_python': path_python,
-              'account': account,
-              'queue': queue,
-              'resource': resource,
-              'additional_lines': additional_lines,
-              resource: {'n_cores_per_node': n_cores_per_node,
-                         'n_nodes_max': n_nodes_max,
-                         'walltime_max': walltime_max}}
-    generate_config_file(config_filename, config)
-
-
-def generate_popsycle_config_file(config_filename, radius_cut, obs_time,
-                                  n_obs, theta_frac, blend_rad,
-                                  isochrones_dir,
-                                  bin_edges_number,
-                                  BH_kick_speed_mean, NS_kick_speed_mean,
-                                  filter_name, red_law):
-    """
-    Save popsycle configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    radius_cut : float
-        Initial radius cut, in ARCSECONDS.
-
-    obs_time : float
-        Survey duration, in DAYS.
-
-    n_obs : float
-        Number of observations.
-
-    theta_frac : float
-        Another cut, in multiples of Einstein radii.
-
-    blend_rad : float
-        Stars within this distance of the lens are said to be blended.
-        Units are in ARCSECONDS.
-
-    isochrones_dir : str
-        Directory for PyPopStar isochrones
-
-    bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
-
-    BH_kick_speed_mean : float
-        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
-        
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    red_law : str
-        The name of the reddening law to use from PopStar.
-
-    Output
-    ------
-    None
-    """
-
-    config = {'radius_cut': radius_cut,
-              'obs_time': obs_time,
-              'n_obs': n_obs,
-              'theta_frac': theta_frac,
-              'blend_rad': blend_rad,
-              'isochrones_dir': isochrones_dir,
-              'bin_edges_number': bin_edges_number,
-              'BH_kick_speed_mean': BH_kick_speed_mean,
-              'NS_kick_speed_mean': NS_kick_speed_mean,
-              'filter_name': filter_name,
-              'red_law': red_law}
-    generate_config_file(config_filename, config)
-
-
-def generate_config_file(config_filename, config):
-    """
-    Save configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    config : dict
-        Dictionary containing the configuration parameters
-
-    Output
-    ------
-    None
-
-    """
-    with open(config_filename, 'w') as outfile:
-        yaml.dump(config, outfile, default_flow_style=True)
-
-
-def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
-                           path_run, output_root,
-                           longitude, latitude, area,
-                           n_cores_calc_events,
-                           walltime,
-                           seed=None, overwrite=False, submitFlag=True):
-    """
-    Generates the slurm script that executes the PopSyCLE pipeline
-
-    Parameters
-    ----------
-    slurm_config_filename : str
-        Name of slurm_config.yaml file containing the slurm parameters
-        that will be used the generate the slurm script header.
-
-    popsycle_config_filename : str
-        Name of popsycle_config.yaml file containing the PopSyCLE parameters
-        that will be passed along to the run_on_slurm.py command in the
-        slurm script.
-
-    path_run : str
-        Directory containing the parameter file and PopSyCLE output files
-
-    output_root : str
-        Base filename of the output files
-        Examples:
-           '{output_root}.h5'
-           '{output_root}.ebf'
-           '{output_root}_events.h5'
-
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
-    n_cores_calc_events : int
-        Number of cores for executing synthetic.calc_events
-
-    walltime : str
-        Amount of walltime that the script will request from slurm.
-        Format: hh:mm:ss
-
-    Optional Parameters
-    -------------------
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
-
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    submitFlag : bool
-        If set to True, script will be submitted to the slurm scheduler
-        after being written to disk. If set to False, it will not be submitted.
-        Default is True
-
-    Output
-    ------
-    None
-
-    """
-    # Check for files
-    if not os.path.exists(slurm_config_filename):
-        raise Exception('Slurm configuration file {0} does not exist. '
-                        'Write out file using synthetic.generate_config_file '
-                        'before proceeding.'.format(slurm_config_filename))
-    if not os.path.exists(popsycle_config_filename):
-        raise Exception('PopSyCLE configuration file {0} does not exist. '
-                        'Write out file using synthetic.generate_config_file '
-                        'before proceeding.'.format(popsycle_config_filename))
-
-    # Make a run directory for the PopSyCLE output
-    if not os.path.exists(path_run):
-        os.makedirs(path_run)
-
-    # Write a field configuration file to disk in path_run
-    config = {'longitude': longitude,
-              'latitude': latitude,
-              'area': area}
-    field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
-                                                               output_root)
-    generate_config_file(field_config_filename, config)
-
-    # Load the slurm configuration file
-    slurm_config = load_config(slurm_config_filename)
-
-    # Create a slurm jobname base that all stages will be appended to
-    jobname = 'l%.1f_b%.1f' % (longitude, latitude)
-
-    ## Bring the slurm_config values into the namespace so that down before
-    ## the **locals() command can be executed
-
-    # Path to the python executable
-    path_python = slurm_config['path_python']
-    # Project account name to charge
-    account = slurm_config['account']
-    # Queue
-    queue = slurm_config['queue']
-    # Name of the resource that will be ussed for the run
-    resource = slurm_config['resource']
-    # Maximum number of ores per node
-    n_cores_per_node = slurm_config[resource]['n_cores_per_node']
-    # Maximum number of nodes
-    n_nodes_max = slurm_config[resource]['n_nodes_max']
-    # Maximum walltime (hours)
-    walltime_max = slurm_config[resource]['walltime_max']
-    # Get filepath of the run_on_slurm file
-    run_filepath = os.path.dirname(inspect.getfile(load_config))
-
-    # Template for writing slurm script. Text must be left adjusted.
-    slurm_template = """#!/bin/sh
-# Job name
-#SBATCH --account={account}
-#SBATCH --qos={queue}
-#SBATCH --constraint={resource}
-#SBATCH --nodes=1
-#SBATCH --time={walltime}
-#SBATCH --job-name={jobname}
-echo "---------------------------"
-echo Longitude = {longitude}
-echo Latitude = {latitude}
-echo Area = {area}
-echo path_run = {path_run}
-echo jobname = {jobname} 
-echo "Job id = $SLURM_JOBID"
-echo "Proc id = $SLURM_PROCID"
-hostname
-date
-echo "---------------------------"
-"""
-    for line in slurm_config['additional_lines']:
-        slurm_template += '%s\n' % line
-    slurm_template += """
-cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
-date
-echo "All done!"
-"""
-
-    # Check that the specified number of cores does not exceed the resource max
-    if n_cores_calc_events > n_cores_per_node:
-        print('Error: specified number of cores exceeds limit. Exiting...')
-        return None
-
-    # Pass along optional parameters if present
-    if overwrite:
-        overwrite_cmd = '--overwrite'
-    else:
-        overwrite_cmd = ''
-
-    if seed:
-        seed_cmd = '--seed=%i' % seed
-    else:
-        seed_cmd = ''
-
-    # Populate the mpi_template specified inputs
-    job_script = slurm_template.format(**locals())
-
-    # Write the script to the path_run folder
-    script_filename = path_run + '/run_popsycle_%s_%s.sh' % (jobname,
-                                                             output_root)
-    with open(script_filename, 'w') as f:
-        f.write(job_script)
-
-    # Submit the job to disk
-    if submitFlag:
-        stdout, stderr = execute('sbatch {0}'.format(script_filename))
-        print('** Standard Out **')
-        print(stdout)
-        print('** Standard Err **')
-        print(stderr)
-
-        print('Submitted job {0} to {1}'.format(script_filename, resource))

@@ -245,6 +245,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
@@ -817,6 +821,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+
     seed : int
          Seed used to sample the kde tree. If set to any number,
          PyPopStar will also be forced to use 42 as a
@@ -1082,6 +1090,13 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
     output_root : str
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
+
+    Optional Parameters
+    -------------------
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
     Output
     ------
@@ -1387,8 +1402,7 @@ def calc_events(hdf5_file, output_root2,
     names_base = ['zams_mass', 'rem_id', 'mass', 'px', 'py', 'pz', 'vx', 'vy',
                   'vz', 'rad', 'glat', 'glon', 'vr', 'mu_b', 'mu_lcosb', 'age',
                   'popid', 'ubv_k', 'ubv_i', 'exbv', 'obj_id', 'ubv_j',
-                  'ubv_u',
-                  'ubv_r', 'ubv_b', 'ubv_h', 'ubv_v']
+                  'ubv_u', 'ubv_r', 'ubv_b', 'ubv_h', 'ubv_v']
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
             names_base += ['ztf_g', 'ztf_r']
@@ -3349,6 +3363,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
                                   isochrones_dir,
                                   bin_edges_number,
                                   BH_kick_speed_mean, NS_kick_speed_mean,
+                                  photomteric_system,
                                   filter_name, red_law,
                                   config_filename='popsycle_config.yaml'):
     """
@@ -3376,14 +3391,17 @@ def generate_popsycle_config_file(radius_cut, obs_time,
         Directory for PyPopStar isochrones
 
     bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins (bins = bin_edges_number - 1)
+        Total number of bins is (bin_edges_number - 1)**2
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         
     NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
 
     filter_name : str
         The name of the filter in which to calculate all the
@@ -3413,6 +3431,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
+              'photometric_system': photometric_system,
               'filter_name': filter_name,
               'red_law': red_law}
     generate_config_file(config_filename, config)

@@ -1505,10 +1505,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     for i in np.arange(len(time_array)):
         # Find potential lenses and sources that fall within radius cut.
-        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(
-            bigpatch,
-            time_array[i],
-            radius_cut)
+        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
+                                                                            time_array[i],
+                                                                            radius_cut)
 
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch[col_idx['mass']][lens_id],
@@ -1563,11 +1562,14 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     ----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
+
     timei : float
         Time at which to evaluate.
+
     radius_cut : float
         Parameter of calc_events().
         Converted to mas
+
     Return
     ------
     lens_id : array
@@ -1575,23 +1577,23 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
 
     sorc_id : array
         Indices into bigpatch that indicate sources
+
     r_t : array
         Radial coordinates for all objects in bigpatch at time t
+
     sep : array
         Separation between lens-source pairs (mas)
+
     event_id1 : array
         Lens-source pairs where sep < radius_cut
+
     c : SkyCoord object
         Coordinates of all the stars.
     """
     # Propagate r, b, l positions forward in time.
-    r_t = bigpatch[col_idx['rad']] + timei * bigpatch[
-        col_idx['vr']] * kms_to_kpcday  # kpc
-    b_t = bigpatch[col_idx['glat']] + timei * bigpatch[
-        col_idx['mu_b']] * masyr_to_degday  # deg
-    l_t = bigpatch[col_idx['glon']] + timei * (
-                bigpatch[col_idx['mu_lcosb']] / np.cos(
-            np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday  # deg
+    r_t = bigpatch[col_idx['rad']] + timei * bigpatch[col_idx['vr']] * kms_to_kpcday  # kpc
+    b_t = bigpatch[col_idx['glat']] + timei * bigpatch[col_idx['mu_b']] * masyr_to_degday  # deg
+    l_t = bigpatch[col_idx['glon']] + timei * (bigpatch[col_idx['mu_lcosb']] / np.cos(np.radians(bigpatch[col_idx['glat']]))) * masyr_to_degday  # deg
 
     ##########
     # Determine nearest neighbor in spherical coordinates.
@@ -1655,34 +1657,40 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     ----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
+
     theta_E : array
         Einstein radius of the events that pass the radius cut
+
     u : array
         Impact parameters at time t of the events that pass the radius cut
+
     theta_frac : float
         Parameter of calc_events()
         Another cut, in multiples of Einstein radii.
+
     lens_id : array
         Indices into bigpatch that indicate lenses
 
     sorc_id : array
         Indices into bigpatch that indicate sources
+
     timei : float
         Time at which to evaluate.
+
     Return
     ------
     event_lbt : array
         Lenses and sources at a particular time t.
+
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
     adx = np.where(u < theta_frac)[0]
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
-        lens_sorc_id_pairs = np.stack(
-            (bigpatch[col_idx['obj_id']][lens_id][adx],
-             bigpatch[col_idx['obj_id']][sorc_id][adx]),
-            axis=-1)
+        lens_sorc_id_pairs = np.stack((bigpatch[col_idx['obj_id']][lens_id][adx],
+                                       bigpatch[col_idx['obj_id']][sorc_id][adx]),
+                                      axis=-1)
 
         unique_returns = np.unique(lens_sorc_id_pairs,
                                    return_index=True, return_inverse=True,
@@ -1699,10 +1707,8 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         theta_E = theta_E[adx][unique_indices]
         u = u[adx][unique_indices]
 
-        mu_b_rel = sorc_table[col_idx['mu_b']] - lens_table[
-            col_idx['mu_b']]  # mas/yr
-        mu_lcosb_rel = sorc_table[col_idx['mu_lcosb']] - lens_table[
-            col_idx['mu_lcosb']]  # mas/yr
+        mu_b_rel = sorc_table[col_idx['mu_b']] - lens_table[col_idx['mu_b']]  # mas/yr
+        mu_lcosb_rel = sorc_table[col_idx['mu_lcosb']] - lens_table[col_idx['mu_lcosb']]  # mas/yr
         mu_rel = np.sqrt(mu_b_rel ** 2 + mu_lcosb_rel ** 2)  # mas/yr
         t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
 
@@ -1722,6 +1728,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     Note 1: We are centering on the lens.
     Note 2: We don't want to include the lens itself,
     or the source, in the table.
+
     Parameters
     ----------
     bigpatch : array
@@ -1729,14 +1736,18 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     c : SkyCoord object
         Coordinates of all the stars.
+
     event_lbt : array
         Lenses and sources at a particular time t.
+
     blend_rad : float
         Parameter of calc_events().
+
     Return
     ------
     blends_lbt : array
         Array of neighbor stars for each lens-source pair.
+
     """
     ##########
     # Get the cached KD-Tree to make things run faster.
@@ -1813,15 +1824,11 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
         # Calculate the distance from lens to each neighbor.
         lens_lb = SkyCoord(frame='galactic',
-                           l=np.array(
-                               event_lbt[col_idx['glon']][ii]) * units.deg,
-                           b=np.array(
-                               event_lbt[col_idx['glat']][ii]) * units.deg)
+                           l=np.array(event_lbt[col_idx['glon']][ii]) * units.deg,
+                           b=np.array(event_lbt[col_idx['glat']][ii]) * units.deg)
         neigh_lb = SkyCoord(frame='galactic',
-                            l=bigpatch[col_idx['glon']][results[ii]][
-                                  bidx] * units.deg,
-                            b=bigpatch[col_idx['glat']][results[ii]][
-                                  bidx] * units.deg)
+                            l=bigpatch[col_idx['glon']][results[ii]][bidx] * units.deg,
+                            b=bigpatch[col_idx['glat']][results[ii]][bidx] * units.deg)
         sep_LN = lens_lb.separation(neigh_lb)
         sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
 
@@ -1858,6 +1865,7 @@ def unique_events(event_table):
     This function will eliminate duplicates, only keeping an event once. It
     is picked to be the particular observed event with the smallest source-
     lens separation.
+
     Parameters
     ---------
     event_table : numpy array
@@ -1865,12 +1873,14 @@ def unique_events(event_table):
         the source, 27 with the corresponding information about the lens, and
         4 with info about theta_E, u, mu_rel, and tstep. The number of rows
         corresponds to the number of events.
+
     Return
     ------
     new_event_table : numpy array
         Same as event_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
+
     """
 
     # event_table indexing:
@@ -1916,6 +1926,7 @@ def unique_blends(blend_table):
     multiple times (it might have been observed at different timesteps.)
     This function will eliminate duplicates, only keeping an event once. It
     is picked to be the first occurence.
+
     Parameters
     ---------
     blend_table : blend array
@@ -1923,12 +1934,14 @@ def unique_blends(blend_table):
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
         separation, and 27 with info about the neighbor (same order as the
         other "all info" tables).
+
     Return
     ------
     new_blend_table : numpy array
         Same as blend_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
+
     """
     # blend_table indexing
     # 0 = lens obj_id

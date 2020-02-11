@@ -3199,7 +3199,29 @@ def calc_f(lambda_eff):
     return f
 
 
-def check_for_output(filename, overwrite):
+def check_for_output(filename, overwrite=False):
+    """
+    Checks for the existence of files and either overwrites them or
+    raises a warning.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file to be inspected
+
+    overwrite : bool
+        Flag to determine whether to overwrite in the presence of the file
+        or to raise an error. If True, file is overwritten.
+        If False, error is raised. Default False.
+
+    Output
+    ------
+    status : bool
+        Status of operation.
+        True: Error due to already existing file.
+        False: File either does not exist or was successfully deleted.
+
+    """
     if os.path.exists(filename):
         if overwrite:
             os.remove(filename)
@@ -3601,9 +3623,33 @@ echo "All done!"
 
 def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     """
-    #TODO
+    Creates the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
+    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
+    magnitudes from the UBV filters
+
+    ubv-to-ztf-g
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_v - ztf_g
+
+    ubv-to-ztf-r
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_r - ztf_r
+
+    Parameters
+    ----------
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    None
+
     """
 
     # Define isochrone parameters
@@ -3643,6 +3689,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     ztf_g = np.array([])
     ztf_r = np.array([])
 
+    # Create photometry for a range of extinctions
     for AKs in np.arange(0, 1.1, .1):
         my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
                                          metallicity=metallicity,
@@ -3665,19 +3712,28 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         ztf_g = np.append(ztf_g, clust['m_ztf_G'][clust_cond])
         ztf_r = np.append(ztf_r, clust['m_ztf_R'][clust_cond])
 
+    # Given the filter name, define a difference in magnitude to be fit for
     if filter_name == 'g':
         delta_m = ubv_v - ztf_g
     elif filter_name == 'r':
         delta_m = ubv_r - ztf_r
 
+    # Colors in both x and y direction go from 0 to 6 magnitudes
+    # x_grid_arr: ubv_v - ubv_r
+    # y_grid_arr: ubv_b - ubv_v
     x_grid_arr = np.linspace(0, 6, 1000)
     y_grid_arr = np.linspace(0, 6, 1000)
 
+    # Create a grid of values on x_grid_arr and y_grid_arr
+    # with linear algorithm
     ubv_to_ztf_grid = griddata((ubv_v - ubv_r, ubv_b - ubv_v),
                                delta_m,
                                (x_grid_arr[None, :], y_grid_arr[:, None]),
                                method='linear')
 
+    # Resample this grid with both the liner and nearest algorithms onto a
+    # finer grid. This allows for the 'nearest' method to
+    # create fewer artifacts
     xx, yy = np.meshgrid(x_grid_arr, y_grid_arr)
     xx, yy = xx.flatten(), yy.flatten()
 
@@ -3694,13 +3750,15 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                         y_grid_arr[:, None]),
                                        method='nearest')
 
+    # Place values into final grid from linear algorthm, and from the
+    # nearest algorithm where the linear algorithm could not find a solution
     cond = np.isnan(ubv_to_ztf_grid_filled)
     ubv_to_ztf_grid_final = np.zeros_like(ubv_to_ztf_grid_filled)
     ubv_to_ztf_grid_final[cond] = ubv_to_ztf_grid_nearest[cond]
     ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
 
+    # Save the data
     grid_arr = np.squeeze(np.dstack([xx, yy]), axis=0)
-
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
     ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
     np.savez(ubv_to_ztf_filename,
@@ -3710,15 +3768,42 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
 def load_ubv_to_ztf_grid(filter_name):
     """
-    filter_name: must be g or r
-    #TODO
+    Loads the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
+    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
+    magnitudes from the UBV filters, as well as the kdtree of those values
+
+    ubv-to-ztf-g
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_v - ztf_g
+
+    ubv-to-ztf-r
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_r - ztf_r
+
+    Parameters
+    ----------
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    ubv_to_ztf_grid : 2D numpy array
+        2D grid array of UBV colors with each cell containing the difference
+        between a ztf filter and a ubv filter
+
+    kdtree : cKDTree
+        kdtree containing the grid of colors on the x-axis and y-axis
+
     """
-    # x_grid_arr: ubv_v - ubv_r
-    # y_grid_arr: ubv_b - ubv_v
+    # Load the ubv_to_ztf_grid from the file
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
     ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
     ubv_to_ztf_grid_file = np.load(ubv_to_ztf_filename)
 
+    # Generate a kdtree at the locations of all of the grid points
     ubv_to_ztf_grid = ubv_to_ztf_grid_file['ubv_to_ztf_grid']
     kdtree = cKDTree(ubv_to_ztf_grid_file['kdtree_grid'])
 
@@ -3726,19 +3811,49 @@ def load_ubv_to_ztf_grid(filter_name):
 
 
 def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
+    """
+    Converts ubv filters (b, v, r) into ztf filters (g, r)
+
+    Parameters
+    ----------
+    ubv_b : array of floats
+        ubv_b photometry of galaxia / PyPopStar sources
+
+    ubv_v : array of floats
+        ubv_v photometry of galaxia / PyPopStar sources
+
+    ubv_r : array of floats
+        ubv_r photometry of galaxia / PyPopStar sources
+
+    Output
+    ------
+    ztf_g : array of floats
+        ztf_g photometry of galaxia / PyPopStar sources
+
+    ztf_r : array of floats
+        ztf_r photometry of galaxia / PyPopStar sources
+
+    """
+
+    # Convert the ubv photometry into the right format
     x_data = ubv_v - ubv_r
     y_data = ubv_b - ubv_v
     data = np.squeeze(np.dstack([x_data, y_data]), axis=0)
 
+    # Only query on data that is luminous
     cond_lum = ~np.isnan(data).any(axis=1)
 
     for filter_name in ['g', 'r']:
+        # Start with an empty array of nans
         ztf_diff = np.full(len(ubv_b), np.nan)
 
+        # Find locations on the grid where x_data and y_data are located.
+        # Put those values into the ztf_diff array
         ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
         _, indexes = kdtree.query(data[cond_lum])
         ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
 
+        # Convert to ztf_g and ztf_r
         if filter_name == 'g':
             ztf_g = ubv_v - ztf_diff
         elif filter_name == 'r':
@@ -3747,22 +3862,58 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     return ztf_g, ztf_r
 
 
-def ztf_mag_vega_to_AB(ztf_mag, filter_name):
+def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
+    """
+    Converts vega magnitudes into AB magnitudes for ztf filters.
+
+    Parameters
+    ----------
+    ztf_mag_vega : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in vega system
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    ztf_mag_AB : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in AB system
+
+    """
     if filter_name == 'g':
-        ztf_mag_AB = ztf_mag - 0.07
+        ztf_mag_AB = ztf_mag_vega - 0.07
     elif filter_name == 'r':
-        ztf_mag_AB = ztf_mag + 0.19
+        ztf_mag_AB = ztf_mag_vega + 0.19
     else:
         print('filter_name must be either g or r')
         ztf_mag_AB = None
     return ztf_mag_AB
 
 
-def ztf_mag_AB_to_vega(ztf_mag, filter_name):
+def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
+    """
+    Converts AB magnitudes into vega magnitudes for ztf filters.
+
+    Parameters
+    ----------
+    ztf_mag_AB : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in AB system
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    ztf_mag_vega : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in vega system
+
+    """
     if filter_name == 'g':
-        ztf_mag_vega = ztf_mag + 0.07
+        ztf_mag_vega = ztf_mag_AB + 0.07
     elif filter_name == 'r':
-        ztf_mag_vega = ztf_mag - 0.19
+        ztf_mag_vega = ztf_mag_AB - 0.19
     else:
         print('filter_name must be either g or r')
         ztf_mag_vega = None
@@ -3771,24 +3922,55 @@ def ztf_mag_AB_to_vega(ztf_mag, filter_name):
 
 def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):
     """
-    #TODO
+    Algorithm for finding the nearest grid cell on a 2D array given a
+    datapoint that falls within the bounds of the 2D array.
+
+    Parameters
+    ----------
+    grid : 2D numpy array
+        2D array with size (len(y_grid_arr), len(x_grid_array))
+
+    x_grid_arr : numpy array
+        2D grid indices in the x-dimension
+
+    y_grid_arr : numpy array
+        2D grid indices in the y-dimension
+
+    x_data : numpy array
+        x-coordinate for data that will be located onto the grid
+
+    y_data : numpy array
+        y-coordinate for data that will be located onto the grid
+
+    Output
+    ------
+    gridpoint_arr : numpy array
+        list of nearest cell values on the grid at
+        the location of (x_data, y_data)
+
     """
-    # x_grid_arr: ubv_v - ubv_r
-    # y_grid_arr: ubv_b - ubv_v
+    # Convert x_data and y_data to array if single data point is received
     x_data = np.atleast_1d(x_data)
     y_data = np.atleast_1d(y_data)
 
     gridpoint_arr = []
     for x, y in zip(x_data, y_data):
+        # Loop through x_data and y_data
         if np.isnan(x) or np.isnan(y):
+            # If either x_data or y_data is nan, return nan
             gridpoint = np.nan
         else:
+            # Find location on the grid where x_data and y_data are
+            # closest to the grid indices
             x_idx = np.argmin(np.abs(x - x_grid_arr))
             y_idx = np.argmin(np.abs(y - y_grid_arr))
             gridpoint = grid[y_idx, x_idx]
         gridpoint_arr.append(gridpoint)
+
+    # Convert gridpoint_arr into numpy array
     gridpoint_arr = np.array(gridpoint_arr)
 
+    # If only a single data point was received, return a single value
     if len(gridpoint_arr) == 1:
         gridpoint_arr = gridpoint_arr[0]
 

@@ -3584,7 +3584,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     slurm_config = load_config(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
-    jobname = 'l%.1f_b%.1f' % (longitude, latitude)
+    jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
 
     ## Bring the slurm_config values into the namespace so that down before
     ## the **locals() command can be executed

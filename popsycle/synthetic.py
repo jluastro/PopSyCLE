@@ -68,7 +68,7 @@ filt_dict['r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
 
 ##########
 # Dictionary for going between values in 
-# .h5 datasets and keys in astropy table
+# .h5 datasets and keys in astropy table.
 ##########
 col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'px': 3, 'py': 4, 'pz': 5,

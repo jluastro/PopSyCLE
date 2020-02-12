@@ -3562,6 +3562,9 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
                         'Write out file using synthetic.generate_config_file '
                         'before proceeding.'.format(popsycle_config_filename))
 
+    # Enforce popsycle_config_filename is an absolute path
+    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
+
     # Make a run directory for the PopSyCLE output
     if not os.path.exists(path_run):
         os.makedirs(path_run)

@@ -2,7 +2,7 @@
 
 radius_cut: 2
 obs_time: 1095
-n_obs: 10
+n_obs: 101
 theta_frac: 2
 blend_rad: 0.75
 isochrones_dir: /Users/myself/popsycle_isochrones

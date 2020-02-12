@@ -150,6 +150,13 @@ def run():
     # Return the dictionary containing PopSyCLE output filenames
     filename_dict = return_filename_dict(args.output_root)
 
+    # Prepare additional_photometric_systems
+    if popsycle_config['photometric_system'] == 'ubv':
+        additional_photometric_systems = None
+    else:
+        additional_photometric_systems = [
+            popsycle_config['photometric_system']]
+
     if not args.skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True
         if synthetic.check_for_output(filename_dict['ebf_filename'],
@@ -178,11 +185,6 @@ def run():
 
         # Run perform_pop_syn
         print('-- Executing perform_pop_syn')
-
-        if popsycle_config['photometric_system'] == 'ubv':
-            additional_photometric_systems = None
-        else:
-            additional_photometric_systems = [popsycle_config['photometric_system']]
 
         synthetic.perform_pop_syn(
             ebf_file=filename_dict['ebf_filename'],

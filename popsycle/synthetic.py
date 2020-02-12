@@ -3468,7 +3468,9 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
                            longitude, latitude, area,
                            n_cores_calc_events,
                            walltime,
-                           seed=None, overwrite=False, submitFlag=True):
+                           seed=None, overwrite=False, submitFlag=True,
+                           skip_galaxia=False, skip_perform_pop_syn=False,
+                           skip_calc_events=False, skip_refine_events=False):
     """
     Generates the slurm script that executes the PopSyCLE pipeline
 
@@ -3525,6 +3527,25 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
         If set to True, script will be submitted to the slurm scheduler
         after being written to disk. If set to False, it will not be submitted.
         Default is True
+
+    skip_galaxia : bool
+        If set to True, pipeline will not run Galaxia and assume that the
+        resulting ebf file is already present.
+        Default is False
+
+    skip_perform_pop_syn : bool
+        If set to True, pipeline will not run perform_pop_syn and assume that
+        the resulting h5 file is already present.
+        Default is False
+
+    skip_calc_events : bool
+        If set to True, pipeline will not run calc_events and assume that the
+        resulting events and blends files are already present.
+        Default is False
+
+    skip_refine_events : bool
+        If set to True, pipeline will not run refine_events.
+        Default is False
 
     Output
     ------
@@ -3604,7 +3625,7 @@ echo "---------------------------"
         slurm_template += '%s\n' % line
     slurm_template += """
 cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
 date
 echo "All done!"
 """
@@ -3614,16 +3635,26 @@ echo "All done!"
         print('Error: specified number of cores exceeds limit. Exiting...')
         return None
 
+    optional_cmds = ''
+
     # Pass along optional parameters if present
     if overwrite:
-        overwrite_cmd = '--overwrite'
-    else:
-        overwrite_cmd = ''
+        optional_cmds += '--overwrite '
 
     if seed:
-        seed_cmd = '--seed=%i' % seed
-    else:
-        seed_cmd = ''
+        optional_cmds += '--seed=%i ' % seed
+
+    if skip_galaxia:
+        optional_cmds += '--skip-galaxia '
+
+    if skip_perform_pop_syn:
+        optional_cmds += '--skip-perform-pop-syn '
+
+    if skip_calc_events:
+        optional_cmds += '--skip-calc-events '
+
+    if skip_refine_events:
+        optional_cmds += '--skip-refine-events '
 
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())

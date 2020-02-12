@@ -3674,11 +3674,14 @@ echo "All done!"
     if submitFlag:
         os.chdir(path_run)
         stdout, stderr = execute('sbatch {0}'.format(script_filename))
-        print('** Standard Out **')
+        print('Submitted job {0} to {1} for {2} time'.format(script_filename,
+                                                             resource,
+                                                             walltime))
+        print('---- Standard Out')
         print(stdout)
-        print('** Standard Err **')
+        print('---- Standard Err')
         print(stderr)
-        print('Submitted job {0} to {1}'.format(script_filename, resource))
+        print('')
 
 
 def generate_ubv_to_ztf_grid(iso_dir, filter_name):

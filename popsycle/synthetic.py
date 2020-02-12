@@ -78,7 +78,8 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'age': 15, 'popid': 16, 'ubv_k': 17,
            'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
            'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
-           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26}
+           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
+           'ztf_g': 27, 'ztf_r': 28}
 
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
@@ -1254,6 +1255,10 @@ def calc_events(hdf5_file, output_root2,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
     seed : int
         If set to non-None, all random sampling will be seeded with the

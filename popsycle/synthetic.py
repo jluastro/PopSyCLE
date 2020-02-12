@@ -3427,6 +3427,9 @@ def generate_popsycle_config_file(radius_cut, obs_time,
     None
     """
 
+    if bin_edges_number is None:
+        bin_edges_number = 'None'
+
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
               'n_obs': n_obs,

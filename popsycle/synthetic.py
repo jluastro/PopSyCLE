@@ -45,7 +45,7 @@ au_to_kpc = 4.848 * 10 ** -9
 _Mclust_v_age_func = None
 
 ##########
-# Dictionary for extinction law coefficients f_i, as a function of filter 
+# Dictionary for extinction law coefficients f_i, as a function of filter
 # Damineli values from photometric bands (nm):
 # B = 445, V = 551, I = 806, J = 1220, H = 1630, K = 2190, U = 365, R = 658
 # Calculated using calc_f
@@ -667,7 +667,7 @@ def calc_current_initial_ratio(iso_dir,
     Parameters
     -------------------
     out_file : string
-        Full name of the file to store the output columns: 
+        Full name of the file to store the output columns:
         log(age/yr), current_to_initial_mass_ratio
 
     iso_dir : filepath
@@ -744,17 +744,17 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     """
     Calculates the ratio of the current cluster mass to the initial
     mass of the cluster.
-    
+
     Parameters
     ----------
     logage : float
         The age of the cluster, given in log(age/yr)
 
-    ratio_file : txt file 
+    ratio_file : txt file
         The name of the text file that contains the
         current-initial cluster mass ratio.
 
-    iso_dir : filepath 
+    iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
     Optional Parameters
@@ -791,7 +791,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     additional_photometric_systems=None,
                     seed=None):
     """
-    Perform population synthesis.  
+    Perform population synthesis.
 
     Parameters
     ----------
@@ -808,15 +808,15 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         The number of entries for each key is the number of stars.
 
     next_id : The next unique ID number (int) that will be assigned to
-              the new compact objects created. 
+              the new compact objects created.
 
     Optional Parameters
     -------------------
-    BH_kick_speed_mean : float 
+    BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
-        
-    NS_kick_speed_mean : float 
+
+    NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
@@ -840,7 +840,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
-        
+
     """
     comp_dict = None
 
@@ -911,7 +911,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 keep_columns += ['m_ztf_G', 'm_ztf_R']
         comp_table.keep_columns(keep_columns)
 
-        # Fill out the rest of comp_dict 
+        # Fill out the rest of comp_dict
         if len(comp_table['mass']) > 0:
 
             # Turn astropy table into dictionary to conserve memory.
@@ -942,7 +942,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['vy'] = kde_out_data[:, 4]
             comp_dict['vz'] = kde_out_data[:, 5]
 
-            ########## 
+            ##########
             # Assign x, y, z position.
             ##########
             comp_helio = galactic_to_heliocentric(comp_dict['rad'],
@@ -1228,7 +1228,7 @@ def calc_events(hdf5_file, output_root2,
                 seed=None, overwrite=False):
     """
     Calculate microlensing events
-    
+
     Parameters
     ----------
     hdf5_file : str
@@ -1241,13 +1241,13 @@ def calc_events(hdf5_file, output_root2,
         Survey duration, in DAYS.
 
     n_obs : float
-        Number of observations. 
+        Number of observations.
 
     theta_frac : float
-        Another cut, in multiples of Einstein radii. 
+        Another cut, in multiples of Einstein radii.
 
     blend_rad : float
-        Stars within this distance of the lens are said to be blended. 
+        Stars within this distance of the lens are said to be blended.
         Units are in ARCSECONDS.
 
     Optional Parameters
@@ -1274,8 +1274,8 @@ def calc_events(hdf5_file, output_root2,
     Output
     ------
     <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. There are 58 columns 
-        (see documentation PDF) and the number of rows corresponds to 
+        Table of candidate microlensing events. There are 58 columns
+        (see documentation PDF) and the number of rows corresponds to
         the number of candidate events.
 
     """
@@ -2115,7 +2115,7 @@ def refine_events(input_root, filter_name, red_law,
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
-    separation at this time. 
+    separation at this time.
 
     Parameters
     ----------
@@ -2124,7 +2124,7 @@ def refine_events(input_root, filter_name, red_law,
         Don't include those suffixes yet.
 
     filter_name : str
-        The name of the filter in which to calculate all the 
+        The name of the filter in which to calculate all the
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
 
@@ -2143,7 +2143,7 @@ def refine_events(input_root, filter_name, red_law,
     A file will be created named
     <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
     same objects, only now with lots of extra
-    columns of data. 
+    columns of data.
 
     """
     ##########
@@ -2201,8 +2201,8 @@ def refine_events(input_root, filter_name, red_law,
                 break
 
     # Calculate time and separation at closest approach, add to table
-    # NOTE: calc_closest_approach modifies the event table! 
-    # It trims out events that peak outside the survey range! 
+    # NOTE: calc_closest_approach modifies the event table!
+    # It trims out events that peak outside the survey range!
     print('Original candidate events: ', len(event_tab))
     u0, t0 = calc_closest_approach(event_tab, obs_time)
     print('Candidate events in survey window: ', len(event_tab))
@@ -2318,7 +2318,7 @@ def calc_closest_approach(event_tab, survey_duration):
     t_crit = -(l_0 * l_1 + b_0 * b_1) / (l_1 ** 2 + b_1 ** 2)  # years
     t_crit *= 365.25  # days
 
-    # Only include events that peak in survey window, 
+    # Only include events that peak in survey window,
     # since we can't easily fit parameters for events where we don’t have the peak.
     # FIXME: more efficient way to do this??
     good = np.where((t_crit > start_time) & (t_crit < end_time))[0]
@@ -2341,7 +2341,7 @@ def calc_closest_approach(event_tab, survey_duration):
 def calc_distance(event_tab, time):
     """
     Calculate the separation of two different objects at some given time.
-    
+
     Parameters
     ----------
     event_tab : astropy table
@@ -2382,7 +2382,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     """
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
 
-    # Calculate apparent magnitudes 
+    # Calculate apparent magnitudes
     app_N = calc_app_mag(blend_tab['rad_N'],
                          blend_tab[photometric_system + '_' + filter_name + '_N'],
                          blend_tab['exbv_N'], f_i)
@@ -2411,15 +2411,15 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
 def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system='ubv'):
     """
-    Calculate a bunch of observable quantities we get out from microlensing 
+    Calculate a bunch of observable quantities we get out from microlensing
 
     Parameters
     ----------
     filter_name : str
 
-    event_tab : 
+    event_tab :
 
-    blend_tab : 
+    blend_tab :
 
     Return
     ------
@@ -2466,7 +2466,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
         uni_bidxx = np.array([])
 
     # FIXME: Put in a check that uni_bidx is monotonically increasing???
-    # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???    
+    # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???
 
     # FIXME: This seems more complicated than necessary...
     for pp in range(len(LS_pairs)):
@@ -2518,11 +2518,11 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 def make_ebf_log(ebf_table):
     """
     Converts log from Galaxia ebf output into dictionary
-    
+
     Parameters
     ----------
-    ebf_table : processed ebf file                                                                
-        The ebf file that galaxia outputs, AFTER it's been read 
+    ebf_table : processed ebf file
+        The ebf file that galaxia outputs, AFTER it's been read
 
     Returns
     -------
@@ -2557,7 +2557,7 @@ def make_ebf_log(ebf_table):
 
 def make_label_file(h5file_name, overwrite=False):
     """
-    Given an output root for an .h5 file, creates a table of 
+    Given an output root for an .h5 file, creates a table of
     dataset name, l, b, and number of objects.
     Writes out the Astropy table as a .fits file.
 
@@ -2573,7 +2573,7 @@ def make_label_file(h5file_name, overwrite=False):
     ------
     label_file : Astropy table
         Table containing the dataset name, and corresponding l, b, and number of objects.
-    
+
     """
     data_dict = {'file_name': [], 'long_start': [], 'long_end': [],
                  'lat_start': [], 'lat_end': [], 'objects': [],
@@ -2629,7 +2629,7 @@ def make_label_file(h5file_name, overwrite=False):
 def heliocentric_to_galactic(x, y, z):
     """
     Converts from heliocentric coordinates to galactic coordinates.
-    
+
     Parameters
     ----------
     x, y, z : float or array
@@ -2647,7 +2647,7 @@ def heliocentric_to_galactic(x, y, z):
     # so b will be between -90 and 90 degrees
     b = -np.degrees(np.arccos(z / r)) + 90
 
-    # np.arctan2 will return a value between -pi and pi 
+    # np.arctan2 will return a value between -pi and pi
     # arctan2 takes care of choosing the correct branch of the arctan function
     # %360 will return it between 0 and 360 degrees
     l = np.degrees((np.arctan2(y, x))) % 360
@@ -2704,7 +2704,7 @@ def einstein_radius(M, d_L, d_S):
 
 
 def calc_sph_motion(vx, vy, vz, r, b, l):
-    """ 
+    """
     Calculate velocities in the r directions and proper motions
     in l, b directions.
 
@@ -2764,7 +2764,7 @@ def calc_normalized_counts(mag):
 def calc_magnification(u):
     """
     Calculate the magnification factor A(u)
-    
+
     Parameters
     ----------
     u : float or array
@@ -2780,7 +2780,7 @@ def calc_magnification(u):
 
 def calc_delta_c(u, thetaE):
     """
-    Calculate the maximum centroid shift for a dark lens, 
+    Calculate the maximum centroid shift for a dark lens,
     no neighbors
     """
     delta_c = u * thetaE / (u ** 2 + 2)
@@ -2790,9 +2790,9 @@ def calc_delta_c(u, thetaE):
 
 def calc_delta_c_LL(fratio, u0, thetaE):
     """
-    Calculate the maximum-ish centroid shift for a luminous 
+    Calculate the maximum-ish centroid shift for a luminous
     lens, no neighbors
-    
+
     Parameters
     ----------
     fratio : flux ratio of the lens to source, i.e. f_L/f_S
@@ -2840,7 +2840,7 @@ def get_u_from_t(u0, t0, tE, t):
     NOTE 1: You need to be consistent with your units for t0, tE, and t,
     i.e. pick whatever you want (days, years, etc.) but be self consistent.
 
-    NOTE 2: There is a positive and negative solution for u. 
+    NOTE 2: There is a positive and negative solution for u.
     We return the positive solution.
 
     Parameters
@@ -2875,7 +2875,7 @@ def get_t_from_u(u0, t0, tE, u):
     NOTE 1: You need to be consistent with your units for t0, tE, and t,
     i.e. pick whatever you want (days, years, etc.) but be self consistent.
 
-    NOTE 2: There is a positive and negative solution for t. 
+    NOTE 2: There is a positive and negative solution for t.
     We return the positive solution.
 
     Parameters
@@ -2913,13 +2913,13 @@ def calc_new_position(l0, b0, mu_lcosb, mu_b, t):
 
     b0 : float or array
         Initial latitude, in DEGREES
- 
+
     mu_lcosb : float or array
         Longitudinal proper motion l * cos(b), in MAS/YEAR
 
     mu_b : float or array
         Latitudinal roper motion, in MAS/YEAR
-        
+
     t : float or array
         Time, in DAYS
 
@@ -2958,7 +2958,7 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
 
     u : float or array
         Dimensionless separation
-    
+
     Return
     ------
     delta_c_obs : float or array
@@ -3105,12 +3105,12 @@ def sample_spherical(npoints, speed, ndim=3):
     ---------
     npoints : float
         The number of points you want to generate.
-    
+
     speed : float
         The radius of the sphere (aka the magnitude of the vectors.)
-        
+
     dim : float
-        The dimension of the space in which the sphere is embedded 
+        The dimension of the space in which the sphere is embedded
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
     Return
@@ -3127,7 +3127,7 @@ def sample_spherical(npoints, speed, ndim=3):
 def wrap180(angle_input):
     """
     Changes the angle range to -180 to 180 degrees
-    
+
     Parameters
     ----------
     angle_input : float or array (in degrees)
@@ -3149,24 +3149,24 @@ def wrap180(angle_input):
 def add_precision64(input_array, power):
     """
     Need more precision for kdtree to run properly. Convert inputs from
-    float32 to float64, and add a random perturbation beginning in the 
+    float32 to float64, and add a random perturbation beginning in the
     nths decimal place.
 
     Parameters
     ----------
     input_array : float or array (float32)
-        Thing that needs more precision. 
+        Thing that needs more precision.
 
     power : float
         To what place you want the perturbation.
-    
+
     Return
     ------
     output_array : float or array (float64)
-        Thing that has more precision. 
+        Thing that has more precision.
 
     """
-    # Perturb. 
+    # Perturb.
     pert = 10 ** power * (np.random.rand(len(input_array)) - 0.5)
 
     # Convert to float64.
@@ -3182,7 +3182,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     """
     Get Alambda/AKs. NOTE: this doesn't work for every law in PopStar!
     Naming convention is not consistent. Change PopStar or add if statements?
-    
+
     Parameters
     ----------
     red_law_name : str
@@ -3193,7 +3193,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Return
     ------
     Alambda_AKs : float
-        Alambda/AKs 
+        Alambda/AKs
 
     """
     red_law_class = getattr(reddening, 'RedLaw' + red_law_name)
@@ -3206,7 +3206,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
 
 def calc_f(lambda_eff):
     """
-    Calculate that coefficient f that multiples E(B-V) to get the 
+    Calculate that coefficient f that multiples E(B-V) to get the
     extinction in magnitudes
     """
     B = get_Alambda_AKs('Damineli16', 0.445)
@@ -3368,7 +3368,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
                                   isochrones_dir,
                                   bin_edges_number,
                                   BH_kick_speed_mean, NS_kick_speed_mean,
-                                  photomteric_system,
+                                  photometric_system,
                                   filter_name, red_law,
                                   config_filename='popsycle_config.yaml'):
     """
@@ -3401,7 +3401,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
-        
+
     NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
 

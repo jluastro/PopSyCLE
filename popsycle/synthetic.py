@@ -3647,7 +3647,7 @@ echo "All done!"
     if overwrite:
         optional_cmds += '--overwrite '
 
-    if seed:
+    if seed is not None:
         optional_cmds += '--seed=%i ' % seed
 
     if skip_galaxia:

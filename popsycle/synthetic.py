@@ -3463,7 +3463,7 @@ def generate_config_file(config_filename, config):
         yaml.dump(config, outfile, default_flow_style=True)
 
 
-def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
+def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            path_run, output_root,
                            longitude, latitude, area,
                            n_cores_calc_events,

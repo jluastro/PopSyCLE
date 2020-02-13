@@ -1,7 +1,7 @@
 # Example configuration parameters for PopSyCLE pipeline
 
 radius_cut: 2
-obs_time: 1095
+obs_time: 1000
 n_obs: 101
 theta_frac: 2
 blend_rad: 0.75

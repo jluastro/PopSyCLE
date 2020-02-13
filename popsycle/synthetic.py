@@ -85,8 +85,6 @@ photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
 photometric_system_dict['ztf'] = ['g', 'r']
 
-ubv_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J']
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
                  'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,G', 'ztf,R']
 
@@ -705,7 +703,7 @@ def calc_current_initial_ratio(iso_dir,
         # make isochrone
         my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=ubv_filt_list,
+                                         filters=all_filt_list,
                                          iso_dir=iso_dir)
 
         # define IMF
@@ -868,17 +866,17 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # Using MIST models to get white dwarfs
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=ubv_filt_list,
+                                         filters=all_filt_list,
                                          iso_dir=iso_dir)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        filt_list = ['m_%s' % f.replace(',', '_') for f in ubv_filt_list]
+        filt_list = ['m_%s' % f.replace(',', '_') for f in all_filt_list]
         if set(filt_list) != set(my_iso_filters):
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
-                                             filters=ubv_filt_list,
+                                             filters=all_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True)
 

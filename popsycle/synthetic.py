@@ -2036,10 +2036,9 @@ def convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def refine_events(input_root, filter_name, red_law,
+def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
-                  output_file='default',
-                  photometric_system='ubv'):
+                  output_file='default'):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -2055,6 +2054,9 @@ def refine_events(input_root, filter_name, red_law,
         The name of the filter in which to calculate all the
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
 
     red_law : str
         The name of the reddening law to use from PopStar.

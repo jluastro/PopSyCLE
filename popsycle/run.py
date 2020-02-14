@@ -237,10 +237,10 @@ def run():
         print('-- Executing refine_events')
         synthetic.refine_events(input_root=args.output_root,
                                 filter_name=popsycle_config['filter_name'],
+                                photometric_system=popsycle_config['photometric_system'],
                                 red_law=popsycle_config['red_law'],
                                 overwrite=args.overwrite,
-                                output_file='default',
-                                photometric_system=popsycle_config['photometric_system'])
+                                output_file='default')
 
 
 if __name__ == '__main__':

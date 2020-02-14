@@ -164,7 +164,7 @@ def write_galaxia_params(output_root,
 
     Outputs
     -------
-    galaxia_params.output_root>.txt : text file
+    galaxia_params.<output_root>.txt : text file
         A text file with the parameters that Galaxia requires to run.
     """
 
@@ -263,13 +263,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     Outputs
     -------
-    output_root>.h5 : hdf5 file
+    <output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects
         and stars sorted into those bins.
 
-    output_root>_label.fits : fits file
+    <output_root>_label.fits : fits file
         NOTE: This is what make_label_file returns.
         A fits file that shows the correspondence between dataset name,
         latitude, longitude, and number of objects in that bin.
@@ -378,7 +378,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         bin_edges_number = int(60 * 2 * radius) + 1
 
     # Make sure we have enough bin edges (minimum is 3)
-    if bin_edges_number  2:
+    if bin_edges_number < 2:
         bin_edges_number = 3
     lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
                                 bin_edges_number)
@@ -401,7 +401,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # or greater than logage 10.01, since those are the limits of
     # PopStar evolution. Justification: in writeup/paper.
     ##########
-    young_id = np.where(age_array = 5.01)[0]
+    young_id = np.where(age_array <= 5.01)[0]
     age_array[young_id] = 5.0101
     old_id = np.where(age_array >= 10.14)[0]
     age_array[old_id] = 10.1399
@@ -439,7 +439,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             logt_bins = np.log10(np.logspace(logage_min, logage_max * 1.001, 5))
 
             # HARDCODED: Special handling for the youngest bin,
-            # popID = 0 (Thin Disk  150 Myr).
+            # popID = 0 (Thin Disk < 150 Myr).
             if pid == 0:
                 logt_bins = np.array([logage_min, 6.3, 7.0, 7.7, 8.0, 8.2])
 
@@ -489,10 +489,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
-		star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
-		star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
-		star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
-		star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)               
+                star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+                star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+                star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)               
  
                 # Angle wrapping for longitude
                 wrap_idx = np.where(star_dict['glon'] > 180)[0]
@@ -607,9 +607,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     now = datetime.datetime.now()
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', ''],
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', ''],
+    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
@@ -1140,13 +1140,13 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         [18] : ubv_i (UBV I-band abs. mag)
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
-        [21] - [26] : ubv_x> (J, U, R, B, H, V abs. mag, in that order)
+        [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
         [27] : teff
         [28] : grav
         [29] : mbol
         [30] : feh
         Optional:
-        [31] - [32] : ztf_x> (G, R abs. mag, in that order, if selected) 
+        [31] - [32] : ztf_<x> (G, R abs. mag, in that order, if selected) 
     """
 
     ##########
@@ -1183,9 +1183,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
             ##########
             if obj_arr is not None:
                 id_lb = np.where((obj_arr['glat'] >= lat_bin_edges[bb]) &
-                                 (obj_arr['glat']  lat_bin_edges[bb + 1]) &
+                                 (obj_arr['glat'] < lat_bin_edges[bb + 1]) &
                                  (obj_arr['glon'] >= long_bin_edges[ll]) &
-                                 (obj_arr['glon']  long_bin_edges[ll + 1]))[0]
+                                 (obj_arr['glon'] < long_bin_edges[ll + 1]))[0]
 
                 if len(id_lb) == 0:
                     continue
@@ -1294,7 +1294,7 @@ def calc_events(hdf5_file, output_root2,
 
     Output
     ------
-    output_root2>_events.fits : Astropy .fits table
+    <output_root2>_events.fits : Astropy .fits table
         Table of candidate microlensing events. There are 66 columns 
         (see documentation PDF) and the number of rows corresponds to 
         the number of candidate events.
@@ -1422,6 +1422,8 @@ def calc_events(hdf5_file, output_root2,
 
     # Convert the events numpy array into an
     # Astropy Table for easier consumption.
+    # The dimensions of events_tmp is 66 x Nevents
+    # The dimensions of blends_tmp is 34 x Nblends
  
     names_base = ['zams_mass', 'rem_id', 'mass', 'px', 'py', 'pz', 'vx', 'vy',
                   'vz', 'rad', 'glat', 'glon', 'vr', 'mu_b', 'mu_lcosb', 'age',
@@ -1464,7 +1466,7 @@ def calc_events(hdf5_file, output_root2,
     now = datetime.datetime.now()
     radius_cut = radius_cut / 1000.0  # back to arcsec
     microlens_path = os.path.split(os.path.abspath(__file__))[0]
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', ''],
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
@@ -1546,7 +1548,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     hf.close()
 
     # Skip patches with less than 10 objects
-    if len(bigpatch[0])  10:
+    if len(bigpatch[0]) < 10:
         # continue
         return
 
@@ -1634,7 +1636,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         Separation between lens-source pairs (mas)
 
     event_id1 : array
-        Lens-source pairs where sep  radius_cut
+        Lens-source pairs where sep < radius_cut
 
     c : SkyCoord object
         Coordinates of all the stars.
@@ -1675,14 +1677,14 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
     ##########
     # NOTE: event_id1/2 are indices into bigpatch
-    event_id1 = np.where(sep  radius_cut)[0]
+    event_id1 = np.where(sep < radius_cut)[0]
     event_id2 = idx[event_id1]
 
     ##########
     # We've got neighbors... figure out who's the lens and who's the source.
     ##########
     # NOTE: lens_id and sorc_id are indices into bigpatch
-    idx_l1 = np.where(r_t[event_id1]  r_t[event_id2])[0]
+    idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
     idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
 
     lens_id = np.zeros(len(event_id1), dtype='int')
@@ -1733,7 +1735,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
-    adx = np.where(u  theta_frac)[0]
+    adx = np.where(u < theta_frac)[0]
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
@@ -2110,7 +2112,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
                             line1, line2, line3, line4])
 
     old_blends = Table.read(blend_tab)
-    good_idx = np.where(old_blends['sep_LN']  new_blend_rad)[0]
+    good_idx = np.where(old_blends['sep_LN'] < new_blend_rad)[0]
     new_blends = old_blends[good_idx]
 
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
@@ -2265,9 +2267,9 @@ def refine_events(input_root, filter_name, red_law,
     now = datetime.datetime.now()
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', ''],
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', ''],
+    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
@@ -2343,8 +2345,8 @@ def calc_closest_approach(event_tab, survey_duration):
     # Only include events that peak in survey window,
     # since we can't easily fit parameters for events where we don’t have the peak.
     # FIXME: more efficient way to do this??
-    good = np.where((t_crit > start_time) & (t_crit  end_time))[0]
-    bad = np.where((t_crit = start_time) | (t_crit >= end_time))[0]
+    good = np.where((t_crit > start_time) & (t_crit < end_time))[0]
+    bad = np.where((t_crit <= start_time) | (t_crit >= end_time))[0]
 
     event_tab.remove_rows(bad)
 
@@ -2620,7 +2622,7 @@ def make_label_file(h5file_name, overwrite=False):
             data_dict['long_end'].append(l_array[ll + 1])
             data_dict['lat_start'].append(b_array[bb])
             data_dict['lat_end'].append(b_array[bb + 1])
-            data_dict['objects'].append(dataset.shape[0])
+            data_dict['objects'].append(dataset.shape[1])
             data_dict['N_stars'].append(N_stars)
             data_dict['N_WD'].append(N_WD)
             data_dict['N_NS'].append(N_NS)
@@ -2845,7 +2847,7 @@ def max_delta_c(u0, thetaE):
     max_delta_c_array = np.zeros(len(u0))
 
     big_idx = np.where(u0 > np.sqrt(2))[0]
-    small_idx = np.where(u0 = np.sqrt(2))[0]
+    small_idx = np.where(u0 <= np.sqrt(2))[0]
 
     max_delta_c_array[big_idx] = calc_delta_c(u0[big_idx], thetaE[big_idx])
     max_delta_c_array[small_idx] = calc_delta_c(np.ones(len(small_idx)) * np.sqrt(2),
@@ -3159,7 +3161,7 @@ def wrap180(angle_input):
     angle_output : float or array (in degrees)
 
     """
-    wrap_id = np.where((angle_input  360) & (angle_input > 180))[0]
+    wrap_id = np.where((angle_input < 360) & (angle_input > 180))[0]
     angle_output = angle_input
 
     if len(wrap_id) > 0:

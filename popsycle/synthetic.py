@@ -2592,7 +2592,7 @@ def make_label_file(h5file_name, overwrite=False):
         The path and name of the input h5file containing the
         population synthesis results. We will read this in and
         make a new output file entitled:
-        h5file_name>_label.fits (after removing the *.h5).
+        <h5file_name>_label.fits (after removing the *.h5).
 
     Return
     ------

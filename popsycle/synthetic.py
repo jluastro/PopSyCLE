@@ -79,7 +79,7 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
            'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
            'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
-           'teff': 27, 'grav': 28, 'lum': 29, 'feh': 30 }
+           'teff': 27, 'grav': 28, 'mbol': 29, 'feh': 30 }
 
 
 ###########################################################################
@@ -472,7 +472,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
                 star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                star_dict['lum'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
                 star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
                 star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
                 star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
@@ -765,7 +765,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    star_dict : dictionary (N_keys = 24)
+    star_dict : dictionary (N_keys = 25)
         The number of entries for each key is the number of stars.
 
     next_id : The next unique ID number (int) that will be assigned to
@@ -791,7 +791,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Returns
     -------
-    comp_dict : dictionary (N_keys = 24)
+    comp_dict : dictionary (N_keys = 25)
         Keys are the same as star_dict, just for compact objects.
 
     next_id : int
@@ -852,7 +852,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
-        #FIXME
         comp_table.keep_columns(['mass', 'phase', 'mass_current',
                                  'm_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U',
                                  'm_ubv_V', 'm_ukirt_H',
@@ -963,7 +962,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['lum'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['feh'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
@@ -1066,7 +1065,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
         [27] : teff
         [28] : grav
-        [29] : lum
+        [29] : mbol
         [30] : feh
     """
 
@@ -1137,7 +1136,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
                 save_data[27, :] = np.float64(obj_arr['teff'][id_lb])
                 save_data[28, :] = np.float64(obj_arr['grav'][id_lb])
-                save_data[29, :] = np.float64(obj_arr['lum'][id_lb])
+                save_data[29, :] = np.float64(obj_arr['mbol'][id_lb])
                 save_data[30, :] = np.float64(obj_arr['feh'][id_lb])
 
                 # Resize the dataset and add data.
@@ -1202,7 +1201,7 @@ def calc_events(hdf5_file, output_root2,
     Output
     ------
     <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. There are 64 columns 
+        Table of candidate microlensing events. There are 66 columns 
         (see documentation PDF) and the number of rows corresponds to 
         the number of candidate events.
 
@@ -1343,7 +1342,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_L', 'obj_id_L',
                                 'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
                                 'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
-                                'teff_L', 'grav_L', 'lum_L','feh_L',
+                                'teff_L', 'grav_L', 'mbol_L','feh_L',
                                 'zams_mass_S', 'rem_id_S', 'mass_S',
                                 'px_S', 'py_S', 'pz_S',
                                 'vx_S', 'vy_S', 'vz_S',
@@ -1353,7 +1352,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_S', 'obj_id_S',
                                 'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
                                 'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
-                                'teff_S', 'grav_S', 'lum_S', 'feh_S',
+                                'teff_S', 'grav_S', 'mbol_S', 'feh_S',
                                 'theta_E', 'u0', 'mu_rel', 't0',))
 
     if len(results_bl) != 0:
@@ -1371,7 +1370,7 @@ def calc_events(hdf5_file, output_root2,
                                               'exbv_N', 'obj_id_N',
                                               'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
                                               'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
-                                              'teff_N', 'grav_N', 'lum_N', 'feh_N',
+                                              'teff_N', 'grav_N', 'mbol_N', 'feh_N',
                                               'sep_LN'))
 
     # Save out file

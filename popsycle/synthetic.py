@@ -68,7 +68,7 @@ filt_dict['r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634,
 
 ##########
 # Dictionary for going between values in 
-# .h5 datasets and keys in astropy table
+# .h5 datasets and keys in astropy table.
 ##########
 col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'px': 3, 'py': 4, 'pz': 5,
@@ -78,7 +78,8 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'age': 15, 'popid': 16, 'ubv_k': 17,
            'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
            'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
-           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26}
+           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
+           'teff': 27, 'grav': 28, 'mbol': 29, 'feh': 30 }
 
 
 ###########################################################################
@@ -238,7 +239,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
@@ -471,9 +472,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
                 star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
                 star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
+                star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+                star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+                star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
                 star_dict['exbv'] = exbv
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
+                
                 # Angle wrapping for longitude
                 wrap_idx = np.where(star_dict['glon'] > 180)[0]
                 star_dict['glon'][wrap_idx] -= 360
@@ -759,7 +765,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    star_dict : dictionary (N_keys = 21)
+    star_dict : dictionary (N_keys = 25)
         The number of entries for each key is the number of stars.
 
     next_id : The next unique ID number (int) that will be assigned to
@@ -785,7 +791,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Returns
     -------
-    comp_dict : dictionary (N_keys = 21)
+    comp_dict : dictionary (N_keys = 25)
         Keys are the same as star_dict, just for compact objects.
 
     next_id : int
@@ -845,7 +851,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                               (output['phase'] == 103))[0]
         comp_table = output[compact_ID]
 
-        # Removes unused columns to conserve memory.     
+        # Removes unused columns to conserve memory.
         comp_table.keep_columns(['mass', 'phase', 'mass_current',
                                  'm_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U',
                                  'm_ubv_V', 'm_ukirt_H',
@@ -954,6 +960,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['feh'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1029,6 +1039,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
 
+
         The indices correspond to the keys as follows:
         [0] : zams_mass
         [1] : rem_id
@@ -1052,6 +1063,10 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
+        [27] : teff
+        [28] : grav
+        [29] : mbol
+        [30] : feh
     """
 
     ##########
@@ -1059,9 +1074,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     ##########
     for ll in range(len(long_bin_edges) - 1):
         for bb in range(len(lat_bin_edges) - 1):
-            # HARDCODED: Fix the dimensions of the data set to 27 columns.
+            # HARDCODED: Fix the dimensions of the data set to 31 columns.
             # (Same as star_dict and comp_dict)
-            dset_dim1 = 27
+            dset_dim1 = 31
 
             # Open our HDF5 file for reading and appending.
             # Create as necessary.
@@ -1090,7 +1105,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
                 if len(id_lb) == 0:
                     continue
-
+                
                 save_data = np.zeros((len(obj_arr), len(id_lb)))
                 save_data[0, :] = np.float64(obj_arr['zams_mass'][id_lb])
                 save_data[1, :] = np.float64(obj_arr['rem_id'][id_lb])
@@ -1119,6 +1134,10 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
                 save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
                 save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
+                save_data[27, :] = np.float64(obj_arr['teff'][id_lb])
+                save_data[28, :] = np.float64(obj_arr['grav'][id_lb])
+                save_data[29, :] = np.float64(obj_arr['mbol'][id_lb])
+                save_data[30, :] = np.float64(obj_arr['feh'][id_lb])
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[1]
@@ -1182,7 +1201,7 @@ def calc_events(hdf5_file, output_root2,
     Output
     ------
     <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. There are 58 columns 
+        Table of candidate microlensing events. There are 66 columns 
         (see documentation PDF) and the number of rows corresponds to 
         the number of candidate events.
 
@@ -1309,9 +1328,10 @@ def calc_events(hdf5_file, output_root2,
 
     # Convert the events numpy array into an
     # Astropy Table for easier consumption.
-    # The dimensions of events_tmp is 58 x Nevents
-    # The dimensions of blends_tmp is 30 x Nblends
+    # The dimensions of events_tmp is 66 x Nevents
+    # The dimensions of blends_tmp is 34 x Nblends
     events_tmp = unique_events(events_tmp)
+    
     events_final = Table(events_tmp.T,
                          names=('zams_mass_L', 'rem_id_L', 'mass_L',
                                 'px_L', 'py_L', 'pz_L',
@@ -1322,6 +1342,7 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_L', 'obj_id_L',
                                 'ubv_j_L', 'ubv_u_L', 'ubv_r_L',
                                 'ubv_b_L', 'ubv_h_L', 'ubv_v_L',
+                                'teff_L', 'grav_L', 'mbol_L','feh_L',
                                 'zams_mass_S', 'rem_id_S', 'mass_S',
                                 'px_S', 'py_S', 'pz_S',
                                 'vx_S', 'vy_S', 'vz_S',
@@ -1331,10 +1352,12 @@ def calc_events(hdf5_file, output_root2,
                                 'exbv_S', 'obj_id_S',
                                 'ubv_j_S', 'ubv_u_S', 'ubv_r_S',
                                 'ubv_b_S', 'ubv_h_S', 'ubv_v_S',
-                                'theta_E', 'u0', 'mu_rel', 't0'))
+                                'teff_S', 'grav_S', 'mbol_S', 'feh_S',
+                                'theta_E', 'u0', 'mu_rel', 't0',))
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
+
     blends_final = Table(blends_tmp.T, names=('obj_id_L', 'obj_id_S',
                                               'zams_mass_N', 'rem_id_N',
                                               'mass_N',
@@ -1347,6 +1370,7 @@ def calc_events(hdf5_file, output_root2,
                                               'exbv_N', 'obj_id_N',
                                               'ubv_j_N', 'ubv_u_N', 'ubv_r_N',
                                               'ubv_b_N', 'ubv_h_N', 'ubv_v_N',
+                                              'teff_N', 'grav_N', 'mbol_N', 'feh_N',
                                               'sep_LN'))
 
     # Save out file
@@ -1817,8 +1841,8 @@ def unique_events(event_table):
     Parameters
     ---------
     event_table : numpy array 
-        A table with all the events. There are 58 columns: 27 with info about
-        the source, 27 with the corresponding information about the lens, and
+        A table with all the events. There are 66 columns: 31 with info about
+        the source, 31 with the corresponding information about the lens, and
         4 with info about theta_E, u, mu_rel, and tstep. The number of rows
         corresponds to the number of events.
 
@@ -1828,6 +1852,7 @@ def unique_events(event_table):
         Same as event_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
+
     """
 
     # event_table indexing:
@@ -1877,10 +1902,11 @@ def unique_blends(blend_table):
     Parameters
     ---------
     blend_table : blend array 
-        A table with all the events. There are 30 columns: 1 with the unique
+        A table with all the events. There are 34 columns: 1 with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
-        separation, and 27 with info about the neighbor (same order as the 
+        separation, and 31 with info about the neighbor (same order as the 
         other "all info" tables).
+
 
     Return
     ------

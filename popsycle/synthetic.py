@@ -45,7 +45,7 @@ au_to_kpc = 4.848 * 10 ** -9
 _Mclust_v_age_func = None
 
 ##########
-# Dictionary for extinction law coefficients f_i, as a function of filter 
+# Dictionary for extinction law coefficients f_i, as a function of filter
 # Damineli values from photometric bands (nm):
 # B = 445, V = 551, I = 806, J = 1220, H = 1630, K = 2190, U = 365, R = 658
 # Calculated using calc_f
@@ -191,8 +191,9 @@ def write_galaxia_params(output_root,
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    bin_edges_number=None, BH_kick_speed_mean=50,
-                    NS_kick_speed_mean=400, photometric_systems=['ubv'],
+                    bin_edges_number=None,
+                    BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                    additional_photometric_systems=None,
                     overwrite=False, seed=None):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
@@ -230,8 +231,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
@@ -298,13 +303,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if type(seed) != int:
             raise Exception('seed must be an integer.')
 
-    if type(photometric_systems) != list:
-        raise Exception('photometric_systems must be a list of strings.')
+    if additional_photometric_systems is not None:
+        if type(additional_photometric_systems) != list:
+            raise Exception('additional_photometric_systems must either '
+                            'None or a List (of strings).')
 
-    for photometric_system in photometric_systems:
-        if photometric_system not in photometric_system_dict:
-            raise Exception('strings in photometric_systems must be '
-                            'a valid option in the photometric_system_dict.')
+        for photometric_system in additional_photometric_systems:
+            if photometric_system not in photometric_system_dict:
+                raise Exception('strings in additional_photometric_systems '
+                                'must be a valid option '
+                                'in the photometric_system_dict.')
 
     ##########
     # Start of code
@@ -465,6 +473,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
+                star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+                star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+                star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
 
                 # Angle wrapping for longitude
                 wrap_idx = np.where(star_dict['glon'] > 180)[0]
@@ -474,29 +486,24 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
 
                 # Add UBV magnitudes
-                if 'ubv' in photometric_systems:
-                    star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
-                    star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
-                    star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
-                    star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
-                    star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
-                    star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                    star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                    star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
+                star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
+                star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
+                star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
+                star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
+                star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
+                star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
+                star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
+                star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
 
                 ##########
                 # Add ztf magnitudes
                 ##########
-                if 'ztf' in photometric_systems:
-                    # Pull out ubv magnitudes needed for photometric conversions
-                    if 'ubv_b' in star_dict:
+                if additional_photometric_systems is not None:
+                    if 'ztf' in additional_photometric_systems:
+                        # Pull out ubv magnitudes needed for photometric conversions
                         ubv_b = star_dict['ubv_b']
                         ubv_v = star_dict['ubv_v']
                         ubv_r = star_dict['ubv_r']
-                    else:
-                        ubv_b = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                        ubv_v = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                        ubv_r = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
 
                     ztf_g, ztf_r = transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r)
                     star_dict['ztf_g'] = ztf_g
@@ -534,7 +541,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      mass_in_bin, stars_in_bin, next_id,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
-                                                     photometric_systems=photometric_systems,
+                                                     additional_photometric_systems=additional_photometric_systems,
                                                      seed=seed)
 
                 ##########
@@ -542,10 +549,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 if comp_dict is not None:
                     comp_counter += len(comp_dict['mass'])
-                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges, comp_dict,
-                                 output_root)
-                _bin_lb_hdf5(lat_bin_edges, long_bin_edges, stars_in_bin,
-                             output_root)
+                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                 comp_dict, output_root,
+                                 additional_photometric_systems=additional_photometric_systems)
+                _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                             stars_in_bin,
+                             output_root,
+                             additional_photometric_systems=additional_photometric_systems)
                 ##########
                 # Done with galaxia output in dictionary t and ebf_log.
                 # Garbage collect in order to save space.
@@ -641,7 +651,7 @@ def calc_current_initial_ratio(iso_dir,
     Parameters
     -------------------
     out_file : string
-        Full name of the file to store the output columns: 
+        Full name of the file to store the output columns:
         log(age/yr), current_to_initial_mass_ratio
 
     iso_dir : filepath
@@ -718,17 +728,17 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     """
     Calculates the ratio of the current cluster mass to the initial
     mass of the cluster.
-    
+
     Parameters
     ----------
     logage : float
         The age of the cluster, given in log(age/yr)
 
-    ratio_file : txt file 
+    ratio_file : txt file
         The name of the text file that contains the
         current-initial cluster mass ratio.
 
-    iso_dir : filepath 
+    iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
     Optional Parameters
@@ -762,10 +772,10 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
-                    photometric_systems=['ubv'],
+                    additional_photometric_systems=None,
                     seed=None):
     """
-    Perform population synthesis.  
+    Perform population synthesis.
 
     Parameters
     ----------
@@ -778,23 +788,27 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    star_dict : dictionary (N_keys = 21)
+    star_dict : dictionary
         The number of entries for each key is the number of stars.
 
     next_id : The next unique ID number (int) that will be assigned to
-              the new compact objects created. 
+              the new compact objects created.
 
     Optional Parameters
     -------------------
-    BH_kick_speed_mean : float 
+    BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
-        
-    NS_kick_speed_mean : float 
+
+    NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
     seed : int
          Seed used to sample the kde tree. If set to any number,
@@ -804,13 +818,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Returns
     -------
-    comp_dict : dictionary (N_keys = 29)
+    comp_dict : dictionary
         Keys are the same as star_dict, just for compact objects.
 
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
-        
+
     """
     comp_dict = None
 
@@ -819,8 +833,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     massLimits = np.array([0.1, 0.5, 120])
     powers = np.array([-1.3, -2.3])
     my_ifmr = ifmr.IFMR()
+    ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
     ratio = current_initial_ratio(logage=log_age,
-                                  ratio_file='current_initial_stellar_mass_ratio.txt',
+                                  ratio_file=ratio_file,
                                   iso_dir=iso_dir,
                                   seed=seed)
     initialClusterMass = currentClusterMass / ratio
@@ -873,15 +888,16 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
-        keep_columns = ['mass', 'phase', 'mass_current']
-        if 'ubv' in photometric_systems:
-            keep_columns += ['m_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U',
-                             'm_ubv_V', 'm_ukirt_H', 'm_ukirt_J', 'm_ukirt_K']
-        if 'ztf' in photometric_systems:
-            keep_columns += ['m_ztf_G', 'm_ztf_R']
+
+        keep_columns = ['mass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
+                        'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
+                        'm_ukirt_J', 'm_ukirt_K']
+        if additional_photometric_systems is not None:
+            if 'ztf' in additional_photometric_systems:
+                keep_columns += ['m_ztf_G', 'm_ztf_R']
         comp_table.keep_columns(keep_columns)
 
-        # Fill out the rest of comp_dict 
+        # Fill out the rest of comp_dict
         if len(comp_table['mass']) > 0:
 
             # Turn astropy table into dictionary to conserve memory.
@@ -912,7 +928,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['vy'] = kde_out_data[:, 4]
             comp_dict['vz'] = kde_out_data[:, 5]
 
-            ########## 
+            ##########
             # Assign x, y, z position.
             ##########
             comp_helio = galactic_to_heliocentric(comp_dict['rad'],
@@ -931,7 +947,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # user defined mean by the Maxwellian mean.
 
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
-            NS_kick_speed_scale = NS_kick_speed_mean / (2 * np.sqrt(2 / np.pi))
+            NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
                 NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
@@ -940,7 +956,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
-            BH_kick_speed_scale = BH_kick_speed_mean / (2 * np.sqrt(2 / np.pi))
+            BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
                 BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
@@ -976,19 +992,23 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # These are all the outputs from the IFMR of Raithel and Kalirai.
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['feh'] = np.full(len(comp_dict['vx']), np.nan)
 
-            if 'ubv' in photometric_systems:
-                comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
-            if 'ztf' in photometric_systems:
-                comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
-                comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
+                    comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -996,10 +1016,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # Approximate extinction from the nearest (in 3-D space) star.
             # Get WD photometry from MIST models.
             ##########
-            if 'ubv' in photometric_systems:
-                lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
-            elif 'ztf' in photometric_systems:
-                lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ztf_G']))
+            lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
             if len(lum_WD_idx) > 0:
                 star_xyz = np.array([star_dict['px'],
@@ -1014,18 +1031,18 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
 
-                if 'ubv' in photometric_systems:
-                    comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
-                    comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
-                    comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
-                    comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
-                    comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
-                    comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
-                    comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
-                    comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
-                if 'ztf' in photometric_systems:
-                    comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
-                    comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data
+                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
+                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
+                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
+                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
+                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
+                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
+                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
+                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                if additional_photometric_systems is not None:
+                    if 'ztf' in additional_photometric_systems:
+                        comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
+                        comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data
 
                 # Memory cleaning
                 del comp_table
@@ -1043,7 +1060,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     return comp_dict, next_id
 
 
-def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
+def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
+                 additional_photometric_systems=None):
     """
     Given stars and compact objects, sort them into latitude and
     longitude bins. Save each latitude and longitude bin, and the edges that
@@ -1064,6 +1082,13 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     output_root : str
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
+
+    Optional Parameters
+    -------------------
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
     Output
     ------
@@ -1139,10 +1164,11 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
-                blend_rad=0.65, n_proc=1, seed=None, overwrite=False):
+                blend_rad=0.65, n_proc=1, additional_photometric_systems=None,
+                seed=None, overwrite=False):
     """
     Calculate microlensing events
-    
+
     Parameters
     ----------
     hdf5_file : str
@@ -1155,13 +1181,13 @@ def calc_events(hdf5_file, output_root2,
         Survey duration, in DAYS.
 
     n_obs : float
-        Number of observations. 
+        Number of observations.
 
     theta_frac : float
-        Another cut, in multiples of Einstein radii. 
+        Another cut, in multiples of Einstein radii.
 
     blend_rad : float
-        Stars within this distance of the lens are said to be blended. 
+        Stars within this distance of the lens are said to be blended.
         Units are in ARCSECONDS.
 
     Optional Parameters
@@ -1169,6 +1195,10 @@ def calc_events(hdf5_file, output_root2,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
@@ -1184,8 +1214,7 @@ def calc_events(hdf5_file, output_root2,
     Output
     ------
     <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. There are 58 columns 
-        (see documentation PDF) and the number of rows corresponds to 
+        Table of candidate microlensing events. The number of rows corresponds to
         the number of candidate events.
 
     """
@@ -1369,14 +1398,12 @@ def calc_events(hdf5_file, output_root2,
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                           theta_frac, blend_rad):
     """
-    What do
-
     Parameters
     ----------
     llbb : (int, int)
         Indices of (l,b) bin.
-    
-    obs_time, n_obs, radius_cut, theta_frac, blend_rad 
+
+    obs_time, n_obs, radius_cut, theta_frac, blend_rad
     are all parameters of calc_events()
 
     Return
@@ -1386,13 +1413,13 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     blends_llbb : array
         Array of the unique blends for the particular (l,b) patch.
-    
+
     """
     ####################
     # Loop through different time steps and figure out separations between
     # all possible pairs of stars. Trim down to "events", which consist of
     # those pairs that approach within one <radius_cut> of each other.
-    # These will be the events we consider as candidate microlensing events. 
+    # These will be the events we consider as candidate microlensing events.
     ####################
 
     # Initialize events_llbb and blends_llbb.
@@ -1447,7 +1474,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             events_llbb = unique_events(events_llbb)
 
             #########
-            # Get blending. 
+            # Get blending.
             # Note 1: We are centering on the lens.
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
@@ -1473,7 +1500,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     """
     Get sources and lenses that pass the radius cut.
-    
+
     Parameters
     ----------
     bigpatch : array
@@ -1490,7 +1517,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     ------
     lens_id : array
         Indices into bigpatch that indicate lenses
-    
+
     sorc_id : array
         Indices into bigpatch that indicate sources
 
@@ -1537,7 +1564,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         print('**************************************************')
 
     ##########
-    # Find all objects with a nearest neighbor within an angular distance 
+    # Find all objects with a nearest neighbor within an angular distance
     # equal to sep. The index of the object and its nearest neighbor are
     # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
     ##########
@@ -1568,7 +1595,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                              sorc_id, timei):
     """
     Get sources and lenses that pass the radius cut.
-    
+
     Parameters
     ----------
     bigpatch : array
@@ -1586,7 +1613,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     lens_id : array
         Indices into bigpatch that indicate lenses
-    
+
     sorc_id : array
         Indices into bigpatch that indicate sources
 
@@ -1657,7 +1684,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
 def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     """
-    Create a table containing the blended stars for each event. 
+    Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
     Note 2: We don't want to include the lens itself,
     or the source, in the table.
@@ -1666,7 +1693,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     ----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
-    
+
     c : SkyCoord object
         Coordinates of all the stars.
 
@@ -1722,7 +1749,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     sep_LN_list = []
 
     for ii in range(len(results)):
-        # results indexes into bigpatch. 
+        # results indexes into bigpatch.
         # ii corresponds to coords_lbt.
         if len(results[ii]) == 0:
             continue
@@ -1774,8 +1801,6 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     sep_LN_list = np.array(sep_LN_list)
 
     if len(blend_neigh_obj_id) > 0:
-        # blends_lbt = np.vstack((blend_lens_obj_id, blend_sorc_obj_id,
-        #                         bigpatch[blend_neigh_idx], sep_LN_list))
         blends_lbt = bigpatch[blend_neigh_idx]
 
         blends_rename_dct = {}
@@ -1798,19 +1823,18 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 def unique_events(event_table):
     """
     Given an event table, there might be a single microlensing event listed
-    multiple times (it might have been observed at different timesteps, or 
+    multiple times (it might have been observed at different timesteps, or
     the nearest neighbor pair might have been symmetric for source and lens.)
-    This function will eliminate duplicates, only keeping an event once. It 
+    This function will eliminate duplicates, only keeping an event once. It
     is picked to be the particular observed event with the smallest source-
     lens separation.
 
     Parameters
     ---------
     event_table : numpy array 
-        A table with all the events. There are 58 columns: 27 with info about
-        the source, 27 with the corresponding information about the lens, and
-        4 with info about theta_E, u, mu_rel, and tstep. The number of rows
-        corresponds to the number of events.
+        A table with all the events. There columns contain info about
+        the source and the lens, and info about theta_E, u, mu_rel, and tstep.
+        The number of rows corresponds to the number of events.
 
     Return
     ------
@@ -1818,6 +1842,7 @@ def unique_events(event_table):
         Same as event_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
+
     """
     # Pull the unique ID numbers for the lens and source and put them into a
     # table of 2 x N_lenses.
@@ -1852,16 +1877,17 @@ def unique_blends(blend_table):
     """
     Given an blends table, there might be a single lens-source-neighbor triple
     multiple times (it might have been observed at different timesteps.)
-    This function will eliminate duplicates, only keeping an event once. It 
+    This function will eliminate duplicates, only keeping an event once. It
     is picked to be the first occurence.
 
     Parameters
     ---------
     blend_table : blend array 
-        A table with all the events. There are 30 columns: 1 with the unique
+        A table with all the events. There is 1 columns with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
-        separation, and 27 with info about the neighbor (same order as the 
-        other "all info" tables).
+        separation, and the remaining with info about the neighbor (same order
+        as the  other "all info" tables).
+
 
     Return
     ------
@@ -1869,13 +1895,8 @@ def unique_blends(blend_table):
         Same as blend_table, but all duplicate events have been trimmed out,
         such that each event only is listed once (at the observed time where
         the source-lens separation is smallest.)
-    """
-    # blend_table indexing
-    # 0 = lens obj_id
-    # 1 = source obj_id
-    # 2 + col_idx for neighbor keys
-    # len(col_idx) + 2 = lens-source separation
 
+    """
     # Pull the unique ID numbers for the lens, source, and neighbors and put 
     # them into a table of 3 x N_blends.
     lens_obj_id = blend_table['obj_id_L']
@@ -1888,7 +1909,7 @@ def unique_blends(blend_table):
                                  0, 1)
 
     # Determine if we have unique events (and how many duplicates there are).
-    # We will keep the first occurence. 
+    # We will keep the first occurence.
     unique_returns = np.unique(triples_obj_id, return_index=True, axis=0)
     unique_tab = unique_returns[0]
     unique_indices = unique_returns[1]
@@ -1938,7 +1959,7 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
 
 def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     """
-    Creates a new blend table for some blending radius r_new 
+    Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
     i.e. r_new < r_orig. Also makes a corresponding log and events.
 
@@ -1947,12 +1968,12 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     blend_tab : str
         The name of the blend table.
 
-    new_blend_rad : float or int 
-        The new (smaller) blend radius. 
+    new_blend_rad : float or int
+        The new (smaller) blend radius.
         Units are in ARCSECONDS.
 
     output_root : str
-        The name for the new blend table 
+        The name for the new blend table
         (and corresponding event table)
 
     Return
@@ -2014,7 +2035,7 @@ def refine_events(input_root, filter_name, red_law,
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
-    separation at this time. 
+    separation at this time.
 
     Parameters
     ----------
@@ -2023,7 +2044,7 @@ def refine_events(input_root, filter_name, red_law,
         Don't include those suffixes yet.
 
     filter_name : str
-        The name of the filter in which to calculate all the 
+        The name of the filter in which to calculate all the
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
 
@@ -2042,7 +2063,7 @@ def refine_events(input_root, filter_name, red_law,
     A file will be created named
     <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
     same objects, only now with lots of extra
-    columns of data. 
+    columns of data.
 
     """
     ##########
@@ -2100,8 +2121,8 @@ def refine_events(input_root, filter_name, red_law,
                 break
 
     # Calculate time and separation at closest approach, add to table
-    # NOTE: calc_closest_approach modifies the event table! 
-    # It trims out events that peak outside the survey range! 
+    # NOTE: calc_closest_approach modifies the event table!
+    # It trims out events that peak outside the survey range!
     print('Original candidate events: ', len(event_tab))
     u0, t0 = calc_closest_approach(event_tab, obs_time)
     print('Candidate events in survey window: ', len(event_tab))
@@ -2217,7 +2238,7 @@ def calc_closest_approach(event_tab, survey_duration):
     t_crit = -(l_0 * l_1 + b_0 * b_1) / (l_1 ** 2 + b_1 ** 2)  # years
     t_crit *= 365.25  # days
 
-    # Only include events that peak in survey window, 
+    # Only include events that peak in survey window,
     # since we can't easily fit parameters for events where we don’t have the peak.
     # FIXME: more efficient way to do this??
     good = np.where((t_crit > start_time) & (t_crit < end_time))[0]
@@ -2240,7 +2261,7 @@ def calc_closest_approach(event_tab, survey_duration):
 def calc_distance(event_tab, time):
     """
     Calculate the separation of two different objects at some given time.
-    
+
     Parameters
     ----------
     event_tab : astropy table
@@ -2281,7 +2302,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     """
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
 
-    # Calculate apparent magnitudes 
+    # Calculate apparent magnitudes
     app_N = calc_app_mag(blend_tab['rad_N'],
                          blend_tab[photometric_system + '_' + filter_name + '_N'],
                          blend_tab['exbv_N'], f_i)
@@ -2310,15 +2331,15 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
 def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system='ubv'):
     """
-    Calculate a bunch of observable quantities we get out from microlensing 
+    Calculate a bunch of observable quantities we get out from microlensing
 
     Parameters
     ----------
     filter_name : str
 
-    event_tab : 
+    event_tab :
 
-    blend_tab : 
+    blend_tab :
 
     Return
     ------
@@ -2365,7 +2386,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
         uni_bidxx = np.array([])
 
     # FIXME: Put in a check that uni_bidx is monotonically increasing???
-    # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???    
+    # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???
 
     # FIXME: This seems more complicated than necessary...
     for pp in range(len(LS_pairs)):
@@ -2417,11 +2438,11 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 def make_ebf_log(ebf_table):
     """
     Converts log from Galaxia ebf output into dictionary
-    
+
     Parameters
     ----------
-    ebf_table : processed ebf file                                                                
-        The ebf file that galaxia outputs, AFTER it's been read 
+    ebf_table : processed ebf file
+        The ebf file that galaxia outputs, AFTER it's been read
 
     Returns
     -------
@@ -2456,7 +2477,7 @@ def make_ebf_log(ebf_table):
 
 def make_label_file(h5file_name, overwrite=False):
     """
-    Given an output root for an .h5 file, creates a table of 
+    Given an output root for an .h5 file, creates a table of
     dataset name, l, b, and number of objects.
     Writes out the Astropy table as a .fits file.
 
@@ -2472,7 +2493,7 @@ def make_label_file(h5file_name, overwrite=False):
     ------
     label_file : Astropy table
         Table containing the dataset name, and corresponding l, b, and number of objects.
-    
+
     """
     data_dict = {'file_name': [], 'long_start': [], 'long_end': [],
                  'lat_start': [], 'lat_end': [], 'objects': [],
@@ -2534,7 +2555,7 @@ def make_label_file(h5file_name, overwrite=False):
 def heliocentric_to_galactic(x, y, z):
     """
     Converts from heliocentric coordinates to galactic coordinates.
-    
+
     Parameters
     ----------
     x, y, z : float or array
@@ -2552,7 +2573,7 @@ def heliocentric_to_galactic(x, y, z):
     # so b will be between -90 and 90 degrees
     b = -np.degrees(np.arccos(z / r)) + 90
 
-    # np.arctan2 will return a value between -pi and pi 
+    # np.arctan2 will return a value between -pi and pi
     # arctan2 takes care of choosing the correct branch of the arctan function
     # %360 will return it between 0 and 360 degrees
     l = np.degrees((np.arctan2(y, x))) % 360
@@ -2609,7 +2630,7 @@ def einstein_radius(M, d_L, d_S):
 
 
 def calc_sph_motion(vx, vy, vz, r, b, l):
-    """ 
+    """
     Calculate velocities in the r directions and proper motions
     in l, b directions.
 
@@ -2669,7 +2690,7 @@ def calc_normalized_counts(mag):
 def calc_magnification(u):
     """
     Calculate the magnification factor A(u)
-    
+
     Parameters
     ----------
     u : float or array
@@ -2685,7 +2706,7 @@ def calc_magnification(u):
 
 def calc_delta_c(u, thetaE):
     """
-    Calculate the maximum centroid shift for a dark lens, 
+    Calculate the maximum centroid shift for a dark lens,
     no neighbors
     """
     delta_c = u * thetaE / (u ** 2 + 2)
@@ -2695,9 +2716,9 @@ def calc_delta_c(u, thetaE):
 
 def calc_delta_c_LL(fratio, u0, thetaE):
     """
-    Calculate the maximum-ish centroid shift for a luminous 
+    Calculate the maximum-ish centroid shift for a luminous
     lens, no neighbors
-    
+
     Parameters
     ----------
     fratio : flux ratio of the lens to source, i.e. f_L/f_S
@@ -2745,7 +2766,7 @@ def get_u_from_t(u0, t0, tE, t):
     NOTE 1: You need to be consistent with your units for t0, tE, and t,
     i.e. pick whatever you want (days, years, etc.) but be self consistent.
 
-    NOTE 2: There is a positive and negative solution for u. 
+    NOTE 2: There is a positive and negative solution for u.
     We return the positive solution.
 
     Parameters
@@ -2780,7 +2801,7 @@ def get_t_from_u(u0, t0, tE, u):
     NOTE 1: You need to be consistent with your units for t0, tE, and t,
     i.e. pick whatever you want (days, years, etc.) but be self consistent.
 
-    NOTE 2: There is a positive and negative solution for t. 
+    NOTE 2: There is a positive and negative solution for t.
     We return the positive solution.
 
     Parameters
@@ -2818,13 +2839,13 @@ def calc_new_position(l0, b0, mu_lcosb, mu_b, t):
 
     b0 : float or array
         Initial latitude, in DEGREES
- 
+
     mu_lcosb : float or array
         Longitudinal proper motion l * cos(b), in MAS/YEAR
 
     mu_b : float or array
         Latitudinal roper motion, in MAS/YEAR
-        
+
     t : float or array
         Time, in DAYS
 
@@ -2863,7 +2884,7 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
 
     u : float or array
         Dimensionless separation
-    
+
     Return
     ------
     delta_c_obs : float or array
@@ -3010,12 +3031,12 @@ def sample_spherical(npoints, speed, ndim=3):
     ---------
     npoints : float
         The number of points you want to generate.
-    
+
     speed : float
         The radius of the sphere (aka the magnitude of the vectors.)
-        
+
     dim : float
-        The dimension of the space in which the sphere is embedded 
+        The dimension of the space in which the sphere is embedded
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
     Return
@@ -3032,7 +3053,7 @@ def sample_spherical(npoints, speed, ndim=3):
 def wrap180(angle_input):
     """
     Changes the angle range to -180 to 180 degrees
-    
+
     Parameters
     ----------
     angle_input : float or array (in degrees)
@@ -3054,24 +3075,24 @@ def wrap180(angle_input):
 def add_precision64(input_array, power):
     """
     Need more precision for kdtree to run properly. Convert inputs from
-    float32 to float64, and add a random perturbation beginning in the 
+    float32 to float64, and add a random perturbation beginning in the
     nths decimal place.
 
     Parameters
     ----------
     input_array : float or array (float32)
-        Thing that needs more precision. 
+        Thing that needs more precision.
 
     power : float
         To what place you want the perturbation.
-    
+
     Return
     ------
     output_array : float or array (float64)
-        Thing that has more precision. 
+        Thing that has more precision.
 
     """
-    # Perturb. 
+    # Perturb.
     pert = 10 ** power * (np.random.rand(len(input_array)) - 0.5)
 
     # Convert to float64.
@@ -3087,7 +3108,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     """
     Get Alambda/AKs. NOTE: this doesn't work for every law in PopStar!
     Naming convention is not consistent. Change PopStar or add if statements?
-    
+
     Parameters
     ----------
     red_law_name : str
@@ -3098,7 +3119,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Return
     ------
     Alambda_AKs : float
-        Alambda/AKs 
+        Alambda/AKs
 
     """
     red_law_class = getattr(reddening, 'RedLaw' + red_law_name)
@@ -3111,7 +3132,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
 
 def calc_f(lambda_eff):
     """
-    Calculate that coefficient f that multiples E(B-V) to get the 
+    Calculate that coefficient f that multiples E(B-V) to get the
     extinction in magnitudes
     """
     B = get_Alambda_AKs('Damineli16', 0.445)
@@ -3123,7 +3144,29 @@ def calc_f(lambda_eff):
     return f
 
 
-def check_for_output(filename, overwrite):
+def check_for_output(filename, overwrite=False):
+    """
+    Checks for the existence of files and either overwrites them or
+    raises a warning.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file to be inspected
+
+    overwrite : bool
+        Flag to determine whether to overwrite in the presence of the file
+        or to raise an error. If True, file is overwritten.
+        If False, error is raised. Default False.
+
+    Output
+    ------
+    status : bool
+        Status of operation.
+        True: Error due to already existing file.
+        False: File either does not exist or was successfully deleted.
+
+    """
     if os.path.exists(filename):
         if overwrite:
             os.remove(filename)
@@ -3251,6 +3294,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
                                   isochrones_dir,
                                   bin_edges_number,
                                   BH_kick_speed_mean, NS_kick_speed_mean,
+                                  photometric_system,
                                   filter_name, red_law,
                                   config_filename='popsycle_config.yaml'):
     """
@@ -3278,14 +3322,17 @@ def generate_popsycle_config_file(radius_cut, obs_time,
         Directory for PyPopStar isochrones
 
     bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins (bins = bin_edges_number - 1)
+        Total number of bins is (bin_edges_number - 1)**2
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
-        
+
     NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
 
     filter_name : str
         The name of the filter in which to calculate all the
@@ -3306,6 +3353,9 @@ def generate_popsycle_config_file(radius_cut, obs_time,
     None
     """
 
+    if bin_edges_number is None:
+        bin_edges_number = 'None'
+
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
               'n_obs': n_obs,
@@ -3315,6 +3365,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
+              'photometric_system': photometric_system,
               'filter_name': filter_name,
               'red_law': red_law}
     generate_config_file(config_filename, config)
@@ -3341,12 +3392,14 @@ def generate_config_file(config_filename, config):
         yaml.dump(config, outfile, default_flow_style=True)
 
 
-def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
+def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            path_run, output_root,
                            longitude, latitude, area,
                            n_cores_calc_events,
                            walltime,
-                           seed=None, overwrite=False, submitFlag=True):
+                           seed=None, overwrite=False, submitFlag=True,
+                           skip_galaxia=False, skip_perform_pop_syn=False,
+                           skip_calc_events=False, skip_refine_events=False):
     """
     Generates the slurm script that executes the PopSyCLE pipeline
 
@@ -3404,6 +3457,25 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
         after being written to disk. If set to False, it will not be submitted.
         Default is True
 
+    skip_galaxia : bool
+        If set to True, pipeline will not run Galaxia and assume that the
+        resulting ebf file is already present.
+        Default is False
+
+    skip_perform_pop_syn : bool
+        If set to True, pipeline will not run perform_pop_syn and assume that
+        the resulting h5 file is already present.
+        Default is False
+
+    skip_calc_events : bool
+        If set to True, pipeline will not run calc_events and assume that the
+        resulting events and blends files are already present.
+        Default is False
+
+    skip_refine_events : bool
+        If set to True, pipeline will not run refine_events.
+        Default is False
+
     Output
     ------
     None
@@ -3418,6 +3490,9 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
         raise Exception('PopSyCLE configuration file {0} does not exist. '
                         'Write out file using synthetic.generate_config_file '
                         'before proceeding.'.format(popsycle_config_filename))
+
+    # Enforce popsycle_config_filename is an absolute path
+    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
 
     # Make a run directory for the PopSyCLE output
     if not os.path.exists(path_run):
@@ -3435,7 +3510,7 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
     slurm_config = load_config(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
-    jobname = 'l%.1f_b%.1f' % (longitude, latitude)
+    jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
 
     ## Bring the slurm_config values into the namespace so that down before
     ## the **locals() command can be executed
@@ -3482,7 +3557,7 @@ echo "---------------------------"
         slurm_template += '%s\n' % line
     slurm_template += """
 cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
 date
 echo "All done!"
 """
@@ -3492,23 +3567,32 @@ echo "All done!"
         print('Error: specified number of cores exceeds limit. Exiting...')
         return None
 
+    optional_cmds = ''
+
     # Pass along optional parameters if present
     if overwrite:
-        overwrite_cmd = '--overwrite'
-    else:
-        overwrite_cmd = ''
+        optional_cmds += '--overwrite '
 
-    if seed:
-        seed_cmd = '--seed=%i' % seed
-    else:
-        seed_cmd = ''
+    if seed is not None:
+        optional_cmds += '--seed=%i ' % seed
+
+    if skip_galaxia:
+        optional_cmds += '--skip-galaxia '
+
+    if skip_perform_pop_syn:
+        optional_cmds += '--skip-perform-pop-syn '
+
+    if skip_calc_events:
+        optional_cmds += '--skip-calc-events '
+
+    if skip_refine_events:
+        optional_cmds += '--skip-refine-events '
 
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())
 
     # Write the script to the path_run folder
-    script_filename = path_run + '/run_popsycle_%s_%s.sh' % (jobname,
-                                                             output_root)
+    script_filename = path_run + '/run_popsycle_%s.sh' % (jobname)
     with open(script_filename, 'w') as f:
         f.write(job_script)
 
@@ -3516,18 +3600,45 @@ echo "All done!"
     if submitFlag:
         os.chdir(path_run)
         stdout, stderr = execute('sbatch {0}'.format(script_filename))
-        print('** Standard Out **')
+        print('Submitted job {0} to {1} for {2} time'.format(script_filename,
+                                                             resource,
+                                                             walltime))
+        print('---- Standard Out')
         print(stdout)
-        print('** Standard Err **')
+        print('---- Standard Err')
         print(stderr)
-        print('Submitted job {0} to {1}'.format(script_filename, resource))
+        print('')
 
 
 def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     """
-    #TODO
+    Creates the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
+    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
+    magnitudes from the UBV filters
+
+    ubv-to-ztf-g
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_v - ztf_g
+
+    ubv-to-ztf-r
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_r - ztf_r
+
+    Parameters
+    ----------
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    None
+
     """
 
     # Define isochrone parameters
@@ -3567,6 +3678,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     ztf_g = np.array([])
     ztf_r = np.array([])
 
+    # Create photometry for a range of extinctions
     for AKs in np.arange(0, 1.1, .1):
         my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
                                          metallicity=metallicity,
@@ -3589,19 +3701,28 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         ztf_g = np.append(ztf_g, clust['m_ztf_G'][clust_cond])
         ztf_r = np.append(ztf_r, clust['m_ztf_R'][clust_cond])
 
+    # Given the filter name, define a difference in magnitude to be fit for
     if filter_name == 'g':
         delta_m = ubv_v - ztf_g
     elif filter_name == 'r':
         delta_m = ubv_r - ztf_r
 
+    # Colors in both x and y direction go from 0 to 6 magnitudes
+    # x_grid_arr: ubv_v - ubv_r
+    # y_grid_arr: ubv_b - ubv_v
     x_grid_arr = np.linspace(0, 6, 1000)
     y_grid_arr = np.linspace(0, 6, 1000)
 
+    # Create a grid of values on x_grid_arr and y_grid_arr
+    # with linear algorithm
     ubv_to_ztf_grid = griddata((ubv_v - ubv_r, ubv_b - ubv_v),
                                delta_m,
                                (x_grid_arr[None, :], y_grid_arr[:, None]),
                                method='linear')
 
+    # Resample this grid with both the liner and nearest algorithms onto a
+    # finer grid. This allows for the 'nearest' method to
+    # create fewer artifacts
     xx, yy = np.meshgrid(x_grid_arr, y_grid_arr)
     xx, yy = xx.flatten(), yy.flatten()
 
@@ -3618,13 +3739,15 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                         y_grid_arr[:, None]),
                                        method='nearest')
 
+    # Place values into final grid from linear algorthm, and from the
+    # nearest algorithm where the linear algorithm could not find a solution
     cond = np.isnan(ubv_to_ztf_grid_filled)
     ubv_to_ztf_grid_final = np.zeros_like(ubv_to_ztf_grid_filled)
     ubv_to_ztf_grid_final[cond] = ubv_to_ztf_grid_nearest[cond]
     ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
 
+    # Save the data
     grid_arr = np.squeeze(np.dstack([xx, yy]), axis=0)
-
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
     ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
     np.savez(ubv_to_ztf_filename,
@@ -3634,15 +3757,42 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
 def load_ubv_to_ztf_grid(filter_name):
     """
-    filter_name: must be g or r
-    #TODO
+    Loads the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
+    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
+    magnitudes from the UBV filters, as well as the kdtree of those values
+
+    ubv-to-ztf-g
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_v - ztf_g
+
+    ubv-to-ztf-r
+        x-axis : ubv_v - ubv_r
+        y-axis : ubv_b - ubv_v
+        z-axis : ubv_r - ztf_r
+
+    Parameters
+    ----------
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    ubv_to_ztf_grid : 2D numpy array
+        2D grid array of UBV colors with each cell containing the difference
+        between a ztf filter and a ubv filter
+
+    kdtree : cKDTree
+        kdtree containing the grid of colors on the x-axis and y-axis
+
     """
-    # x_grid_arr: ubv_v - ubv_r
-    # y_grid_arr: ubv_b - ubv_v
+    # Load the ubv_to_ztf_grid from the file
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
     ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
     ubv_to_ztf_grid_file = np.load(ubv_to_ztf_filename)
 
+    # Generate a kdtree at the locations of all of the grid points
     ubv_to_ztf_grid = ubv_to_ztf_grid_file['ubv_to_ztf_grid']
     kdtree = cKDTree(ubv_to_ztf_grid_file['kdtree_grid'])
 
@@ -3650,19 +3800,49 @@ def load_ubv_to_ztf_grid(filter_name):
 
 
 def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
+    """
+    Converts ubv filters (b, v, r) into ztf filters (g, r)
+
+    Parameters
+    ----------
+    ubv_b : array of floats
+        ubv_b photometry of galaxia / PyPopStar sources
+
+    ubv_v : array of floats
+        ubv_v photometry of galaxia / PyPopStar sources
+
+    ubv_r : array of floats
+        ubv_r photometry of galaxia / PyPopStar sources
+
+    Output
+    ------
+    ztf_g : array of floats
+        ztf_g photometry of galaxia / PyPopStar sources
+
+    ztf_r : array of floats
+        ztf_r photometry of galaxia / PyPopStar sources
+
+    """
+
+    # Convert the ubv photometry into the right format
     x_data = ubv_v - ubv_r
     y_data = ubv_b - ubv_v
     data = np.squeeze(np.dstack([x_data, y_data]), axis=0)
 
+    # Only query on data that is luminous
     cond_lum = ~np.isnan(data).any(axis=1)
 
     for filter_name in ['g', 'r']:
+        # Start with an empty array of nans
         ztf_diff = np.full(len(ubv_b), np.nan)
 
+        # Find locations on the grid where x_data and y_data are located.
+        # Put those values into the ztf_diff array
         ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
         _, indexes = kdtree.query(data[cond_lum])
         ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
 
+        # Convert to ztf_g and ztf_r
         if filter_name == 'g':
             ztf_g = ubv_v - ztf_diff
         elif filter_name == 'r':
@@ -3671,22 +3851,58 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     return ztf_g, ztf_r
 
 
-def ztf_mag_vega_to_AB(ztf_mag, filter_name):
+def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
+    """
+    Converts vega magnitudes into AB magnitudes for ztf filters.
+
+    Parameters
+    ----------
+    ztf_mag_vega : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in vega system
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    ztf_mag_AB : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in AB system
+
+    """
     if filter_name == 'g':
-        ztf_mag_AB = ztf_mag - 0.07
+        ztf_mag_AB = ztf_mag_vega - 0.07
     elif filter_name == 'r':
-        ztf_mag_AB = ztf_mag + 0.19
+        ztf_mag_AB = ztf_mag_vega + 0.19
     else:
         print('filter_name must be either g or r')
         ztf_mag_AB = None
     return ztf_mag_AB
 
 
-def ztf_mag_AB_to_vega(ztf_mag, filter_name):
+def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
+    """
+    Converts AB magnitudes into vega magnitudes for ztf filters.
+
+    Parameters
+    ----------
+    ztf_mag_AB : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in AB system
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r'.
+
+    Output
+    ------
+    ztf_mag_vega : float, array of floats
+        ztf photometry of galaxia / PyPopStar sources in vega system
+
+    """
     if filter_name == 'g':
-        ztf_mag_vega = ztf_mag + 0.07
+        ztf_mag_vega = ztf_mag_AB + 0.07
     elif filter_name == 'r':
-        ztf_mag_vega = ztf_mag - 0.19
+        ztf_mag_vega = ztf_mag_AB - 0.19
     else:
         print('filter_name must be either g or r')
         ztf_mag_vega = None
@@ -3695,24 +3911,55 @@ def ztf_mag_AB_to_vega(ztf_mag, filter_name):
 
 def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):
     """
-    #TODO
+    Algorithm for finding the nearest grid cell on a 2D array given a
+    datapoint that falls within the bounds of the 2D array.
+
+    Parameters
+    ----------
+    grid : 2D numpy array
+        2D array with size (len(y_grid_arr), len(x_grid_array))
+
+    x_grid_arr : numpy array
+        2D grid indices in the x-dimension
+
+    y_grid_arr : numpy array
+        2D grid indices in the y-dimension
+
+    x_data : numpy array
+        x-coordinate for data that will be located onto the grid
+
+    y_data : numpy array
+        y-coordinate for data that will be located onto the grid
+
+    Output
+    ------
+    gridpoint_arr : numpy array
+        list of nearest cell values on the grid at
+        the location of (x_data, y_data)
+
     """
-    # x_grid_arr: ubv_v - ubv_r
-    # y_grid_arr: ubv_b - ubv_v
+    # Convert x_data and y_data to array if single data point is received
     x_data = np.atleast_1d(x_data)
     y_data = np.atleast_1d(y_data)
 
     gridpoint_arr = []
     for x, y in zip(x_data, y_data):
+        # Loop through x_data and y_data
         if np.isnan(x) or np.isnan(y):
+            # If either x_data or y_data is nan, return nan
             gridpoint = np.nan
         else:
+            # Find location on the grid where x_data and y_data are
+            # closest to the grid indices
             x_idx = np.argmin(np.abs(x - x_grid_arr))
             y_idx = np.argmin(np.abs(y - y_grid_arr))
             gridpoint = grid[y_idx, x_idx]
         gridpoint_arr.append(gridpoint)
+
+    # Convert gridpoint_arr into numpy array
     gridpoint_arr = np.array(gridpoint_arr)
 
+    # If only a single data point was received, return a single value
     if len(gridpoint_arr) == 1:
         gridpoint_arr = gridpoint_arr[0]
 

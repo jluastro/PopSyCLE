@@ -68,7 +68,7 @@ filt_dict['ztf_r'] = {'Damineli16': 2.228}
 
 ##########
 # Dictionary for going between values in
-# .h5 datasets and keys in astropy table
+# .h5 datasets and keys in astropy table 
 ##########
 col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'px': 3, 'py': 4, 'pz': 5,
@@ -79,7 +79,8 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
            'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
            'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
-           'ztf_g': 27, 'ztf_r': 28}
+           'teff': 27, 'grav': 28, 'mbol': 29, 'feh': 30,
+           'ztf_g': 31, 'ztf_r': 32}
 
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
@@ -163,7 +164,7 @@ def write_galaxia_params(output_root,
 
     Outputs
     -------
-    galaxia_params.<output_root>.txt : text file
+    galaxia_params.output_root>.txt : text file
         A text file with the parameters that Galaxia requires to run.
     """
 
@@ -251,7 +252,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
@@ -262,13 +263,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     Outputs
     -------
-    <output_root>.h5 : hdf5 file
+    output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects
         and stars sorted into those bins.
 
-    <output_root>_label.fits : fits file
+    output_root>_label.fits : fits file
         NOTE: This is what make_label_file returns.
         A fits file that shows the correspondence between dataset name,
         latitude, longitude, and number of objects in that bin.
@@ -377,7 +378,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         bin_edges_number = int(60 * 2 * radius) + 1
 
     # Make sure we have enough bin edges (minimum is 3)
-    if bin_edges_number < 2:
+    if bin_edges_number  2:
         bin_edges_number = 3
     lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
                                 bin_edges_number)
@@ -400,7 +401,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # or greater than logage 10.01, since those are the limits of
     # PopStar evolution. Justification: in writeup/paper.
     ##########
-    young_id = np.where(age_array <= 5.01)[0]
+    young_id = np.where(age_array = 5.01)[0]
     age_array[young_id] = 5.0101
     old_id = np.where(age_array >= 10.14)[0]
     age_array[old_id] = 10.1399
@@ -438,7 +439,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             logt_bins = np.log10(np.logspace(logage_min, logage_max * 1.001, 5))
 
             # HARDCODED: Special handling for the youngest bin,
-            # popID = 0 (Thin Disk < 150 Myr).
+            # popID = 0 (Thin Disk  150 Myr).
             if pid == 0:
                 logt_bins = np.array([logage_min, 6.3, 7.0, 7.7, 8.0, 8.2])
 
@@ -454,7 +455,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
             # Fetch the stars in this age bin.
             age_idx = np.where((age_array[popid_idx] >= logt_bins[aa]) &
-                               (age_array[popid_idx] < logt_bins[aa + 1]))[0]
+                               (age_array[popid_idx]  logt_bins[aa + 1]))[0]
             len_adx = len(age_idx)
 
             # Figure out how many random bins we will need.
@@ -488,7 +489,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
                 star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
                 star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
-
+		star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+		star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+		star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+		star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)               
+ 
                 # Angle wrapping for longitude
                 wrap_idx = np.where(star_dict['glon'] > 180)[0]
                 star_dict['glon'][wrap_idx] -= 360
@@ -602,9 +607,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     now = datetime.datetime.now()
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', ''],
                                              cwd=microlens_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    popstar_hash = subprocess.check_output(['git', 'rev-parse', ''],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
@@ -804,7 +809,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    star_dict : dictionary
+    star_dict : dictionary (N_keys = 25)
         The number of entries for each key is the number of stars.
 
     next_id : The next unique ID number (int) that will be assigned to
@@ -834,7 +839,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
     Returns
     -------
-    comp_dict : dictionary
+ 
+    comp_dict : dictionary (N_keys = 25)
         Keys are the same as star_dict, just for compact objects.
 
     next_id : int
@@ -903,6 +909,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
+ 
         keep_columns = ['mass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
                         'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
                         'm_ukirt_J', 'm_ukirt_K']
@@ -1014,6 +1021,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['feh'] = np.full(len(comp_dict['vx']), np.nan)
+
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
                     comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
@@ -1105,6 +1117,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         An hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
+ 
         The indices correspond to the keys as follows:
         [0] : zams_mass
         [1] : rem_id
@@ -1127,11 +1140,13 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         [18] : ubv_i (UBV I-band abs. mag)
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
-        [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
-
+        [21] - [26] : ubv_x> (J, U, R, B, H, V abs. mag, in that order)
+        [27] : teff
+        [28] : grav
+        [29] : mbol
+        [30] : feh
         Optional:
-        [27] - [28] : ztf_<x> (G, R abs. mag, in that order, if selected)
-
+        [31] - [32] : ztf_x> (G, R abs. mag, in that order, if selected) 
     """
 
     ##########
@@ -1139,12 +1154,13 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
     ##########
     for ll in range(len(long_bin_edges) - 1):
         for bb in range(len(lat_bin_edges) - 1):
-            # HARDCODED: Fix the dimensions of the data set to 27 columns.
+            # HARDCODED: Fix the dimensions of the data set to 31 columns.
             # (Same as star_dict and comp_dict)
-            dset_dim1 = 27
+ 
+            dset_dim1 = 31
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    dset_dim1 = 29
+                    dset_dim1 = 33
 
             # Open our HDF5 file for reading and appending.
             # Create as necessary.
@@ -1167,13 +1183,13 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
             ##########
             if obj_arr is not None:
                 id_lb = np.where((obj_arr['glat'] >= lat_bin_edges[bb]) &
-                                 (obj_arr['glat'] < lat_bin_edges[bb + 1]) &
+                                 (obj_arr['glat']  lat_bin_edges[bb + 1]) &
                                  (obj_arr['glon'] >= long_bin_edges[ll]) &
-                                 (obj_arr['glon'] < long_bin_edges[ll + 1]))[0]
+                                 (obj_arr['glon']  long_bin_edges[ll + 1]))[0]
 
                 if len(id_lb) == 0:
                     continue
-
+                
                 save_data = np.zeros((len(obj_arr), len(id_lb)))
                 save_data[0, :] = np.float64(obj_arr['zams_mass'][id_lb])
                 save_data[1, :] = np.float64(obj_arr['rem_id'][id_lb])
@@ -1202,10 +1218,15 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
                 save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
                 save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
                 save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
+                save_data[27, :] = np.float64(obj_arr['teff'][id_lb])
+                save_data[28, :] = np.float64(obj_arr['grav'][id_lb])
+                save_data[29, :] = np.float64(obj_arr['mbol'][id_lb])
+                save_data[30, :] = np.float64(obj_arr['feh'][id_lb])
+
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
-                        save_data[27, :] = np.float64(obj_arr['ztf_g'][id_lb])
-                        save_data[28, :] = np.float64(obj_arr['ztf_r'][id_lb])
+                        save_data[31, :] = np.float64(obj_arr['ztf_g'][id_lb])
+                        save_data[32, :] = np.float64(obj_arr['ztf_r'][id_lb])
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[1]
@@ -1273,9 +1294,9 @@ def calc_events(hdf5_file, output_root2,
 
     Output
     ------
-    <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. There are 58 columns
-        (see documentation PDF) and the number of rows corresponds to
+    output_root2>_events.fits : Astropy .fits table
+        Table of candidate microlensing events. There are 66 columns 
+        (see documentation PDF) and the number of rows corresponds to 
         the number of candidate events.
 
     """
@@ -1401,13 +1422,12 @@ def calc_events(hdf5_file, output_root2,
 
     # Convert the events numpy array into an
     # Astropy Table for easier consumption.
-    # The dimensions of events_tmp is 58 x Nevents
-    # The dimensions of blends_tmp is 30 x Nblends
-
+ 
     names_base = ['zams_mass', 'rem_id', 'mass', 'px', 'py', 'pz', 'vx', 'vy',
                   'vz', 'rad', 'glat', 'glon', 'vr', 'mu_b', 'mu_lcosb', 'age',
                   'popid', 'ubv_k', 'ubv_i', 'exbv', 'obj_id', 'ubv_j',
-                  'ubv_u', 'ubv_r', 'ubv_b', 'ubv_h', 'ubv_v']
+                  'ubv_u', 'ubv_r', 'ubv_b', 'ubv_h', 'ubv_v', 
+                  'teff', 'grav', 'mbol', 'feh']
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
             names_base += ['ztf_g', 'ztf_r']
@@ -1419,6 +1439,7 @@ def calc_events(hdf5_file, output_root2,
     event_names += ['theta_E', 'u0', 'mu_rel', 't0']
 
     events_tmp = unique_events(events_tmp)
+    
     events_final = Table(events_tmp.T,
                          names=event_names)
 
@@ -1443,7 +1464,7 @@ def calc_events(hdf5_file, output_root2,
     now = datetime.datetime.now()
     radius_cut = radius_cut / 1000.0  # back to arcsec
     microlens_path = os.path.split(os.path.abspath(__file__))[0]
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', ''],
                                              cwd=microlens_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
@@ -1502,7 +1523,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     ####################
     # Loop through different time steps and figure out separations between
     # all possible pairs of stars. Trim down to "events", which consist of
-    # those pairs that approach within one <radius_cut> of each other.
+    # those pairs that approach within one radius_cut> of each other.
     # These will be the events we consider as candidate microlensing events.
     ####################
 
@@ -1525,7 +1546,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     hf.close()
 
     # Skip patches with less than 10 objects
-    if len(bigpatch[0]) < 10:
+    if len(bigpatch[0])  10:
         # continue
         return
 
@@ -1613,7 +1634,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         Separation between lens-source pairs (mas)
 
     event_id1 : array
-        Lens-source pairs where sep < radius_cut
+        Lens-source pairs where sep  radius_cut
 
     c : SkyCoord object
         Coordinates of all the stars.
@@ -1654,14 +1675,14 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
     ##########
     # NOTE: event_id1/2 are indices into bigpatch
-    event_id1 = np.where(sep < radius_cut)[0]
+    event_id1 = np.where(sep  radius_cut)[0]
     event_id2 = idx[event_id1]
 
     ##########
     # We've got neighbors... figure out who's the lens and who's the source.
     ##########
     # NOTE: lens_id and sorc_id are indices into bigpatch
-    idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
+    idx_l1 = np.where(r_t[event_id1]  r_t[event_id2])[0]
     idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
 
     lens_id = np.zeros(len(event_id1), dtype='int')
@@ -1712,7 +1733,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
-    adx = np.where(u < theta_frac)[0]
+    adx = np.where(u  theta_frac)[0]
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
@@ -1896,9 +1917,9 @@ def unique_events(event_table):
 
     Parameters
     ---------
-    event_table : numpy array
-        A table with all the events. There are 58 columns: 27 with info about
-        the source, 27 with the corresponding information about the lens, and
+    event_table : numpy array 
+        A table with all the events. There are 66 columns: 31 with info about
+        the source, 31 with the corresponding information about the lens, and
         4 with info about theta_E, u, mu_rel, and tstep. The number of rows
         corresponds to the number of events.
 
@@ -1957,11 +1978,12 @@ def unique_blends(blend_table):
 
     Parameters
     ---------
-    blend_table : blend array
-        A table with all the events. There are 30 columns: 1 with the unique
+    blend_table : blend array 
+        A table with all the events. There are 34 columns: 1 with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
-        separation, and 27 with info about the neighbor (same order as the
+        separation, and 31 with info about the neighbor (same order as the 
         other "all info" tables).
+
 
     Return
     ------
@@ -2026,7 +2048,7 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
 
         sep = (c_L.separation(c_N)).arcsec
 
-        if sep < blend_rad:
+        if sep  blend_rad:
             if diff_limit_blend is not None:
                 diff_limit_blend = vstack((diff_limit_blend, blend[i]))
             else:
@@ -2041,7 +2063,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     """
     Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
-    i.e. r_new < r_orig. Also makes a corresponding log and events.
+    i.e. r_new  r_orig. Also makes a corresponding log and events.
 
     Parameters
     ----------
@@ -2088,7 +2110,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
                             line1, line2, line3, line4])
 
     old_blends = Table.read(blend_tab)
-    good_idx = np.where(old_blends['sep_LN'] < new_blend_rad)[0]
+    good_idx = np.where(old_blends['sep_LN']  new_blend_rad)[0]
     new_blends = old_blends[good_idx]
 
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
@@ -2141,7 +2163,7 @@ def refine_events(input_root, filter_name, red_law,
     Output:
     ----------
     A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
+    input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
     same objects, only now with lots of extra
     columns of data.
 
@@ -2243,9 +2265,9 @@ def refine_events(input_root, filter_name, red_law,
     now = datetime.datetime.now()
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', ''],
                                              cwd=microlens_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    popstar_hash = subprocess.check_output(['git', 'rev-parse', ''],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
@@ -2321,8 +2343,8 @@ def calc_closest_approach(event_tab, survey_duration):
     # Only include events that peak in survey window,
     # since we can't easily fit parameters for events where we don’t have the peak.
     # FIXME: more efficient way to do this??
-    good = np.where((t_crit > start_time) & (t_crit < end_time))[0]
-    bad = np.where((t_crit <= start_time) | (t_crit >= end_time))[0]
+    good = np.where((t_crit > start_time) & (t_crit  end_time))[0]
+    bad = np.where((t_crit = start_time) | (t_crit >= end_time))[0]
 
     event_tab.remove_rows(bad)
 
@@ -2567,7 +2589,7 @@ def make_label_file(h5file_name, overwrite=False):
         The path and name of the input h5file containing the
         population synthesis results. We will read this in and
         make a new output file entitled:
-        <h5file_name>_label.fits (after removing the *.h5).
+        h5file_name>_label.fits (after removing the *.h5).
 
     Return
     ------
@@ -2823,7 +2845,7 @@ def max_delta_c(u0, thetaE):
     max_delta_c_array = np.zeros(len(u0))
 
     big_idx = np.where(u0 > np.sqrt(2))[0]
-    small_idx = np.where(u0 <= np.sqrt(2))[0]
+    small_idx = np.where(u0 = np.sqrt(2))[0]
 
     max_delta_c_array[big_idx] = calc_delta_c(u0[big_idx], thetaE[big_idx])
     max_delta_c_array[small_idx] = calc_delta_c(np.ones(len(small_idx)) * np.sqrt(2),
@@ -3137,7 +3159,7 @@ def wrap180(angle_input):
     angle_output : float or array (in degrees)
 
     """
-    wrap_id = np.where((angle_input < 360) & (angle_input > 180))[0]
+    wrap_id = np.where((angle_input  360) & (angle_input > 180))[0]
     angle_output = angle_input
 
     if len(wrap_id) > 0:

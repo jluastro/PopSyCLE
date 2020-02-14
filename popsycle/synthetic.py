@@ -455,7 +455,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
             # Fetch the stars in this age bin.
             age_idx = np.where((age_array[popid_idx] >= logt_bins[aa]) &
-                               (age_array[popid_idx]  logt_bins[aa + 1]))[0]
+                               (age_array[popid_idx] < logt_bins[aa + 1]))[0]
             len_adx = len(age_idx)
 
             # Figure out how many random bins we will need.
@@ -1525,7 +1525,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     ####################
     # Loop through different time steps and figure out separations between
     # all possible pairs of stars. Trim down to "events", which consist of
-    # those pairs that approach within one radius_cut> of each other.
+    # those pairs that approach within one <radius_cut> of each other.
     # These will be the events we consider as candidate microlensing events.
     ####################
 
@@ -2065,7 +2065,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     """
     Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
-    i.e. r_new  r_orig. Also makes a corresponding log and events.
+    i.e. r_new < r_orig. Also makes a corresponding log and events.
 
     Parameters
     ----------

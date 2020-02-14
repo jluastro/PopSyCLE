@@ -3546,7 +3546,7 @@ def angdist(ra1, dec1, ra2, dec2):
         return distance
 
 
-def add_pbh(hdf5_file, output_root2, area, fdm, pbh_mass, r_max, c, r_vir, overwrite = False, seed = None):
+def add_pbh(hdf5_file, output_root2, area, fdm, pbh_mass, r_max, c, r_vir, inner_slope = .5, v_esc = 550, overwrite = False, seed = None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.
@@ -3589,6 +3589,14 @@ def add_pbh(hdf5_file, output_root2, area, fdm, pbh_mass, r_max, c, r_vir, overw
 
     Optional Parameters
     -------------------
+    inner_slope: float
+        The inner slope of the MW halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
+        Inner_slope goes into the determination of the velocities and each value returns a slightly different distribution.
+        The default value is .5 because it is in the middle of the options. More investigation is needed.
+    v_esc: int
+        The escape velocity of the Milky Way.
+        v_esc is used in calculating the velocities.
+        Default is 550 because most papers cite values of 515-575, with a lot being around 550.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -3762,32 +3770,30 @@ def add_pbh(hdf5_file, output_root2, area, fdm, pbh_mass, r_max, c, r_vir, overw
 
     #Obtain the radius values for all of the PBHs in our field of view.
     r = data_in_field.distance.kpc
+    l = data_in_field.l.deg
+    b = data_in_field.b.deg
 
-    #Getting radial dispersion vs. radius distribution from the M. Hoeft 2018 paper.
-    disp_data = pd.read_csv('data/radial_velocity_dispersion_digitized.csv')
-    plot_r_val = disp_data['radius'].values
-    plot_dispersion = disp_data.iloc[:,1].values
+    c_pbh = coord.Galactic(l=l * u.deg, b=b * u.deg, distance=r * u.kpc)
+    c_pbh = c_pbh.transform_to(coord.Galactocentric(representation_type='spherical'))
+    cart_pbh = astropy.coordinates.cartesian_to_spherical(c_pbh.x, c_pbh.y, c_pbh.z)
+    pbh_r_galacto = cart[0]
 
-    #Adjusting for the correct units
-    plot_r_val_kpc = plot_r_val*(10**3)
-    plot_dispersion_fixed = plot_dispersion*1000
+    if inner_slope == 1:
+        vel_data = pd.read_csv('data/red_line.csv')
+    elif inner_slope == .25:
+        vel_data = pd.read_csv('data/blue_line.csv')
+    else:
+        vel_data = pd.read_csv('data/green_line.csv')
 
-    #Get radial dispersion value for each PBH, given PBH radius.
-    pbh_dispersion = np.interp(r, plot_r_val_kpc, plot_dispersion_fixed)
+    pbh_vrms = np.interp(pbh_r_galacto, vel_data['x'], vel_data['y'])
+    v_vals = np.arange(0, v_esc) #Goes from v to v_esc
+    a = (1/2)*pbh_vrms*((np.pi/2)**(1/2))
 
-    #Defining some parameters that are used in the velocity distribution equations
-    v_esc = 525 #km/s
-    v_knot = ((2/3)**(1/2))*pbh_dispersion
-    z=v_esc/v_knot
-    n_esc=scipy.special.erf(z)-(2*(np.pi**(-1/2))*z*(np.exp(-z**2)))
-    v=np.arange(0,525, 525/len(n_esc))
-
-    #Getting velocity for each PBH using formulas from Ranjan Laha 2018.
-    for disp in pbh_dispersion:
-        f = ((3/(2*np.pi*(disp**2)))**(3/2))*(np.exp((-(v**2))/(2*(disp**2))))
-        cdf = (3*(3**(1/2))*(1/(disp**2))*disp*scipy.special.erf(v/((2**(1/2))*disp)))/(4*np.pi)
+    for a_val in a:
+        pdf = ((2/np.pi)**(1/2))*((v_vals**2*np.exp(-v_vals**2/(2*a_val**2)))/a_val**3)
+        cdf = scipy.special.erf(v_vals/(a_val*2**(1/2)))-(((2/np.pi)**(1/2))*((v_vals*np.exp(-v**2/2*a_val**2))/a_val))
         rand_cdf = np.random.uniform(0, np.amax(cdf), 1)
-        interpreted_rms_velocities = np.interp(rand_cdf, cdf, v)
+        interpreted_rms_velocities = np.interp(rand_cdf, cdf, v_vals)
 
     #Sampling random lattitude and longitude values for velocity to complete the spherical velocities
     sin_lat_vel = np.random.uniform(-1, 1, len(data_in_field))
@@ -3811,8 +3817,6 @@ def add_pbh(hdf5_file, output_root2, area, fdm, pbh_mass, r_max, c, r_vir, overw
     rem_id = np.full((len(data_in_field), 1), 104)
     rem_id = np.reshape(rem_id, (len(data_in_field),))
 
-    l = data_in_field.l.deg
-    b = data_in_field.b.deg
     b_rad = np.radians(b)
     l_rad = np.radians(l)
 

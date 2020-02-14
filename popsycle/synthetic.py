@@ -807,8 +807,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     massLimits = np.array([0.1, 0.5, 120])
     powers = np.array([-1.3, -2.3])
     my_ifmr = ifmr.IFMR()
+    ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
     ratio = current_initial_ratio(logage=log_age,
-                                  ratio_file='current_initial_stellar_mass_ratio.txt',
+                                  ratio_file=ratio_file,
                                   iso_dir=iso_dir,
                                   seed=seed)
     initialClusterMass = currentClusterMass / ratio

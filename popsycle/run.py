@@ -165,7 +165,8 @@ def run():
         bin_edges_number=popsycle_config['bin_edges_number'],
         BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
         NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-        seed=args.seed)
+        seed=args.seed,
+        overwrite=args.overwrite)
 
     # Remove calc_events output if already exists and overwrite=True
     if synthetic.check_for_output(filename_dict['events_filename'],

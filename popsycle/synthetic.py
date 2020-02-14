@@ -554,7 +554,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
      ##########
     # Make label file containing information about l,b bins
     ##########
-    make_label_file(output_root)
+    make_label_file(output_root, overwrite=overwrite)
 
     ##########
     # Make log file
@@ -2495,7 +2495,7 @@ def make_ebf_log(ebf_table):
     return ebf_log
 
 
-def make_label_file(h5file_name):
+def make_label_file(h5file_name, overwrite=False):
     """
     Given an output root for an .h5 file, creates a table of 
     dataset name, l, b, and number of objects.
@@ -2557,7 +2557,7 @@ def make_label_file(h5file_name):
     now = datetime.datetime.now()
     label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
 
-    label_file.write(h5file_name + '_label.fits')
+    label_file.write(h5file_name + '_label.fits', overwrite=overwrite)
 
     return
 
@@ -3490,10 +3490,15 @@ def generate_slurm_scripts(slurm_config_filename, popsycle_config_filename,
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
 echo "---------------------------"
-date
+echo Longitude = {longitude}
+echo Latitude = {latitude}
+echo Area = {area}
+echo path_run = {path_run}
+echo jobname = {jobname} 
 echo "Job id = $SLURM_JOBID"
 echo "Proc id = $SLURM_PROCID"
 hostname
+date
 echo "---------------------------"
 """
     for line in slurm_config['additional_lines']:
@@ -3502,8 +3507,7 @@ echo "---------------------------"
 cd {path_run}
 srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {seed_cmd} {overwrite_cmd} 
 date
-echo
-"All done!"
+echo "All done!"
 """
 
     # Check that the specified number of cores does not exceed the resource max
@@ -3526,7 +3530,8 @@ echo
     job_script = slurm_template.format(**locals())
 
     # Write the script to the path_run folder
-    script_filename = path_run + '/run_popsycle.sh'
+    script_filename = path_run + '/run_popsycle_%s_%s.sh' % (jobname,
+                                                             output_root)
     with open(script_filename, 'w') as f:
         f.write(job_script)
 

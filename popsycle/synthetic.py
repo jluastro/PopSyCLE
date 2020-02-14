@@ -888,7 +888,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
-
         keep_columns = ['mass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
                         'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
                         'm_ukirt_J', 'm_ukirt_K']
@@ -1060,8 +1059,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     return comp_dict, next_id
 
 
-def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
-                 additional_photometric_systems=None):
+def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     """
     Given stars and compact objects, sort them into latitude and
     longitude bins. Save each latitude and longitude bin, and the edges that
@@ -1097,7 +1095,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
     """
-    # Create compound datatype
+    # Create compound datatype by looping over the kesy of the obj_arr
+    # Assign integers where reasonable, and float64 to the rest of the columns
     comp_dtype_arr = []
     for key in obj_arr.keys():
         if key in ['rem_id', 'popid']:  # int16 (up to 32767)
@@ -1108,7 +1107,6 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
             d = (key, 'f8')  # float64
         comp_dtype_arr.append(d)
     comp_dtype = np.dtype(comp_dtype_arr)
-
 
     ##########
     # Loop through the latitude and longitude bins.
@@ -1143,6 +1141,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
                 if len(id_lb) == 0:
                     continue
 
+                # Loop over the obj_arr and add all columns
+                # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=comp_dtype)
                 for colname in obj_arr.keys():
                     save_data[colname] = obj_arr[colname][id_lb]
@@ -1214,8 +1214,8 @@ def calc_events(hdf5_file, output_root2,
     Output
     ------
     <output_root2>_events.fits : Astropy .fits table
-        Table of candidate microlensing events. The number of rows corresponds to
-        the number of candidate events.
+        Table of candidate microlensing events. The number of rows
+        corresponds to the number of candidate events.
 
     """
 
@@ -1338,7 +1338,7 @@ def calc_events(hdf5_file, output_root2,
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
 
-    # Convert the events numpy array into an
+    # Convert the events numpy recarray into an
     # Astropy Table for easier consumption.
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
@@ -1656,18 +1656,23 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
 
         # This is all the events for this l, b, time
+        # Loop through the lens table and append '_L' to the end of each field
         lens_rename_dct = {}
         for name in lens_table.dtype.names:
             lens_rename_dct[name] = name + '_L'
         lens_table = rfn.rename_fields(lens_table, lens_rename_dct)
 
+        # Loop through the source table and append '_S' to the end of each field
         sorc_rename_dct = {}
         for name in sorc_table.dtype.names:
             sorc_rename_dct[name] = name + '_S'
         sorc_table = rfn.rename_fields(sorc_table, sorc_rename_dct)
 
+        # Combine the lens and source tables into the events table
         event_lbt = rfn.merge_arrays((lens_table, sorc_table),
                                      flatten=True)
+
+        # Add additional microlensing parameters to the events table
         event_lbt = rfn.append_fields(event_lbt, 'theta_E',
                                       theta_E, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 'u0',
@@ -1801,13 +1806,16 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     sep_LN_list = np.array(sep_LN_list)
 
     if len(blend_neigh_obj_id) > 0:
+        # Grab the rows of bigpatch that are neighbors
         blends_lbt = bigpatch[blend_neigh_idx]
 
+        # Append '_N' to each column in blends_lbt
         blends_rename_dct = {}
         for name in blends_lbt.dtype.names:
             blends_rename_dct[name] = name + '_N'
         blends_lbt = rfn.rename_fields(blends_lbt, blends_rename_dct)
 
+        # Add additional columns into blends_lbt
         blends_lbt = rfn.append_fields(blends_lbt, 'obj_id_L',
                                        blend_lens_obj_id, usemask=False)
         blends_lbt = rfn.append_fields(blends_lbt, 'obj_id_S',
@@ -1832,8 +1840,8 @@ def unique_events(event_table):
     Parameters
     ---------
     event_table : numpy array 
-        A table with all the events. There columns contain info about
-        the source and the lens, and info about theta_E, u, mu_rel, and tstep.
+        A table with all the events. The columns contain info about
+        the source, the lens, and about theta_E, u0, mu_rel, and t0.
         The number of rows corresponds to the number of events.
 
     Return
@@ -1883,10 +1891,10 @@ def unique_blends(blend_table):
     Parameters
     ---------
     blend_table : blend array 
-        A table with all the events. There is 1 columns with the unique
+        A table with all the events. There is 1 column with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
-        separation, and the remaining with info about the neighbor (same order
-        as the  other "all info" tables).
+        separation, and the remaining columns contain info about the neighbors
+        (same order as the other "all info" tables).
 
 
     Return

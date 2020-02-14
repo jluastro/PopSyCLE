@@ -205,7 +205,6 @@ def run():
 
         # Run calc_events
         print('-- Executing calc_events')
-
         synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
                               output_root2=args.output_root,
                               radius_cut=popsycle_config['radius_cut'],

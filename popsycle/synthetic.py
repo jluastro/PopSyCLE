@@ -2051,7 +2051,7 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
 
         sep = (c_L.separation(c_N)).arcsec
 
-        if sep  blend_rad:
+        if sep < blend_rad:
             if diff_limit_blend is not None:
                 diff_limit_blend = vstack((diff_limit_blend, blend[i]))
             else:

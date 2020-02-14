@@ -2165,7 +2165,7 @@ def refine_events(input_root, filter_name, red_law,
     Output:
     ----------
     A file will be created named
-    input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
     same objects, only now with lots of extra
     columns of data.
 

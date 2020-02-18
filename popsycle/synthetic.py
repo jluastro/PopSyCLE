@@ -3742,7 +3742,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     """
 
-    # Define isochrone parameters for calcualting absolute magnitudes
+    # Define isochrone parameters for calculating absolute magnitudes
     logAge = np.log10(8 * 10 ** 9)  # Age in log(years)
     dist = 10  # distance in parsec
     metallicity = 0  # Metallicity in [M/H]
@@ -3989,7 +3989,7 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
     Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
     using the effective wavelengths from
     http://svo2.cab.inta-csic.es/svo/theory/fps3/
-    
+
     Parameters
     ----------
     ztf_mag_AB : float, array of floats

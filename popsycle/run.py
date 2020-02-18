@@ -154,8 +154,7 @@ def run():
     if popsycle_config['photometric_system'] == 'ubv':
         additional_photometric_systems = None
     else:
-        additional_photometric_systems = [
-            popsycle_config['photometric_system']]
+        additional_photometric_systems = [popsycle_config['photometric_system']]
 
     if not args.skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True

@@ -2129,7 +2129,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
 def convert_photometric_99_to_nan(table, photometric_system='ubv'):
     for name in table.colnames:
         if ('exbv' in name) or (photometric_system in name):
-            cond = table[name] == -99
+            cond = np.where(table[name] == -99)[0]
             table[name][cond] = np.nan
 
 
@@ -3742,9 +3742,8 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     """
 
-    # Define isochrone parameters
+    # Define isochrone parameters for calcualting absolute magnitudes
     logAge = np.log10(8 * 10 ** 9)  # Age in log(years)
-    # dist = 4000  # distance in parsec
     dist = 10  # distance in parsec
     metallicity = 0  # Metallicity in [M/H]
 
@@ -3955,6 +3954,9 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
 def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
     """
     Converts vega magnitudes into AB magnitudes for ztf filters.
+    Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
+    using the effective wavelengths from
+    http://svo2.cab.inta-csic.es/svo/theory/fps3/
 
     Parameters
     ----------
@@ -3984,7 +3986,10 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
 def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
     """
     Converts AB magnitudes into vega magnitudes for ztf filters.
-
+    Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
+    using the effective wavelengths from
+    http://svo2.cab.inta-csic.es/svo/theory/fps3/
+    
     Parameters
     ----------
     ztf_mag_AB : float, array of floats

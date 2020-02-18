@@ -55,14 +55,14 @@ _Mclust_v_age_func = None
 # G = 472.274, R = 633.961, I = 788.613
 ##########
 filt_dict = {}
-filt_dict['ubv_j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
-filt_dict['ubv_h'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576, 'Damineli16': 0.344}
-filt_dict['ubv_k'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367, 'Damineli16': 0.172}
-filt_dict['ubv_u'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434, 'Damineli16': 5.022}
-filt_dict['ubv_b'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315, 'Damineli16': 3.757}
-filt_dict['ubv_v'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315, 'Damineli16': 2.757}
-filt_dict['ubv_i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.496}
-filt_dict['ubv_r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
+filt_dict['ubv_J'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
+filt_dict['ubv_H'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576, 'Damineli16': 0.344}
+filt_dict['ubv_K'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367, 'Damineli16': 0.172}
+filt_dict['ubv_U'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434, 'Damineli16': 5.022}
+filt_dict['ubv_B'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315, 'Damineli16': 3.757}
+filt_dict['ubv_V'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315, 'Damineli16': 2.757}
+filt_dict['ubv_I'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.496}
+filt_dict['ubv_R'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
 
@@ -75,19 +75,19 @@ col_idx = {'zams_mass': 0, 'rem_id': 1, 'mass': 2,
            'vx': 6, 'vy': 7, 'vz': 8,
            'rad': 9, 'glat': 10, 'glon': 11,
            'vr': 12, 'mu_b': 13, 'mu_lcosb': 14,
-           'age': 15, 'popid': 16, 'ubv_k': 17,
-           'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
-           'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
-           'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26,
+           'age': 15, 'popid': 16, 'ubv_K': 17,
+           'ubv_I': 18, 'exbv': 19, 'obj_id': 20,
+           'ubv_J': 21, 'ubv_U': 22, 'ubv_R': 23,
+           'ubv_b': 24, 'ubv_H': 25, 'ubv_V': 26,
            'teff': 27, 'grav': 28, 'mbol': 29, 'feh': 30,
            'ztf_g': 31, 'ztf_r': 32}
 
 photometric_system_dict = {}
-photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
+photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r']
 
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,G', 'ztf,R']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -502,14 +502,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
 
                 # Add UBV magnitudes
-                star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
-                star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
-                star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
-                star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
-                star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
-                star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
+                star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
+                star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
+                star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
+                star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
+                star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
+                star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
+                star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
+                star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
 
                 ##########
                 # Add ztf magnitudes
@@ -517,9 +517,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
                         # Pull out ubv magnitudes needed for photometric conversions
-                        ubv_b = star_dict['ubv_b']
-                        ubv_v = star_dict['ubv_v']
-                        ubv_r = star_dict['ubv_r']
+                        ubv_b = star_dict['ubv_B']
+                        ubv_v = star_dict['ubv_V']
+                        ubv_r = star_dict['ubv_R']
 
                     ztf_g, ztf_r = transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r)
                     star_dict['ztf_g'] = ztf_g
@@ -1014,14 +1014,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # These are all the outputs from the IFMR of Raithel and Kalirai.
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_I'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_K'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_J'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_U'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_R'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_B'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_V'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_H'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
@@ -1053,14 +1053,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
 
-                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
-                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
-                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
-                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
-                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
-                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
-                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
-                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
+                comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
+                comp_dict['ubv_J'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
+                comp_dict['ubv_U'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
+                comp_dict['ubv_R'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
+                comp_dict['ubv_B'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
+                comp_dict['ubv_V'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
+                comp_dict['ubv_H'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
                         comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
@@ -1137,8 +1137,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         [14] : mu_lcosb
         [15] : age
         [16] : popid
-        [17] : ubv_k (UBV K-band abs. mag)
-        [18] : ubv_i (UBV I-band abs. mag)
+        [17] : ubv_K (UBV K-band abs. mag)
+        [18] : ubv_I (UBV I-band abs. mag)
         [19] : exbv (3-D Schlegel extinction maps)
         [20] : obj_id (unique ID number across stars and compact objects)
         [21] - [26] : ubv_<x> (J, U, R, B, H, V abs. mag, in that order)
@@ -1147,7 +1147,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
         [29] : mbol
         [30] : feh
         Optional:
-        [31] - [32] : ztf_<x> (G, R abs. mag, in that order, if selected) 
+        [31] - [32] : ztf_<x> (g, r abs. mag, in that order, if selected)
     """
 
     ##########
@@ -1209,16 +1209,16 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root,
                 save_data[14, :] = np.float64(obj_arr['mu_lcosb'][id_lb])
                 save_data[15, :] = np.float64(obj_arr['age'][id_lb])
                 save_data[16, :] = np.float64(obj_arr['popid'][id_lb])
-                save_data[17, :] = np.float64(obj_arr['ubv_k'][id_lb])
-                save_data[18, :] = np.float64(obj_arr['ubv_i'][id_lb])
+                save_data[17, :] = np.float64(obj_arr['ubv_K'][id_lb])
+                save_data[18, :] = np.float64(obj_arr['ubv_I'][id_lb])
                 save_data[19, :] = np.float64(obj_arr['exbv'][id_lb])
                 save_data[20, :] = np.float64(obj_arr['obj_id'][id_lb])
-                save_data[21, :] = np.float64(obj_arr['ubv_j'][id_lb])
-                save_data[22, :] = np.float64(obj_arr['ubv_u'][id_lb])
-                save_data[23, :] = np.float64(obj_arr['ubv_r'][id_lb])
-                save_data[24, :] = np.float64(obj_arr['ubv_b'][id_lb])
-                save_data[25, :] = np.float64(obj_arr['ubv_h'][id_lb])
-                save_data[26, :] = np.float64(obj_arr['ubv_v'][id_lb])
+                save_data[21, :] = np.float64(obj_arr['ubv_J'][id_lb])
+                save_data[22, :] = np.float64(obj_arr['ubv_U'][id_lb])
+                save_data[23, :] = np.float64(obj_arr['ubv_R'][id_lb])
+                save_data[24, :] = np.float64(obj_arr['ubv_B'][id_lb])
+                save_data[25, :] = np.float64(obj_arr['ubv_H'][id_lb])
+                save_data[26, :] = np.float64(obj_arr['ubv_V'][id_lb])
                 save_data[27, :] = np.float64(obj_arr['teff'][id_lb])
                 save_data[28, :] = np.float64(obj_arr['grav'][id_lb])
                 save_data[29, :] = np.float64(obj_arr['mbol'][id_lb])
@@ -1428,8 +1428,8 @@ def calc_events(hdf5_file, output_root2,
  
     names_base = ['zams_mass', 'rem_id', 'mass', 'px', 'py', 'pz', 'vx', 'vy',
                   'vz', 'rad', 'glat', 'glon', 'vr', 'mu_b', 'mu_lcosb', 'age',
-                  'popid', 'ubv_k', 'ubv_i', 'exbv', 'obj_id', 'ubv_j',
-                  'ubv_u', 'ubv_r', 'ubv_b', 'ubv_h', 'ubv_v', 
+                  'popid', 'ubv_K', 'ubv_I', 'exbv', 'obj_id', 'ubv_J',
+                  'ubv_U', 'ubv_R', 'ubv_B', 'ubv_H', 'ubv_V',
                   'teff', 'grav', 'mbol', 'feh']
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
@@ -3718,14 +3718,14 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     magnitudes from the UBV filters
 
     ubv-to-ztf-g
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_v - ztf_g
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_V - ztf_g
 
     ubv-to-ztf-r
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_r - ztf_r
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_R - ztf_r
 
     Parameters
     ----------
@@ -3754,7 +3754,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     # Also specify filters for synthetic photometry (optional). Here we use
     # the HST WFC3-IR F127M, F139M, and F153M filters
-    filt_list = ['ztf,R', 'ztf,G', 'ubv,B', 'ubv,V', 'ubv,R']
+    filt_list = ['ztf,r', 'ztf,g', 'ubv,B', 'ubv,V', 'ubv,R']
 
     # Make multiplicity object
     imf_multi = multiplicity.MultiplicityUnresolved()
@@ -3798,8 +3798,8 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         ubv_b = np.append(ubv_b, clust['m_ubv_B'][clust_cond])
         ubv_v = np.append(ubv_v, clust['m_ubv_V'][clust_cond])
         ubv_r = np.append(ubv_r, clust['m_ubv_R'][clust_cond])
-        ztf_g = np.append(ztf_g, clust['m_ztf_G'][clust_cond])
-        ztf_r = np.append(ztf_r, clust['m_ztf_R'][clust_cond])
+        ztf_g = np.append(ztf_g, clust['m_ztf_g'][clust_cond])
+        ztf_r = np.append(ztf_r, clust['m_ztf_r'][clust_cond])
 
     # Given the filter name, define a difference in magnitude to be fit for
     if filter_name == 'g':
@@ -3862,14 +3862,14 @@ def load_ubv_to_ztf_grid(filter_name):
     magnitudes from the UBV filters, as well as the kdtree of those values
 
     ubv-to-ztf-g
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_v - ztf_g
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_V - ztf_g
 
     ubv-to-ztf-r
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_r - ztf_r
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_R - ztf_r
 
     Parameters
     ----------
@@ -3906,13 +3906,13 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     Parameters
     ----------
     ubv_b : array of floats
-        ubv_b photometry of galaxia / PyPopStar sources
+        ubv_B photometry of galaxia / PyPopStar sources
 
     ubv_v : array of floats
-        ubv_v photometry of galaxia / PyPopStar sources
+        ubv_V photometry of galaxia / PyPopStar sources
 
     ubv_r : array of floats
-        ubv_r photometry of galaxia / PyPopStar sources
+        ubv_R photometry of galaxia / PyPopStar sources
 
     Output
     ------

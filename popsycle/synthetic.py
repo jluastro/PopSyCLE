@@ -55,23 +55,23 @@ _Mclust_v_age_func = None
 # G = 472.274, R = 633.961, I = 788.613
 ##########
 filt_dict = {}
-filt_dict['ubv_j'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
-filt_dict['ubv_h'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576, 'Damineli16': 0.344}
-filt_dict['ubv_k'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367, 'Damineli16': 0.172}
-filt_dict['ubv_u'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434, 'Damineli16': 5.022}
-filt_dict['ubv_b'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315, 'Damineli16': 3.757}
-filt_dict['ubv_v'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315, 'Damineli16': 2.757}
-filt_dict['ubv_i'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.496}
-filt_dict['ubv_r'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
+filt_dict['ubv_J'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
+filt_dict['ubv_H'] = {'Schlafly11': 0.449, 'Schlegel99': 0.576, 'Damineli16': 0.344}
+filt_dict['ubv_K'] = {'Schlafly11': 0.302, 'Schlegel99': 0.367, 'Damineli16': 0.172}
+filt_dict['ubv_U'] = {'Schlafly11': 4.334, 'Schlegel99': 5.434, 'Damineli16': 5.022}
+filt_dict['ubv_B'] = {'Schlafly11': 3.626, 'Schlegel99': 4.315, 'Damineli16': 3.757}
+filt_dict['ubv_V'] = {'Schlafly11': 2.742, 'Schlegel99': 3.315, 'Damineli16': 2.757}
+filt_dict['ubv_I'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.496}
+filt_dict['ubv_R'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
 
 photometric_system_dict = {}
-photometric_system_dict['ubv'] = ['j', 'h', 'k', 'u', 'b', 'v', 'i', 'r']
+photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r']
 
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,G', 'ztf,R']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -486,14 +486,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
 
                 # Add UBV magnitudes
-                star_dict['ubv_j'] = ebf.read_ind(ebf_file, '/ubv_j', bin_idx)
-                star_dict['ubv_h'] = ebf.read_ind(ebf_file, '/ubv_h', bin_idx)
-                star_dict['ubv_k'] = ebf.read_ind(ebf_file, '/ubv_k', bin_idx)
-                star_dict['ubv_u'] = ebf.read_ind(ebf_file, '/ubv_u', bin_idx)
-                star_dict['ubv_i'] = ebf.read_ind(ebf_file, '/ubv_i', bin_idx)
-                star_dict['ubv_b'] = ebf.read_ind(ebf_file, '/ubv_b', bin_idx)
-                star_dict['ubv_v'] = ebf.read_ind(ebf_file, '/ubv_v', bin_idx)
-                star_dict['ubv_r'] = ebf.read_ind(ebf_file, '/ubv_r', bin_idx)
+                star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
+                star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
+                star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
+                star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
+                star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
+                star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
+                star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
+                star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
 
                 ##########
                 # Add ztf magnitudes
@@ -501,9 +501,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
                         # Pull out ubv magnitudes needed for photometric conversions
-                        ubv_b = star_dict['ubv_b']
-                        ubv_v = star_dict['ubv_v']
-                        ubv_r = star_dict['ubv_r']
+                        ubv_b = star_dict['ubv_B']
+                        ubv_v = star_dict['ubv_V']
+                        ubv_r = star_dict['ubv_R']
 
                     ztf_g, ztf_r = transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r)
                     star_dict['ztf_g'] = ztf_g
@@ -893,7 +893,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                         'm_ukirt_J', 'm_ukirt_K']
         if additional_photometric_systems is not None:
             if 'ztf' in additional_photometric_systems:
-                keep_columns += ['m_ztf_G', 'm_ztf_R']
+                keep_columns += ['m_ztf_g', 'm_ztf_r']
         comp_table.keep_columns(keep_columns)
 
         # Fill out the rest of comp_dict
@@ -991,14 +991,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             # These are all the outputs from the IFMR of Raithel and Kalirai.
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_i'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_k'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_j'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_u'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_r'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_b'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_v'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_h'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_I'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_K'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_J'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_U'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_R'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_B'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_V'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['ubv_H'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
@@ -1030,18 +1030,18 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
 
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
 
-                comp_dict['ubv_i'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
-                comp_dict['ubv_k'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
-                comp_dict['ubv_j'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
-                comp_dict['ubv_u'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
-                comp_dict['ubv_r'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
-                comp_dict['ubv_b'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
-                comp_dict['ubv_v'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
-                comp_dict['ubv_h'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
+                comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
+                comp_dict['ubv_J'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
+                comp_dict['ubv_U'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
+                comp_dict['ubv_R'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
+                comp_dict['ubv_B'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
+                comp_dict['ubv_V'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
+                comp_dict['ubv_H'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
-                        comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_G'][lum_WD_idx].data
-                        comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_R'][lum_WD_idx].data
+                        comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_g'][lum_WD_idx].data
+                        comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_r'][lum_WD_idx].data
 
                 # Memory cleaning
                 del comp_table
@@ -1905,7 +1905,7 @@ def unique_blends(blend_table):
         the source-lens separation is smallest.)
 
     """
-    # Pull the unique ID numbers for the lens, source, and neighbors and put 
+    # Pull the unique ID numbers for the lens, source, and neighbors and put
     # them into a table of 3 x N_blends.
     lens_obj_id = blend_table['obj_id_L']
     sorc_obj_id = blend_table['obj_id_S']
@@ -2032,7 +2032,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
 def convert_photometric_99_to_nan(table, photometric_system='ubv'):
     for name in table.colnames:
         if ('exbv' in name) or (photometric_system in name):
-            cond = table[name] == -99
+            cond = np.where(table[name] == -99)[0]
             table[name][cond] = np.nan
 
 
@@ -3699,14 +3699,14 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     magnitudes from the UBV filters
 
     ubv-to-ztf-g
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_v - ztf_g
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_V - ztf_g
 
     ubv-to-ztf-r
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_r - ztf_r
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_R - ztf_r
 
     Parameters
     ----------
@@ -3723,9 +3723,8 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     """
 
-    # Define isochrone parameters
+    # Define isochrone parameters for calculating absolute magnitudes
     logAge = np.log10(8 * 10 ** 9)  # Age in log(years)
-    # dist = 4000  # distance in parsec
     dist = 10  # distance in parsec
     metallicity = 0  # Metallicity in [M/H]
 
@@ -3736,7 +3735,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     # Also specify filters for synthetic photometry (optional). Here we use
     # the HST WFC3-IR F127M, F139M, and F153M filters
-    filt_list = ['ztf,R', 'ztf,G', 'ubv,B', 'ubv,V', 'ubv,R']
+    filt_list = ['ztf,r', 'ztf,g', 'ubv,B', 'ubv,V', 'ubv,R']
 
     # Make multiplicity object
     imf_multi = multiplicity.MultiplicityUnresolved()
@@ -3780,8 +3779,8 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         ubv_b = np.append(ubv_b, clust['m_ubv_B'][clust_cond])
         ubv_v = np.append(ubv_v, clust['m_ubv_V'][clust_cond])
         ubv_r = np.append(ubv_r, clust['m_ubv_R'][clust_cond])
-        ztf_g = np.append(ztf_g, clust['m_ztf_G'][clust_cond])
-        ztf_r = np.append(ztf_r, clust['m_ztf_R'][clust_cond])
+        ztf_g = np.append(ztf_g, clust['m_ztf_g'][clust_cond])
+        ztf_r = np.append(ztf_r, clust['m_ztf_r'][clust_cond])
 
     # Given the filter name, define a difference in magnitude to be fit for
     if filter_name == 'g':
@@ -3844,14 +3843,14 @@ def load_ubv_to_ztf_grid(filter_name):
     magnitudes from the UBV filters, as well as the kdtree of those values
 
     ubv-to-ztf-g
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_v - ztf_g
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_V - ztf_g
 
     ubv-to-ztf-r
-        x-axis : ubv_v - ubv_r
-        y-axis : ubv_b - ubv_v
-        z-axis : ubv_r - ztf_r
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ubv_R - ztf_r
 
     Parameters
     ----------
@@ -3888,13 +3887,13 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     Parameters
     ----------
     ubv_b : array of floats
-        ubv_b photometry of galaxia / PyPopStar sources
+        ubv_B photometry of galaxia / PyPopStar sources
 
     ubv_v : array of floats
-        ubv_v photometry of galaxia / PyPopStar sources
+        ubv_V photometry of galaxia / PyPopStar sources
 
     ubv_r : array of floats
-        ubv_r photometry of galaxia / PyPopStar sources
+        ubv_R photometry of galaxia / PyPopStar sources
 
     Output
     ------
@@ -3936,6 +3935,9 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
 def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
     """
     Converts vega magnitudes into AB magnitudes for ztf filters.
+    Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
+    using the effective wavelengths from
+    http://svo2.cab.inta-csic.es/svo/theory/fps3/
 
     Parameters
     ----------
@@ -3965,6 +3967,9 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
 def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
     """
     Converts AB magnitudes into vega magnitudes for ztf filters.
+    Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
+    using the effective wavelengths from
+    http://svo2.cab.inta-csic.es/svo/theory/fps3/
 
     Parameters
     ----------

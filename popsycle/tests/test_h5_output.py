@@ -4,20 +4,20 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 import h5py
 
-def test_h5_output(ebf_file, reference_h5_file, extra_col= False):
+def test_h5_output(extra_col= False):
     """"
     Parameters
     ----------
-     ebf_file : str
-        Name of the ebf file used to generate the reference h5 file
-    
-     reference_h5_file : str
-        Name of the file to compare new output to (should be run with seed=42 on the ebf_file)
         
      extra_col : boolean, defaults to False
         Tells the code whether or not the new h5 file will have additional columns (ie does the new version of
         popsycle give more information than before
     """
+    
+    #find the test files
+    test_data_dir = '/u/casey/scratch/test_files/'
+    ebf_file= test_data_dir + 'h5_reference.ebf'
+    reference_h5_file= test_data_dir + 'h5_reference.h5'
      
     #create the new h5 file by running popsycle
     synthetic.perform_pop_syn(ebf_file = ebf_file,

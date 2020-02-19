@@ -3071,28 +3071,6 @@ def sample_spherical(npoints, speed, ndim=3):
     return vec
 
 
-def wrap180(angle_input):
-    """
-    Changes the angle range to -180 to 180 degrees
-
-    Parameters
-    ----------
-    angle_input : float or array (in degrees)
-
-    Returns
-    -------
-    angle_output : float or array (in degrees)
-
-    """
-    wrap_id = np.where((angle_input < 360) & (angle_input > 180))[0]
-    angle_output = angle_input
-
-    if len(wrap_id) > 0:
-        angle_output[wrap_id] = angle_output[wrap_id] - 360
-
-    return angle_output
-
-
 def add_precision64(input_array, power):
     """
     Need more precision for kdtree to run properly. Convert inputs from

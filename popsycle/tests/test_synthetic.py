@@ -11,6 +11,7 @@ from multiprocessing import Pool
 import itertools
 import matplotlib.pyplot as plt
 import time
+import pytest
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10**16)**-1 * 86400.0
@@ -299,3 +300,74 @@ def test_calc_events():
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
+
+def test_sample_spherical():
+    # Testing single speed with single sample in default 3 dimensions
+    N_samples = 1
+    speed_input = 1
+    output = synthetic.sample_spherical(N_samples, speed_input)
+    speed_output = np.sqrt(np.sum(output**2, axis=0))
+
+    assert output.shape[0] == 3
+    assert output.shape[1] == N_samples
+    np.testing.assert_almost_equal(speed_input, speed_output, decimal=7)
+
+    # Testing single speed with multiple samples in default 3 dimensions
+    N_samples = 5
+    speed_input = 1
+    output = synthetic.sample_spherical(N_samples, speed_input)
+    speed_output = np.sqrt(np.sum(output**2, axis=0))
+
+    assert output.shape[0] == 3
+    assert output.shape[1] == N_samples
+    np.testing.assert_almost_equal(speed_input, speed_output, decimal=7)
+
+    # Testing multiple speeds with multiple samples in default 3 dimensions
+    N_samples = 5
+    speed_input = np.arange(1, 6).astype(float)
+    output = synthetic.sample_spherical(N_samples, speed_input)
+    speed_output = np.sqrt(np.sum(output**2, axis=0))
+
+    assert output.shape[0] == 3
+    assert output.shape[1] == N_samples
+    np.testing.assert_almost_equal(speed_input, speed_output, decimal=7)
+
+    # Testing sample_spherical breaks correctly if speed of incorrect
+    # length is inserted
+    with pytest.raises(ValueError):
+        N_samples = 1
+        speed_input = np.arange(1, 6).astype(float)
+        _ = synthetic.sample_spherical(N_samples, speed_input)
+
+    # Testing single speed with single sample in 4 dimensions
+    N_samples = 1
+    speed_input = 1
+    ndim = 4
+    output = synthetic.sample_spherical(N_samples, speed_input, ndim=ndim)
+    speed_output = np.sqrt(np.sum(output**2, axis=0))
+
+    assert output.shape[0] == ndim
+    assert output.shape[1] == N_samples
+    np.testing.assert_almost_equal(speed_input, speed_output, decimal=7)
+
+    # Testing single speed with multiple samples in 4 dimensions
+    N_samples = 5
+    speed_input = 1
+    ndim = 4
+    output = synthetic.sample_spherical(N_samples, speed_input, ndim=ndim)
+    speed_output = np.sqrt(np.sum(output**2, axis=0))
+
+    assert output.shape[0] == ndim
+    assert output.shape[1] == N_samples
+    np.testing.assert_almost_equal(speed_input, speed_output, decimal=7)
+
+    # Testing multiple speeds with multiple samples in 4 dimensions
+    N_samples = 5
+    speed_input = np.arange(1, 6).astype(float)
+    ndim = 4
+    output = synthetic.sample_spherical(N_samples, speed_input, ndim=ndim)
+    speed_output = np.sqrt(np.sum(output**2, axis=0))
+
+    assert output.shape[0] == ndim
+    assert output.shape[1] == N_samples
+    np.testing.assert_almost_equal(speed_input, speed_output, decimal=7)

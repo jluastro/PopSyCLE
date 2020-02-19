@@ -3144,6 +3144,12 @@ def sample_spherical(npoints, speed, ndim=3):
     ------
     An array of the vectors.
     """
+    # Check that the speed vector is either a float or an array of length npoints
+    if type(speed) != int:
+        if type(speed) != float:
+            if len(speed) != npoints:
+                raise ValueError("{speed} must be either an int, float "
+                                 "or array of length {npoints}")
 
     vec = np.random.randn(ndim, npoints)
     vec /= np.linalg.norm(vec, axis=0)

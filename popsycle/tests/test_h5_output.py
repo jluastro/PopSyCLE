@@ -15,7 +15,7 @@ def test_h5_output(extra_col= False):
     """
     
     #find the test files
-    test_data_dir = '/u/casey/scratch/test_files/'
+    test_data_dir = '/u/samrose/scratch/test_files/'
     ebf_file= test_data_dir + 'h5_reference.ebf'
     reference_h5_file= test_data_dir + 'h5_reference.h5'
      

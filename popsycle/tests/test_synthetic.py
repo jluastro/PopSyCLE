@@ -2,16 +2,13 @@ from popsycle import synthetic
 from astropy.coordinates import SkyCoord  # High-level coordinates
 import astropy.coordinates as coord
 from astropy.table import Table
-import ebf
 from astropy import units
 import numpy as np
 import h5py
-import pdb
 from multiprocessing import Pool
 import itertools
 import matplotlib.pyplot as plt
 import time
-import pytest
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0

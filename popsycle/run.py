@@ -200,8 +200,8 @@ def run():
         sys.exit(1)
 
       synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
+                                  ebf_file=filename_dict['ebf_filename'],
                                   output_root2=args.output_root,
-                                  galaxia_area=field_config['area'],
                                   fdm=pbh_config['fdm'],
                                   pbh_mass=pbh_config['pbh_mass'],
                                   r_max=pbh_config['r_max'],

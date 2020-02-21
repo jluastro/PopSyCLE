@@ -1852,9 +1852,10 @@ def unique_events(event_table):
     Parameters
     ---------
     event_table : numpy array 
-        A table with all the events. The columns contain info about
-        the source, the lens, and about theta_E, u0, mu_rel, and t0.
-        The number of rows corresponds to the number of events.
+        A table with all the events. There are equal numbers of columns
+        containing info about the source and the lens, and four additional
+        columns with theta_E, u0, mu_rel, and t0. The number of rows
+        corresponds to the number of events.
 
     Return
     ------
@@ -1905,8 +1906,7 @@ def unique_blends(blend_table):
     blend_table : blend array 
         A table with all the events. There is 1 column with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
-        separation, and the remaining columns contain info about the neighbors
-        (same order as the other "all info" tables).
+        separation, and the remaining columns contain info about the neighbors.
 
 
     Return

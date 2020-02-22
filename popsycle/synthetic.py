@@ -3546,7 +3546,7 @@ def angdist(ra1, dec1, ra2, dec2):
     return distance
 
 
-def add_pbh(hdf5_file, ebf_file, output_root2, fdm, pbh_mass, r_max, c, r_vir, inner_slope = .5, v_esc = 550, overwrite = False, seed = None):
+def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=10, r_vir=200, inner_slope = .5, v_esc = 550, overwrite = False, seed = None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.
@@ -3798,20 +3798,19 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm, pbh_mass, r_max, c, r_vir, i
     pbh_r_galacto = cart[0]
 
     if inner_slope == 1:
-        vel_data = pd.read_csv('data/inner_slope_one.csv')
+        vel_data = pd.read_csv('data/radial_velocity_profile_steep.csv')
     elif inner_slope == .25:
-        vel_data = pd.read_csv('data/inner_slope_quarter.csv')
+        vel_data = pd.read_csv('data/radial_velocity_profile_shallow.csv')
     else:
-        vel_data = pd.read_csv('data/inner_slope_half.csv')
+        vel_data = pd.read_csv('data/radial_velocity_profile_middle.csv')
 
-    pbh_vrms = np.interp(pbh_r_galacto, vel_data['x'], vel_data['y'])
+    pbh_vrms = np.interp(pbh_r_galacto, vel_data['r'], vel_data['v'])
     v_vals = np.arange(0, v_esc) #Goes from v to v_esc
     a = (1/2)*pbh_vrms*((np.pi/2)**(1/2))
 
     rand_cdf = []
 
     for a_val in a:
-        pdf = ((2/np.pi)**(1/2))*((v_vals**2*np.exp(-v_vals**2/(2*a_val**2)))/a_val**3)
         cdf = scipy.special.erf(v_vals/(a_val*2**(1/2)))-(((2/np.pi)**(1/2))*((v_vals*np.exp(-v_vals**2/2*a_val**2))/a_val))
         rand_cdf.append(np.random.uniform(0, np.amax(cdf), 1))
     interpreted_rms_velocities = np.interp(rand_cdf, cdf, v_vals)

@@ -207,8 +207,8 @@ def run():
                                   r_max=pbh_config['r_max'],
                                   c=pbh_config['c'],
                                   r_vir=pbh_config['r_vir'],
-                                  inner_slope=args.inner_slope,
-                                  v_esc=args.v_esc,
+                                  inner_slope=pbh_config['inner_slope'],
+                                  v_esc=pbh_config['v_esc'],
                                   overwrite=args.overwrite,
                                   seed=args.seed)   
 

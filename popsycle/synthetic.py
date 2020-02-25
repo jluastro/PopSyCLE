@@ -2129,12 +2129,22 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     # Check to see that the filter name and photometric system are valid
     if photometric_system not in photometric_system_dict:
-        raise Exception('photometric_system must be a key in '
-                        'photometric_system_dict')
+        exception_str = 'photometric_system must be a key in ' \
+                        'photometric_system_dict. ' \
+                        'Acceptable values are : '
+        for photometric_system in photometric_system_dict:
+            exception_str += '%s, ' % photometric_system
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
 
     if filter_name not in photometric_system_dict[photometric_system]:
-        raise Exception('filter_name must be a value in '
-                        'photometric_system_dict[photometric_system]')
+        exception_str = 'filter_name must be a value in ' \
+                        'photometric_system_dict[%s]. ' \
+                        'Acceptable values are : ' % photometric_system
+        for filter_name in photometric_system_dict[photometric_system]:
+            exception_str += '%s, ' % filter_name
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
 
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.

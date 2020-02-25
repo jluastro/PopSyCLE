@@ -1071,6 +1071,37 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     return comp_dict, next_id
 
 
+def generate_comp_dtype(obj_arr):
+    """
+    Create compound datatype by looping over the keys of the obj_arr.
+    Assigns integers as datatypes where reasonable, and float64 to the rest
+    of the columns
+
+    Parameters
+    ----------
+    obj_arr : array or None
+        Array of stars or compact objects to be binned
+        (either comp_dict or star_dict)
+
+    Returns
+    ------
+    comp_dtype : np.dtype
+        Numpy datatype with all of the keys of obj_arr
+    """
+
+    comp_dtype_arr = []
+    for key in obj_arr.keys():
+        if key in ['rem_id', 'popid']:  # int16 (up to 32767)
+            d = (key, 'i2')
+        elif key in ['obj_id']:  # int32 (up to 2147483647)
+            d = (key, 'i4')
+        else:
+            d = (key, 'f8')  # float64
+        comp_dtype_arr.append(d)
+    comp_dtype = np.dtype(comp_dtype_arr)
+    return comp_dtype
+
+
 def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     """
     Given stars and compact objects, sort them into latitude and
@@ -1085,7 +1116,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     long_bin_edges : array
         Edges for the longitude binning (deg)
 
-    object_array : array or None
+    obj_arr : array or None
         Array of stars or compact objects to be binned
         (either comp_dict or star_dict)
 
@@ -1107,18 +1138,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
     """
-    # Create compound datatype by looping over the kesy of the obj_arr
-    # Assign integers where reasonable, and float64 to the rest of the columns
-    comp_dtype_arr = []
-    for key in obj_arr.keys():
-        if key in ['rem_id', 'popid']:  # int16 (up to 32767)
-            d = (key, 'i2')
-        elif key in ['obj_id']:  # int32 (up to 2147483647)
-            d = (key, 'i4')
-        else:
-            d = (key, 'f8')  # float64
-        comp_dtype_arr.append(d)
-    comp_dtype = np.dtype(comp_dtype_arr)
+    # Create compound datatype from obj_arr
+    comp_dtype = generate_comp_dtype(obj_arr)
 
     ##########
     # Loop through the latitude and longitude bins.

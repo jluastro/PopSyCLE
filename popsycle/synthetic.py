@@ -2127,6 +2127,15 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     if type(output_file) != str:
         raise Exception('output_file must be a string.')
 
+    # Check to see that the filter name and photometric system are valid
+    if photometric_system not in photometric_system_dict:
+        raise Exception('photometric_system must be a key in '
+                        'photometric_system_dict')
+
+    if filter_name not in photometric_system_dict[photometric_system]:
+        raise Exception('filter_name must be a value in '
+                        'photometric_system_dict[photometric_system]')
+
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.
     # Error handling.

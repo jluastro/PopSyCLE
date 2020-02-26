@@ -49,7 +49,7 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
     f_out = h5py.File(hdf5_file_new, 'w')
 
     # Looping over all of the datasets
-    for key in f_in.keys():
+    for key in f_in:
         # Simply copy over the 'lat_bin_edges' and 'long_bin_edges' datasets
         if 'bin_edges' in key:
             f_out[key] = f_in[key][:]

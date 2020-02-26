@@ -213,7 +213,6 @@ def run():
                               theta_frac=popsycle_config['theta_frac'],
                               blend_rad=popsycle_config['blend_rad'],
                               n_proc=args.n_cores_calc_events,
-                              additional_photometric_systems=additional_photometric_systems,
                               seed=args.seed,
                               overwrite=args.overwrite)
 

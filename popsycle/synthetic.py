@@ -468,11 +468,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 n_stop = int((nn + 1) * num_stars_in_bin)
 
                 bin_idx = popid_idx[age_idx[n_start:n_stop]]
-                n_binned_stars += len(bin_idx)
 
+                ##########
+                # Fill up star_dict
+                ##########
                 star_dict = {}
-                star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass',
-                                                      bin_idx)
+                star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
                 star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
                 star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
                 star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
@@ -489,15 +490,20 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
                 star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
                 star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
-
-                # Angle wrapping for longitude
-                wrap_idx = np.where(star_dict['glon'] > 180)[0]
-                star_dict['glon'][wrap_idx] -= 360
                 star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
                 star_dict['rem_id'] = np.zeros(len(bin_idx))
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
+                n_binned_stars += len(bin_idx)
 
+                ##########
+                # Angle wrapping for longitude
+                ##########
+                wrap_idx = np.where(star_dict['glon'] > 180)[0]
+                star_dict['glon'][wrap_idx] -= 360
+
+                ##########
                 # Add UBV magnitudes
+                ##########
                 star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
                 star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
                 star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)

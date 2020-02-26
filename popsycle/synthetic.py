@@ -562,12 +562,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 if comp_dict is not None:
                     comp_counter += len(comp_dict['mass'])
                     _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                 comp_dict, output_root,
-                                 additional_photometric_systems=additional_photometric_systems)
+                                 comp_dict, output_root)
                 _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                              stars_in_bin,
-                             output_root,
-                             additional_photometric_systems=additional_photometric_systems)
+                             output_root)
                 ##########
                 # Done with galaxia output in dictionary t and ebf_log.
                 # Garbage collect in order to save space.

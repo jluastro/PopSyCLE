@@ -587,7 +587,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     binned_counter = 0
     hf = h5py.File(output_root + '.h5', 'r')
-    for key in list(hf.keys()):
+    for key in hf:
         if 'bin_edges' not in key:
             binned_counter += len(hf[key])
 
@@ -1094,7 +1094,7 @@ def generate_comp_dtype(obj_arr):
     """
 
     comp_dtype_arr = []
-    for key in obj_arr.keys():
+    for key in obj_arr:
         if key in ['rem_id', 'popid']:  # int16 (up to 32767)
             d = (key, 'i2')
         elif key in ['obj_id']:  # int32 (up to 2147483647)
@@ -1158,7 +1158,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
 
             # Create data set if needed. Start with 0 stars in the dataset.
-            if dset_name not in hf.keys():
+            if dset_name not in hf:
                 dataset = hf.create_dataset(dset_name, shape=(0,),
                                             chunks=(1e4,),
                                             maxshape=(None,),
@@ -1181,7 +1181,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=comp_dtype)
-                for colname in obj_arr.keys():
+                for colname in obj_arr:
                     save_data[colname] = obj_arr[colname][id_lb]
 
                 # Resize the dataset and add data.

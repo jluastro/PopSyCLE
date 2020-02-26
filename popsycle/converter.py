@@ -68,4 +68,7 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
         f_out[key] = data_out
         del data_in
 
+    f_in.close()
+    f_out.close()
+
     print('%s generated' % hdf5_file_new)

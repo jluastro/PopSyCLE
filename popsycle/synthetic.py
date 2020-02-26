@@ -454,15 +454,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                (age_array[popid_idx] < logt_bins[aa + 1]))[0]
             len_adx = len(age_idx)
 
-            # Figure out how many random bins we will need.
+            # Figure out how many bins we will need.
             #   -- breaking up into managable chunks of 2 million stars each.
             num_stars_in_bin = 2e6
-            num_rand_bins = int(math.ceil(len_adx / num_stars_in_bin))
+            num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
             ##########
-            # Loop through random bins of 2 million stars at a time.
+            # Loop through bins of 2 million stars at a time.
             ##########
-            for nn in range(num_rand_bins):
+            for nn in range(num_bins):
                 print('Starting sub-bin ', nn)
                 n_start = int(nn * num_stars_in_bin)
                 n_stop = int((nn + 1) * num_stars_in_bin)

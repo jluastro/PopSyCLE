@@ -3,7 +3,7 @@
 fdm: 1 #Fraction of dark matter that consists of PBHs
 pbh_mass: 40 #Msun
 r_max: 8.3 #kpc, How far from the galactic center that you want to go out
-c: 10 #concentration index
+c: 12.94 #concentration index
 r_vir: 200 #kpc
 inner_slope: .5
 v_esc: 550

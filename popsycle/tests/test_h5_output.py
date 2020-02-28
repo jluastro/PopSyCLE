@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 import h5py
 
-def test_h5_output(extra_col= False):
+def test_h5_output(extra_col= True):
     """"
     Parameters
     ----------
@@ -39,7 +39,7 @@ def test_h5_output(extra_col= False):
 
     #see if we have the right number of columns
     if test_dset.shape[0] != ref_dset.shape[0] and not extra_col:
-            assert test_dset.shape[0] == ref_dset.shape[0], "the h5 files are not the same size. Run again with extra_col=True if you have added columns")
+            assert test_dset.shape[0] == ref_dset.shape[0], "the h5 files are not the same size. Run again with extra_col=True if you have added columns)"
 
     #test to see whether the files are the same
     matched_col=0 #initialize matched_col counter
@@ -61,7 +61,7 @@ def test_h5_output(extra_col= False):
                 assert test_nan_idx.all() == ref_nan_idx.all(), "Files do not have nan values at the same indices"
                 assert bad_idxs.all() == ref_nan_idx.all(), "Coulumns disagree at non-nan values"
 
-    assert matched_col == ref_dset.shape[0], "The new test h5 file does not match the reference file!")
+    assert matched_col == ref_dset.shape[0], "The new test h5 file does not match the reference file!"
 
   
 

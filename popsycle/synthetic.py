@@ -3927,33 +3927,26 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, in
     fdm : float
         Fraction of dark matter. 
         The fraction of dark matter that you want to consist of PBHs.
-        Defaults to 1.
 
     pbh_mass : int
         The single mass that all PBHs will have.
-        Defaults to 40 Msun (from LIGO detections thought to be primordial)
 
     r_max : float
         The maximum radius from the galactic center that you want to find PBHs at.
-        Defaults to 8.3 kpc (Where Earth is located)
 
     c : float
         Concentration index.
-        Defaults to 12.94 (the value given in McMillan 2016, used in the paper we derive the velocities from)
 
     r_vir : float
         The virial radius.
-        Defaults to 200 kpc (The virial radius of the Milky Way)
 
     inner_slope: float
         The inner slope of the MW halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
         Inner_slope goes into the determination of the velocities and each value returns a slightly different distribution.
-        The default value is .5 because it is in the middle of the options. More investigation is needed.
 
     v_esc: int
         The escape velocity of the Milky Way.
         v_esc is used in calculating the velocities.
-        Default is 550 because most papers cite values of 515-575, with a lot being around 550.
 
     Output
     ------

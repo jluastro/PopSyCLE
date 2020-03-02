@@ -3,22 +3,22 @@
 synthetic.py
 Functions (and their associated functions) for running the PopSyCLE pipeline.
 Including:
+- write_galaxia_params
 - perform_pop_syn
 - calc_events
 - refine_events
-- generate_slurm_script
-- transform_ubv_to_ztf
 """
 
 import numpy as np
 import h5py
 import math
 from astropy import units
+from popsycle.filters import transform_ubv_to_ztf
 from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
-from astropy.coordinates import Angle, Latitude, Longitude  # Angles
+from astropy.coordinates import Angle  # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
@@ -34,13 +34,9 @@ import os
 from sklearn import neighbors
 import itertools
 from multiprocessing import Pool
-import yaml
 import inspect
-from popstar import atmospheres
-from popstar.imf import multiplicity
-from scipy.interpolate import griddata
 import numpy.lib.recfunctions as rfn
-from popscyle import utils
+from popsycle import utils
 
 
 ##########
@@ -79,51 +75,22 @@ filt_dict['ubv_R'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
 
+##########
+# Dictionary for listing out supported photometric systems and filters
+##########
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r']
 
+##########
+# List of all supported photometric systems and filters with PyPopStar labels
+##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
                  'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
 ###########################################################################
-
-def execute(cmd, shell=False):
-    """
-    Executes a command line instruction, captures the stdout and stderr
-
-    Parameters
-    ----------
-    cmd : str
-        Command line instruction, including any executables and parameters
-
-    Optional Parameters
-    -------------------
-    shell : bool
-        Determines if the command is run through the shell. Default is False.
-
-    Outputs
-    -------
-    stdout : str
-        Contains the standard output of the executed process
-
-    stderr : str
-        Contains the standard error of the executed process
-
-    """
-    # Split the argument into a list suitable for Popen
-    args = cmd.split()
-    # subprocess.PIPE indicates that a pipe
-    # to the standard stream should be opened.
-    process = subprocess.Popen(args,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE,
-                               shell=shell)
-    stdout, stderr = process.communicate()
-
-    return stdout, stderr
 
 
 def write_galaxia_params(output_root,
@@ -966,7 +933,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
                 NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
-                NS_kick = sample_spherical(len(NS_idx), NS_kick_speed)
+                NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
@@ -975,7 +942,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
                 BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
-                BH_kick = sample_spherical(len(BH_idx), BH_kick_speed)
+                BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]
                 comp_dict['vz'][BH_idx] += BH_kick[2]
@@ -1076,7 +1043,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     return comp_dict, next_id
 
 
-def generate_comp_dtype(obj_arr):
+def _generate_comp_dtype(obj_arr):
     """
     Create compound datatype by looping over the keys of the obj_arr.
     Assigns integers as datatypes where reasonable, and float64 to the rest
@@ -1144,7 +1111,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         those bins.
     """
     # Create compound datatype from obj_arr
-    comp_dtype = generate_comp_dtype(obj_arr)
+    comp_dtype = _generate_comp_dtype(obj_arr)
 
     ##########
     # Loop through the latitude and longitude bins.
@@ -2067,7 +2034,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
 ############################################################################
 
 
-def convert_photometric_99_to_nan(table, photometric_system='ubv'):
+def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
     for name in table.colnames:
         if ('exbv' in name) or (photometric_system in name):
             cond = np.where(table[name] == -99)[0]
@@ -2178,8 +2145,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     blend_tab = Table.read(blend_fits_file)
 
     # If photometric fields contain -99, convert to nan
-    convert_photometric_99_to_nan(event_tab, photometric_system)
-    convert_photometric_99_to_nan(blend_tab, photometric_system)
+    _convert_photometric_99_to_nan(event_tab, photometric_system)
+    _convert_photometric_99_to_nan(blend_tab, photometric_system)
 
     # Only keep events with luminous sources
     event_tab = event_tab[~np.isnan(event_tab[photometric_system + '_' + filter_name + '_S'])]
@@ -3132,828 +3099,3 @@ def calc_f(lambda_eff):
     return f
 
 
-def check_for_output(filename, overwrite=False):
-    """
-    Checks for the existence of files and either overwrites them or
-    raises a warning.
-
-    Parameters
-    ----------
-    filename : str
-        Name of the file to be inspected
-
-    overwrite : bool
-        Flag to determine whether to overwrite in the presence of the file
-        or to raise an error. If True, file is overwritten.
-        If False, error is raised. Default False.
-
-    Output
-    ------
-    status : bool
-        Status of operation.
-        True: Error due to already existing file.
-        False: File either does not exist or was successfully deleted.
-
-    """
-    if os.path.exists(filename):
-        if overwrite:
-            os.remove(filename)
-            return False
-        else:
-            print('Error: Output {0} exists, cannot continue. Either '
-                  'rename {0} or rerun run.py with the --overwrite '
-                  'flag.'.format(filename))
-            return True
-    else:
-        return False
-
-
-def load_config(config_filename):
-    """
-    Load configuration parameters from a yaml file into a dictionary
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    Output
-    ------
-    config : dict
-        Dictionary containing the configuration parameters
-
-    """
-    with open(config_filename, 'r') as f:
-        config = yaml.safe_load(f)
-    return config
-
-
-def generate_field_config_file(longitude, latitude, area,
-                               config_filename='field_config.yaml'):
-    """
-    Save field configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
-    Optional Parameters
-    -------------------
-    config_filename : str
-        Name of the configuration file
-        Default: field_config.yaml
-
-    Output
-    ------
-    None
-    """
-
-    config = {'longitude': longitude,
-              'latitude': latitude,
-              'area': area}
-    generate_config_file(config_filename, config)
-
-
-def generate_slurm_config_file(path_python, account, queue,
-                               resource, n_cores_per_node, n_nodes_max,
-                               walltime_max, additional_lines,
-                               config_filename='slurm_config.yaml'):
-    """
-    Save slurm configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    path_python : str
-        Path to the python executable
-
-    account : str
-        Project account name to charge
-
-    queue : str
-        Scheduler queue type
-
-    resource : str
-        Computing resource name
-
-    n_cores_per_node : int
-        Number of cores in each node of the compute resource
-
-    n_nodes_max : int
-        Total number of nodes in the compute resource
-
-    walltime_max : int
-        Maximum number of hours for single job on the compute resource
-        Format: hh:mm:ss
-
-    additional_lines : list of strings
-        Additional lines to be run before executing run.py
-
-    Optional Parameters
-    -------------------
-    config_filename : str
-        Name of the configuration file
-        Default: slurm_config.yaml
-
-    Output
-    ------
-    None
-    """
-
-    config = {'path_python': path_python,
-              'account': account,
-              'queue': queue,
-              'resource': resource,
-              'additional_lines': additional_lines,
-              resource: {'n_cores_per_node': n_cores_per_node,
-                         'n_nodes_max': n_nodes_max,
-                         'walltime_max': walltime_max}}
-    generate_config_file(config_filename, config)
-
-
-def generate_popsycle_config_file(radius_cut, obs_time,
-                                  n_obs, theta_frac, blend_rad,
-                                  isochrones_dir,
-                                  bin_edges_number,
-                                  BH_kick_speed_mean, NS_kick_speed_mean,
-                                  photometric_system,
-                                  filter_name, red_law,
-                                  config_filename='popsycle_config.yaml'):
-    """
-    Save popsycle configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    radius_cut : float
-        Initial radius cut, in ARCSECONDS.
-
-    obs_time : float
-        Survey duration, in DAYS.
-
-    n_obs : float
-        Number of observations.
-
-    theta_frac : float
-        Another cut, in multiples of Einstein radii.
-
-    blend_rad : float
-        Stars within this distance of the lens are said to be blended.
-        Units are in ARCSECONDS.
-
-    isochrones_dir : str
-        Directory for PyPopStar isochrones
-
-    bin_edges_number : int
-        Number of edges for the bins (bins = bin_edges_number - 1)
-        Total number of bins is (bin_edges_number - 1)**2
-
-    BH_kick_speed_mean : float
-        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
-
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    red_law : str
-        The name of the reddening law to use from PopStar.
-
-    Optional Parameters
-    -------------------
-    config_filename : str
-        Name of the configuration file
-        Default: popsycle_config.yaml
-
-    Output
-    ------
-    None
-    """
-
-    if bin_edges_number is None:
-        bin_edges_number = 'None'
-
-    config = {'radius_cut': radius_cut,
-              'obs_time': obs_time,
-              'n_obs': n_obs,
-              'theta_frac': theta_frac,
-              'blend_rad': blend_rad,
-              'isochrones_dir': isochrones_dir,
-              'bin_edges_number': bin_edges_number,
-              'BH_kick_speed_mean': BH_kick_speed_mean,
-              'NS_kick_speed_mean': NS_kick_speed_mean,
-              'photometric_system': photometric_system,
-              'filter_name': filter_name,
-              'red_law': red_law}
-    generate_config_file(config_filename, config)
-
-
-def generate_config_file(config_filename, config):
-    """
-    Save configuration parameters from a dictionary into a yaml file
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    config : dict
-        Dictionary containing the configuration parameters
-
-    Output
-    ------
-    None
-
-    """
-    with open(config_filename, 'w') as outfile:
-        yaml.dump(config, outfile, default_flow_style=True)
-
-
-def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
-                           path_run, output_root,
-                           longitude, latitude, area,
-                           n_cores_calc_events,
-                           walltime,
-                           seed=None, overwrite=False, submitFlag=True,
-                           skip_galaxia=False, skip_perform_pop_syn=False,
-                           skip_calc_events=False, skip_refine_events=False):
-    """
-    Generates the slurm script that executes the PopSyCLE pipeline
-
-    Parameters
-    ----------
-    slurm_config_filename : str
-        Name of slurm_config.yaml file containing the slurm parameters
-        that will be used the generate the slurm script header.
-
-    popsycle_config_filename : str
-        Name of popsycle_config.yaml file containing the PopSyCLE parameters
-        that will be passed along to the run_on_slurm.py command in the
-        slurm script.
-
-    path_run : str
-        Directory containing the parameter file and PopSyCLE output files
-
-    output_root : str
-        Base filename of the output files
-        Examples:
-           '{output_root}.h5'
-           '{output_root}.ebf'
-           '{output_root}_events.h5'
-
-    longitude : float
-        Galactic longitude, ranging from -180 degrees to 180 degrees
-
-    latitude : float
-        Galactic latitude, ranging from -90 degrees to 90 degrees
-
-    area : float
-        Area of the sky that will be generated, in square degrees
-
-    n_cores_calc_events : int
-        Number of cores for executing synthetic.calc_events
-
-    walltime : str
-        Amount of walltime that the script will request from slurm.
-        Format: hh:mm:ss
-
-    Optional Parameters
-    -------------------
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
-
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    submitFlag : bool
-        If set to True, script will be submitted to the slurm scheduler
-        after being written to disk. If set to False, it will not be submitted.
-        Default is True
-
-    skip_galaxia : bool
-        If set to True, pipeline will not run Galaxia and assume that the
-        resulting ebf file is already present.
-        Default is False
-
-    skip_perform_pop_syn : bool
-        If set to True, pipeline will not run perform_pop_syn and assume that
-        the resulting h5 file is already present.
-        Default is False
-
-    skip_calc_events : bool
-        If set to True, pipeline will not run calc_events and assume that the
-        resulting events and blends files are already present.
-        Default is False
-
-    skip_refine_events : bool
-        If set to True, pipeline will not run refine_events.
-        Default is False
-
-    Output
-    ------
-    None
-
-    """
-    # Check for files
-    if not os.path.exists(slurm_config_filename):
-        raise Exception('Slurm configuration file {0} does not exist. '
-                        'Write out file using synthetic.generate_config_file '
-                        'before proceeding.'.format(slurm_config_filename))
-    if not os.path.exists(popsycle_config_filename):
-        raise Exception('PopSyCLE configuration file {0} does not exist. '
-                        'Write out file using synthetic.generate_config_file '
-                        'before proceeding.'.format(popsycle_config_filename))
-
-    # Enforce popsycle_config_filename is an absolute path
-    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
-
-    # Make a run directory for the PopSyCLE output
-    if not os.path.exists(path_run):
-        os.makedirs(path_run)
-
-    # Write a field configuration file to disk in path_run
-    config = {'longitude': longitude,
-              'latitude': latitude,
-              'area': area}
-    field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
-                                                               output_root)
-    generate_config_file(field_config_filename, config)
-
-    # Load the slurm configuration file
-    slurm_config = load_config(slurm_config_filename)
-
-    # Create a slurm jobname base that all stages will be appended to
-    jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
-
-    ## Bring the slurm_config values into the namespace so that down before
-    ## the **locals() command can be executed
-
-    # Path to the python executable
-    path_python = slurm_config['path_python']
-    # Project account name to charge
-    account = slurm_config['account']
-    # Queue
-    queue = slurm_config['queue']
-    # Name of the resource that will be ussed for the run
-    resource = slurm_config['resource']
-    # Maximum number of ores per node
-    n_cores_per_node = slurm_config[resource]['n_cores_per_node']
-    # Maximum number of nodes
-    n_nodes_max = slurm_config[resource]['n_nodes_max']
-    # Maximum walltime (hours)
-    walltime_max = slurm_config[resource]['walltime_max']
-    # Get filepath of the run_on_slurm file
-    run_filepath = os.path.dirname(inspect.getfile(load_config))
-
-    # Template for writing slurm script. Text must be left adjusted.
-    slurm_template = """#!/bin/sh
-# Job name
-#SBATCH --account={account}
-#SBATCH --qos={queue}
-#SBATCH --constraint={resource}
-#SBATCH --nodes=1
-#SBATCH --time={walltime}
-#SBATCH --job-name={jobname}
-echo "---------------------------"
-echo Longitude = {longitude}
-echo Latitude = {latitude}
-echo Area = {area}
-echo path_run = {path_run}
-echo jobname = {jobname} 
-echo "Job id = $SLURM_JOBID"
-echo "Proc id = $SLURM_PROCID"
-hostname
-date
-echo "---------------------------"
-"""
-    for line in slurm_config['additional_lines']:
-        slurm_template += '%s\n' % line
-    slurm_template += """
-cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
-date
-echo "All done!"
-"""
-
-    # Check that the specified number of cores does not exceed the resource max
-    if n_cores_calc_events > n_cores_per_node:
-        print('Error: specified number of cores exceeds limit. Exiting...')
-        return None
-
-    optional_cmds = ''
-
-    # Pass along optional parameters if present
-    if overwrite:
-        optional_cmds += '--overwrite '
-
-    if seed is not None:
-        optional_cmds += '--seed=%i ' % seed
-
-    if skip_galaxia:
-        optional_cmds += '--skip-galaxia '
-
-    if skip_perform_pop_syn:
-        optional_cmds += '--skip-perform-pop-syn '
-
-    if skip_calc_events:
-        optional_cmds += '--skip-calc-events '
-
-    if skip_refine_events:
-        optional_cmds += '--skip-refine-events '
-
-    # Populate the mpi_template specified inputs
-    job_script = slurm_template.format(**locals())
-
-    # Write the script to the path_run folder
-    script_filename = path_run + '/run_popsycle_%s.sh' % (jobname)
-    with open(script_filename, 'w') as f:
-        f.write(job_script)
-
-    # Submit the job to disk
-    if submitFlag:
-        os.chdir(path_run)
-        stdout, stderr = execute('sbatch {0}'.format(script_filename))
-        print('Submitted job {0} to {1} for {2} time'.format(script_filename,
-                                                             resource,
-                                                             walltime))
-        print('---- Standard Out')
-        print(stdout)
-        print('---- Standard Err')
-        print(stderr)
-        print('')
-
-
-def generate_ubv_to_ztf_grid(iso_dir, filter_name):
-    """
-    Creates the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
-    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
-    magnitudes from the UBV filters
-
-    ubv-to-ztf-g
-        x-axis : ubv_V - ubv_R
-        y-axis : ubv_B - ubv_V
-        z-axis : ubv_V - ztf_g
-
-    ubv-to-ztf-r
-        x-axis : ubv_V - ubv_R
-        y-axis : ubv_B - ubv_V
-        z-axis : ubv_R - ztf_r
-
-    Parameters
-    ----------
-    iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
-
-    Output
-    ------
-    None
-
-    """
-
-    # Define isochrone parameters for calculating absolute magnitudes
-    logAge = np.log10(8 * 10 ** 9)  # Age in log(years)
-    dist = 10  # distance in parsec
-    metallicity = 0  # Metallicity in [M/H]
-
-    # Define evolution/atmosphere models and extinction law
-    evo_model = evolution.MISTv1()
-    atm_func = atmospheres.get_merged_atmosphere
-    red_law = reddening.RedLawDamineli16()
-
-    # Also specify filters for synthetic photometry (optional). Here we use
-    # the HST WFC3-IR F127M, F139M, and F153M filters
-    filt_list = ['ztf,r', 'ztf,g', 'ubv,B', 'ubv,V', 'ubv,R']
-
-    # Make multiplicity object
-    imf_multi = multiplicity.MultiplicityUnresolved()
-
-    # Make IMF object; we'll use a broken power law with the parameters from Kroupa+01
-    # Define boundaries of each mass segement
-    massLimits = np.array([0.08, 0.5, 1, 120])
-    # Power law slope associated with each mass segment
-    powers = np.array([-1.3, -2.3, -2.3])
-    my_imf = imf.IMF_broken_powerlaw(massLimits, powers, imf_multi)
-
-    # Define total cluster mass
-    mass = 10 ** 5.
-
-    # Make ifmr
-    my_ifmr = ifmr.IFMR()
-
-    ubv_b = np.array([])
-    ubv_v = np.array([])
-    ubv_r = np.array([])
-    ztf_g = np.array([])
-    ztf_r = np.array([])
-
-    # Create photometry for a range of extinctions
-    for AKs in np.arange(0, 1.1, .1):
-        my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
-                                         metallicity=metallicity,
-                                         evo_model=evo_model,
-                                         atm_func=atm_func,
-                                         red_law=red_law, filters=filt_list,
-                                         iso_dir=iso_dir)
-        # Make cluster object
-        cluster = synthetic.ResolvedCluster(my_iso, my_imf, mass,
-                                            ifmr=my_ifmr)
-        clust = cluster.star_systems
-        cond = ~np.isnan(clust['m_ubv_V'])
-        clust = clust[cond]
-        clust_cond = np.random.choice(np.arange(len(clust)),
-                                      size=10000, replace=False)
-
-        ubv_b = np.append(ubv_b, clust['m_ubv_B'][clust_cond])
-        ubv_v = np.append(ubv_v, clust['m_ubv_V'][clust_cond])
-        ubv_r = np.append(ubv_r, clust['m_ubv_R'][clust_cond])
-        ztf_g = np.append(ztf_g, clust['m_ztf_g'][clust_cond])
-        ztf_r = np.append(ztf_r, clust['m_ztf_r'][clust_cond])
-
-    # Given the filter name, define a difference in magnitude to be fit for
-    if filter_name == 'g':
-        delta_m = ubv_v - ztf_g
-    elif filter_name == 'r':
-        delta_m = ubv_r - ztf_r
-
-    # Colors in both x and y direction go from 0 to 6 magnitudes
-    # x_grid_arr: ubv_v - ubv_r
-    # y_grid_arr: ubv_b - ubv_v
-    x_grid_arr = np.linspace(0, 6, 1000)
-    y_grid_arr = np.linspace(0, 6, 1000)
-
-    # Create a grid of values on x_grid_arr and y_grid_arr
-    # with linear algorithm
-    ubv_to_ztf_grid = griddata((ubv_v - ubv_r, ubv_b - ubv_v),
-                               delta_m,
-                               (x_grid_arr[None, :], y_grid_arr[:, None]),
-                               method='linear')
-
-    # Resample this grid with both the liner and nearest algorithms onto a
-    # finer grid. This allows for the 'nearest' method to
-    # create fewer artifacts
-    xx, yy = np.meshgrid(x_grid_arr, y_grid_arr)
-    xx, yy = xx.flatten(), yy.flatten()
-
-    cond = ~np.isnan(ubv_to_ztf_grid.flatten())
-    ubv_to_ztf_grid_filled = griddata((xx[cond], yy[cond]),
-                                      ubv_to_ztf_grid.flatten()[cond],
-                                      (x_grid_arr[None, :],
-                                       y_grid_arr[:, None]),
-                                      method='linear')
-
-    ubv_to_ztf_grid_nearest = griddata((xx[cond], yy[cond]),
-                                       ubv_to_ztf_grid.flatten()[cond],
-                                       (x_grid_arr[None, :],
-                                        y_grid_arr[:, None]),
-                                       method='nearest')
-
-    # Place values into final grid from linear algorthm, and from the
-    # nearest algorithm where the linear algorithm could not find a solution
-    cond = np.isnan(ubv_to_ztf_grid_filled)
-    ubv_to_ztf_grid_final = np.zeros_like(ubv_to_ztf_grid_filled)
-    ubv_to_ztf_grid_final[cond] = ubv_to_ztf_grid_nearest[cond]
-    ubv_to_ztf_grid_final[~cond] = ubv_to_ztf_grid_filled[~cond]
-
-    # Save the data
-    grid_arr = np.squeeze(np.dstack([xx, yy]), axis=0)
-    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
-    ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
-    np.savez(ubv_to_ztf_filename,
-             ubv_to_ztf_grid=ubv_to_ztf_grid_final.astype(np.float32),
-             kdtree_grid=grid_arr.astype(np.float32))
-
-
-def load_ubv_to_ztf_grid(filter_name):
-    """
-    Loads the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
-    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
-    magnitudes from the UBV filters, as well as the kdtree of those values
-
-    ubv-to-ztf-g
-        x-axis : ubv_V - ubv_R
-        y-axis : ubv_B - ubv_V
-        z-axis : ubv_V - ztf_g
-
-    ubv-to-ztf-r
-        x-axis : ubv_V - ubv_R
-        y-axis : ubv_B - ubv_V
-        z-axis : ubv_R - ztf_r
-
-    Parameters
-    ----------
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
-
-    Output
-    ------
-    ubv_to_ztf_grid : 2D numpy array
-        2D grid array of UBV colors with each cell containing the difference
-        between a ztf filter and a ubv filter
-
-    kdtree : cKDTree
-        kdtree containing the grid of colors on the x-axis and y-axis
-
-    """
-    # Load the ubv_to_ztf_grid from the file
-    data_dir = '%s/data' % os.path.dirname(inspect.getfile(perform_pop_syn))
-    ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
-    ubv_to_ztf_grid_file = np.load(ubv_to_ztf_filename)
-
-    # Generate a kdtree at the locations of all of the grid points
-    ubv_to_ztf_grid = ubv_to_ztf_grid_file['ubv_to_ztf_grid']
-    kdtree = cKDTree(ubv_to_ztf_grid_file['kdtree_grid'])
-
-    return ubv_to_ztf_grid, kdtree
-
-
-def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
-    """
-    Converts ubv filters (b, v, r) into ztf filters (g, r)
-
-    Parameters
-    ----------
-    ubv_b : array of floats
-        ubv_B photometry of galaxia / PyPopStar sources
-
-    ubv_v : array of floats
-        ubv_V photometry of galaxia / PyPopStar sources
-
-    ubv_r : array of floats
-        ubv_R photometry of galaxia / PyPopStar sources
-
-    Output
-    ------
-    ztf_g : array of floats
-        ztf_g photometry of galaxia / PyPopStar sources
-
-    ztf_r : array of floats
-        ztf_r photometry of galaxia / PyPopStar sources
-
-    """
-
-    # Convert the ubv photometry into the right format
-    x_data = ubv_v - ubv_r
-    y_data = ubv_b - ubv_v
-    data = np.squeeze(np.dstack([x_data, y_data]), axis=0)
-
-    # Only query on data that is luminous
-    cond_lum = ~np.isnan(data).any(axis=1)
-
-    for filter_name in ['g', 'r']:
-        # Start with an empty array of nans
-        ztf_diff = np.full(len(ubv_b), np.nan)
-
-        # Find locations on the grid where x_data and y_data are located.
-        # Put those values into the ztf_diff array
-        ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
-        _, indexes = kdtree.query(data[cond_lum])
-        ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
-
-        # Convert to ztf_g and ztf_r
-        if filter_name == 'g':
-            ztf_g = ubv_v - ztf_diff
-        elif filter_name == 'r':
-            ztf_r = ubv_r - ztf_diff
-
-    return ztf_g, ztf_r
-
-
-def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
-    """
-    Converts vega magnitudes into AB magnitudes for ztf filters.
-    Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
-    using the effective wavelengths from
-    http://svo2.cab.inta-csic.es/svo/theory/fps3/
-
-    Parameters
-    ----------
-    ztf_mag_vega : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in vega system
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
-
-    Output
-    ------
-    ztf_mag_AB : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in AB system
-
-    """
-    if filter_name == 'g':
-        ztf_mag_AB = ztf_mag_vega - 0.07
-    elif filter_name == 'r':
-        ztf_mag_AB = ztf_mag_vega + 0.19
-    else:
-        print('filter_name must be either g or r')
-        ztf_mag_AB = None
-    return ztf_mag_AB
-
-
-def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
-    """
-    Converts AB magnitudes into vega magnitudes for ztf filters.
-    Extrapolated from http://astroweb.case.edu/ssm/ASTR620/alternateabsmag.html
-    using the effective wavelengths from
-    http://svo2.cab.inta-csic.es/svo/theory/fps3/
-
-    Parameters
-    ----------
-    ztf_mag_AB : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in AB system
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
-
-    Output
-    ------
-    ztf_mag_vega : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in vega system
-
-    """
-    if filter_name == 'g':
-        ztf_mag_vega = ztf_mag_AB + 0.07
-    elif filter_name == 'r':
-        ztf_mag_vega = ztf_mag_AB - 0.19
-    else:
-        print('filter_name must be either g or r')
-        ztf_mag_vega = None
-    return ztf_mag_vega
-
-
-def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):
-    """
-    Algorithm for finding the nearest grid cell on a 2D array given a
-    datapoint that falls within the bounds of the 2D array.
-
-    Parameters
-    ----------
-    grid : 2D numpy array
-        2D array with size (len(y_grid_arr), len(x_grid_array))
-
-    x_grid_arr : numpy array
-        2D grid indices in the x-dimension
-
-    y_grid_arr : numpy array
-        2D grid indices in the y-dimension
-
-    x_data : numpy array
-        x-coordinate for data that will be located onto the grid
-
-    y_data : numpy array
-        y-coordinate for data that will be located onto the grid
-
-    Output
-    ------
-    gridpoint_arr : numpy array
-        list of nearest cell values on the grid at
-        the location of (x_data, y_data)
-
-    """
-    # Convert x_data and y_data to array if single data point is received
-    x_data = np.atleast_1d(x_data)
-    y_data = np.atleast_1d(y_data)
-
-    gridpoint_arr = []
-    for x, y in zip(x_data, y_data):
-        # Loop through x_data and y_data
-        if np.isnan(x) or np.isnan(y):
-            # If either x_data or y_data is nan, return nan
-            gridpoint = np.nan
-        else:
-            # Find location on the grid where x_data and y_data are
-            # closest to the grid indices
-            x_idx = np.argmin(np.abs(x - x_grid_arr))
-            y_idx = np.argmin(np.abs(y - y_grid_arr))
-            gridpoint = grid[y_idx, x_idx]
-        gridpoint_arr.append(gridpoint)
-
-    # Convert gridpoint_arr into numpy array
-    gridpoint_arr = np.array(gridpoint_arr)
-
-    # If only a single data point was received, return a single value
-    if len(gridpoint_arr) == 1:
-        gridpoint_arr = gridpoint_arr[0]
-
-    return gridpoint_arr

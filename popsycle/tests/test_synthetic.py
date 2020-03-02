@@ -32,16 +32,14 @@ def test_calc_blends():
     print(name00, name01, name10, name11)
 
     hf = h5py.File(hdf5_file, 'r')
-    bigpatch = np.concatenate((hf[name00], hf[name01], hf[name10], hf[name11]),
-                              axis=1)
+    bigpatch = np.concatenate((hf[name00], hf[name01], hf[name10], hf[name11]), axis=1)
     hf.close()
     print(bigpatch.shape)
 
     time = 0.0
     r_t = bigpatch[9] + time * bigpatch[12] * kms_to_kpcday  # kpc
     b_t = bigpatch[10] + time * bigpatch[13] * masyr_to_degday  # deg
-    l_t = bigpatch[11] + time * (bigpatch[14] / np.cos(
-        np.radians(bigpatch[10]))) * masyr_to_degday  # deg
+    l_t = bigpatch[11] + time * (bigpatch[14] / np.cos(np.radians(bigpatch[10]))) * masyr_to_degday  # deg
 
     ##########
     # Define coordinates.
@@ -56,8 +54,7 @@ def test_calc_blends():
     # event_lbt_tmp = event_lbt_tmp[0:100]
 
     # I need to convert this to a list of numpy arrays.
-    event_lbt = np.array(
-        [event_lbt_tmp[col].data for col in event_lbt_tmp.colnames])
+    event_lbt = np.array([event_lbt_tmp[col].data for col in event_lbt_tmp.colnames])
     print(type(event_lbt))
 
     blend_rad = 1.0  # arcseconds

@@ -40,6 +40,7 @@ from popstar import atmospheres
 from popstar.imf import multiplicity
 from scipy.interpolate import griddata
 import numpy.lib.recfunctions as rfn
+from popscyle import utils
 
 
 ##########
@@ -539,12 +540,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 #########
                 # Add precision to r, b, l, vr, mu_b, mu_lcosb
                 #########
-                star_dict['rad'] = add_precision64(star_dict['rad'], -4)
-                star_dict['glat'] = add_precision64(star_dict['glat'], -4)
-                star_dict['glon'] = add_precision64(star_dict['glon'], -4)
-                star_dict['vr'] = add_precision64(vr, -4)
-                star_dict['mu_b'] = add_precision64(mu_b, -4)
-                star_dict['mu_lcosb'] = add_precision64(mu_lcosb, -4)
+                star_dict['rad'] = utils.add_precision64(star_dict['rad'], -4)
+                star_dict['glat'] = utils.add_precision64(star_dict['glat'], -4)
+                star_dict['glon'] = utils.add_precision64(star_dict['glon'], -4)
+                star_dict['vr'] = utils.add_precision64(vr, -4)
+                star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
+                star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
 
                 ##########
                 # Perform population synthesis.
@@ -980,9 +981,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
-            comp_dict['rad'] = add_precision64(comp_dict['rad'], -4)
-            comp_dict['glat'] = add_precision64(comp_dict['glat'], -4)
-            comp_dict['glon'] = add_precision64(comp_dict['glon'], -4)
+            comp_dict['rad'] = utils.add_precision64(comp_dict['rad'], -4)
+            comp_dict['glat'] = utils.add_precision64(comp_dict['glat'], -4)
+            comp_dict['glon'] = utils.add_precision64(comp_dict['glon'], -4)
 
             # Assign vr, mu_b, mu_lcosb.
             comp_sph = calc_sph_motion(comp_dict['vx'],
@@ -994,9 +995,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             comp_dict['vr'], comp_dict['mu_b'], comp_dict['mu_lcosb'] = comp_sph
 
             # Add precision to vr, mu_b, mu_lcosb
-            comp_dict['vr'] = add_precision64(comp_dict['vr'], -4)
-            comp_dict['mu_b'] = add_precision64(comp_dict['mu_b'], -4)
-            comp_dict['mu_lcosb'] = add_precision64(comp_dict['mu_lcosb'], -4)
+            comp_dict['vr'] = utils.add_precision64(comp_dict['vr'], -4)
+            comp_dict['mu_b'] = utils.add_precision64(comp_dict['mu_b'], -4)
+            comp_dict['mu_lcosb'] = utils.add_precision64(comp_dict['mu_lcosb'], -4)
 
             # Assign age.
             comp_dict['age'] = log_age * np.ones(len(comp_dict['vx']))
@@ -3089,66 +3090,6 @@ def calc_ext(E, f):
     m_E = E * f
 
     return m_E
-
-
-def sample_spherical(npoints, speed, ndim=3):
-    """
-    Randomly sample points on a sphere.
-    I found this code on stackexchange.
-
-    Parameters
-    ---------
-    npoints : float
-        The number of points you want to generate.
-
-    speed : float
-        The radius of the sphere (aka the magnitude of the vectors.)
-
-    dim : float
-        The dimension of the space in which the sphere is embedded
-        (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
-
-    Return
-    ------
-    An array of the vectors.
-    """
-
-    vec = np.random.randn(ndim, npoints)
-    vec /= np.linalg.norm(vec, axis=0)
-    vec *= speed
-    return vec
-
-
-def add_precision64(input_array, power):
-    """
-    Need more precision for kdtree to run properly. Convert inputs from
-    float32 to float64, and add a random perturbation beginning in the
-    nths decimal place.
-
-    Parameters
-    ----------
-    input_array : float or array (float32)
-        Thing that needs more precision.
-
-    power : float
-        To what place you want the perturbation.
-
-    Return
-    ------
-    output_array : float or array (float64)
-        Thing that has more precision.
-
-    """
-    # Perturb.
-    pert = 10 ** power * (np.random.rand(len(input_array)) - 0.5)
-
-    # Convert to float64.
-    output_array = np.atleast_1d(np.float64(input_array))
-
-    # Add the perturbation.
-    output_array = output_array + pert
-
-    return output_array
 
 
 def get_Alambda_AKs(red_law_name, lambda_eff):

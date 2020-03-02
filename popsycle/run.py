@@ -151,9 +151,8 @@ def run():
     filename_dict = return_filename_dict(args.output_root)
 
     # Prepare additional_photometric_systems
-    if popsycle_config['photometric_system'] == 'ubv':
-        additional_photometric_systems = None
-    else:
+    additional_photometric_systems = None
+    if popsycle_config['photometric_system'] != 'ubv':
         additional_photometric_systems = [popsycle_config['photometric_system']]
 
     if not args.skip_galaxia:
@@ -184,7 +183,6 @@ def run():
 
         # Run perform_pop_syn
         print('-- Executing perform_pop_syn')
-
         synthetic.perform_pop_syn(
             ebf_file=filename_dict['ebf_filename'],
             output_root=args.output_root,
@@ -207,7 +205,6 @@ def run():
 
         # Run calc_events
         print('-- Executing calc_events')
-
         synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
                               output_root2=args.output_root,
                               radius_cut=popsycle_config['radius_cut'],
@@ -216,7 +213,6 @@ def run():
                               theta_frac=popsycle_config['theta_frac'],
                               blend_rad=popsycle_config['blend_rad'],
                               n_proc=args.n_cores_calc_events,
-                              additional_photometric_systems=additional_photometric_systems,
                               seed=args.seed,
                               overwrite=args.overwrite)
 

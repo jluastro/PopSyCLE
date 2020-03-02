@@ -15,6 +15,27 @@ kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
 au_to_kpc = 4.848 * 10 ** -9
 
 
+def test_galactic_to_heliocentric_1():
+    """
+    Test that the formula gives the right things in 3 simple geometry cases.
+    """
+    r1, b1, l1 = synthetic.heliocentric_to_galactic(1, 0, 0)
+    np.testing.assert_equal([r1, b1, l1], [1, 0, 0])
+    
+def test_galactic_to_heliocentric_2():
+    """
+    Test that the formula gives the right things in 3 simple geometry cases.
+    """
+    r2, b2, l2 = synthetic.heliocentric_to_galactic(0, 1, 0)
+    np.testing.assert_equal([r2, b2, l2], [1, 0, 90])
+
+def test_galactic_to_heliocentric_3():
+    """
+    Test that the formula gives the right things in 3 simple geometry cases.
+    """
+    r3, b3, l3 = synthetic.heliocentric_to_galactic(0, 0, 1)
+    np.testing.assert_equal([r3, b3, l3], [1, 90, 0])
+
 def test_calc_blends():
     test_data_dir = '/u/casey/scratch/work/microlens/galaxia_test/OGLE672/'
 

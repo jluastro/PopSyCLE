@@ -609,11 +609,6 @@ def run():
         Exiting...""".format(args.popsycle_config_filename))
         sys.exit(1)
 
-    # Create an isochrones mirror in the current directory
-    isochrones_dir = './isochrones'
-    if not os.path.exists(isochrones_dir):
-        os.symlink(popsycle_config['isochrones_dir'], isochrones_dir)
-
     # Return the dictionary containing PopSyCLE output filenames
     filename_dict = _return_filename_dict(args.output_root)
 
@@ -628,19 +623,13 @@ def run():
                              args.overwrite):
             sys.exit(1)
 
-        # Write out parameters for Galaxia run to disk
-        print('-- Generating galaxia params')
-        synthetic.write_galaxia_params(
-            output_root=args.output_root,
-            longitude=field_config['longitude'],
-            latitude=field_config['latitude'],
-            area=field_config['area'],
-            seed=args.seed)
-
-        # Run Galaxia from that parameter file
-        cmd = 'galaxia -r galaxia_params.%s.txt' % args.output_root
-        print('** Executing galaxia with {0} **'.format(cmd))
-        _ = utils.execute(cmd)
+        # Run Galaxia
+        print('-- Running Galaxia')
+        synthetic.run_galaxia(output_root=args.output_root,
+                              longitude=field_config['longitude'],
+                              latitude=field_config['latitude'],
+                              area=field_config['area'],
+                              seed=args.seed)
 
     if not args.skip_perform_pop_syn:
         # Remove perform_pop_syn output if already exists and overwrite=True
@@ -703,8 +692,7 @@ def run():
         print('-- Executing refine_events')
         synthetic.refine_events(input_root=args.output_root,
                                 filter_name=popsycle_config['filter_name'],
-                                photometric_system=popsycle_config[
-                                    'photometric_system'],
+                                photometric_system=popsycle_config['photometric_system'],
                                 red_law=popsycle_config['red_law'],
                                 overwrite=args.overwrite,
                                 output_file='default')

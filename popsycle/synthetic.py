@@ -170,6 +170,53 @@ def write_galaxia_params(output_root,
             print('-- %s' % param)
 
 
+def run_galaxia(output_root, longitude, latitude, area,
+                seed=None):
+    """
+    Given an object root, sky location and area, creates the parameter
+    file that Galaxia requires for running and executes Galaxia.
+    User can also specify a seed for Galaxia to use in its object generation.
+
+    Parameters
+    ----------
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    Optional Parameters
+    -------------------
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a seed from the current time. Setting this seed guarantees
+         identical results.
+    """
+
+    # Writes out galaxia params to disk
+    write_galaxia_params(output_root=output_root,
+                         longitude=longitude,
+                         latitude=latitude,
+                         area=area,
+                         seed=seed)
+
+    # Execute Galaxia
+    cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
+    print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
+    _ = utils.execute(cmd)
+    print('** Galaxia complete **')
+
+
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,

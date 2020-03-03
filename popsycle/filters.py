@@ -56,6 +56,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     # Also specify filters for synthetic photometry (optional). Here we use
     # the HST WFC3-IR F127M, F139M, and F153M filters
     filt_list = ['ztf,r', 'ztf,g', 'ubv,B', 'ubv,V', 'ubv,R']
+    filt_list_reformat = ['m_%s' % f.replace(',', '_') for f in filt_list]
 
     # Make multiplicity object
     imf_multi = multiplicity.MultiplicityUnresolved()
@@ -90,9 +91,8 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                          iso_dir=iso_dir)
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
-        my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        my_filt_list = ['m_%s' % f.replace(',', '_') for f in filt_list]
-        if set(my_filt_list) != set(my_iso_filters):
+        iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
+        if len(set(filt_list_reformat) - set(iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
                                              metallicity=metallicity,
                                              evo_model=evo_model,

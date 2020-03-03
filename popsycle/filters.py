@@ -85,13 +85,14 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                          metallicity=metallicity,
                                          evo_model=evo_model,
                                          atm_func=atm_func,
-                                         red_law=red_law, filters=filt_list,
+                                         red_law=red_law,
+                                         filters=filt_list,
                                          iso_dir=iso_dir)
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        filt_list = ['m_%s' % f.replace(',', '_') for f in filt_list]
-        if set(filt_list) != set(my_iso_filters):
+        my_filt_list = ['m_%s' % f.replace(',', '_') for f in filt_list]
+        if set(my_filt_list) != set(my_iso_filters):
             my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
                                              metallicity=metallicity,
                                              evo_model=evo_model,

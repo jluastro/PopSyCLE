@@ -259,9 +259,9 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
 
         # Convert to ztf_g and ztf_r
         if filter_name == 'g':
-            ztf_g = ztf_diff - ubv_v
+            ztf_g = ubv_v + ztf_diff
         elif filter_name == 'r':
-            ztf_r = ztf_diff - ubv_r
+            ztf_r = ubv_r + ztf_diff
 
     return ztf_g, ztf_r
 

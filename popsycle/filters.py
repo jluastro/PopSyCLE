@@ -21,12 +21,12 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     ubv-to-ztf-g
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
-        z-axis : ubv_V - ztf_g
+        z-axis : ztf_g - ubv_V
 
     ubv-to-ztf-r
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
-        z-axis : ubv_R - ztf_r
+        z-axis : ztf_r - ubv_R
 
     Parameters
     ----------
@@ -56,6 +56,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     # Also specify filters for synthetic photometry (optional). Here we use
     # the HST WFC3-IR F127M, F139M, and F153M filters
     filt_list = ['ztf,r', 'ztf,g', 'ubv,B', 'ubv,V', 'ubv,R']
+    filt_list_reformat = ['m_%s' % f.replace(',', '_') for f in filt_list]
 
     # Make multiplicity object
     imf_multi = multiplicity.MultiplicityUnresolved()
@@ -85,8 +86,21 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                          metallicity=metallicity,
                                          evo_model=evo_model,
                                          atm_func=atm_func,
-                                         red_law=red_law, filters=filt_list,
+                                         red_law=red_law,
+                                         filters=filt_list,
                                          iso_dir=iso_dir)
+        # Check that the isochrone has all of the filters in filt_list
+        # If not, force recreating the isochrone with recomp=True
+        iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
+        if len(set(filt_list_reformat) - set(iso_filters)) > 0:
+            my_iso = synthetic.IsochronePhot(logAge, AKs, dist,
+                                             metallicity=metallicity,
+                                             evo_model=evo_model,
+                                             atm_func=atm_func,
+                                             red_law=red_law,
+                                             filters=filt_list,
+                                             iso_dir=iso_dir,
+                                             recomp=True)
         # Make cluster object
         cluster = synthetic.ResolvedCluster(my_iso, my_imf, mass,
                                             ifmr=my_ifmr)
@@ -104,9 +118,9 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
     # Given the filter name, define a difference in magnitude to be fit for
     if filter_name == 'g':
-        delta_m = ubv_v - ztf_g
+        delta_m = ztf_g - ubv_v
     elif filter_name == 'r':
-        delta_m = ubv_r - ztf_r
+        delta_m = ztf_r - ubv_r
 
     # Colors in both x and y direction go from 0 to 6 magnitudes
     # x_grid_arr: ubv_v - ubv_r
@@ -165,12 +179,12 @@ def load_ubv_to_ztf_grid(filter_name):
     ubv-to-ztf-g
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
-        z-axis : ubv_V - ztf_g
+        z-axis : ztf_g - ubv_V
 
     ubv-to-ztf-r
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
-        z-axis : ubv_R - ztf_r
+        z-axis : ztf_r - ubv_R
 
     Parameters
     ----------
@@ -245,9 +259,9 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
 
         # Convert to ztf_g and ztf_r
         if filter_name == 'g':
-            ztf_g = ubv_v - ztf_diff
+            ztf_g = ubv_v + ztf_diff
         elif filter_name == 'r':
-            ztf_r = ubv_r - ztf_diff
+            ztf_r = ubv_r + ztf_diff
 
     return ztf_g, ztf_r
 

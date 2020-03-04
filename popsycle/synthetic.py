@@ -3288,8 +3288,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     # will not overwrite the input hdf5 file
     output_hdf5_file = '%s.h5' % output_root2
     if hdf5_file == output_hdf5_file:
-        raise Exception('Output %s cannot be equal to '
-                        'input %s' % (output_hdf5_file, hdf5_file))
+        raise Exception('Output hdf5 file %s cannot be equal to '
+                        'input hdf5 file %s' % (output_hdf5_file, hdf5_file))
 
     ##########
     # Start of code

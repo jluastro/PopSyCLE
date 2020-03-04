@@ -14,7 +14,7 @@ from popsycle import synthetic
 from popsycle import utils
 
 
-def _return_filename_dict(output_root):
+def _return_filename_dict(output_root, add_pbh_flag=False):
     """
     Return the filenames of the files output by the pipeline
 
@@ -36,9 +36,16 @@ def _return_filename_dict(output_root):
     # Write out all of the filenames using the output_root
     ebf_filename = '%s.ebf' % output_root
     hdf5_filename = '%s.h5' % output_root
-    events_filename = '%s_events.fits' % output_root
-    blends_filename = '%s_blends.fits' % output_root
-    noevents_filename = '%s_NOEVENTS.txt' % output_root
+
+    # Append _pbh to filenames if add_pbh will be run
+    if add_pbh_flag:
+        events_filename = '%s_pbh_events.fits' % output_root
+        blends_filename = '%s_pbh_blends.fits' % output_root
+        noevents_filename = '%s_pbh_NOEVENTS.txt' % output_root
+    else:
+        events_filename = '%s_events.fits' % output_root
+        blends_filename = '%s_blends.fits' % output_root
+        noevents_filename = '%s_NOEVENTS.txt' % output_root
 
     # Add the filenames to a dictionary
     filename_dict = {
@@ -671,7 +678,13 @@ def run():
         sys.exit(1)
 
     # Return the dictionary containing PopSyCLE output filenames
-    filename_dict = _return_filename_dict(args.output_root)
+    # Append '_pbh' to filenames if add_pbh will be run
+    if args.pbh_config_filename is not None:
+        add_pbh_flag = True
+    else:
+        add_pbh_flag = False
+    filename_dict = _return_filename_dict(args.output_root,
+                                          add_pbh_flag=add_pbh_flag)
 
     # Prepare additional_photometric_systems
     additional_photometric_systems = None
@@ -711,6 +724,12 @@ def run():
             overwrite=args.overwrite,
             seed=args.seed)
 
+    # Append '_pbh' to output_root if add_pbh will be run
+    if args.pbh_config_filename is not None:
+        output_root = '%s_pbh' % args.output_root
+    else:
+        output_root = args.output_root
+
     # only do stuff if optional config file for pbhs was provided
     if args.pbh_config_filename is not None:
         # Check for pbh config file. Exit if not present.
@@ -725,14 +744,14 @@ def run():
         pbh_config = synthetic.load_config(args.pbh_config_filename)
 
         # Check if .h5 file exists from perform popsyn, use as input for following function
-        if not os.path.exists({0}+'.h5'.format(args.output_root)):
+        if not os.path.exists(filename_dict['hdf5_filename']):
           print("""Error: H5 file was not created properly by 
             synthetic.perform_pop_syn""")
           sys.exit(1)
 
         synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                           ebf_file=filename_dict['ebf_filename'],
-                          output_root2=args.output_root,
+                          output_root2=output_root,
                           fdm=pbh_config['fdm'],
                           pbh_mass=pbh_config['pbh_mass'],
                           r_max=pbh_config['r_max'],
@@ -755,7 +774,7 @@ def run():
         # Run calc_events
         print('-- Executing calc_events')
         synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
-                              output_root2=args.output_root,
+                              output_root2=output_root,
                               radius_cut=popsycle_config['radius_cut'],
                               obs_time=popsycle_config['obs_time'],
                               n_obs=popsycle_config['n_obs'],
@@ -775,7 +794,7 @@ def run():
     if not args.skip_refine_events:
         # Remove refine_events output if already exists and overwrite=True
         filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
-                   'fits'.format(args.output_root,
+                   'fits'.format(output_root,
                                  popsycle_config['filter_name'],
                                  popsycle_config['red_law'])
         if _check_for_output(filename, args.overwrite):
@@ -783,7 +802,7 @@ def run():
 
         # Run refine_events
         print('-- Executing refine_events')
-        synthetic.refine_events(input_root=args.output_root,
+        synthetic.refine_events(input_root=output_root,
                                 filter_name=popsycle_config['filter_name'],
                                 photometric_system=popsycle_config['photometric_system'],
                                 red_law=popsycle_config['red_law'],

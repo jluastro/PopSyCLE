@@ -279,6 +279,52 @@ def generate_popsycle_config_file(radius_cut, obs_time,
     generate_config_file(config_filename, config)
 
 
+def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, inner_slope, v_esc):
+    """
+    Save PBH configuration parameters into a yaml file
+
+    Parameters
+    ----------
+
+    fdm : float
+        Fraction of dark matter.
+        The fraction of dark matter that you want to consist of PBHs.
+
+    pbh_mass : int
+        The single mass that all PBHs will have.
+
+    r_max : float
+        The maximum radius from the galactic center that you want to find PBHs at.
+
+    c : float
+        Concentration index.
+
+    r_vir : float
+        The virial radius.
+
+    inner_slope: float
+        The inner slope of the MW halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
+        Inner_slope goes into the determination of the velocities and each value returns a slightly different distribution.
+
+    v_esc: int
+        The escape velocity of the Milky Way.
+        v_esc is used in calculating the velocities.
+
+    Output
+    ------
+    None
+    """
+
+    config = {'fdm': fdm,
+              'pbh_mass': pbh_mass,
+              'r_max': r_max,
+              'c': c,
+              'r_vir': r_vir,
+              'inner_slope': inner_slope,
+              'v_esc': v_esc}
+    generate_config_file(config_filename, config)
+
+
 def generate_config_file(config_filename, config):
     """
     Save configuration parameters from a dictionary into a yaml file
@@ -307,7 +353,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           walltime,
                           seed=None, overwrite=False, submitFlag=True,
                           skip_galaxia=False, skip_perform_pop_syn=False,
-                          skip_calc_events=False, skip_refine_events=False):
+                          skip_calc_events=False, skip_refine_events=False,
+                          pbh_config_filename=None):
     """
     Generates the slurm script that executes the PopSyCLE pipeline
 
@@ -350,6 +397,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     Optional Parameters
     -------------------
+    pbh_config_filename : str
+        Name of pbh_config.yaml file containing the PBH parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script.
+
     seed : int
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
@@ -495,6 +547,9 @@ echo "All done!"
 
     if skip_refine_events:
         optional_cmds += '--skip-refine-events '
+
+    if pbh_config_filename:
+        optional_cmds += '--pbh-config-filename={0}'.format(pbh_config_filename)
 
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())

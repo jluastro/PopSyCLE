@@ -1398,14 +1398,14 @@ def calc_events(hdf5_file, output_root2,
     ##########
     # Should I use starmap_async?
     results = pool.starmap(_calc_event_time_loop, inputs)
-
+    
     pool.close()
     pool.join()
 
     # Remove all the None values
     # (occurs for patches with less than 10 objects)
     results = [i for i in results if i is not None]
-
+    
     results_ev = []
     results_bl = []
 
@@ -1536,6 +1536,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     ####################
 
     # Initialize events_llbb and blends_llbb.
+
     events_llbb = None
     blends_llbb = None
 
@@ -1559,8 +1560,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         return
 
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
-
+    
     for i in np.arange(len(time_array)):
+
         # Find potential lenses and sources that fall within radius cut.
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
                                                                             time_array[i],
@@ -1575,7 +1577,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # to hope that we can detect them. Trim on a Theta_E criteria.
         event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
                                              lens_id, sorc_id, time_array[i])
-
+        
         if event_lbt is not None:
             # Concatenate the current event table
             # (at this l, b, time) with the rest.
@@ -1585,6 +1587,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 events_llbb = event_lbt
 
             # Keep only unique events within our different time stamps
+
             events_llbb = unique_events(events_llbb)
 
             #########
@@ -1594,7 +1597,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # or the source, in the table.
             ##########
             blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
-
             if blends_lbt is not None:
                 # Concatenate the current blend table (at this l, b, time)
                 # with the rest.
@@ -1951,11 +1953,13 @@ def unique_events(event_table):
 
     # Pull the unique ID numbers for the lens and source and put them into a
     # table of 2 x N_lenses.
+
     lens_uid = event_table[col_idx['obj_id'], :]
     sorc_uid = event_table[col_idx['obj_id'] + len(col_idx), :]
     events_uid = np.swapaxes(np.vstack((lens_uid, sorc_uid)), 0, 1)
 
     # Determine if we have unique events (and how many duplicates there are).
+
     unique_returns = np.unique(events_uid,
                                return_index=True, return_inverse=True,
                                return_counts=True, axis=0)
@@ -1967,12 +1971,14 @@ def unique_events(event_table):
     new_event_table = event_table[:, unique_indices]
 
     # Check for duplicate events and keep the one with the closest u.
+
     dpdx = np.where(unique_counts > 1)[0]
     for ii in range(len(dpdx)):
+        
         # Fetch the duplicates for this event.
         dup_idx = np.where(unique_inverse == dpdx[ii])[0]
         dup_events = event_table[:, dup_idx]
-        min_idx = np.argmin(dup_events[len(col_idx) + len(col_idx) + 2 - 1])
+        min_idx = np.argmin(dup_events[len(col_idx) +  2 - 1])
         new_event_table[:, dpdx[ii]] = event_table[:, dup_idx[min_idx]]
 
     return new_event_table
@@ -4250,8 +4256,9 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     mass_within_r_max = (4*np.pi*rho_knot*(r_s**3)*(np.log((r_s + r_max)/r_s) - (r_max/(r_s+r_max))))*(((10**3)**3)/((10**6)**3))*fdm #Msun
 
     #Determine the number of PBHs within that distance
-    num_pbh_within_r_max = (mass_within_r_max/pbh_mass)
-    num_pbh_within_r_max = round(num_pbh_within_r_max)
+    #num_pbh_within_r_max = (mass_within_r_max/pbh_mass)
+    #num_pbh_within_r_max = round(num_pbh_within_r_max)
+    num_pbh_within_r_max = 8e7
 
     """
     Defining needed functions from the python package "NFWdist".
@@ -4413,9 +4420,15 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     ubv_b = np.full(len(data_in_field), np.nan)
     ubv_h = np.full(len(data_in_field), np.nan)
     ubv_v = np.full(len(data_in_field), np.nan)
+    teff = np.full(len(data_in_field), np.nan)
+    grav = np.full(len(data_in_field), np.nan)
+    mbol = np.full(len(data_in_field), np.nan)
+    feh = np.full(len(data_in_field), np.nan)
+    ztf_g = np.full(len(data_in_field), np.nan)
+    ztf_r = np.full(len(data_in_field), np.nan)
 
     #Making a dataframe of all PBH data from PBHs in the field of view.
-    pbh_data = pd.DataFrame({'zams_mass':zams_mass, 'rem_id':rem_id, 'mass':mass, 'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz, 'rad':r_in_field, 'glat':b_in_field, 'glon':l_in_field, 'vr':vr, 'mu_b':mu_b, 'mu_lcosb':mu_lcosb, 'age':age, 'popid':pop_id, 'ubv_k':ubv_k, 'ubv_i':ubv_i, 'exbv':exbv, 'obj_id':obj_id, 'ubv_j':ubv_j, 'ubv_u':ubv_u, 'ubv_r':ubv_r, 'ubv_b':ubv_b, 'ubv_h':ubv_h, 'ubv_v':ubv_v})
+    pbh_data = pd.DataFrame({'zams_mass':zams_mass, 'rem_id':rem_id, 'mass':mass, 'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz, 'rad':r_in_field, 'glat':b_in_field, 'glon':l_in_field, 'vr':vr, 'mu_b':mu_b, 'mu_lcosb':mu_lcosb, 'age':age, 'popid':pop_id, 'ubv_k':ubv_k, 'ubv_i':ubv_i, 'exbv':exbv, 'obj_id':obj_id, 'ubv_j':ubv_j, 'ubv_u':ubv_u, 'ubv_r':ubv_r, 'ubv_b':ubv_b, 'ubv_h':ubv_h, 'ubv_v':ubv_v, 'teff':teff, 'grav':grav, 'mbol':mbol, 'feh':feh, 'ztf_g':ztf_g, 'ztf_r':ztf_r})
 
     #Opening the file with no PBHs and creating a new file for the PBHs added.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')

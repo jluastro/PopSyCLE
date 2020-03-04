@@ -16,7 +16,11 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     """
     Creates the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
     `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
-    magnitudes from the UBV filters
+    magnitudes from the UBV filters.
+
+    2D transformational matrix is valid for values of:
+        0 < ubv_V - ubv_R < 6
+        0 < ubv_B - ubv_V < 6
 
     ubv-to-ztf-g
         x-axis : ubv_V - ubv_R
@@ -174,7 +178,11 @@ def load_ubv_to_ztf_grid(filter_name):
     """
     Loads the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
     `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
-    magnitudes from the UBV filters, as well as the kdtree of those values
+    magnitudes from the UBV filters, as well as the kdtree of those values.
+
+    2D transformational matrix is valid for values of:
+        0 < ubv_V - ubv_R < 6
+        0 < ubv_B - ubv_V < 6
 
     ubv-to-ztf-g
         x-axis : ubv_V - ubv_R
@@ -216,7 +224,11 @@ def load_ubv_to_ztf_grid(filter_name):
 
 def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
     """
-    Converts ubv filters (b, v, r) into ztf filters (g, r)
+    Converts ubv filters (b, v, r) into ztf filters (g, r).
+
+    Function is valid for values of:
+        0 < ubv_V - ubv_R < 6
+        0 < ubv_B - ubv_V < 6
 
     Parameters
     ----------
@@ -252,7 +264,7 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
         ztf_diff = np.full(len(ubv_b), np.nan)
 
         # Find locations on the grid where x_data and y_data are located.
-        # Put those values into the ztf_diff array
+        # Put those values into the ztf_diff arrays
         ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
         _, indexes = kdtree.query(data[cond_lum])
         ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]

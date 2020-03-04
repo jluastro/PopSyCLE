@@ -3320,7 +3320,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     #Later used to set the IDs of the PBHs.
     max_id_no_pbh = []
     for key in key_list:
-        max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key][20]))
+        # max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key][20]))
+        max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key]['obj_id']))
     max_id = np.amax(max_id_no_pbh)
 
     no_pbh_hdf5_file.close()
@@ -3516,7 +3517,17 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     ztf_r = np.full(len(data_in_field), np.nan)
 
     #Making a dataframe of all PBH data from PBHs in the field of view.
-    pbh_data = pd.DataFrame({'zams_mass':zams_mass, 'rem_id':rem_id, 'mass':mass, 'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz, 'rad':r_in_field, 'glat':b_in_field, 'glon':l_in_field, 'vr':vr, 'mu_b':mu_b, 'mu_lcosb':mu_lcosb, 'age':age, 'popid':pop_id, 'ubv_k':ubv_k, 'ubv_i':ubv_i, 'exbv':exbv, 'obj_id':obj_id, 'ubv_j':ubv_j, 'ubv_u':ubv_u, 'ubv_r':ubv_r, 'ubv_b':ubv_b, 'ubv_h':ubv_h, 'ubv_v':ubv_v, 'teff':teff, 'grav':grav, 'mbol':mbol, 'feh':feh, 'ztf_g':ztf_g, 'ztf_r':ztf_r})
+    pbh_data = pd.DataFrame({'zams_mass': zams_mass, 'rem_id': rem_id,
+                             'mass': mass, 'px': px, 'py': py, 'pz': pz,
+                             'vx': vx, 'vy': vy, 'vz': vz, 'rad': r_in_field,
+                             'glat': b_in_field, 'glon': l_in_field, 'vr': vr,
+                             'mu_b': mu_b, 'mu_lcosb': mu_lcosb, 'age': age,
+                             'popid': pop_id, 'ubv_k': ubv_k, 'ubv_i': ubv_i,
+                             'exbv': exbv, 'obj_id': obj_id, 'ubv_j': ubv_j,
+                             'ubv_u': ubv_u, 'ubv_r': ubv_r, 'ubv_b': ubv_b,
+                             'ubv_h': ubv_h, 'ubv_v': ubv_v, 'teff': teff,
+                             'grav': grav, 'mbol': mbol, 'feh': feh,
+                             'ztf_g': ztf_g, 'ztf_r': ztf_r})
 
     #Opening the file with no PBHs and creating a new file for the PBHs added.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
@@ -3535,19 +3546,25 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
             min_b = long_bin_values[idx2]
             lat_long_list.append((min_l[0], max_l[0], min_b[0], max_b[0]))
 
-    #Appending the PBH data to the no PBH data and writing to the new .h5 file.
-    for idx, key in enumerate(key_list):
-        data = pd.DataFrame(no_pbh_hdf5_file[key][:])
-        min_l, max_l, min_b, max_b = lat_long_list[idx]
-        mask = (pbh_data['glon'] >= min_b) & (pbh_data['glon'] <= max_b) & (pbh_data['glat'] >= min_l) & (pbh_data['glat'] <= max_l)
-        pbh_key = pbh_data[mask].T
-        pbh_key.reset_index(drop=True, inplace=True)
-        full_key = pd.concat([data, pbh_key], axis=1)
-        d_=pbh_hdf5_file.create_dataset(key, (full_key.shape[0], full_key.shape[1]), data=full_key)
-    d_lat = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
-    d_long = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
-    no_pbh_hdf5_file.close()
-    pbh_hdf5_file.close()
+    """
+    WARNING: THIS CODE IS NOW BROKEN AND NEEDS TO BE REWRITTEN
+    THE NEW DATA FORMAT FOR HDF5 FILES IS COMPOUND DATATYPE
+    AND THE DATA ONCE READ IS A NUMPY RECARRAY
+    """
+
+    # #Appending the PBH data to the no PBH data and writing to the new .h5 file.
+    # for idx, key in enumerate(key_list):
+    #     data = pd.DataFrame(no_pbh_hdf5_file[key][:])
+    #     min_l, max_l, min_b, max_b = lat_long_list[idx]
+    #     mask = (pbh_data['glon'] >= min_b) & (pbh_data['glon'] <= max_b) & (pbh_data['glat'] >= min_l) & (pbh_data['glat'] <= max_l)
+    #     pbh_key = pbh_data[mask].T
+    #     pbh_key.reset_index(drop=True, inplace=True)
+    #     full_key = pd.concat([data, pbh_key], axis=1)
+    #     d_= pbh_hdf5_file.create_dataset(key, (full_key.shape[0], full_key.shape[1]), data=full_key)
+    # d_lat = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
+    # d_long = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
+    # no_pbh_hdf5_file.close()
+    # pbh_hdf5_file.close()
 
     t1 = time.time()
     print('Total runtime: {0:f} s'.format(t1 - t0))

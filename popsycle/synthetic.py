@@ -3254,7 +3254,6 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
                 'or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-
     if ebf_file[-4:] != '.ebf':
         raise Exception('ebf_file must be an ebf file.')
 
@@ -3284,6 +3283,13 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     if seed is not None:
         if type(seed) != int:
             raise Exception('seed must be an integer.')
+
+    # Check to make sure that the output hdf5 file
+    # will not overwrite the input hdf5 file
+    output_hdf5_file = '%s.h5' % output_root2
+    if hdf5_file == output_hdf5_file:
+        raise Exception('Output %s cannot be equal to '
+                        'input %s' % (output_hdf5_file, hdf5_file))
 
     ##########
     # Start of code
@@ -3547,50 +3553,3 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40, r_max=8.3, c=
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
-
-def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, inner_slope, v_esc):
-    """
-    Save PBH configuration parameters into a yaml file
-
-    Parameters
-    ----------
-
-    fdm : float
-        Fraction of dark matter.
-        The fraction of dark matter that you want to consist of PBHs.
-
-    pbh_mass : int
-        The single mass that all PBHs will have.
-
-    r_max : float
-        The maximum radius from the galactic center that you want to find PBHs at.
-
-    c : float
-        Concentration index.
-
-    r_vir : float
-        The virial radius.
-
-    inner_slope: float
-        The inner slope of the MW halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
-        Inner_slope goes into the determination of the velocities and each value returns a slightly different distribution.
-
-    v_esc: int
-        The escape velocity of the Milky Way.
-        v_esc is used in calculating the velocities.
-
-    Output
-    ------
-    None
-    """
-
-    config = {'fdm': fdm,
-              'pbh_mass': pbh_mass,
-              'r_max': r_max,
-              'c': c,
-              'r_vir': r_vir,
-              'inner_slope': inner_slope,
-              'v_esc': v_esc}
-    generate_config_file(config_filename, config)
-
-

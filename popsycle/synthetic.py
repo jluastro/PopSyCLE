@@ -3172,8 +3172,8 @@ def angdist(ra1, dec1, ra2, dec2):
 
 
 def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
-            r_max=8.3, c=12.94, r_vir=200, inner_slope = .5, v_esc = 550,
-            overwrite = False, seed = None):
+            r_max=8.3, c=12.94, r_vir=200, inner_slope=.5, v_esc=550,
+            overwrite=False, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.

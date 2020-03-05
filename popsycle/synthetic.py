@@ -74,6 +74,7 @@ filt_dict['ubv_I'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.
 filt_dict['ubv_R'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
+filt_dict['ztf_i'] = {'Damineli16': 1.553}
 
 ##########
 # Dictionary for listing out supported photometric systems and filters
@@ -537,10 +538,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         ubv_b = star_dict['ubv_B']
                         ubv_v = star_dict['ubv_V']
                         ubv_r = star_dict['ubv_R']
+                        ubv_i = star_dict['ubv_I']
 
-                    ztf_g, ztf_r = transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r)
+                    ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
+                    ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
+                    ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
                     star_dict['ztf_g'] = ztf_g
                     star_dict['ztf_r'] = ztf_r
+                    star_dict['ztf_i'] = ztf_i
 
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
@@ -924,7 +929,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                         'm_ukirt_J', 'm_ukirt_K']
         if additional_photometric_systems is not None:
             if 'ztf' in additional_photometric_systems:
-                keep_columns += ['m_ztf_g', 'm_ztf_r']
+                keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
         comp_table.keep_columns(keep_columns)
 
         # Fill out the rest of comp_dict
@@ -1039,6 +1044,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 if 'ztf' in additional_photometric_systems:
                     comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
                     comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
+                    comp_dict['ztf_i'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1073,6 +1079,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     if 'ztf' in additional_photometric_systems:
                         comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_g'][lum_WD_idx].data
                         comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_r'][lum_WD_idx].data
+                        comp_dict['ztf_i'][lum_WD_idx] = comp_table['m_ztf_i'][lum_WD_idx].data
 
                 # Memory cleaning
                 del comp_table

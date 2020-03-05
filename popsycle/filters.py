@@ -303,7 +303,7 @@ def transform_ubv_to_ztf(filter_name, ubv_B, ubv_V, ubv_R, ubv_I=None):
     _, indexes = kdtree.query(data[cond_lum])
     ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
 
-    # Convert to ztf_g and ztf_r
+    # Convert to ztf_g, ztf_r or ztf_i
     if filter_name == 'g':
         ztf_mag = ubv_V + ztf_diff
     elif filter_name == 'r':

@@ -3352,7 +3352,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     #Determine the number of PBHs within that distance
     num_pbh_within_r_max = (mass_within_r_max/pbh_mass)
     num_pbh_within_r_max = int(num_pbh_within_r_max)
-    # num_pbh_within_r_max = int(1e8)
+    num_pbh_within_r_max = int(1e7)
     print('%i PBHs generated' % num_pbh_within_r_max)
 
     """
@@ -3584,7 +3584,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         N_objs_pbh += combined_data.shape[0]
         _ = pbh_hdf5_file.create_dataset(key,
                                          shape=(combined_data.shape[0],),
-                                         dtype=comp_dtype)
+                                         dtype=comp_dtype,
+                                         data=combined_data)
     _ = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
     _ = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
     no_pbh_hdf5_file.close()

@@ -21,7 +21,7 @@ from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
-from astropy.coordinates import Angle, Latitude, Longitude  # Angles
+from astropy.coordinates import Angle  # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
@@ -41,6 +41,7 @@ import itertools
 from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
+import shutil
 from popsycle import utils
 
 
@@ -3314,8 +3315,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     key_list = [key for key in key_list if 'bin_edges' not in key]
 
     #Get data from lat_bin_edges and long_bin_edges
-    lat_bin = pd.DataFrame(np.array(no_pbh_hdf5_file['lat_bin_edges']))
-    long_bin = pd.DataFrame(np.array(no_pbh_hdf5_file['long_bin_edges']))
+    lat_bin = no_pbh_hdf5_file['lat_bin_edges'][:]
+    long_bin = no_pbh_hdf5_file['long_bin_edges'][:]
     bin_edges_number = len(long_bin)
 
     #Getting the maximum ID from all of the stars and compact objects.
@@ -3325,6 +3326,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         # max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key][20]))
         max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key]['obj_id']))
     max_id = np.amax(max_id_no_pbh)
+
+    hdf5_dset_names = no_pbh_hdf5_file[key_list[0]][:].dtype.names
 
     no_pbh_hdf5_file.close()
 
@@ -3339,7 +3342,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     surveyArea = float(ebf_log['surveyArea'])
 
     #Calculate the size of the field of view we are running
-    field_of_view_diameter = 2*((surveyArea/np.pi)**(1/2))
+    field_of_view_radius = (surveyArea/np.pi)**(1/2)
 
     #NFW Profile calculations to determine mass of dark matter within given distance of galactic center
     rho_crit = ((3*(h**2))/(8*np.pi*g))*(10**6) #Msun/Mpc^3
@@ -3347,9 +3350,10 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     mass_within_r_max = (4*np.pi*rho_knot*(r_s**3)*(np.log((r_s + r_max)/r_s) - (r_max/(r_s+r_max))))*(((10**3)**3)/((10**6)**3))*fdm #Msun
 
     #Determine the number of PBHs within that distance
-    #num_pbh_within_r_max = (mass_within_r_max/pbh_mass)
-    #num_pbh_within_r_max = round(num_pbh_within_r_max)
-    num_pbh_within_r_max = 8e7
+    num_pbh_within_r_max = (mass_within_r_max/pbh_mass)
+    num_pbh_within_r_max = int(num_pbh_within_r_max)
+    # num_pbh_within_r_max = int(1e8)
+    print('%i PBHs generated' % num_pbh_within_r_max)
 
     """
     Defining needed functions from the python package "NFWdist".
@@ -3409,7 +3413,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     #Sample PBH latitude and longitudes to get full spherical coordinates.
     sin_lats = np.random.uniform(-1, 1, int(num_pbh_within_r_max))
-    lats=np.arcsin(sin_lats)
+    lats = np.arcsin(sin_lats)
     longs = np.random.uniform(0, np.pi*2, int(num_pbh_within_r_max))
 
     #Converting spherical galactocentric coordinates to cartesian galactocentric coordinates
@@ -3422,23 +3426,28 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     #outputs l, b, and distance in degrees.
     galactic = galacto.transform_to(coord.Galactic(representation_type='cartesian'))
 
-    latitude=galactic.b.deg
-    longitude=galactic.l.deg
+    latitude = galactic.b.deg
+    longitude = galactic.l.deg
     #Adjusting longitude values to match the coordinate format that we need
-    longitude=np.where(longitude>180, longitude-360, longitude)
-
-    #Set minimum and maximum l and b for PBH mask.
-    l_min = np.min(long_bin).values
-    l_max = np.max(long_bin).values
-    b_min = np.min(lat_bin).values
-    b_max = np.max(lat_bin).values
+    longitude = np.where(longitude>180, longitude-360, longitude)
 
     #Calculating distances between each latitude, longitude pair, and the center of the field of view.
-    dists = angdist(l, b, longitude, latitude)
+    # dists = angdist(l, b, longitude, latitude)
+    delta_l = np.cos(np.radians(b)) * (longitude - l)
+    delta_b = latitude - b
+    dists = np.hypot(delta_l, delta_b)
 
     #Masking the full PBH data to obtain just the PBHs in our field of view.
-    mask = (galactic.distance.kpc <= 2*r_max) & (dists < field_of_view_diameter)
+    mask = (galactic.distance.kpc <= 2*r_max) & (dists < field_of_view_radius)
     data_in_field = galactic[mask]
+    N_PBHs_in_field = len(data_in_field)
+    print('%i PBHs in the field' % N_PBHs_in_field)
+
+    if N_PBHs_in_field == 0:
+        print('-- No PBHs in the field')
+        print('-- Copying %s to %s' % (hdf5_file, output_hdf5_file))
+        shutil.copy(hdf5_file, output_hdf5_file)
+        return
 
     #Obtain the radius, l, and b values for all of the PBHs in our field of view.
     r_in_field = data_in_field.distance.kpc
@@ -3453,12 +3462,13 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     #Inner slope of the MW halo
     #From Lacroix et al 2018, Figure 11 (top left panel)
+    data_dir = '%s/data' % os.path.dirname(inspect.getfile(add_pbh))
     if inner_slope == 1:
-        vel_data = pd.read_csv('data/radial_velocity_profile_steep.csv')
+        vel_data = pd.read_csv('%s/radial_velocity_profile_steep.csv' % data_dir)
     elif inner_slope == .25:
-        vel_data = pd.read_csv('data/radial_velocity_profile_shallow.csv')
+        vel_data = pd.read_csv('%s/radial_velocity_profile_shallow.csv' % data_dir)
     else:
-        vel_data = pd.read_csv('data/radial_velocity_profile_middle.csv')
+        vel_data = pd.read_csv('%s/radial_velocity_profile_middle.csv' % data_dir)
 
     #Interpolating v values from the above data, given the PBH r values.
     pbh_vrms = np.interp(pbh_r_galacto, vel_data['r'], vel_data['v'])
@@ -3481,92 +3491,114 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     #Transforming velocities to cartesian to get vx, vy, and vz.
     cart_vel = astropy.coordinates.spherical_to_cartesian(interpreted_rms_velocities, lat_vel, long_vel)
 
-    vx = cart_vel[0]
-    vy = cart_vel[1]
-    vz = cart_vel[2]
+    #Load up a numpy array
+    comp_dtype = _generate_comp_dtype(hdf5_dset_names)
+    pbh_data = np.empty(len(data_in_field), dtype=comp_dtype)
+
+    pbh_data['rad'] = r_in_field
+    pbh_data['glon'] = l_in_field
+    pbh_data['glat'] = b_in_field
+
+    pbh_data['vx'] = cart_vel[0]
+    pbh_data['vy'] = cart_vel[1]
+    pbh_data['vz'] = cart_vel[2]
 
     #Getting the rest of the PBH data for the combined .h5 file
-    mass = np.full(len(data_in_field), pbh_mass)
-    zams_mass = mass
-    age = np.full(len(data_in_field), np.nan)
-    pop_id = np.full(len(data_in_field), 10)
-    rem_id = np.full(len(data_in_field), 104)
+    pbh_data['mass'] = np.full(len(data_in_field), pbh_mass)
+    pbh_data['zams_mass'] = np.full(len(data_in_field), pbh_mass)
+    pbh_data['age'] = np.full(len(data_in_field), np.nan)
+    pbh_data['popid'] = np.full(len(data_in_field), 10)
+    pbh_data['rem_id'] = np.full(len(data_in_field), 104)
 
     b_rad = np.radians(b_in_field)
     l_rad = np.radians(l_in_field)
     cart_helio = astropy.coordinates.spherical_to_cartesian(r_in_field, b_rad, l_rad)
-    px = cart_helio[0]
-    py = cart_helio[1]
-    pz = cart_helio[2]
+    pbh_data['px'] = cart_helio[0]
+    pbh_data['py'] = cart_helio[1]
+    pbh_data['pz'] = cart_helio[2]
 
-    vr, mu_b, mu_lcosb = calc_sph_motion(vx, vy, vz, r_in_field, b_in_field, l_in_field)
-    obj_id = np.arange((max_id+1), (max_id+len(data_in_field)+1))
+    vr, mu_b, mu_lcosb = calc_sph_motion(pbh_data['vx'],
+                                         pbh_data['vy'],
+                                         pbh_data['vz'],
+                                         r_in_field, b_in_field, l_in_field)
+    pbh_data['vr'] = vr
+    pbh_data['mu_b'] = mu_b
+    pbh_data['mu_lcosb'] = mu_lcosb
+    pbh_data['obj_id'] = np.arange((max_id+1), (max_id+len(data_in_field)+1))
 
-    exbv = np.full(len(data_in_field), np.nan)
-    ubv_k = np.full(len(data_in_field), np.nan)
-    ubv_j = np.full(len(data_in_field), np.nan)
-    ubv_i = np.full(len(data_in_field), np.nan)
-    ubv_u = np.full(len(data_in_field), np.nan)
-    ubv_r = np.full(len(data_in_field), np.nan)
-    ubv_b = np.full(len(data_in_field), np.nan)
-    ubv_h = np.full(len(data_in_field), np.nan)
-    ubv_v = np.full(len(data_in_field), np.nan)
-    teff = np.full(len(data_in_field), np.nan)
-    grav = np.full(len(data_in_field), np.nan)
-    mbol = np.full(len(data_in_field), np.nan)
-    feh = np.full(len(data_in_field), np.nan)
-    ztf_g = np.full(len(data_in_field), np.nan)
-    ztf_r = np.full(len(data_in_field), np.nan)
-
-    #Making a dataframe of all PBH data from PBHs in the field of view.
-    pbh_data = pd.DataFrame({'zams_mass': zams_mass, 'rem_id': rem_id,
-                             'mass': mass, 'px': px, 'py': py, 'pz': pz,
-                             'vx': vx, 'vy': vy, 'vz': vz, 'rad': r_in_field,
-                             'glat': b_in_field, 'glon': l_in_field, 'vr': vr,
-                             'mu_b': mu_b, 'mu_lcosb': mu_lcosb, 'age': age,
-                             'popid': pop_id, 'ubv_k': ubv_k, 'ubv_i': ubv_i,
-                             'exbv': exbv, 'obj_id': obj_id, 'ubv_j': ubv_j,
-                             'ubv_u': ubv_u, 'ubv_r': ubv_r, 'ubv_b': ubv_b,
-                             'ubv_h': ubv_h, 'ubv_v': ubv_v, 'teff': teff,
-                             'grav': grav, 'mbol': mbol, 'feh': feh,
-                             'ztf_g': ztf_g, 'ztf_r': ztf_r})
-
-    #Opening the file with no PBHs and creating a new file for the PBHs added.
-    no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
-    pbh_hdf5_file = h5py.File(output_root2 + '.h5', 'w')
+    pbh_data['exbv'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_K'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_J'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_I'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_U'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_R'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_B'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_H'] = np.full(len(data_in_field), np.nan)
+    pbh_data['ubv_V'] = np.full(len(data_in_field), np.nan)
+    pbh_data['teff'] = np.full(len(data_in_field), np.nan)
+    pbh_data['grav'] = np.full(len(data_in_field), np.nan)
+    pbh_data['mbol'] = np.full(len(data_in_field), np.nan)
+    pbh_data['feh'] = np.full(len(data_in_field), np.nan)
+    if any(['ztf' in n for n in hdf5_dset_names]):
+        pbh_data['ztf_g'] = np.full(len(data_in_field), np.nan)
+        pbh_data['ztf_r'] = np.full(len(data_in_field), np.nan)
 
     #Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
     #so that we can determine which datasets to correctly add the PBHs.
-    lat_bin_values = lat_bin.values
-    long_bin_values = long_bin.values
     lat_long_list = []
-    for idx in range(len(lat_bin_values)-1):
-        max_l = lat_bin_values[idx+1]
-        min_l = lat_bin_values[idx]
-        for idx2 in range(len(long_bin_values)-1):
-            max_b = long_bin_values[idx2+1]
-            min_b = long_bin_values[idx2]
-            lat_long_list.append((min_l[0], max_l[0], min_b[0], max_b[0]))
+    for idx in range(len(long_bin) - 1):
+        max_l = long_bin[idx + 1]
+        min_l = long_bin[idx]
+        for idx2 in range(len(lat_bin)-1):
+            max_b = lat_bin[idx2 + 1]
+            min_b = lat_bin[idx2]
+            lat_long_list.append((min_l, max_l, min_b, max_b))
 
     """
     WARNING: THIS CODE IS NOW BROKEN AND NEEDS TO BE REWRITTEN
     THE NEW DATA FORMAT FOR HDF5 FILES IS COMPOUND DATATYPE
     AND THE DATA ONCE READ IS A NUMPY RECARRAY
     """
+    #Opening the file with no PBHs and creating a new file for the PBHs added.
+    no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
+    pbh_hdf5_file = h5py.File(output_hdf5_file, 'w')
 
-    # #Appending the PBH data to the no PBH data and writing to the new .h5 file.
-    # for idx, key in enumerate(key_list):
-    #     data = pd.DataFrame(no_pbh_hdf5_file[key][:])
-    #     min_l, max_l, min_b, max_b = lat_long_list[idx]
-    #     mask = (pbh_data['glon'] >= min_b) & (pbh_data['glon'] <= max_b) & (pbh_data['glat'] >= min_l) & (pbh_data['glat'] <= max_l)
-    #     pbh_key = pbh_data[mask].T
-    #     pbh_key.reset_index(drop=True, inplace=True)
-    #     full_key = pd.concat([data, pbh_key], axis=1)
-    #     d_= pbh_hdf5_file.create_dataset(key, (full_key.shape[0], full_key.shape[1]), data=full_key)
-    # d_lat = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
-    # d_long = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
-    # no_pbh_hdf5_file.close()
-    # pbh_hdf5_file.close()
+    #Appending the PBH data to the no PBH data and writing to the new .h5 file.
+    N_objs_no_pbh = 0
+    N_objs_pbh = 0
+    for idx, key in enumerate(key_list):
+        key_data = no_pbh_hdf5_file[key][:]
+        N_objs_no_pbh += key_data.shape[0]
+
+        min_l, max_l, min_b, max_b = lat_long_list[idx]
+        mask = (pbh_data['glon'] >= min_l) & \
+               (pbh_data['glon'] <= max_l) & \
+               (pbh_data['glat'] >= min_b) & \
+               (pbh_data['glat'] <= max_b)
+
+        if np.sum(mask) == 0:
+            combined_data = key_data
+        else:
+            pbh_data_in_key = pbh_data[mask]
+            combined_data = np.hstack((key_data, pbh_data_in_key))
+        N_objs_pbh += combined_data.shape[0]
+        _ = pbh_hdf5_file.create_dataset(key,
+                                         shape=(combined_data.shape[0],),
+                                         dtype=comp_dtype)
+    _ = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
+    _ = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
+    no_pbh_hdf5_file.close()
+    pbh_hdf5_file.close()
+
+    print('Checking totals')
+    print('-- %i original objects' % N_objs_no_pbh)
+    print('-- %i PBHs in the field' % N_PBHs_in_field)
+    print('-- %i new total objects' % N_objs_pbh)
+
+    if N_objs_pbh == N_objs_no_pbh + N_PBHs_in_field:
+        print('-- Totals match!')
+    else:
+        print('** MISSING PBHs!! **')
 
     t1 = time.time()
     print('Total runtime: {0:f} s'.format(t1 - t0))

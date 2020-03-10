@@ -1455,7 +1455,7 @@ def calc_events(hdf5_file, output_root2,
 
 
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
-                          theta_frac, blend_rad):
+                          theta_frac, blend_rad, speed_cut=5):
     """
     Parameters
     ----------
@@ -1503,57 +1503,166 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # continue
         return
 
-    time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
+    static_coord = SkyCoord(frame='galactic',
+                            l=bigpatch['glat'] * units.deg,
+                            b=bigpatch['glon'] * units.deg)
+    _ = coord.match_coordinates_sky(static_coord,
+                                    static_coord,
+                                    nthneighbor=2)
+    kdtree_cache = static_coord.cache['kdtree_sky']
 
-    for i in np.arange(len(time_array)):
+    star_speeds = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
+    speed_cut_cond = star_speeds > speed_cut
+
+    # All Stars
+    obs_time_yrs = obs_time / 365.25
+    seplimit_as = einstein_radius(1000, .1, 20) + 2 * speed_cut * obs_time_yrs
+    seplimit = seplimit_as * units.arcsec / 1000
+
+    static_coord = static_coord.transform_to(static_coord)
+    urepr1 = static_coord.data.represent_as(UnitSphericalRepresentation)
+    ucoords1 = static_coord.realize_frame(urepr1)
+    cartxyz1 = ucoords1.cartesian.xyz
+    flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
+    r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
+    local_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+
+    for j, local_idx in enumerate(local_idxs):
+        if len(local_idx) == 1:
+            continue
+        print(j)
+
         # Find potential lenses and sources that fall within radius cut.
-        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
-                                                                            time_array[i],
-                                                                            radius_cut)
+        time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
+        u_array = np.zeros((n_obs, len(local_idx)))
+        for i in range(n_obs):
+            lens_id, sorc_id, r_t, sep, event_id1 = _calc_event_cands_radius(bigpatch[local_idx],
+                                                                             time_array[i],
+                                                                             radius_cut)
 
-        # Calculate einstein radius and lens-source separation
-        theta_E = einstein_radius(bigpatch['mass'][lens_id],
-                                  r_t[lens_id], r_t[sorc_id])  # mas
-        u = sep[event_id1] / theta_E
+            # Calculate einstein radius and lens-source separation
+            theta_E = einstein_radius(bigpatch[local_idx]['mass'][lens_id],
+                                      r_t[lens_id], r_t[sorc_id])  # mas
+            u = sep[event_id1] / theta_E
+            u_array[i] = u
 
-        # Trim down to those microlensing events that really get close enough
-        # to hope that we can detect them. Trim on a Theta_E criteria.
-        event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
-                                             lens_id, sorc_id, time_array[i])
+        events_idx = np.where(u < theta_frac)[0]
+        if len(events_idx) == 0:
+            continue
 
-        if event_lbt is not None:
-            # Concatenate the current event table
-            # (at this l, b, time) with the rest.
-            if events_llbb is not None:
-                events_llbb = np.hstack((events_llbb, event_lbt))
-            else:
-                events_llbb = event_lbt
+        break
 
-            # Keep only unique events within our different time stamps
-            events_llbb = unique_events(events_llbb)
+        time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
+        for i in np.arange(len(time_array)):
+            print(j, i)
+            # Find potential lenses and sources that fall within radius cut.
+            lens_id, sorc_id, r_t, sep, event_id1 = _calc_event_cands_radius(bigpatch[result],
+                                                                             time_array[i],
+                                                                             radius_cut)
 
-            #########
-            # Get blending.
-            # Note 1: We are centering on the lens.
-            # Note 2: We don't want to include the lens itself,
-            # or the source, in the table.
-            ##########
-            blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+            # Calculate einstein radius and lens-source separation
+            theta_E = einstein_radius(bigpatch[result]['mass'][lens_id],
+                                      r_t[lens_id], r_t[sorc_id])  # mas
+            u = sep[event_id1] / theta_E
 
-            if blends_lbt is not None:
-                # Concatenate the current blend table (at this l, b, time)
-                # with the rest.
-                if blends_llbb is not None:
-                    blends_llbb = np.hstack((blends_llbb, blends_lbt))
+            # Trim down to those microlensing events that really get close enough
+            # to hope that we can detect them. Trim on a Theta_E criteria.
+            event_lbt = _calc_event_cands_thetaE(bigpatch[result], theta_E,
+                                                 u, theta_frac,
+                                                 lens_id, sorc_id,
+                                                 time_array[i])
+
+            if event_lbt is not None:
+                # Concatenate the current event table
+                # (at this l, b, time) with the rest.
+                if events_llbb is not None:
+                    events_llbb = np.hstack((events_llbb, event_lbt))
                 else:
-                    blends_llbb = blends_lbt
+                    events_llbb = event_lbt
 
-                # Keep only unique blends within our different time stamps
-                blends_llbb = unique_blends(blends_llbb)
+                # Keep only unique events within our different time stamps
+                events_llbb = unique_events(events_llbb)
 
-        # END of time loop
+                #########
+                # Get blending.
+                # Note 1: We are centering on the lens.
+                # Note 2: We don't want to include the lens itself,
+                # or the source, in the table.
+                ##########
+                blends_lbt = _calc_blends(bigpatch[result],
+                                          event_lbt, blend_rad)
+
+                if blends_lbt is not None:
+                    # Concatenate the current blend table (at this l, b, time)
+                    # with the rest.
+                    if blends_llbb is not None:
+                        blends_llbb = np.hstack((blends_llbb, blends_lbt))
+                    else:
+                        blends_llbb = blends_lbt
+
+                    # Keep only unique blends within our different time stamps
+                    blends_llbb = unique_blends(blends_llbb)
+
+            # END of time loop
 
     return events_llbb, blends_llbb
+
+    # # Skip patches with less than 10 objects
+    # if len(bigpatch) < 10:
+    #     # continue
+    #     return
+    #
+    # time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
+    #
+    # for i in np.arange(len(time_array)):
+    #     # Find potential lenses and sources that fall within radius cut.
+    #     lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
+    #                                                                         time_array[i],
+    #                                                                         radius_cut)
+    #
+    #     # Calculate einstein radius and lens-source separation
+    #     theta_E = einstein_radius(bigpatch['mass'][lens_id],
+    #                               r_t[lens_id], r_t[sorc_id])  # mas
+    #     u = sep[event_id1] / theta_E
+    #
+    #     # Trim down to those microlensing events that really get close enough
+    #     # to hope that we can detect them. Trim on a Theta_E criteria.
+    #     event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
+    #                                          lens_id, sorc_id, time_array[i])
+    #
+    #     if event_lbt is not None:
+    #         # Concatenate the current event table
+    #         # (at this l, b, time) with the rest.
+    #         if events_llbb is not None:
+    #             events_llbb = np.hstack((events_llbb, event_lbt))
+    #         else:
+    #             events_llbb = event_lbt
+    #
+    #         # Keep only unique events within our different time stamps
+    #         events_llbb = unique_events(events_llbb)
+    #
+    #         #########
+    #         # Get blending.
+    #         # Note 1: We are centering on the lens.
+    #         # Note 2: We don't want to include the lens itself,
+    #         # or the source, in the table.
+    #         ##########
+    #         blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+    #
+    #         if blends_lbt is not None:
+    #             # Concatenate the current blend table (at this l, b, time)
+    #             # with the rest.
+    #             if blends_llbb is not None:
+    #                 blends_llbb = np.hstack((blends_llbb, blends_lbt))
+    #             else:
+    #                 blends_llbb = blends_lbt
+    #
+    #             # Keep only unique blends within our different time stamps
+    #             blends_llbb = unique_blends(blends_llbb)
+    #
+    #     # END of time loop
+    #
+    # return events_llbb, blends_llbb
 
 
 def _calc_event_cands_radius(bigpatch, timei, radius_cut):
@@ -1624,8 +1733,9 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
 
     ##########
     # Find all objects with a nearest neighbor within an angular distance
-    # equal to sep. The index of the object and its nearest neighbor are
-    # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
+    # less than radius_cut. The index of the object and its nearest neighbor
+    # are event_id1 and event_id2.
+    # (Indices correspond to those of idx and sep.)
     ##########
     # NOTE: event_id1/2 are indices into bigpatch
     event_id1 = np.where(sep < radius_cut)[0]
@@ -1647,7 +1757,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     lens_id[idx_l2] = event_id2[idx_l2]
     sorc_id[idx_l2] = event_id1[idx_l2]
 
-    return lens_id, sorc_id, r_t, sep, event_id1, c
+    return lens_id, sorc_id, r_t, sep, event_id1
 
 
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
@@ -1746,7 +1856,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         return None
 
 
-def _calc_blends(bigpatch, c, event_lbt, blend_rad):
+def _calc_blends(bigpatch, event_lbt, blend_rad):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -1773,13 +1883,13 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
         Array of neighbor stars for each lens-source pair.
 
     """
-    ##########
-    # Get the cached KD-Tree to make things run faster.
-    ##########
-    # This way, we don't have to remake a tree that already exists.
-    # (We didn't just do the neighbor calculation initially, because
-    # it would be expensive to hold onto all the unnecessary neighbors)
-    kdtree_cache = c.cache['kdtree_sky']
+    sky_coord = SkyCoord(frame='galactic',
+                     l=bigpatch['glat'] * units.deg,
+                     b=bigpatch['glon'] * units.deg)
+    _ = coord.match_coordinates_sky(sky_coord,
+                                    sky_coord,
+                                    nthneighbor=2)
+    kdtree_cache = sky_coord.cache['kdtree_sky']
 
     # Define the center of the blending disk (the lens)
     coords_lbt = SkyCoord(frame='galactic',
@@ -1792,7 +1902,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     # Make the coordinates to query around
     seplimit = blend_rad * units.arcsec
     coords1 = coords_lbt
-    coords1 = coords1.transform_to(c)
+    coords1 = coords1.transform_to(sky_coord)
     urepr1 = coords1.data.represent_as(UnitSphericalRepresentation)
     ucoords1 = coords1.realize_frame(urepr1)
     cartxyz1 = ucoords1.cartesian.xyz

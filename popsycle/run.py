@@ -556,7 +556,7 @@ def run():
     optional = parser.add_argument_group(title='Optional')
     optional.add_argument('--seed', type=int,
                           help='Set a seed for all PopSyCLE functions with '
-                               'randomness, including running Galaxia and '
+                               'randomness, which are running Galaxia and '
                                'PyPopStar. Setting this flag guarantees '
                                'identical output and is useful for debugging.',
                           default=None)
@@ -669,7 +669,6 @@ def run():
                               theta_frac=popsycle_config['theta_frac'],
                               blend_rad=popsycle_config['blend_rad'],
                               n_proc=args.n_cores_calc_events,
-                              seed=args.seed,
                               overwrite=args.overwrite)
 
         # Write a fle to disk stating that there are no events if

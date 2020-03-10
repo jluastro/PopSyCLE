@@ -1224,7 +1224,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
-                seed=None, overwrite=False):
+                overwrite=False):
     """
     Calculate microlensing events
 
@@ -1254,15 +1254,6 @@ def calc_events(hdf5_file, output_root2,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
-
-    additional_photometric_systems : list of strs
-        The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
-
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -1314,16 +1305,9 @@ def calc_events(hdf5_file, output_root2,
         if type(theta_frac) != float:
             raise Exception('theta_frac must be an integer or a float.')
 
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
-
     ##########
     # Start of code
     #########
-
-    # Set random seed
-    np.random.seed(seed)
 
     t0 = time.time()
 

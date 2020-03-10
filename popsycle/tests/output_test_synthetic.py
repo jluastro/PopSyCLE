@@ -97,10 +97,10 @@ synthetic.calc_events(hdf5_file = 'test.h5',
                       theta_frac = 2, 
                       blend_rad = 0.65, 
                       overwrite = True, 
-                      n_proc = 1, seed=42)
+                      n_proc = 1)
 
 synthetic.refine_events(input_root = 'test', 
-                        filter_name = 'i',
+                        filter_name = 'I',
                         photometric_system = 'ubv',
                         red_law = 'Damineli16', 
                         overwrite = True, 

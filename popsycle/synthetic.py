@@ -1503,6 +1503,11 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # continue
         return
 
+    # bigpatch = bigpatch[:100000]
+
+    t0 = time.time()
+
+    # Create a static coordinate catalog of the stars without any motion
     static_coord = SkyCoord(frame='galactic',
                             l=bigpatch['glon'] * units.deg,
                             b=bigpatch['glat'] * units.deg)
@@ -1511,83 +1516,127 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                                     nthneighbor=2)
     kdtree_cache = static_coord.cache['kdtree_sky']
 
+    # Set a cutoff speed above which stars will be searched or differently
     speed_cut = 5
     star_speeds = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
     speed_cut_cond = star_speeds > speed_cut
 
-    # All Stars
+    # Calculate the separation limit for two stars moving exactly toward
+    # each other at the maximum possible speed to enter into a lens'
+    # largest possible Einstein radius
     obs_time_yrs = obs_time / 365.25
     seplimit_as = einstein_radius(1000, .1, 20) + 2 * speed_cut * obs_time_yrs
     seplimit = seplimit_as * units.arcsec / 1000
 
+    # Calculate the indices of stars that are within this
+    # separation limit for all stars in bigpatch
     static_coord_trans = static_coord.transform_to(static_coord)
     urepr1 = static_coord_trans.data.represent_as(UnitSphericalRepresentation)
     ucoords1 = static_coord_trans.realize_frame(urepr1)
     cartxyz1 = ucoords1.cartesian.xyz
     flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
     r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
-    local_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+    source_idxs_arr = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
 
+    # Create a time array for all obseravtinos
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
     time_array_T = np.expand_dims(time_array, axis=0).T
 
+    # Precompute the longitude and latitude of all stars
+    # at all times in time_array. Transform for broadcasting purposes.
     b_t_bigpatch = bigpatch['glat'] + time_array_T * bigpatch['mu_b'] * masyr_to_degday  # deg
     b_t_bigpatch = b_t_bigpatch.T
     l_t_bigpatch = bigpatch['glon'] + time_array_T * (bigpatch['mu_lcosb'] / np.cos(np.radians(bigpatch['glat']))) * masyr_to_degday  # deg
     l_t_bigpatch = l_t_bigpatch.T
 
-    for j, local_idx in enumerate(local_idxs):
-        local_idx = [idx for idx in local_idx if idx != j]
-        local_idx = np.array([idx for idx in local_idx if bigpatch[idx]['rad'] > bigpatch[j]['rad']])
-        if len(local_idx) == 0:
+    t1 = time.time()
+    print('Load Time: %.2fs' % (t1 - t0))
+
+    # import warnings
+    # warnings.filterwarnings("error")
+
+    t0 = time.time()
+    # Loop through all of the stars,
+    # checking to see if each one could be a lens to a surrounding star
+    for lens_idx, source_idxs in enumerate(source_idxs_arr):
+
+        # Convert all values into numpy arrays
+        lens_idx = np.array(lens_idx).astype(int)
+        source_idxs = np.array(source_idxs).astype(int)
+
+        # Remove the potential lens from the list of potential sources
+        not_lens_cond = source_idxs != lens_idx
+        if np.all(~not_lens_cond):
             continue
+        source_idxs = source_idxs[not_lens_cond]
 
-        b_t_local = b_t_bigpatch[local_idx]
-        l_t_local = l_t_bigpatch[local_idx]
+        # Only keep potential sources that are further away than the lens
+        rad_cond = bigpatch[source_idxs]['rad'] > bigpatch[lens_idx]['rad']
+        if np.all(~rad_cond):
+            continue
+        source_idxs = source_idxs[rad_cond]
 
-        b_t_base = b_t_bigpatch[j]
-        l_t_base = l_t_bigpatch[j]
+        # Grab the longitude and latitude of potential sources and lenses
+        b_t_sources = b_t_bigpatch[source_idxs]
+        l_t_sources = l_t_bigpatch[source_idxs]
+        b_t_lens = b_t_bigpatch[lens_idx]
+        l_t_lens = l_t_bigpatch[lens_idx]
 
-        delta_l = (l_t_local - l_t_base) * np.cos(np.radians(l_t_base))
-        delta_b = b_t_local - b_t_base
+        # Calculate an the displacement between potential sources and lenses
+        lon1, lat1 = np.radians(l_t_lens), np.radians(b_t_lens)
+        lon2, lat2 = np.radians(l_t_sources), np.radians(b_t_sources)
 
-        disp = np.hypot(delta_b, delta_l)
+        sdlon, cdlon = np.sin(lon2 - lon1), np.cos(lon2 - lon1)
+        slat1, slat2 = np.sin(lat1), np.sin(lat2)
+        clat1, clat2 = np.cos(lat1), np.cos(lat2)
+
+        num1 = clat2 * sdlon
+        num2 = clat1 * slat2 - slat1 * clat2 * cdlon
+        denominator = slat1 * slat2 + clat1 * clat2 * cdlon
+        disp = np.arctan2(np.hypot(num1, num2), denominator) * 180 / np.pi
+
+        # Find the time at which the potential lens and source are closest
+        # to each other on the sky and call that the separation
         idx_disp_min = np.argmin(disp, axis=1)
         sep = disp[np.arange(len(idx_disp_min)), idx_disp_min]
         sep *= 3600 * 1000
 
+        # Only keep potential sources that are further away than the lens.
+        # It is possible that the source has become closer than the lens
+        # during the time of the survey!
         timei = time_array[idx_disp_min]
-        r_lens = bigpatch[j]['rad'] + timei * bigpatch[j]['vr'] * kms_to_kpcday  # kpc
-        r_source = bigpatch[local_idx]['rad'] + timei * bigpatch[local_idx]['vr'] * kms_to_kpcday  # kpc
-        theta_E = einstein_radius(bigpatch[j]['mass'], r_lens, r_source) # mas
+        r_lens = bigpatch[lens_idx]['rad'] + timei * bigpatch[lens_idx]['vr'] * kms_to_kpcday  # kpc
+        r_source = bigpatch[source_idxs]['rad'] + timei * bigpatch[source_idxs]['vr'] * kms_to_kpcday  # kpc
+        rad_cond = r_source > r_lens
+        if np.all(~rad_cond):
+            continue
+        source_idxs = source_idxs[rad_cond]
+        r_lens = r_lens[rad_cond]
+        r_source = r_source[rad_cond]
+        sep = sep[rad_cond]
+
+        # Calculate an estimate of the minimum separation
+        theta_E = einstein_radius(bigpatch[lens_idx]['mass'], r_lens, r_source) # mas
         u = sep / theta_E
 
+        # Only keep potential sources that are within theta_frac of the lens
         theta_frac_cond = u < theta_frac
         if np.all(~theta_frac_cond):
             continue
-
-        local_idx = local_idx[theta_frac_cond]
-        idx_disp_min = idx_disp_min[theta_frac_cond]
-        b_t_local = b_t_local[theta_frac_cond]
-        l_t_local = l_t_local[theta_frac_cond]
+        source_idxs = source_idxs[theta_frac_cond]
         theta_E = theta_E[theta_frac_cond]
         timei = timei[theta_frac_cond]
-
-        lb_base = SkyCoord(frame='galactic',
-                           l=l_t_base[idx_disp_min] * units.deg,
-                           b=b_t_base[idx_disp_min] * units.deg)
-        lb_local = SkyCoord(frame='galactic',
-                           l=l_t_local[np.arange(len(idx_disp_min)), idx_disp_min] * units.deg,
-                           b=b_t_local[np.arange(len(idx_disp_min)), idx_disp_min] * units.deg)
-        sep = lb_base.separation(lb_local)
-        sep = (sep.to(units.arcsec)) / units.arcsec
-        sep = sep.value * 1000
+        sep = sep[theta_frac_cond]
         u = sep / theta_E
 
-        local_idx_and_j = np.append(np.array([j]), local_idx)
-        lens_id = np.zeros(len(local_idx_and_j)).astype(int)
-        sorc_id = np.arange(len(local_idx)).astype(int) + 1
-        event_lbt = _calc_event_cands_thetaE(bigpatch[local_idx_and_j],
+        # Prepare arrays to index into bigpatch at the location
+        # of the sources and lenses
+        lens_and_source_idxs = np.append(lens_idx, source_idxs)
+        lens_id = np.zeros(len(source_idxs)).astype(int)
+        sorc_id = np.arange(len(source_idxs)).astype(int) + 1
+
+        # Return the event table
+        event_lbt = _calc_event_cands_thetaE(bigpatch[lens_and_source_idxs],
                                              theta_E, u, theta_frac,
                                              lens_id, sorc_id,
                                              timei)
@@ -1624,65 +1673,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 blends_llbb = unique_blends(blends_llbb)
 
         # END of time loop
-
+    t1 = time.time()
+    print('Loop Time: %.2fs' % (t1 - t0))
     return events_llbb, blends_llbb
-
-    # # Skip patches with less than 10 objects
-    # if len(bigpatch) < 10:
-    #     # continue
-    #     return
-    #
-    # time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
-    #
-    # for i in np.arange(len(time_array)):
-    #     # Find potential lenses and sources that fall within radius cut.
-    #     lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
-    #                                                                         time_array[i],
-    #                                                                         radius_cut)
-    #
-    #     # Calculate einstein radius and lens-source separation
-    #     theta_E = einstein_radius(bigpatch['mass'][lens_id],
-    #                               r_t[lens_id], r_t[sorc_id])  # mas
-    #     u = sep[event_id1] / theta_E
-    #
-    #     # Trim down to those microlensing events that really get close enough
-    #     # to hope that we can detect them. Trim on a Theta_E criteria.
-    #     event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
-    #                                          lens_id, sorc_id, time_array[i])
-    #
-    #     if event_lbt is not None:
-    #         # Concatenate the current event table
-    #         # (at this l, b, time) with the rest.
-    #         if events_llbb is not None:
-    #             events_llbb = np.hstack((events_llbb, event_lbt))
-    #         else:
-    #             events_llbb = event_lbt
-    #
-    #         # Keep only unique events within our different time stamps
-    #         events_llbb = unique_events(events_llbb)
-    #
-    #         #########
-    #         # Get blending.
-    #         # Note 1: We are centering on the lens.
-    #         # Note 2: We don't want to include the lens itself,
-    #         # or the source, in the table.
-    #         ##########
-    #         blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
-    #
-    #         if blends_lbt is not None:
-    #             # Concatenate the current blend table (at this l, b, time)
-    #             # with the rest.
-    #             if blends_llbb is not None:
-    #                 blends_llbb = np.hstack((blends_llbb, blends_lbt))
-    #             else:
-    #                 blends_llbb = blends_lbt
-    #
-    #             # Keep only unique blends within our different time stamps
-    #             blends_llbb = unique_blends(blends_llbb)
-    #
-    #     # END of time loop
-    #
-    # return events_llbb, blends_llbb
 
 
 def _calc_event_cands_radius(bigpatch, timei, radius_cut):
@@ -1807,7 +1800,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         Indices into bigpatch that indicate sources
 
     timei : float
-        Time at which to evaluate.
+        Times at which to evaluate.
 
     Return
     ------

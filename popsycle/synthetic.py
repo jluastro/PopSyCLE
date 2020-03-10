@@ -1455,7 +1455,7 @@ def calc_events(hdf5_file, output_root2,
 
 
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
-                          theta_frac, blend_rad, speed_cut=5):
+                          theta_frac, blend_rad):
     """
     Parameters
     ----------
@@ -1511,6 +1511,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                                     nthneighbor=2)
     kdtree_cache = static_coord.cache['kdtree_sky']
 
+    speed_cut = 5
     star_speeds = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
     speed_cut_cond = star_speeds > speed_cut
 
@@ -1540,7 +1541,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             continue
 
         local_idx = [idx for idx in local_idx if idx != j]
-        local_idx = [idx for idx in local_idx if bigpatch[idx]['rad'] > bigpatch[j]['rad']]
+        local_idx = np.array([idx for idx in local_idx if bigpatch[idx]['rad'] > bigpatch[j]['rad']])
         b_t_local = b_t_bigpatch[local_idx]
         l_t_local = l_t_bigpatch[local_idx]
 
@@ -1552,6 +1553,23 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
         disp = np.hypot(delta_b, delta_l)
         idx_disp_min = np.argmin(disp, axis=1)
+        sep = disp[np.arange(len(idx_disp_min)), idx_disp_min]
+        sep *= 3600 * 1000
+
+        theta_E = einstein_radius(bigpatch[j]['mass'],
+                                  bigpatch[j]['rad'],
+                                  bigpatch[local_idx]['rad'])  # mas
+        u = sep / theta_E
+
+        theta_frac_cond = u < theta_frac
+        if np.all(~theta_frac_cond):
+            continue
+
+        local_idx = local_idx[theta_frac_cond]
+        idx_disp_min = idx_disp_min[theta_frac_cond]
+        b_t_local = b_t_local[theta_frac_cond]
+        l_t_local = l_t_local[theta_frac_cond]
+        theta_E = theta_E[theta_frac_cond]
 
         lb_base = SkyCoord(frame='galactic',
                            l=l_t_base[idx_disp_min] * units.deg,
@@ -1562,10 +1580,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         sep = lb_base.separation(lb_local)
         sep = (sep.to(units.arcsec)) / units.arcsec
         sep = sep.value * 1000
-
-        theta_E = einstein_radius(bigpatch[j]['mass'],
-                                  bigpatch[j]['rad'],
-                                  bigpatch[local_idx]['rad'])  # mas
         u = sep / theta_E
 
         local_idx_and_j = [j] + local_idx

@@ -1552,8 +1552,16 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
         disp = np.hypot(delta_b, delta_l)
         idx_disp_min = np.argmin(disp, axis=1)
-        sep = disp[np.arange(len(idx_disp_min)), idx_disp_min]
-        sep *= 3600 * 1000
+
+        lb_base = SkyCoord(frame='galactic',
+                           l=l_t_base[idx_disp_min] * units.deg,
+                           b=b_t_base[idx_disp_min] * units.deg)
+        lb_local = SkyCoord(frame='galactic',
+                           l=l_t_local[np.arange(len(idx_disp_min)), idx_disp_min] * units.deg,
+                           b=b_t_local[np.arange(len(idx_disp_min)), idx_disp_min] * units.deg)
+        sep = lb_base.separation(lb_local)
+        sep = (sep.to(units.arcsec)) / units.arcsec
+        sep = sep.value * 1000
 
         theta_E = einstein_radius(bigpatch[j]['mass'],
                                   bigpatch[j]['rad'],

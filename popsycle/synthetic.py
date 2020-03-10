@@ -1537,11 +1537,11 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     l_t_bigpatch = l_t_bigpatch.T
 
     for j, local_idx in enumerate(local_idxs):
-        if len(local_idx) == 1:
-            continue
-
         local_idx = [idx for idx in local_idx if idx != j]
         local_idx = np.array([idx for idx in local_idx if bigpatch[idx]['rad'] > bigpatch[j]['rad']])
+        if len(local_idx) == 0:
+            continue
+
         b_t_local = b_t_bigpatch[local_idx]
         l_t_local = l_t_bigpatch[local_idx]
 
@@ -1556,9 +1556,10 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         sep = disp[np.arange(len(idx_disp_min)), idx_disp_min]
         sep *= 3600 * 1000
 
-        theta_E = einstein_radius(bigpatch[j]['mass'],
-                                  bigpatch[j]['rad'],
-                                  bigpatch[local_idx]['rad'])  # mas
+        timei = time_array[idx_disp_min]
+        r_lens = bigpatch[j]['rad'] + timei * bigpatch[j]['vr'] * kms_to_kpcday  # kpc
+        r_source = bigpatch[local_idx]['rad'] + timei * bigpatch[local_idx]['vr'] * kms_to_kpcday  # kpc
+        theta_E = einstein_radius(bigpatch[j]['mass'], r_lens, r_source) # mas
         u = sep / theta_E
 
         theta_frac_cond = u < theta_frac
@@ -1570,6 +1571,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         b_t_local = b_t_local[theta_frac_cond]
         l_t_local = l_t_local[theta_frac_cond]
         theta_E = theta_E[theta_frac_cond]
+        timei = timei[theta_frac_cond]
 
         lb_base = SkyCoord(frame='galactic',
                            l=l_t_base[idx_disp_min] * units.deg,
@@ -1582,10 +1584,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         sep = sep.value * 1000
         u = sep / theta_E
 
-        local_idx_and_j = [j] + local_idx
+        local_idx_and_j = np.append(np.array([j]), local_idx)
         lens_id = np.zeros(len(local_idx_and_j)).astype(int)
         sorc_id = np.arange(len(local_idx)).astype(int) + 1
-        timei = time_array[idx_disp_min]
         event_lbt = _calc_event_cands_thetaE(bigpatch[local_idx_and_j],
                                              theta_E, u, theta_frac,
                                              lens_id, sorc_id,

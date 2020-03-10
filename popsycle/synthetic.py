@@ -1503,8 +1503,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # continue
         return
 
-    # bigpatch = bigpatch[:100000]
-
     t0 = time.time()
 
     # Create a static coordinate catalog of the stars without any motion
@@ -1516,17 +1514,13 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                                     nthneighbor=2)
     kdtree_cache = static_coord.cache['kdtree_sky']
 
-    # Set a cutoff speed above which stars will be searched or differently
-    speed_cut = 5
-    star_speeds = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
-    speed_cut_cond = star_speeds > speed_cut
-
     # Calculate the separation limit for two stars moving exactly toward
     # each other at the maximum possible speed to enter into a lens'
     # largest possible Einstein radius
+    speed_cut = 15
     obs_time_yrs = obs_time / 365.25
-    seplimit_as = einstein_radius(1000, .1, 20) + 2 * speed_cut * obs_time_yrs
-    seplimit = seplimit_as * units.arcsec / 1000
+    seplimit_mas = einstein_radius(100, 1, 20) + 2 * speed_cut * obs_time_yrs
+    seplimit = seplimit_mas * units.arcsec / 1000
 
     # Calculate the indices of stars that are within this
     # separation limit for all stars in bigpatch

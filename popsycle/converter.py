@@ -29,10 +29,10 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
                'vx': 6, 'vy': 7, 'vz': 8,
                'rad': 9, 'glat': 10, 'glon': 11,
                'vr': 12, 'mu_b': 13, 'mu_lcosb': 14,
-               'age': 15, 'popid': 16, 'ubv_k': 17,
-               'ubv_i': 18, 'exbv': 19, 'obj_id': 20,
-               'ubv_j': 21, 'ubv_u': 22, 'ubv_r': 23,
-               'ubv_b': 24, 'ubv_h': 25, 'ubv_v': 26}
+               'age': 15, 'popid': 16, 'ubv_K': 17,
+               'ubv_I': 18, 'exbv': 19, 'obj_id': 20,
+               'ubv_J': 21, 'ubv_U': 22, 'ubv_R': 23,
+               'ubv_B': 24, 'ubv_H': 25, 'ubv_V': 26}
 
     # Create a reverse col_idx dictionary where the column number
     # points to the column name

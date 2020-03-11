@@ -403,6 +403,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     popsycle_config_filename = os.path.abspath(popsycle_config_filename)
 
     # Make a run directory for the PopSyCLE output
+    path_run = os.path.abspath(path_run)
     if not os.path.exists(path_run):
         os.makedirs(path_run)
 
@@ -506,6 +507,7 @@ echo "All done!"
 
     # Submit the job to disk
     if submitFlag:
+        cwd = os.getcwd()
         os.chdir(path_run)
         stdout, stderr = utils.execute('sbatch {0}'.format(script_filename))
         print('Submitted job {0} to {1} for {2} time'.format(script_filename,
@@ -516,6 +518,7 @@ echo "All done!"
         print('---- Standard Err')
         print(stderr)
         print('')
+        os.chdir(cwd)
 
 
 def run():

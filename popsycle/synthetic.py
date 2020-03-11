@@ -1689,6 +1689,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 else:
                     blends_llbb = blends_lbt
 
+        del [event_lbt, blends_llbb]
+
     # Keep only unique events (not sure if this is still necessary)
     if events_llbb is not None:
         events_llbb = unique_events(events_llbb)

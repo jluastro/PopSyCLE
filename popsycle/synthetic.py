@@ -1827,7 +1827,9 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
     blend_neigh_idx = []
     sep_LN_list = []
 
+    # If multiple sources are around the same lens, loop over them
     for event in event_lbt:
+
         # Define the center of the blending disk (the lens)
         coords_lens = SkyCoord(frame='galactic',
                                l=event['glon_L'] * units.deg,

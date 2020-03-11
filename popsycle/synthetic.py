@@ -1532,6 +1532,12 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
     source_idxs_arr = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
 
+    # Calculate the indices of stars that are within the blend radius plus the
+    # separation limit for all stars in bigpatch
+    seplimit_blends = 2 * blend_rad * units.arcsec
+    r_kdt_large = (2 * np.sin(Angle(seplimit_blends) / 2.0)).value
+    blends_idxs_large_arr = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt_large)
+
     # Create a time array for all obseravtinos
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
     time_array_T = np.expand_dims(time_array, axis=0).T
@@ -1609,7 +1615,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         r_source = r_source[rad_cond]
         sep = sep[rad_cond]
 
-        # Calculate an estimate of the minimum separation
+        # Calculate the minimum separation in units of Einstein radius
         theta_E = einstein_radius(bigpatch[lens_idx]['mass'], r_lens, r_source) # mas
         u = sep / theta_E
 
@@ -1643,16 +1649,16 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             else:
                 events_llbb = event_lbt
 
-            # Keep only unique events within our different time stamps
-            events_llbb = unique_events(events_llbb)
-
             #########
             # Get blending.
             # Note 1: We are centering on the lens.
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
             ##########
-            blends_lbt = _calc_blends(bigpatch, static_coord,
+            blends_idxs_large = np.array(blends_idxs_large_arr[lens_idx])
+            blends_lbt = _calc_blends(bigpatch,
+                                      l_t_bigpatch, b_t_bigpatch,
+                                      blends_idxs_large, time_array,
                                       event_lbt, blend_rad)
 
             if blends_lbt is not None:
@@ -1663,10 +1669,12 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 else:
                     blends_llbb = blends_lbt
 
-                # Keep only unique blends within our different time stamps
-                blends_llbb = unique_blends(blends_llbb)
+    # Keep only unique events
+    events_llbb = unique_events(events_llbb)
 
-        # END of time loop
+    # Keep only unique blends
+    blends_llbb = unique_blends(blends_llbb)
+
     t1 = time.time()
     print('Loop Time: %.2fs' % (t1 - t0))
     return events_llbb, blends_llbb
@@ -1864,7 +1872,9 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         return None
 
 
-def _calc_blends(bigpatch, c, event_lbt, blend_rad):
+def _calc_blends(bigpatch, l_t_bigpatch, b_t_bigpatch,
+                 blends_idxs_large, time_array,
+                 event_lbt, blend_rad):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -1873,11 +1883,8 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     Parameters
     ----------
-    bigpatch : array
-        Compilation of 4 .h5 datasets containing stars.
-
-    c : SkyCoord object
-        Coordinates of all the stars.
+    l_t_bigpatch, b_t_bigpatch, blends_idxs, time_array
+        #FIXME
 
     event_lbt : array
         Lenses and sources at a particular time t.
@@ -1891,32 +1898,6 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
         Array of neighbor stars for each lens-source pair.
 
     """
-    kdtree_cache = c.cache['kdtree_sky']
-
-    # Define the center of the blending disk (the lens)
-    coords_lbt = SkyCoord(frame='galactic',
-                          l=np.array(event_lbt['glon_L']) * units.deg,
-                          b=np.array(event_lbt['glat_L']) * units.deg)
-
-    ##########
-    # Replicate astropy's search_around_sky.
-    ##########
-    # Make the coordinates to query around
-    seplimit = blend_rad * units.arcsec
-    coords1 = coords_lbt
-    coords1 = coords1.transform_to(c)
-    urepr1 = coords1.data.represent_as(UnitSphericalRepresentation)
-    ucoords1 = coords1.realize_frame(urepr1)
-    cartxyz1 = ucoords1.cartesian.xyz
-    flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
-
-    # Define the query distance.
-    r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
-
-    # Query ball against the existing (cached) tree.
-    # NOTE: results is an array of lists.
-    results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
-
     # Figure out the number of blends for each lens.
     blend_lens_obj_id = []
     blend_sorc_obj_id = []
@@ -1924,49 +1905,77 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     blend_neigh_idx = []
     sep_LN_list = []
 
-    for ii in range(len(results)):
-        # results indexes into bigpatch.
-        # ii corresponds to coords_lbt.
-        if len(results[ii]) == 0:
+    for event in event_lbt:
+        # Define the center of the blending disk (the lens)
+        coords_lens = SkyCoord(frame='galactic',
+                               l=event['glon_L'] * units.deg,
+                               b=event['glat_L'] * units.deg)
+
+        # Gather coordinates of sources within 2 * blend_rad
+        time_idx = np.where(time_array == event['t0'])[0]
+        glon_blends = l_t_bigpatch[blends_idxs_large, time_idx]
+        glat_blends = b_t_bigpatch[blends_idxs_large, time_idx]
+        coords_blend = SkyCoord(frame='galactic',
+                                l=glon_blends * units.deg,
+                                b=glat_blends * units.deg)
+        _ = coord.match_coordinates_sky(coords_blend,
+                                        coords_blend,
+                                        nthneighbor=2)
+        kdtree_cache = coords_blend.cache['kdtree_sky']
+
+        # Make the coordinates to query around
+        seplimit = blend_rad * units.arcsec
+        coords1 = coords_lens
+        coords1 = coords1.transform_to(coords_blend)
+        urepr1 = coords1.data.represent_as(UnitSphericalRepresentation)
+        ucoords1 = coords1.realize_frame(urepr1)
+        cartxyz1 = ucoords1.cartesian.xyz
+        flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
+
+        # Define the query distance.
+        r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
+
+        # Query ball against the existing (cached) tree.
+        # NOTE: results is an array of lists.
+        results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)[0]
+        results_idxs = blends_idxs_large[results]
+        # Remove the source and lens
+        blends_idxs = np.array([r for r in results_idxs if
+                               bigpatch[r]['obj_id'] not in
+                               event[['obj_id_L', 'obj_id_S']]])
+
+        if len(blends_idxs) == 0:
             continue
 
         # bidx indexes into results.
         # It should be that len(results[ii]) == len(bidx) + 2 (we get rid of source and lens.)
         # neighbor star object id
-        nid = bigpatch['obj_id'][results[ii]]
+        nid = bigpatch['obj_id'][blends_idxs]
         # lens star object id
-        lid = np.array(event_lbt['obj_id_L'][ii])
+        lid = np.array(event['obj_id_L'])
         # source star object id
-        sid = np.array(event_lbt['obj_id_S'][ii])
-
-        # Fetch the things that are not the lens and the source.
-        bidx = np.where((nid != lid) &
-                        (nid != sid))[0]
-
-        if len(bidx) == 0:
-            continue
+        sid = np.array(event['obj_id_S'])
 
         # Make a list of the lens and source IDs for each neighbor... these are just repeats.
-        tmp_lens_id = np.repeat(lid, len(bidx)).tolist()
-        tmp_sorc_id = np.repeat(sid, len(bidx)).tolist()
+        tmp_lens_id = np.repeat(lid, len(nid)).tolist()
+        tmp_sorc_id = np.repeat(sid, len(nid)).tolist()
 
         # Calculate the distance from lens to each neighbor.
-        lens_lb = SkyCoord(frame='galactic',
-                           l=np.array(event_lbt['glon_L'][ii]) * units.deg,
-                           b=np.array(event_lbt['glat_L'][ii]) * units.deg)
-        neigh_lb = SkyCoord(frame='galactic',
-                            l=bigpatch['glon'][results[ii]][bidx] * units.deg,
-                            b=bigpatch['glat'][results[ii]][bidx] * units.deg)
-        sep_LN = lens_lb.separation(neigh_lb)
+        glon_neigh = l_t_bigpatch[blends_idxs, time_idx]
+        glat_neigh = b_t_bigpatch[blends_idxs, time_idx]
+        coords_neigh = SkyCoord(frame='galactic',
+                                l=glon_neigh * units.deg,
+                                b=glat_neigh * units.deg)
+        sep_LN = coords_lens.separation(coords_neigh)
         sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
 
         # Add the non-lens, non-source blended object IDs to a list.
         # Add the lens and the source object ID to a new list as well.
         # Add the index of the neighbors.
-        blend_neigh_obj_id.extend(nid[bidx].tolist())
+        blend_neigh_obj_id.extend(nid)
         blend_lens_obj_id.extend(tmp_lens_id)
         blend_sorc_obj_id.extend(tmp_sorc_id)
-        blend_neigh_idx.extend([results[ii][bb] for bb in bidx])
+        blend_neigh_idx.extend(blends_idxs)
         sep_LN_list.extend(sep_LN.value.tolist())
 
     # Convert our lists into arrays.

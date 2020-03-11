@@ -88,26 +88,6 @@ def _check_for_output(filename, overwrite=False):
         return False
 
 
-def load_config(config_filename):
-    """
-    Load configuration parameters from a yaml file into a dictionary
-
-    Parameters
-    ----------
-    config_filename : str
-        Name of the configuration file
-
-    Output
-    ------
-    config : dict
-        Dictionary containing the configuration parameters
-
-    """
-    with open(config_filename, 'r') as f:
-        config = yaml.safe_load(f)
-    return config
-
-
 def generate_field_config_file(longitude, latitude, area,
                                config_filename='field_config.yaml'):
     """
@@ -300,6 +280,26 @@ def generate_config_file(config_filename, config):
         yaml.dump(config, outfile, default_flow_style=True)
 
 
+def load_config_file(config_filename):
+    """
+    Load configuration parameters from a yaml file into a dictionary
+
+    Parameters
+    ----------
+    config_filename : str
+        Name of the configuration file
+
+    Output
+    ------
+    config : dict
+        Dictionary containing the configuration parameters
+
+    """
+    with open(config_filename, 'r') as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+    return config
+
+
 def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
@@ -392,11 +392,13 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     # Check for files
     if not os.path.exists(slurm_config_filename):
         raise Exception('Slurm configuration file {0} does not exist. '
-                        'Write out file using synthetic.generate_config_file '
+                        'Write out file using '
+                        'run.generate_slurm_config_file '
                         'before proceeding.'.format(slurm_config_filename))
     if not os.path.exists(popsycle_config_filename):
         raise Exception('PopSyCLE configuration file {0} does not exist. '
-                        'Write out file using synthetic.generate_config_file '
+                        'Write out file using '
+                        'run.generate_popsycle_config_file '
                         'before proceeding.'.format(popsycle_config_filename))
 
     # Enforce popsycle_config_filename is an absolute path
@@ -416,7 +418,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     generate_config_file(field_config_filename, config)
 
     # Load the slurm configuration file
-    slurm_config = load_config(slurm_config_filename)
+    slurm_config = load_config_file(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
     jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
@@ -439,7 +441,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
-    run_filepath = os.path.dirname(inspect.getfile(load_config))
+    run_filepath = os.path.dirname(inspect.getfile(load_config_file))
 
     # Template for writing slurm script. Text must be left adjusted.
     slurm_template = """#!/bin/sh
@@ -599,11 +601,11 @@ def run():
         sys.exit(1)
 
     # Load the config files for field parameters
-    field_config = load_config(args.field_config_filename)
+    field_config = load_config_file(args.field_config_filename)
 
     # Load the config files for popsycle parameters. If the `bin_edges_number`
     # has been set to the string `None`, instead set it to the boolean None.
-    popsycle_config = load_config(args.popsycle_config_filename)
+    popsycle_config = load_config_file(args.popsycle_config_filename)
     if popsycle_config['bin_edges_number'] == 'None':
         popsycle_config['bin_edges_number'] = None
     if popsycle_config['photometric_system'] not in synthetic.photometric_system_dict:

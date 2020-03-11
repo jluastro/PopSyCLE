@@ -1670,10 +1670,12 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                     blends_llbb = blends_lbt
 
     # Keep only unique events
-    events_llbb = unique_events(events_llbb)
+    if events_llbb is not None:
+        events_llbb = unique_events(events_llbb)
 
     # Keep only unique blends
-    blends_llbb = unique_blends(blends_llbb)
+    if blends_llbb is not None:
+        blends_llbb = unique_blends(blends_llbb)
 
     t1 = time.time()
     print('Loop Time: %.2fs' % (t1 - t0))
@@ -1947,8 +1949,6 @@ def _calc_blends(bigpatch, l_t_bigpatch, b_t_bigpatch,
         if len(blends_idxs) == 0:
             continue
 
-        # bidx indexes into results.
-        # It should be that len(results[ii]) == len(bidx) + 2 (we get rid of source and lens.)
         # neighbor star object id
         nid = bigpatch['obj_id'][blends_idxs]
         # lens star object id
@@ -1961,8 +1961,15 @@ def _calc_blends(bigpatch, l_t_bigpatch, b_t_bigpatch,
         tmp_sorc_id = np.repeat(sid, len(nid)).tolist()
 
         # Calculate the distance from lens to each neighbor.
-        glon_neigh = l_t_bigpatch[blends_idxs, time_idx]
-        glat_neigh = b_t_bigpatch[blends_idxs, time_idx]
+        # Note that this is the distance to the neighbors at the time t0 of
+        # the lensing event. Earlier versions of this code found the
+        # distances to neighbors at t0 = 0 and therefore may result in
+        # different aperture fluxes and associated parameters. To compare,
+        # replace the glon_neigh / glat_neigh calculations below with:
+        glon_neigh = bigpatch[blends_idxs]['glon']
+        glat_neigh = bigpatch[blends_idxs]['glat']
+        # glon_neigh = l_t_bigpatch[blends_idxs, time_idx]
+        # glat_neigh = b_t_bigpatch[blends_idxs, time_idx]
         coords_neigh = SkyCoord(frame='galactic',
                                 l=glon_neigh * units.deg,
                                 b=glat_neigh * units.deg)
@@ -2583,8 +2590,8 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
                            axis=-1)
 
     flux_N = np.zeros(len(app_L))
-    event_tab['cent_glon_' + filter_name + '_N'] = np.zeros(len(app_L))
-    event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
+    event_tab['cent_glon_' + photometric_system + '_' + filter_name + '_N'] = np.zeros(len(app_L))
+    event_tab['cent_glat_' + photometric_system + '_' + filter_name + '_N'] = np.zeros(len(app_L))
 
     # Get the unique blend_pairs and the first instance of each.
     if len(blend_pairs) > 0:
@@ -2613,8 +2620,8 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
                                                                               blend_tab[start:end],
                                                                               photometric_system)
             flux_N[pp] = flux_N_tot
-            event_tab['cent_glon_' + filter_name + '_N'][pp] = cent_l
-            event_tab['cent_glat_' + filter_name + '_N'][pp] = cent_b
+            event_tab['cent_glon_' + photometric_system + '_' + filter_name + '_N'][pp] = cent_l
+            event_tab['cent_glat_' + photometric_system + '_' + filter_name + '_N'][pp] = cent_b
 
     # Total blended flux in i-band
     flux_tot = flux_L + flux_S + flux_N
@@ -2634,12 +2641,12 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 
     # Bump amplitude (in magnitudes)
     delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N)
-    event_tab['delta_m_' + filter_name] = delta_m
+    event_tab['delta_m_' + photometric_system + '_' + filter_name] = delta_m
 
     # Calculate the blend fraction
     # (commonly used in microlensing): f_source / f_total
     f_blend = flux_S / flux_tot
-    event_tab['f_blend_' + filter_name] = f_blend
+    event_tab['f_blend_' + photometric_system + '_' + filter_name] = f_blend
 
     return
 

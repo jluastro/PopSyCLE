@@ -1454,6 +1454,37 @@ def calc_events(hdf5_file, output_root2,
     return
 
 
+def _return_match_idxs(coords_centers, coords_match, radius):
+    """
+    #FIXME
+    """
+    seplimit = radius * units.arcsec
+    coords_centers_trans = coords_centers.transform_to(coords_match)
+    urepr1 = coords_centers_trans.data.represent_as(
+        UnitSphericalRepresentation)
+    ucoords1 = coords_centers_trans.realize_frame(urepr1)
+    cartxyz1 = ucoords1.cartesian.xyz
+    flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
+    # Define the query distance.
+    r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
+
+    # Query ball against the existing (cached) tree.
+    # NOTE: results is an array of lists.
+    if 'kdtree_sky' not in coords_match.cache:
+        _ = coord.match_coordinates_sky(coords_match,
+                                        coords_match,
+                                        nthneighbor=2)
+
+    kdtree_cache = coords_match.cache['kdtree_sky']
+    match_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+
+    if coords_centers.ndim == 0:
+        match_idxs = match_idxs[0]
+
+    return match_idxs
+
+
+
 def _return_angular_separation(lon1, lat1, lon2, lat2):
     """
     #FIXME
@@ -1524,37 +1555,21 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     t0 = time.time()
 
     # Create a static coordinate catalog of the stars without any motion
-    static_coord = SkyCoord(frame='galactic',
+    coords_static = SkyCoord(frame='galactic',
                             l=bigpatch['glon'] * units.deg,
                             b=bigpatch['glat'] * units.deg)
-    _ = coord.match_coordinates_sky(static_coord,
-                                    static_coord,
-                                    nthneighbor=2)
-    kdtree_cache = static_coord.cache['kdtree_sky']
 
     # Calculate the separation limit for two stars moving exactly toward
     # each other at the maximum possible speed to enter into a lens'
     # largest possible Einstein radius. We'll call this the large blend radius.
     speed_cut = 15
     obs_time_yrs = obs_time / 365.25
-    seplimit_mas = einstein_radius(100, 1, 20) + 2 * speed_cut * obs_time_yrs
-    seplimit = seplimit_mas * units.arcsec / 1000
+    radius_mas = einstein_radius(100, 1, 20) + 2 * speed_cut * obs_time_yrs
+    radius = radius_mas / 1000
 
     # Calculate the indices of stars that are within this
-    # large blend radius for all stars in bigpatch
-    static_coord_trans = static_coord.transform_to(static_coord)
-    urepr1 = static_coord_trans.data.represent_as(UnitSphericalRepresentation)
-    ucoords1 = static_coord_trans.realize_frame(urepr1)
-    cartxyz1 = ucoords1.cartesian.xyz
-    flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
-    r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
-    source_idxs_arr = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
-
-    # Calculate the indices of stars that are within the large blend radius
-    # for all stars in bigpatch
-    seplimit_blends = 2 * blend_rad * units.arcsec
-    r_kdt_large = (2 * np.sin(Angle(seplimit_blends) / 2.0)).value
-    blends_idxs_large_arr = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt_large)
+    # possible lensing radius for all stars in bigpatch
+    source_idxs_arr = _return_match_idxs(coords_static, coords_static, radius)
 
     # Create a time array for all obseravtions
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
@@ -1660,8 +1675,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
             ##########
-            blends_idxs_large = np.array(blends_idxs_large_arr[lens_idx])
-            blends_lbt = _calc_blends(bigpatch, blends_idxs_large,
+            blends_lbt = _calc_blends(bigpatch, coords_static,
                                       event_lbt, blend_rad)
 
             if blends_lbt is not None:
@@ -1782,8 +1796,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         return None
 
 
-def _calc_blends(bigpatch, blends_idxs_large,
-                 event_lbt, blend_rad):
+def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -1821,38 +1834,26 @@ def _calc_blends(bigpatch, blends_idxs_large,
                                b=event['glat_L'] * units.deg)
 
         # Gather coordinates of sources within 2 * blend_rad
-        timei = event['t0']
-        glat_blends = bigpatch[blends_idxs_large]['glat'] + timei * bigpatch[blends_idxs_large]['mu_b'] * masyr_to_degday  # deg
-        glon_blends = bigpatch[blends_idxs_large]['glon'] + timei * (bigpatch[blends_idxs_large]['mu_lcosb'] / np.cos(np.radians(bigpatch[blends_idxs_large]['glat']))) * masyr_to_degday  # deg
-
-        coords_blend = SkyCoord(frame='galactic',
-                                l=glon_blends * units.deg,
-                                b=glat_blends * units.deg)
-        _ = coord.match_coordinates_sky(coords_blend,
-                                        coords_blend,
-                                        nthneighbor=2)
-        kdtree_cache = coords_blend.cache['kdtree_sky']
-
-        # Make the coordinates to query around
-        seplimit = blend_rad * units.arcsec
-        coords1 = coords_lens
-        coords1 = coords1.transform_to(coords_blend)
-        urepr1 = coords1.data.represent_as(UnitSphericalRepresentation)
-        ucoords1 = coords1.realize_frame(urepr1)
-        cartxyz1 = ucoords1.cartesian.xyz
-        flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
-
-        # Define the query distance.
-        r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
-
-        # Query ball against the existing (cached) tree.
-        # NOTE: results is an array of lists.
-        results_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)[0]
+        radius = 2 * blend_rad
+        large_blends_idxs = _return_match_idxs(coords_lens, coords_static,
+                                               radius)
         # Remove the source and lens
-        results_idxs = [r for r in results_idxs if
-                        bigpatch[blends_idxs_large[r]]['obj_id']
-                        not in event[['obj_id_L', 'obj_id_S']]]
-        blends_idxs = blends_idxs_large[results_idxs]
+        large_blends_idxs = [i for i in large_blends_idxs if
+                             bigpatch[i]['obj_id']
+                             not in event[['obj_id_L', 'obj_id_S']]]
+        # Calculate coordinates of all potential neighbors at the time of t0
+        timei = event['t0']
+        glat_blends_tmp = bigpatch[large_blends_idxs]['glat'] + timei * bigpatch[large_blends_idxs]['mu_b'] *masyr_to_degday  # deg
+        glon_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
+        coords_blend_tmp = SkyCoord(frame='galactic',
+                                    l=glon_blends_tmp * units.deg,
+                                    b=glat_blends_tmp * units.deg)
+
+        # Calculate the indices of stars that are within the blend radius
+        # at the time of t0
+        blends_idxs_tmp = _return_match_idxs(coords_lens, coords_blend_tmp,
+                                             blend_rad)
+        blends_idxs = [large_blends_idxs[idx] for idx in blends_idxs_tmp]
 
         if len(blends_idxs) == 0:
             continue
@@ -1875,14 +1876,13 @@ def _calc_blends(bigpatch, blends_idxs_large,
         # distances to neighbors at t0 = 0 and therefore may result in
         # different aperture fluxes and associated parameters. To compare,
         # replace the glon_neigh / glat_neigh calculations below with:
-        # glon_neigh = bigpatch[blends_idxs]['glon']
-        # glat_neigh = bigpatch[blends_idxs]['glat']
-        glon_neigh = glon_blends[results_idxs]
-        glat_neigh = glat_blends[results_idxs]
-        coords_neigh = SkyCoord(frame='galactic',
-                                l=glon_neigh * units.deg,
-                                b=glat_neigh * units.deg)
-        sep_LN = coords_lens.separation(coords_neigh)
+        #   glon_blends = bigpatch[blends_idxs]['glon']
+        #   glat_blends = bigpatch[blends_idxs]['glat']
+        #   coords_blends = SkyCoord(frame='galactic',
+        #                           l=glon_blends * units.deg,
+        #                           b=glat_blends * units.deg)
+        coords_blends = coords_blend_tmp[blends_idxs_tmp]
+        sep_LN = coords_lens.separation(coords_blends)
         sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
 
         # Add the non-lens, non-source blended object IDs to a list.

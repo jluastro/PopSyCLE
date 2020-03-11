@@ -1837,10 +1837,12 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         radius = 2 * blend_rad
         large_blends_idxs = _return_match_idxs(coords_lens, coords_static,
                                                radius)
+
         # Remove the source and lens
         large_blends_idxs = [i for i in large_blends_idxs if
                              bigpatch[i]['obj_id']
                              not in event[['obj_id_L', 'obj_id_S']]]
+
         # Calculate coordinates of all potential neighbors at the time of t0
         timei = event['t0']
         glat_blends_tmp = bigpatch[large_blends_idxs]['glat'] + timei * bigpatch[large_blends_idxs]['mu_b'] *masyr_to_degday  # deg

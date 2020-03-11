@@ -1614,6 +1614,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         disp = _return_angular_separation(l_t_lens, b_t_lens,
                                           l_t_sources, b_t_sources)
 
+        # cleanup
+        del [b_t_sources, l_t_sources, b_t_lens, l_t_lens]
+
         # Find the time at which each potential source and the potential lens
         # are closest to each other on the sky.
         idx_disp_min = np.argmin(disp, axis=0)
@@ -1850,13 +1853,13 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         glat_blends_tmp = bigpatch[large_blends_idxs]['glat'] + \
                           timei * bigpatch[large_blends_idxs]['mu_b'] * masyr_to_degday  # deg
         glon_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
-        coords_blend_tmp = SkyCoord(frame='galactic',
+        coords_blends_tmp = SkyCoord(frame='galactic',
                                     l=glon_blends_tmp * units.deg,
                                     b=glat_blends_tmp * units.deg)
 
         # Calculate the indices of stars that are within the blend radius
         # at the time of t0
-        blends_idxs_tmp = _return_match_idxs(coords_lens, coords_blend_tmp,
+        blends_idxs_tmp = _return_match_idxs(coords_lens, coords_blends_tmp,
                                              blend_rad)
         blends_idxs = [large_blends_idxs[idx] for idx in blends_idxs_tmp]
 
@@ -1886,7 +1889,7 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         #   coords_blends = SkyCoord(frame='galactic',
         #                           l=glon_blends * units.deg,
         #                           b=glat_blends * units.deg)
-        coords_blends = coords_blend_tmp[blends_idxs_tmp]
+        coords_blends = coords_blends_tmp[blends_idxs_tmp]
         sep_LN = coords_lens.separation(coords_blends)
         sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
 
@@ -1898,6 +1901,9 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         blend_sorc_obj_id.extend(tmp_sorc_id)
         blend_neigh_idx.extend(blends_idxs)
         sep_LN_list.extend(sep_LN.value.tolist())
+
+        # cleanup
+        del [coords_lens, coords_blends_tmp, coords_blends]
 
     # Convert our lists into arrays.
     blend_neigh_obj_id = np.array(blend_neigh_obj_id)

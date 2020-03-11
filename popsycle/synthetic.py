@@ -1845,7 +1845,8 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
 
         # Calculate coordinates of all potential neighbors at the time of t0
         timei = event['t0']
-        glat_blends_tmp = bigpatch[large_blends_idxs]['glat'] + timei * bigpatch[large_blends_idxs]['mu_b'] *masyr_to_degday  # deg
+        glat_blends_tmp = bigpatch[large_blends_idxs]['glat'] + \
+                          timei * bigpatch[large_blends_idxs]['mu_b'] * masyr_to_degday  # deg
         glon_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
         coords_blend_tmp = SkyCoord(frame='galactic',
                                     l=glon_blends_tmp * units.deg,

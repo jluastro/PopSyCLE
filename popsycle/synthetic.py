@@ -1444,8 +1444,7 @@ def _return_match_idxs(coords_centers, coords_match, radius):
     """
     seplimit = radius * units.arcsec
     coords_centers_trans = coords_centers.transform_to(coords_match)
-    urepr1 = coords_centers_trans.data.represent_as(
-        UnitSphericalRepresentation)
+    urepr1 = coords_centers_trans.data.represent_as(UnitSphericalRepresentation)
     ucoords1 = coords_centers_trans.realize_frame(urepr1)
     cartxyz1 = ucoords1.cartesian.xyz
     flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
@@ -1492,6 +1491,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     # First count the number of fast stars
     N_fast_stars = len(fast_idxs)
     print('%i fast stars' % N_fast_stars)
+
     # Find the coordinates of the fast stars at all times in time_array.
     # To significantly speed up this function, we will calculate the matches
     # for all times in time_array in one match. Then we will use fancy
@@ -1514,7 +1514,8 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     def flat_to_time_idxs(fast_match_idxs, N_fast_stars):
         return np.floor(np.array(fast_match_idxs) / N_fast_stars).astype(int)
 
-    # Find all the fast stars that match with a static star
+    # Find all the fast stars that fall within the search radius
+    # of a static star at any time in the survey
     flat_match_idxs_arr = _return_match_idxs(coords_static, coords_fast,
                                              search_radius)
 
@@ -1525,28 +1526,37 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
         # Skip if there are no matches:
         if len(flat_match_idxs) == 0:
             continue
+
         # Extract the fast_match_idxs from the flattened match array
         fast_match_idxs = flat_to_fast_match_idxs(flat_match_idxs,
                                                   N_fast_stars)
-        # Only keep one fast_match_idx for each fast star that matches
+
+        # Only keep one fast_match_idx for each time that a
+        # fast star falls into the static star's search radius
         fast_match_idxs = np.unique(fast_match_idxs)
-        # Transform fast_match_idxs into bigpatch_idxs through fast_idxs
+
+        # Transform fast_match_idxs into bigpatch_idxs
         fast_bigpatch_idxs = fast_idxs[fast_match_idxs]
+
         # Remove fast stars matches with itself
         fast_bigpatch_idxs = [i for i in fast_bigpatch_idxs
                               if i != static_idx]
+
         # Remove fast star matches that will already appear
-        # in the larger search radius
+        # in the original search radius
         fast_bigpatch_idxs = [i for i in fast_bigpatch_idxs
                               if i not in source_idxs_arr[static_idx]]
+
         # If there are any fast star matches left...
         if len(fast_bigpatch_idxs) > 0:
             fast_stars_counter += 1
+
             # Add the fast stars into the static star's
             # list of possible sources
             source_idxs_arr[static_idx] += fast_bigpatch_idxs
+
             # And for each fast star, add this loop's static star into
-            # it's the fast star's list of possible sources
+            # the fast star's list of possible sources
             for fast_bigpath_idx in fast_bigpatch_idxs:
                 new_apertures_counter += 1
                 source_idxs_arr[fast_bigpath_idx].append(static_idx)

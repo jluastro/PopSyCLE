@@ -1535,8 +1535,12 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
                                              search_radius)
 
     # Loop over each static star and it's fast star matches
-    counter = 0
+    fast_stars_counter = 0
+    new_apertures_counter = 0
     for static_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
+        # Skip if there are no matches:
+        if len(flat_match_idxs) == 0:
+            continue
         # Extract the fast_match_idxs from the flattened match array
         fast_match_idxs = flat_to_fast_match_idxs(flat_match_idxs,
                                                   N_fast_stars)
@@ -1553,20 +1557,23 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
                               if i not in source_idxs_arr[static_idx]]
         # If there are any fast star matches left...
         if len(fast_bigpatch_idxs) > 0:
+            fast_stars_counter += 1
             # Add the fast stars into the static star's
             # list of possible sources
             source_idxs_arr[static_idx] += fast_bigpatch_idxs
             # And for each fast star, add this loop's static star into
             # it's the fast star's list of possible sources
             for fast_bigpath_idx in fast_bigpatch_idxs:
-                counter += 1
+                new_apertures_counter += 1
                 source_idxs_arr[fast_bigpath_idx].append(static_idx)
 
         del [flat_match_idxs, fast_match_idxs, fast_bigpatch_idxs]
 
     del [b_t_fast, l_t_fast, coords_fast, flat_match_idxs_arr]
 
-    print('%i fast stars added to new lensing apertures' % counter)
+    print('%i fast stars added to '
+          '%i lensing apertures' % (fast_stars_counter,
+                                    new_apertures_counter))
     return source_idxs_arr
 
 
@@ -1626,6 +1633,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # each other at the maximum possible speed to enter into a lens'
     # largest possible Einstein radius.
     speed_cut = 15  # mas / yr
+    print('Speed Cut : %.1f mas/yr' % speed_cut)
     obs_time_yrs = obs_time / 365.25  # yrs
     microlensing_radius = einstein_radius(100, 1, 20)  # mas
     search_radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas

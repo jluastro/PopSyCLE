@@ -1819,8 +1819,15 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 blends_lens_arr.append(blends_lens)
                 del blends_lens
 
-    events_llbb = np.hstack(events_lens_arr)
-    blends_llbb = np.hstack(blends_lens_arr)
+    if len(events_lens_arr) > 0:
+        events_llbb = np.hstack(events_lens_arr)
+    else:
+        events_llbb = None
+
+    if len(blends_lens_arr) > 0:
+        blends_llbb = np.hstack(blends_lens_arr)
+    else:
+        blends_llbb = None
 
     del [coords_static, source_idxs_arr]
     gc.collect()

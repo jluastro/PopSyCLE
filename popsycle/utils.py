@@ -166,3 +166,43 @@ def execute(cmd, shell=False):
     stdout, stderr = process.communicate()
 
     return stdout, stderr
+
+
+def return_angular_separation(lon1, lat1, lon2, lat2):
+    """
+    Distance between two coordinates on the celestial sphere
+    using an adaptation of the the Haversine formula.
+    https://en.wikipedia.org/wiki/Haversine_formula
+
+    Parameters
+    ----------
+    lon1 : float
+        longitude of first coordinate, in degrees
+
+    lat1 : float
+        latitude of first coordinate, in degrees
+
+    lon2 : float
+        longitude of second coordinate, in degrees
+
+    lon2 : float
+        latitude of second coordinate, in degrees
+
+    Return
+    ------
+    sep : float
+        separation of two coordinates, in degrees
+
+    """
+    lon1, lat1 = np.radians(lon1), np.radians(lat1)
+    lon2, lat2 = np.radians(lon2), np.radians(lat2)
+
+    sdlon, cdlon = np.sin(lon2 - lon1), np.cos(lon2 - lon1)
+    slat1, slat2 = np.sin(lat1), np.sin(lat2)
+    clat1, clat2 = np.cos(lat1), np.cos(lat2)
+
+    num1 = clat2 * sdlon
+    num2 = clat1 * slat2 - slat1 * clat2 * cdlon
+    denominator = slat1 * slat2 + clat1 * clat2 * cdlon
+    sep = np.arctan2(np.hypot(num1, num2), denominator) * 180 / np.pi
+    return sep

@@ -1440,7 +1440,7 @@ def calc_events(hdf5_file, output_root2,
     return
 
 
-def _return_match_idxs(coords_centers, coords_surrounding, radius):
+def _return_match_idxs(coords_centers, coords_surrounding, radius_cut):
     """
     Returns the indices of stars in 'coords_surrounding' that fall within
     the 'radius' of stars in 'coords_centers'.
@@ -1458,7 +1458,7 @@ def _return_match_idxs(coords_centers, coords_surrounding, radius):
         SkyCoord of stars that are evaluated for falling in the search
         radii of 'coords_centers'
 
-    radius : float
+    radius_cut : float
         Radius of the circle around each star in 'coords_centers' that a
         star in 'coords_surrounding' may be placed into.
         'radius' must be provided in ARCSECONDS.
@@ -1469,7 +1469,7 @@ def _return_match_idxs(coords_centers, coords_surrounding, radius):
         separation of two coordinates, in degrees
 
     """
-    seplimit = radius * units.arcsec
+    seplimit = radius_cut * units.arcsec
     coords_centers_trans = coords_centers.transform_to(coords_surrounding)
     urepr1 = coords_centers_trans.data.represent_as(UnitSphericalRepresentation)
     ucoords1 = coords_centers_trans.realize_frame(urepr1)
@@ -1493,46 +1493,6 @@ def _return_match_idxs(coords_centers, coords_surrounding, radius):
         match_idxs = match_idxs[0]
 
     return match_idxs
-
-
-def _return_angular_separation(lon1, lat1, lon2, lat2):
-    """
-    Distance between two coordinates on the celestial sphere
-    using an adaptation of the the Haversine formula.
-    https://en.wikipedia.org/wiki/Haversine_formula
-
-    Parameters
-    ----------
-    lon1 : float
-        longitude of first coordinate, in degrees
-
-    lat1 : float
-        latitude of first coordinate, in degrees
-
-    lon2 : float
-        longitude of second coordinate, in degrees
-
-    lon2 : float
-        latitude of second coordinate, in degrees
-
-    Return
-    ------
-    sep : float
-        separation of two coordinates, in degrees
-
-    """
-    lon1, lat1 = np.radians(lon1), np.radians(lat1)
-    lon2, lat2 = np.radians(lon2), np.radians(lat2)
-
-    sdlon, cdlon = np.sin(lon2 - lon1), np.cos(lon2 - lon1)
-    slat1, slat2 = np.sin(lat1), np.sin(lat2)
-    clat1, clat2 = np.cos(lat1), np.cos(lat2)
-
-    num1 = clat2 * sdlon
-    num2 = clat1 * slat2 - slat1 * clat2 * cdlon
-    denominator = slat1 * slat2 + clat1 * clat2 * cdlon
-    sep = np.arctan2(np.hypot(num1, num2), denominator) * 180 / np.pi
-    return sep
 
 
 def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
@@ -1716,20 +1676,27 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                             l=bigpatch['glon'] * units.deg,
                             b=bigpatch['glat'] * units.deg)
 
-    # Calculate the separation limit for two stars moving exactly toward
-    # each other at the maximum possible speed to enter into a lens'
-    # largest possible Einstein radius.
-    speed_cut = 15  # mas / yr
-    print('Speed Cut : %.1f mas/yr' % speed_cut)
+    # # Calculate the maximum speed that two stars headed directly for
+    # # each other would have to be to not be captured by the `radius_cut`
+    # speed_cut = 15  # mas / yr
+    # print('Speed Cut : %.1f mas/yr' % speed_cut)
+    # obs_time_yrs = obs_time / 365.25  # yrs
+    # microlensing_radius = 2 * einstein_radius(250, 1, 20)  # mas
+    # radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
+    # radius_cut = radius_mas / 1000  # as
+
+    # # Calculate the maximum speed that two stars headed directly for
+    # # each other would have to be to not be captured by the `radius_cut`
+    radius_cut_mas = radius_cut * 1000  # mas
     obs_time_yrs = obs_time / 365.25  # yrs
-    microlensing_radius = 2 * einstein_radius(250, 1, 20)  # mas
-    radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
-    radius = radius_mas / 1000  # as
+    speed_cut = radius_cut_mas / (2 * obs_time_yrs)  # mas
+    print('Speed Cut : %.1f mas/yr' % speed_cut)
+
 
     # Calculate the indices of stars that are within this
     # possible lensing radius for all stars in bigpatch
     source_idxs_arr = _return_match_idxs(coords_static, coords_static,
-                                         radius)
+                                         radius_cut)
 
     # Create a time array for all obseravtions
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
@@ -1743,7 +1710,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # the list of stars that they will travel into during the search
     source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static,
                                                          time_array_T, speed_cut,
-                                                         radius, source_idxs_arr)
+                                                         radius_cut, source_idxs_arr)
 
     t1 = time.time()
     print('Fast Stars Time: %.2fs' % (t1 - t0))
@@ -1751,11 +1718,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Loop through all of the stars,
     # checking to see if each one could be a lens to a surrounding star
-    # Initialize events_llbb_arr and blends_llbb_arr.
+    # Initialize events_lens_arr and blends_lens_arr.
     events_lens_arr = []
     blends_lens_arr = []
-    # events_lbt_arr = None
-    # blends_lbt_arr = None
     for lens_idx0, source_idxs0 in enumerate(source_idxs_arr):
 
         # Convert all idx lists into numpy arrays
@@ -1789,8 +1754,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
         # Calculate the displacement between potential sources and lenses
         # at all times in time_array
-        sep0 = _return_angular_separation(l_t_lens, b_t_lens,
-                                          l_t_sources, b_t_sources)
+        sep0 = utils.return_angular_separation(l_t_lens, b_t_lens,
+                                               l_t_sources, b_t_sources)
 
 
         # Find the time at which each potential source and the potential lens
@@ -1847,11 +1812,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         del [theta_E, u1, lens_id, sorc_id, timei_array]
 
         if events_lens is not None:
-            # Add the current events table to the total list
-            # if events_lens_arr is None:
-            #     events_lens_arr = event_lbt
-            # else:
-            #     events_lens_arr = np.hstack((events_lens_arr, events_lens))
             events_lens_arr.append(events_lens)
 
             #########
@@ -1865,11 +1825,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             del events_lens
 
             if blends_lens is not None:
-                # Add the current blend table to the total list
-                # if blends_lens_arr is None:
-                #     blends_lens_arr = blends_lens
-                # else:
-                #     blends_lens_arr = np.hstack((blends_lens_arr, blends_lens))
                 blends_lens_arr.append(blends_lens)
                 del blends_lens
 
@@ -2152,7 +2107,7 @@ def unique_events(event_table):
 
     Parameters
     ---------
-    event_table : numpy array 
+    event_table : numpy array
         A table with all the events. There are equal numbers of columns
         containing info about the source and the lens, and four additional
         columns with theta_E, u0, mu_rel, and t0. The number of rows
@@ -2204,7 +2159,7 @@ def unique_blends(blend_table):
 
     Parameters
     ---------
-    blend_table : blend array 
+    blend_table : blend array
         A table with all the events. There is 1 column with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
         separation, and the remaining columns contain info about the neighbors.

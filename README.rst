@@ -18,10 +18,13 @@ Dependencies
 Installation
 ------------
 
-PopSyCLE can be installed as a standard python package.
+To install PopSyCLE, clone the GitHub repository and add the repository's
+path to your `PYTHONPATH`. For example:
+`git clone git@github.com:jluastro/PopSyCLE.git`
+`echo "export PYTHONPATH=$PWD/PopSyCLE:$PYTHONPATH" >> ~/.bashrc`
 
 Running PopSyCLE
--------
+----------------
 
 An example of implementing PopSyCLE can be found
 `in our example notebook <docs/PopSyCLE_example.ipynb>`_.

@@ -1831,20 +1831,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     events_llbb = np.hstack(events_lens_arr)
     blends_llbb = np.hstack(blends_lens_arr)
 
-    # Keep only unique events (not sure if this is still necessary)
-    if events_llbb is not None:
-        N_events0 = len(events_llbb)
-        events_llbb = unique_events(events_llbb)
-        N_events1 = len(events_llbb)
-        print('unique_events: %i -> %i events' % (N_events0, N_events1))
-
-    # Keep only unique blends (not sure if this is still necessary)
-    if blends_llbb is not None:
-        N_blends0 = len(blends_llbb)
-        blends_llbb = unique_blends(blends_llbb)
-        N_blends1 = len(blends_llbb)
-        print('unique_blends: %i -> %i blends' % (N_blends0, N_blends1))
-
     del [coords_static, source_idxs_arr]
     gc.collect()
 

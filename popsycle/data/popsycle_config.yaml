@@ -10,5 +10,5 @@ bin_edges_number: None
 BH_kick_speed_mean: 50
 NS_kick_speed_mean: 400
 photometric_system: ubv
-filter_name: r
+filter_name: R
 red_law: Damineli16

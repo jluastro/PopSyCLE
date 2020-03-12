@@ -10,6 +10,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 import yaml
 import sys
+import time
 from popsycle import synthetic
 from popsycle import utils
 
@@ -582,6 +583,8 @@ def run():
                           action='store_true')
     args = parser.parse_args()
 
+    t0 = time.time()
+
     # Check for field config file. Exit if not present.
     if not os.path.exists(args.field_config_filename):
         print("""Error: Field configuration file {0} missing, 
@@ -700,6 +703,9 @@ def run():
                                 red_law=popsycle_config['red_law'],
                                 overwrite=args.overwrite,
                                 output_file='default')
+
+    t1 = time.time()
+    print('run.py complete : total run time is {0:f} s'.format(t1 - t0))
 
 
 if __name__ == '__main__':

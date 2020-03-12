@@ -36,6 +36,7 @@ import itertools
 from multiprocessing import Pool
 import numpy.lib.recfunctions as rfn
 from popsycle import utils
+import inspect
 
 
 ##########
@@ -1502,6 +1503,73 @@ def _return_angular_separation(lon1, lat1, lon2, lat2):
     return disp
 
 
+def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
+                                       fast_idxs, search_radius, source_idxs_arr):
+    # First count the number of fast stars
+    N_fast_stars = len(fast_idxs)
+    print('%i fast stars' % N_fast_stars)
+    # Find the coordinates of the fast stars at all times in time_array.
+    # To significantly speed up this function, we will calculate the matches
+    # for all times in time_array in one match. Then we will use fancy
+    # indexing to make sure that we count all of the fast stars correctly.
+    b_t_fast = bigpatch[fast_idxs]['glat'] + time_array_T * bigpatch[fast_idxs]['mu_b'] * masyr_to_degday  # deg
+    b_t_fast = b_t_fast.flatten()
+    l_t_fast = bigpatch[fast_idxs]['glon'] + time_array_T * (bigpatch[fast_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[fast_idxs]['glat']))) * masyr_to_degday  # deg
+    l_t_fast = l_t_fast.flatten()
+    coords_fast = SkyCoord(frame='galactic',
+                           l=l_t_fast * units.deg,
+                           b=b_t_fast * units.deg)
+
+    # Define a convenience function for going from the
+    # flattened fast_match_idx to the fast_idx of the star
+    def flat_to_fast_match_idxs(fast_match_idxs, N_fast_stars):
+        return np.array(fast_match_idxs).astype(int) % N_fast_stars
+
+    # Define a convenience function for going from the
+    # flattened fast_match_idx to the time_idx of the time array
+    def flat_to_time_idxs(fast_match_idxs, N_fast_stars):
+        return np.floor(np.array(fast_match_idxs) / N_fast_stars).astype(int)
+
+    # Find all the fast stars that match with a static star
+    flat_match_idxs_arr = _return_match_idxs(coords_static, coords_fast,
+                                             search_radius)
+
+    # Loop over each static star and it's fast star matches
+    counter = 0
+    for static_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
+        # Extract the fast_match_idxs from the flattened match array
+        fast_match_idxs = flat_to_fast_match_idxs(flat_match_idxs,
+                                                  N_fast_stars)
+        # Only keep one fast_match_idx for each fast star that matches
+        fast_match_idxs = np.unique(fast_match_idxs)
+        # Transform fast_match_idxs into bigpatch_idxs through fast_idxs
+        fast_bigpatch_idxs = fast_idxs[fast_match_idxs]
+        # Remove fast stars matches with itself
+        fast_bigpatch_idxs = [i for i in fast_bigpatch_idxs
+                              if i != static_idx]
+        # Remove fast star matches that will already appear
+        # in the larger search radius
+        fast_bigpatch_idxs = [i for i in fast_bigpatch_idxs
+                              if i not in source_idxs_arr[static_idx]]
+        # If there are any fast star matches left...
+        if len(fast_bigpatch_idxs) > 0:
+            # Add the fast stars into the static star's
+            # list of possible sources
+            source_idxs_arr[static_idx] += fast_bigpatch_idxs
+            # And for each fast star, add this loop's static star into
+            # it's the fast star's list of possible sources
+            for fast_bigpath_idx in fast_bigpatch_idxs:
+                counter += 1
+                source_idxs_arr[fast_bigpath_idx].append(static_idx)
+
+        del [flat_match_idxs, fast_match_idxs, fast_bigpatch_idxs]
+
+    del [b_t_fast, l_t_fast, coords_fast, flat_match_idxs_arr]
+
+    print('%i fast stars added to new lensing apertures' % counter)
+    return source_idxs_arr
+
+
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                           theta_frac, blend_rad):
     """
@@ -1556,15 +1624,17 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Calculate the separation limit for two stars moving exactly toward
     # each other at the maximum possible speed to enter into a lens'
-    # largest possible Einstein radius. We'll call this the large blend radius.
-    speed_cut = 15
-    obs_time_yrs = obs_time / 365.25
-    radius_mas = einstein_radius(100, 1, 20) + 2 * speed_cut * obs_time_yrs
-    radius = radius_mas / 1000
+    # largest possible Einstein radius.
+    speed_cut = 15  # mas / yr
+    obs_time_yrs = obs_time / 365.25  # yrs
+    microlensing_radius = einstein_radius(100, 1, 20)  # mas
+    search_radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
+    search_radius = search_radius_mas / 1000  # as
 
     # Calculate the indices of stars that are within this
     # possible lensing radius for all stars in bigpatch
-    source_idxs_arr = _return_match_idxs(coords_static, coords_static, radius)
+    source_idxs_arr = _return_match_idxs(coords_static, coords_static,
+                                         search_radius)
 
     # Create a time array for all obseravtions
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
@@ -1572,9 +1642,21 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     t1 = time.time()
     print('Load Time: %.2fs' % (t1 - t0))
-
     t0 = time.time()
-    tlow = time.time()
+
+    # Find all stars with speed greater than speed_cut
+    bigpatch_speed = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
+    fast_idxs = np.where(bigpatch_speed > speed_cut)[0]
+
+    # Loop through source_idxs_arr and insert fast stars into
+    # the list of stars that they will travel into during the search
+    source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static,
+                                                         time_array_T, fast_idxs,
+                                                         search_radius, source_idxs_arr)
+
+    t1 = time.time()
+    print('Fast Stars Time: %.2fs' % (t1 - t0))
+    t0 = time.time()
     # Loop through all of the stars,
     # checking to see if each one could be a lens to a surrounding star
     # Initialize events_llbb_arr and blends_llbb_arr.
@@ -1583,12 +1665,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # events_lbt_arr = None
     # blends_lbt_arr = None
     for lens_idx0, source_idxs0 in enumerate(source_idxs_arr):
-
-        if (time.time() - tlow) > 10:
-            print('%.2fs : lens_id %i | N_events %i' % (time.time() - t0,
-                                                        lens_idx0,
-                                                        len(events_lbt_arr)))
-            tlow = time.time()
 
         # Convert all idx lists into numpy arrays
         lens_idx1 = np.array(lens_idx0).astype(int)
@@ -1878,12 +1954,11 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
 
         # Calculate coordinates of all potential neighbors at the time of t0
         timei = event['t0']
-        glat_blends_tmp = bigpatch[large_blends_idxs]['glat'] + \
-                          timei * bigpatch[large_blends_idxs]['mu_b'] * masyr_to_degday  # deg
-        glon_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
+        b_blends_tmp = bigpatch[large_blends_idxs]['glat'] + timei * bigpatch[large_blends_idxs]['mu_b'] * masyr_to_degday  # deg
+        l_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
         coords_blends_tmp = SkyCoord(frame='galactic',
-                                    l=glon_blends_tmp * units.deg,
-                                    b=glat_blends_tmp * units.deg)
+                                    l=l_blends_tmp * units.deg,
+                                    b=b_blends_tmp * units.deg)
 
         # Calculate the indices of stars that are within the blend radius
         # at the time of t0
@@ -1931,7 +2006,7 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         sep_LN_list.extend(sep_LN.value.tolist())
 
         # cleanup
-        del [large_blends_idxs, glat_blends_tmp, glon_blends_tmp]
+        del [large_blends_idxs, b_blends_tmp, l_blends_tmp]
         del [coords_lens, coords_blends_tmp, coords_blends]
         gc.collect()
 

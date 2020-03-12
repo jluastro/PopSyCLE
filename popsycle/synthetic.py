@@ -1635,7 +1635,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     speed_cut = 15  # mas / yr
     print('Speed Cut : %.1f mas/yr' % speed_cut)
     obs_time_yrs = obs_time / 365.25  # yrs
-    microlensing_radius = einstein_radius(100, 1, 20)  # mas
+    microlensing_radius = einstein_radius(1000, 1, 20)  # mas
     search_radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
     search_radius = search_radius_mas / 1000  # as
 

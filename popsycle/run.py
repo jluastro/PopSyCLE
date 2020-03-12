@@ -587,7 +587,7 @@ def run():
         print("""Error: Field configuration file {0} missing, 
         cannot continue. In order to execute run.py, generate a 
         field configuration file using 
-        popsycle.synthetic.generate_field_config_file. 
+        popsycle.run.generate_field_config_file. 
         Exiting...""".format(args.field_config_filename))
         sys.exit(1)
 
@@ -596,7 +596,7 @@ def run():
         print("""Error: popsycle configuration file {0} missing, 
         cannot continue. In order to execute run.py, generate a 
         popsycle configuration file using 
-        popsycle.synthetic.generate_popsycle_config_file. 
+        popsycle.run.generate_popsycle_config_file. 
         Exiting...""".format(args.popsycle_config_filename))
         sys.exit(1)
 

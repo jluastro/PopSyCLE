@@ -1537,6 +1537,10 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     N_fast_stars = len(fast_idxs)
     print('%i fast stars' % N_fast_stars)
 
+    # If there are no fast stars, simply return what was received
+    if N_fast_stars == 0:
+        return source_idxs_arr
+
     # Find the coordinates of the fast stars at all times in time_array.
     # To significantly speed up this function, we will calculate the matches
     # for all times in time_array in one match. Then we will use fancy
@@ -1672,17 +1676,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                             l=bigpatch['glon'] * units.deg,
                             b=bigpatch['glat'] * units.deg)
 
-    # # Calculate the maximum speed that two stars headed directly for
-    # # each other would have to be to not be captured by the `radius_cut`
-    # speed_cut = 15  # mas / yr
-    # print('Speed Cut : %.1f mas/yr' % speed_cut)
-    # obs_time_yrs = obs_time / 365.25  # yrs
-    # microlensing_radius = 2 * einstein_radius(250, 1, 20)  # mas
-    # radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
-    # radius_cut = radius_mas / 1000  # as
-
-    # # Calculate the maximum speed that two stars headed directly for
-    # # each other would have to be to not be captured by the `radius_cut`
+    # Calculate the maximum speed that two stars headed directly for
+    # each other would have to be to not be captured by the `radius_cut`
     print('radius_cut = %.1f' % radius_cut)
     radius_cut_mas = radius_cut * 1000  # mas
     print('radius_cut_mas = %.1f' % radius_cut_mas)

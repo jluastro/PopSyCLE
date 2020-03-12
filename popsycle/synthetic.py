@@ -34,9 +34,9 @@ import os
 from sklearn import neighbors
 import itertools
 from multiprocessing import Pool
+import inspect
 import numpy.lib.recfunctions as rfn
 from popsycle import utils
-import inspect
 
 
 ##########

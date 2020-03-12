@@ -20,8 +20,11 @@ Installation
 
 To install PopSyCLE, clone the GitHub repository and add the repository's
 path to your `PYTHONPATH`. For example:
-`git clone git@github.com:jluastro/PopSyCLE.git`
-`echo "export PYTHONPATH=$PWD/PopSyCLE:$PYTHONPATH" >> ~/.bashrc`
+
+.. code-block:: bash
+
+    git clone git@github.com:jluastro/PopSyCLE.git
+    echo "export PYTHONPATH=$PWD/PopSyCLE:$PYTHONPATH" >> ~/.bashrc
 
 Running PopSyCLE
 ----------------

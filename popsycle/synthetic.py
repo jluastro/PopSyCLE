@@ -1492,7 +1492,7 @@ def _return_match_idxs(coords_centers, coords_surrounding, radius_cut):
 
 
 def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
-                                       speed_cut, radius, source_idxs_arr):
+                                       speed_cut, radius_cut, source_idxs_arr):
     """
     Find the fast stars that move into the search radii of a new star during
     the survey and populate that star's search population with the fast star.
@@ -1513,7 +1513,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     speed_cut : float
         Minimum speed of a 'fast star'.
 
-    radius : float
+    radius_cut : float
         Radius around which each lens looks for stars that could be
         its microlensing source.
         'radius' must be provided in ARCSECONDS.
@@ -1568,7 +1568,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     # Find all the fast stars that fall within the search radius
     # of a static star at any time in the survey
     flat_match_idxs_arr = _return_match_idxs(coords_static, coords_fast,
-                                             radius)
+                                             radius_cut)
 
     # Loop over each static star and it's fast star matches
     fast_stars_counter = 0

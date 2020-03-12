@@ -1321,9 +1321,6 @@ def calc_events(hdf5_file, output_root2,
     b_array = np.array(hf['lat_bin_edges'])
     hf.close()
 
-    # Converts radius_cut from arcseconds into milliarcseconds
-    radius_cut *= 1000.0
-
     # Set up the multiprocessing
     pool = Pool(n_proc)
 
@@ -1401,7 +1398,6 @@ def calc_events(hdf5_file, output_root2,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    radius_cut = radius_cut / 1000.0  # back to arcsec
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()
@@ -1687,7 +1683,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # # Calculate the maximum speed that two stars headed directly for
     # # each other would have to be to not be captured by the `radius_cut`
+    print('radius_cut = %.1f' % radius_cut)
     radius_cut_mas = radius_cut * 1000  # mas
+    print('radius_cut_mas = %.1f' % radius_cut_mas)
     obs_time_yrs = obs_time / 365.25  # yrs
     speed_cut = radius_cut_mas / (2 * obs_time_yrs)  # mas
     print('Speed Cut : %.1f mas/yr' % speed_cut)

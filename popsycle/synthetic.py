@@ -1557,13 +1557,17 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
 
     # Define a convenience function for going from the
     # flattened fast_match_idx to the fast_idx of the star
-    def flat_to_fast_match_idxs(fast_match_idxs, N_fast_stars):
-        return np.array(fast_match_idxs).astype(int) % N_fast_stars
+    def flat_to_fast_match_idxs(flat_match_idxs, N_fast_stars):
+        return np.array(flat_match_idxs).astype(int) % N_fast_stars
 
     # Define a convenience function for going from the
     # flattened fast_match_idx to the time_idx of the time array
-    def flat_to_time_idxs(fast_match_idxs, N_fast_stars):
-        return np.floor(np.array(fast_match_idxs) / N_fast_stars).astype(int)
+    def flat_to_time_idxs(flat_match_idxs, N_fast_stars):
+        return np.floor(np.array(flat_match_idxs) / N_fast_stars).astype(int)
+
+    ###################################################
+    # Fast stars at every time step into static stars #
+    ###################################################
 
     # Find all the fast stars that fall within the search radius
     # of a static star at any time in the survey
@@ -1573,7 +1577,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     # Loop over each static star and it's fast star matches
     fast_stars_counter = 0
     new_apertures_counter = 0
-    for static_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
+    for static_lens_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
         # Skip if there are no matches:
         if len(flat_match_idxs) == 0:
             continue
@@ -1587,38 +1591,105 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
         fast_match_idxs = np.unique(fast_match_idxs)
 
         # Transform fast_match_idxs into bigpatch_idxs
-        fast_bigpatch_idxs = fast_idxs[fast_match_idxs]
+        bigpatch_match_idxs = fast_idxs[fast_match_idxs]
 
         # Remove fast stars matches with itself
-        fast_bigpatch_idxs = [i for i in fast_bigpatch_idxs
-                              if i != static_idx]
+        bigpatch_match_idxs = [i for i in bigpatch_match_idxs
+                              if i != static_lens_idx]
 
         # Remove fast star matches that will already appear
         # in the original search radius
-        fast_bigpatch_idxs = [i for i in fast_bigpatch_idxs
-                              if i not in source_idxs_arr[static_idx]]
+        bigpatch_match_idxs = [i for i in bigpatch_match_idxs
+                              if i not in source_idxs_arr[static_lens_idx]]
 
         # If there are any fast star matches left...
-        if len(fast_bigpatch_idxs) > 0:
+        if len(bigpatch_match_idxs) > 0:
             fast_stars_counter += 1
 
             # Add the fast stars into the static star's
             # list of possible sources
-            source_idxs_arr[static_idx] += fast_bigpatch_idxs
+            source_idxs_arr[static_lens_idx] += bigpatch_match_idxs
 
             # And for each fast star, add this loop's static star into
             # the fast star's list of possible sources
-            for fast_bigpath_idx in fast_bigpatch_idxs:
+            for bigpatch_match_idx in bigpatch_match_idxs:
                 new_apertures_counter += 1
-                source_idxs_arr[fast_bigpath_idx].append(static_idx)
+                source_idxs_arr[bigpatch_match_idx].append(static_lens_idx)
 
-        del [flat_match_idxs, fast_match_idxs, fast_bigpatch_idxs]
+        del [flat_match_idxs, fast_match_idxs,
+             static_lens_idx, bigpatch_match_idxs]
 
-    del [coords_fast, flat_match_idxs_arr]
+    del flat_match_idxs_arr
 
     print('%i fast stars added to '
           '%i lensing apertures' % (fast_stars_counter,
                                     new_apertures_counter))
+
+    ####################################################################
+    # Fast stars at every time step into fast stars at every time step #
+    ####################################################################
+
+    # Find all the fast march stars that fall within the search radius
+    # of a fast lens star at any time in the survey
+    flat_match_idxs_arr = _return_match_idxs(coords_fast, coords_fast,
+                                                  radius_cut)
+    del coords_fast
+
+    # Loop over each fast lens star and it's fast match stars
+    fast_stars_counter = 0
+    new_apertures_counter = 0
+    for flat_lens_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
+        # Skip if there are no matches:
+        if len(flat_match_idxs) == 0:
+            continue
+
+        # Transform the lens star's flat_idx to fast_idx and bigpatch_idx,
+        # called fast_lens_idx and bigpatch_lens_idx respectively
+        fast_lens_idx = flat_to_fast_match_idxs(flat_lens_idx, N_fast_stars)
+        bigpatch_lens_idx = fast_idxs[fast_lens_idx]
+
+        # Extract the fast_match_idxs from the flattened match array
+        fast_match_idxs = flat_to_fast_match_idxs(flat_match_idxs,
+                                                  N_fast_stars)
+
+        # Only keep one fast_match_idx for each time that a
+        # fast match star falls into the fast lens star's search radius
+        fast_match_idxs = np.unique(fast_match_idxs)
+
+        # Remove fast stars matches with itself
+        fast_match_idxs = [i for i in fast_match_idxs if i != fast_lens_idx]
+
+        # Transform the matches' fast_idxs into bigpatch_idxs
+        bigpatch_match_idxs = fast_idxs[fast_match_idxs]
+
+        # Remove fast match stars that will already appear
+        # in the fast lens star's original search radius
+        bigpatch_match_idxs = [i for i in bigpatch_match_idxs if i not in
+                              source_idxs_arr[bigpatch_lens_idx]]
+
+        # If there are any fast star matches left...
+        if len(bigpatch_match_idxs) > 0:
+            fast_stars_counter += 1
+
+            # Add the fast match stars into the fast lens star's
+            # list of possible sources
+            source_idxs_arr[bigpatch_lens_idx] += bigpatch_match_idxs
+
+            # And for each fast match star, add this loop's fast lens star into
+            # the fast match star's list of possible sources
+            for bigpatch_match_idx in bigpatch_match_idxs:
+                new_apertures_counter += 1
+                source_idxs_arr[bigpatch_match_idx].append(bigpatch_lens_idx)
+
+        del [flat_lens_idx, fast_lens_idx,
+             flat_match_idxs, fast_match_idxs, bigpatch_match_idxs]
+
+    print('%i fast stars added to '
+          '%i fast star lensing apertures' % (fast_stars_counter,
+                                              new_apertures_counter))
+
+    del flat_match_idxs_arr
+
     return source_idxs_arr
 
 
@@ -1666,7 +1737,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Skip patches with less than 10 objects
     if len(bigpatch) < 10:
-        # continue
         return
 
     t0 = time.time()
@@ -1682,7 +1752,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     obs_time_yrs = obs_time / 365.25  # yrs
     speed_cut = radius_cut_mas / (2 * obs_time_yrs)  # mas
     print('Speed Cut : %.1f mas/yr' % speed_cut)
-
 
     # Calculate the indices of stars that are within this
     # possible lensing radius for all stars in bigpatch

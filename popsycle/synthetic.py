@@ -1488,6 +1488,9 @@ def _return_angular_separation(lon1, lat1, lon2, lat2):
 
 def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
                                        fast_idxs, search_radius, source_idxs_arr):
+    """
+    #FIXME
+    """
     # First count the number of fast stars
     N_fast_stars = len(fast_idxs)
     print('%i fast stars' % N_fast_stars)
@@ -1665,8 +1668,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # Loop through all of the stars,
     # checking to see if each one could be a lens to a surrounding star
     # Initialize events_llbb_arr and blends_llbb_arr.
-    events_lbt_arr = []
-    blends_lbt_arr = []
+    events_lens_arr = []
+    blends_lens_arr = []
     # events_lbt_arr = None
     # blends_lbt_arr = None
     for lens_idx0, source_idxs0 in enumerate(source_idxs_arr):
@@ -1729,7 +1732,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         del [source_idxs3, idx_disp_min, rad_cond, r_lens0, r_source0, sep0]
 
         # Calculate the minimum separation in units of Einstein radius
-        theta_E = einstein_radius(bigpatch[lens_idx1]['mass'], r_lens1, r_source1) # mas
+        theta_E = einstein_radius(bigpatch[lens_idx1]['mass'], r_lens1, r_source1)  # mas
         u0 = sep1 / theta_E
         del [r_lens1, r_source1]
 
@@ -1753,19 +1756,19 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         del [lens_idx1, source_idxs5]
 
         # Return the event table
-        event_lbt = _calc_event_cands_thetaE(bigpatch[lens_and_source_idxs],
-                                             theta_E, u1, theta_frac,
-                                             lens_id, sorc_id,
-                                             timei_array)
+        events_lens = _calc_event_cands_thetaE(bigpatch[lens_and_source_idxs],
+                                               theta_E, u1, theta_frac,
+                                               lens_id, sorc_id,
+                                               timei_array)
         del [theta_E, u1, lens_id, sorc_id, timei_array]
 
-        if event_lbt is not None:
+        if events_lens is not None:
             # Add the current events table to the total list
-            # if events_lbt_arr is None:
-            #     events_lbt_arr = event_lbt
+            # if events_lens_arr is None:
+            #     events_lens_arr = event_lbt
             # else:
-            #     events_lbt_arr = np.hstack((events_lbt_arr, event_lbt))
-            events_lbt_arr.append(event_lbt)
+            #     events_lens_arr = np.hstack((events_lens_arr, events_lens))
+            events_lens_arr.append(events_lens)
 
             #########
             # Get blending.
@@ -1773,21 +1776,21 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
             ##########
-            blends_lbt = _calc_blends(bigpatch, coords_static,
-                                      event_lbt, blend_rad)
-            del event_lbt
+            blends_lens = _calc_blends(bigpatch, coords_static,
+                                      events_lens, blend_rad)
+            del events_lens
 
-            if blends_lbt is not None:
+            if blends_lens is not None:
                 # Add the current blend table to the total list
-                # if blends_lbt_arr is None:
-                #     blends_lbt_arr = blends_lbt
+                # if blends_lens_arr is None:
+                #     blends_lens_arr = blends_lens
                 # else:
-                #     blends_lbt_arr = np.hstack((blends_lbt_arr, blends_lbt))
-                blends_lbt_arr.append(blends_lbt)
-                del blends_lbt
+                #     blends_lens_arr = np.hstack((blends_lens_arr, blends_lens))
+                blends_lens_arr.append(blends_lens)
+                del blends_lens
 
-    events_llbb = np.hstack(events_lbt_arr)
-    blends_llbb = np.hstack(blends_lbt_arr)
+    events_llbb = np.hstack(events_lens_arr)
+    blends_llbb = np.hstack(blends_lens_arr)
 
     # Keep only unique events (not sure if this is still necessary)
     if events_llbb is not None:
@@ -1836,8 +1839,8 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     Return
     ------
-    event_lbt : array
-        Lenses and sources at a particular time t.
+    events_lens : array
+        Lenses and sources pf a particular lens
 
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
@@ -1884,28 +1887,28 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         sorc_table = rfn.rename_fields(sorc_table, sorc_rename_dct)
 
         # Combine the lens and source tables into the events table
-        event_lbt = rfn.merge_arrays((lens_table, sorc_table),
-                                     flatten=True)
+        events_lens = rfn.merge_arrays((lens_table, sorc_table),
+                                       flatten=True)
 
         # Add additional microlensing parameters to the events table
-        event_lbt = rfn.append_fields(event_lbt, 'theta_E',
+        events_lens = rfn.append_fields(events_lens, 'theta_E',
                                       theta_E, usemask=False)
-        event_lbt = rfn.append_fields(event_lbt, 'u0',
+        events_lens = rfn.append_fields(events_lens, 'u0',
                                       u, usemask=False)
-        event_lbt = rfn.append_fields(event_lbt, 'mu_rel',
+        events_lens = rfn.append_fields(events_lens, 'mu_rel',
                                       mu_rel, usemask=False)
-        event_lbt = rfn.append_fields(event_lbt, 't0',
+        events_lens = rfn.append_fields(events_lens, 't0',
                                       t_event, usemask=False)
 
         del [sorc_table, lens_table]
 
-        return event_lbt
+        return events_lens
 
     else:
         return None
 
 
-def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
+def _calc_blends(bigpatch, coords_static, events_lens, blend_rad):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -1914,18 +1917,22 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
 
     Parameters
     ----------
-    bigpatch, blends_idxs, time_array
-        #FIXME
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
 
-    event_lbt : array
-        Lenses and sources at a particular time t.
+    coords_static : astropy.coordinates.SkyCoord
+        SkyCoord of all stars in bigpatch
+
+    events_lens : array
+        Microlensing lenses and sources of a particular lens
 
     blend_rad : float
-        Parameter of calc_events().
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
 
     Return
     ------
-    blends_lbt : array
+    blends_lens : array
         Array of neighbor stars for each lens-source pair.
 
     """
@@ -1937,7 +1944,7 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
     sep_LN_list = []
 
     # If multiple sources are around the same lens, loop over them
-    for event in event_lbt:
+    for event in events_lens:
 
         # Define the center of the blending disk (the lens)
         coords_lens = SkyCoord(frame='galactic',
@@ -2020,28 +2027,28 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
 
     if len(blend_neigh_obj_id) > 0:
         # Grab the rows of bigpatch that are neighbors
-        blends_lbt = bigpatch[blend_neigh_idx]
+        blends_lens = bigpatch[blend_neigh_idx]
 
         # Append '_N' to each column in blends_lbt
         blends_rename_dct = {}
-        for name in blends_lbt.dtype.names:
+        for name in blends_lens.dtype.names:
             blends_rename_dct[name] = name + '_N'
-        blends_lbt = rfn.rename_fields(blends_lbt, blends_rename_dct)
+        blends_lens = rfn.rename_fields(blends_lens, blends_rename_dct)
 
         # Add additional columns into blends_lbt
-        blends_lbt = rfn.append_fields(blends_lbt, 'obj_id_L',
-                                       blend_lens_obj_id, usemask=False)
-        blends_lbt = rfn.append_fields(blends_lbt, 'obj_id_S',
-                                       blend_sorc_obj_id, usemask=False)
-        blends_lbt = rfn.append_fields(blends_lbt, 'sep_LN',
-                                       sep_LN_list, usemask=False)
+        blends_lens = rfn.append_fields(blends_lens, 'obj_id_L',
+                                        blend_lens_obj_id, usemask=False)
+        blends_lens = rfn.append_fields(blends_lens, 'obj_id_S',
+                                        blend_sorc_obj_id, usemask=False)
+        blends_lens = rfn.append_fields(blends_lens, 'sep_LN',
+                                        sep_LN_list, usemask=False)
     else:
-        blends_lbt = None
+        blends_lens = None
 
     del [blend_neigh_obj_id, blend_lens_obj_id, blend_sorc_obj_id,
          blend_neigh_idx, sep_LN_list]
 
-    return blends_lbt
+    return blends_lens
 
 
 def unique_events(event_table):

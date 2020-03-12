@@ -1385,6 +1385,7 @@ def calc_events(hdf5_file, output_root2,
     # Astropy Table for easier consumption.
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
+    N_events = len(events_final)
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
@@ -1421,29 +1422,55 @@ def calc_events(hdf5_file, output_root2,
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(N_events) + ' : total number of events' + '\n'
 
-    line14 = 'FILES CREATED' + '\n'
-    line15 = output_root2 + '_events.fits : events file' + '\n'
-    line16 = output_root2 + '_blends.fits : blends file' + '\n'
+    line15 = 'FILES CREATED' + '\n'
+    line16 = output_root2 + '_events.fits : events file' + '\n'
+    line17 = output_root2 + '_blends.fits : blends file' + '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
                         line4, line5, line6, line7, line8, empty_line,
                         line9, dash_line, line10, line11, empty_line,
-                        line12, dash_line, line13, empty_line, line14,
-                        dash_line, line15, line16])
+                        line12, dash_line, line13, line14, empty_line, line15,
+                        dash_line, line16, line17])
 
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
 
 
-def _return_match_idxs(coords_centers, coords_match, radius):
+def _return_match_idxs(coords_centers, coords_surrounding, radius):
     """
-    #FIXME
+    Returns the indices of stars in 'coords_surrounding' that fall within
+    the 'radius' of stars in 'coords_centers'.
+
+    Functions taken from astropy.coordinates.search_around_sky
+        https://docs.astropy.org/en/stable/api/
+        astropy.coordinates.search_around_sky.html
+
+    Parameters
+    ----------
+    coords_centers : astropy.coordinates.SkyCoord
+        SkyCoord of stars that are placed in the center of the search radius
+
+    coords_surrounding : astropy.coordinates.SkyCoords
+        SkyCoord of stars that are evaluated for falling in the search
+        radii of 'coords_centers'
+
+    radius : float
+        Radius of the circle around each star in 'coords_centers' that a
+        star in 'coords_surrounding' may be placed into.
+        'radius' must be provided in ARCSECONDS.
+
+    Return
+    ------
+    sep : float
+        separation of two coordinates, in degrees
+
     """
     seplimit = radius * units.arcsec
-    coords_centers_trans = coords_centers.transform_to(coords_match)
+    coords_centers_trans = coords_centers.transform_to(coords_surrounding)
     urepr1 = coords_centers_trans.data.represent_as(UnitSphericalRepresentation)
     ucoords1 = coords_centers_trans.realize_frame(urepr1)
     cartxyz1 = ucoords1.cartesian.xyz
@@ -1453,24 +1480,46 @@ def _return_match_idxs(coords_centers, coords_match, radius):
 
     # Query ball against the existing (cached) tree.
     # NOTE: results is an array of lists.
-    if 'kdtree_sky' not in coords_match.cache:
-        _ = coord.match_coordinates_sky(coords_match,
-                                        coords_match,
+    if 'kdtree_sky' not in coords_surrounding.cache:
+        _ = coord.match_coordinates_sky(coords_surrounding,
+                                        coords_surrounding,
                                         nthneighbor=2)
 
-    kdtree_cache = coords_match.cache['kdtree_sky']
+    kdtree_cache = coords_surrounding.cache['kdtree_sky']
     match_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
 
+    # Return the first element if 'coords_centers' is a single point
     if coords_centers.ndim == 0:
         match_idxs = match_idxs[0]
 
     return match_idxs
 
 
-
 def _return_angular_separation(lon1, lat1, lon2, lat2):
     """
-    #FIXME
+    Distance between two coordinates on the celestial sphere
+    using an adaptation of the the Haversine formula.
+    https://en.wikipedia.org/wiki/Haversine_formula
+
+    Parameters
+    ----------
+    lon1 : float
+        longitude of first coordinate, in degrees
+
+    lat1 : float
+        latitude of first coordinate, in degrees
+
+    lon2 : float
+        longitude of second coordinate, in degrees
+
+    lon2 : float
+        latitude of second coordinate, in degrees
+
+    Return
+    ------
+    sep : float
+        separation of two coordinates, in degrees
+
     """
     lon1, lat1 = np.radians(lon1), np.radians(lat1)
     lon2, lat2 = np.radians(lon2), np.radians(lat2)
@@ -1482,16 +1531,53 @@ def _return_angular_separation(lon1, lat1, lon2, lat2):
     num1 = clat2 * sdlon
     num2 = clat1 * slat2 - slat1 * clat2 * cdlon
     denominator = slat1 * slat2 + clat1 * clat2 * cdlon
-    disp = np.arctan2(np.hypot(num1, num2), denominator) * 180 / np.pi
-    return disp
+    sep = np.arctan2(np.hypot(num1, num2), denominator) * 180 / np.pi
+    return sep
 
 
 def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
-                                       fast_idxs, search_radius, source_idxs_arr):
+                                       speed_cut, radius, source_idxs_arr):
     """
-    #FIXME
+    Find the fast stars that move into the search radii of a new star during
+    the survey and populate that star's search population with the fast star.
+
+    Parameters
+    ----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    coords_static : astropy.coordinates.SkyCoord
+        SkyCoord of all stars in bigpatch at t0
+
+    time_array_T : array
+        List of observations times at which to search for microlensing events.
+        This list has been transformed for broadcasting purposes and
+        has a shape of (n_obs, 1)
+
+    speed_cut : float
+        Minimum speed of a 'fast star'.
+
+    radius : float
+        Radius around which each lens looks for stars that could be
+        its microlensing source.
+        'radius' must be provided in ARCSECONDS.
+
+    source_idxs_arr : array
+        Array is 'N_stars' long, with each element in the list containing
+        the indices of stars within the search radius centered on that star.
+
+    Return
+    ------
+    source_idxs_arr : array
+        Updated version of source_idxs_arr with fast stars placed into
+        search radii that they travel into during the survey
+
     """
-    # First count the number of fast stars
+    # Find all stars with speed greater than speed_cut
+    bigpatch_speed = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
+    fast_idxs = np.where(bigpatch_speed > speed_cut)[0]
+
+    # Count the number of fast stars
     N_fast_stars = len(fast_idxs)
     print('%i fast stars' % N_fast_stars)
 
@@ -1522,7 +1608,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     # Find all the fast stars that fall within the search radius
     # of a static star at any time in the survey
     flat_match_idxs_arr = _return_match_idxs(coords_static, coords_fast,
-                                             search_radius)
+                                             radius)
 
     # Loop over each static star and it's fast star matches
     fast_stars_counter = 0
@@ -1579,6 +1665,8 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                           theta_frac, blend_rad):
     """
+    Find the microlensing events in the 2x2 datasets around llbb.
+
     Parameters
     ----------
     llbb : (int, int)
@@ -1635,13 +1723,13 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     print('Speed Cut : %.1f mas/yr' % speed_cut)
     obs_time_yrs = obs_time / 365.25  # yrs
     microlensing_radius = 2 * einstein_radius(250, 1, 20)  # mas
-    search_radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
-    search_radius = search_radius_mas / 1000  # as
+    radius_mas = microlensing_radius + 2 * speed_cut * obs_time_yrs  # mas
+    radius = radius_mas / 1000  # as
 
     # Calculate the indices of stars that are within this
     # possible lensing radius for all stars in bigpatch
     source_idxs_arr = _return_match_idxs(coords_static, coords_static,
-                                         search_radius)
+                                         radius)
 
     # Create a time array for all obseravtions
     time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
@@ -1651,15 +1739,11 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     print('Load Time: %.2fs' % (t1 - t0))
     t0 = time.time()
 
-    # Find all stars with speed greater than speed_cut
-    bigpatch_speed = np.hypot(bigpatch['mu_b'], bigpatch['mu_lcosb'])
-    fast_idxs = np.where(bigpatch_speed > speed_cut)[0]
-
     # Loop through source_idxs_arr and insert fast stars into
     # the list of stars that they will travel into during the search
     source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static,
-                                                         time_array_T, fast_idxs,
-                                                         search_radius, source_idxs_arr)
+                                                         time_array_T, speed_cut,
+                                                         radius, source_idxs_arr)
 
     t1 = time.time()
     print('Fast Stars Time: %.2fs' % (t1 - t0))
@@ -1705,21 +1789,21 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
         # Calculate the displacement between potential sources and lenses
         # at all times in time_array
-        disp = _return_angular_separation(l_t_lens, b_t_lens,
+        sep0 = _return_angular_separation(l_t_lens, b_t_lens,
                                           l_t_sources, b_t_sources)
 
 
         # Find the time at which each potential source and the potential lens
         # are closest to each other on the sky.
-        idx_disp_min = np.argmin(disp, axis=0)
-        sep0 = disp[idx_disp_min, np.arange(len(idx_disp_min))]  # deg
-        sep0 *= 3600 * 1000  # mas
-        del [b_t_sources, l_t_sources, b_t_lens, l_t_lens, disp]
+        idx_sep0_min = np.argmin(sep0, axis=0)
+        sep1 = sep0[idx_sep0_min, np.arange(len(idx_sep0_min))]  # deg
+        sep1 *= 3600 * 1000  # mas
+        del [b_t_sources, l_t_sources, b_t_lens, l_t_lens, sep0]
 
         # Only keep potential sources that are further away than the lens.
         # It is possible that the source has become closer than the lens
         # during the time of the survey!
-        timei_array = time_array[idx_disp_min]
+        timei_array = time_array[idx_sep0_min]
         r_lens0 = bigpatch[lens_idx1]['rad'] + timei_array * bigpatch[lens_idx1]['vr'] * kms_to_kpcday  # kpc
         r_source0 = bigpatch[source_idxs3]['rad'] + timei_array * bigpatch[source_idxs3]['vr'] * kms_to_kpcday  # kpc
         rad_cond = r_source0 > r_lens0
@@ -1728,12 +1812,12 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         source_idxs4 = source_idxs3[rad_cond]
         r_lens1 = r_lens0[rad_cond]
         r_source1 = r_source0[rad_cond]
-        sep1 = sep0[rad_cond]
-        del [source_idxs3, idx_disp_min, rad_cond, r_lens0, r_source0, sep0]
+        sep2 = sep1[rad_cond]
+        del [source_idxs3, idx_sep0_min, rad_cond, r_lens0, r_source0, sep1]
 
         # Calculate the minimum separation in units of Einstein radius
         theta_E = einstein_radius(bigpatch[lens_idx1]['mass'], r_lens1, r_source1)  # mas
-        u0 = sep1 / theta_E
+        u0 = sep2 / theta_E
         del [r_lens1, r_source1]
 
         # Only keep potential sources that are within theta_frac of the lens
@@ -1743,9 +1827,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         source_idxs5 = source_idxs4[theta_frac_cond]
         theta_E = theta_E[theta_frac_cond]
         timei_array = timei_array[theta_frac_cond]
-        sep2 = sep1[theta_frac_cond]
-        u1 = sep2 / theta_E
-        del [source_idxs4, theta_frac_cond, sep1, sep2]
+        sep3 = sep2[theta_frac_cond]
+        u1 = sep3 / theta_E
+        del [source_idxs4, theta_frac_cond, sep2, sep3]
 
         # Prepare arrays to index into bigpatch at the location
         # of the lens and sources
@@ -1811,7 +1895,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                              sorc_id, timei_array):
     """
-    Get sources and lenses that pass the radius cut.
+    Get sources and lenses that pass the theta_frac cut
 
     Parameters
     ----------
@@ -2379,9 +2463,11 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
-    print('Original candidate events: ', len(event_tab))
+    N_events_original = len(event_tab)
+    print('Original candidate events: ', N_events_original)
     u0, t0 = calc_closest_approach(event_tab, obs_time)
-    print('Candidate events in survey window: ', len(event_tab))
+    N_events_survey = len(event_tab)
+    print('Candidate events in survey window: ', N_events_survey)
     event_tab['t0'] = t0  # days
     event_tab['u0'] = u0
     if len(event_tab) == 0:
@@ -2438,15 +2524,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
+    line10 = str(N_events_original) + ' : original candidate events ' + '\n'
+    line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
-    line10 = 'FILES CREATED' + '\n'
-    line11 = output_file + ' : refined events'
+    line12 = 'FILES CREATED' + '\n'
+    line13 = output_file + ' : refined events'
 
     with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, empty_line,
-                        line10, dash_line, line11])
+                        line8, dash_line, line9, line10, line11, empty_line,
+                        line12, dash_line, line13])
 
     print('Total runtime: {0:f} s'.format(t_1 - t_0))
     return

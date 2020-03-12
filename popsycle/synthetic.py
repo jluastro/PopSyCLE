@@ -1504,6 +1504,8 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
                            l=l_t_fast * units.deg,
                            b=b_t_fast * units.deg)
 
+    del [b_t_fast, l_t_fast]
+
     # Define a convenience function for going from the
     # flattened fast_match_idx to the fast_idx of the star
     def flat_to_fast_match_idxs(fast_match_idxs, N_fast_stars):
@@ -1563,7 +1565,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
 
         del [flat_match_idxs, fast_match_idxs, fast_bigpatch_idxs]
 
-    del [b_t_fast, l_t_fast, coords_fast, flat_match_idxs_arr]
+    del [coords_fast, flat_match_idxs_arr]
 
     print('%i fast stars added to '
           '%i lensing apertures' % (fast_stars_counter,
@@ -1659,6 +1661,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     t1 = time.time()
     print('Fast Stars Time: %.2fs' % (t1 - t0))
     t0 = time.time()
+
     # Loop through all of the stars,
     # checking to see if each one could be a lens to a surrounding star
     # Initialize events_llbb_arr and blends_llbb_arr.
@@ -1783,8 +1786,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 blends_lbt_arr.append(blends_lbt)
                 del blends_lbt
 
-        gc.collect()
-
     events_llbb = np.hstack(events_lbt_arr)
     blends_llbb = np.hstack(blends_lbt_arr)
 
@@ -1897,7 +1898,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                                       t_event, usemask=False)
 
         del [sorc_table, lens_table]
-        gc.collect()
 
         return event_lbt
 
@@ -2010,7 +2010,6 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         # cleanup
         del [large_blends_idxs, b_blends_tmp, l_blends_tmp]
         del [coords_lens, coords_blends_tmp, coords_blends]
-        gc.collect()
 
     # Convert our lists into arrays.
     blend_neigh_obj_id = np.array(blend_neigh_obj_id)

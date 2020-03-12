@@ -1878,11 +1878,17 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Keep only unique events (not sure if this is still necessary)
     if events_llbb is not None:
+        N_events0 = len(events_llbb)
         events_llbb = unique_events(events_llbb)
+        N_events1 = len(events_llbb)
+        print('unique_events: %i -> %i events' % (N_events0, N_events1))
 
     # Keep only unique blends (not sure if this is still necessary)
     if blends_llbb is not None:
+        N_blends0 = len(blends_llbb)
         blends_llbb = unique_blends(blends_llbb)
+        N_blends1 = len(blends_llbb)
+        print('unique_blends: %i -> %i blends' % (N_blends0, N_blends1))
 
     del [coords_static, source_idxs_arr]
     gc.collect()
@@ -2464,7 +2470,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
     N_events_original = len(event_tab)
-    print('Original candidate events: ', N_events_original)
+    print('Original candidate events (dark sources removed): ', N_events_original)
     u0, t0 = calc_closest_approach(event_tab, obs_time)
     N_events_survey = len(event_tab)
     print('Candidate events in survey window: ', N_events_survey)
@@ -2524,7 +2530,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
-    line10 = str(N_events_original) + ' : original candidate events ' + '\n'
+    line10 = str(N_events_original) + ' : original candidate events (dark sources removed)' + '\n'
     line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
     line12 = 'FILES CREATED' + '\n'

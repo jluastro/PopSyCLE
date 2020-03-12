@@ -34,7 +34,6 @@ import os
 from sklearn import neighbors
 import itertools
 from multiprocessing import Pool
-import inspect
 import numpy.lib.recfunctions as rfn
 from popsycle import utils
 
@@ -1530,10 +1529,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # These will be the events we consider as candidate microlensing events.
     ####################
 
-    # Initialize events_llbb and blends_llbb.
-    events_llbb = None
-    blends_llbb = None
-
     ll = llbb[0]
     bb = llbb[1]
 
@@ -1579,98 +1574,117 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     print('Load Time: %.2fs' % (t1 - t0))
 
     t0 = time.time()
+    tlow = time.time()
     # Loop through all of the stars,
     # checking to see if each one could be a lens to a surrounding star
-    for lens_idx, source_idxs in enumerate(source_idxs_arr):
+    # Initialize events_llbb_arr and blends_llbb_arr.
+    events_lbt_arr = []
+    blends_lbt_arr = []
+    # events_lbt_arr = None
+    # blends_lbt_arr = None
+    for lens_idx0, source_idxs0 in enumerate(source_idxs_arr):
+
+        if (time.time() - tlow) > 10:
+            print('%.2fs : lens_id %i | N_events %i' % (time.time() - t0,
+                                                        lens_idx0,
+                                                        len(events_lbt_arr)))
+            tlow = time.time()
 
         # Convert all idx lists into numpy arrays
-        lens_idx = np.array(lens_idx).astype(int)
-        source_idxs = np.array(source_idxs).astype(int)
+        lens_idx1 = np.array(lens_idx0).astype(int)
+        source_idxs1 = np.array(source_idxs0).astype(int)
+        del [lens_idx0, source_idxs0]
 
         # Remove the potential lens from the list of potential sources
-        not_lens_cond = source_idxs != lens_idx
+        not_lens_cond = source_idxs1 != lens_idx1
         if np.all(~not_lens_cond):
             continue
-        source_idxs = source_idxs[not_lens_cond]
+        source_idxs2 = source_idxs1[not_lens_cond]
+        del [source_idxs1, not_lens_cond]
 
         # Only keep potential sources that are further away than the lens
-        rad_cond = bigpatch[source_idxs]['rad'] > bigpatch[lens_idx]['rad']
+        rad_cond = bigpatch[source_idxs2]['rad'] > bigpatch[lens_idx1]['rad']
         if np.all(~rad_cond):
             continue
-        source_idxs = source_idxs[rad_cond]
+        source_idxs3 = source_idxs2[rad_cond]
+        del [source_idxs2, rad_cond]
 
         # Grab the longitude and latitude of potential sources and lenses
         # at all times in time_array
 
         # Compute the longitude and latitude of lens and potential sources
         # at all times in time_array
-        b_t_sources = bigpatch[source_idxs]['glat'] + time_array_T * bigpatch[source_idxs]['mu_b'] * masyr_to_degday  # deg
-        l_t_sources = bigpatch[source_idxs]['glon'] + time_array_T * (bigpatch[source_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[source_idxs]['glat']))) * masyr_to_degday  # deg
-        b_t_lens = bigpatch[lens_idx]['glat'] + time_array_T * bigpatch[lens_idx]['mu_b'] * masyr_to_degday  # deg
-        l_t_lens = bigpatch[lens_idx]['glon'] + time_array_T * (bigpatch[lens_idx]['mu_lcosb'] / np.cos(np.radians(bigpatch[lens_idx]['glat']))) * masyr_to_degday  # deg
+        b_t_sources = bigpatch[source_idxs3]['glat'] + time_array_T * bigpatch[source_idxs3]['mu_b'] * masyr_to_degday  # deg
+        l_t_sources = bigpatch[source_idxs3]['glon'] + time_array_T * (bigpatch[source_idxs3]['mu_lcosb'] / np.cos(np.radians(bigpatch[source_idxs3]['glat']))) * masyr_to_degday  # deg
+        b_t_lens = bigpatch[lens_idx1]['glat'] + time_array_T * bigpatch[lens_idx1]['mu_b'] * masyr_to_degday  # deg
+        l_t_lens = bigpatch[lens_idx1]['glon'] + time_array_T * (bigpatch[lens_idx1]['mu_lcosb'] / np.cos(np.radians(bigpatch[lens_idx1]['glat']))) * masyr_to_degday  # deg
 
         # Calculate the displacement between potential sources and lenses
         # at all times in time_array
         disp = _return_angular_separation(l_t_lens, b_t_lens,
                                           l_t_sources, b_t_sources)
 
-        # cleanup
-        del [b_t_sources, l_t_sources, b_t_lens, l_t_lens]
 
         # Find the time at which each potential source and the potential lens
         # are closest to each other on the sky.
         idx_disp_min = np.argmin(disp, axis=0)
-        sep = disp[idx_disp_min, np.arange(len(idx_disp_min))] # deg
-        sep *= 3600 * 1000 # mas
+        sep0 = disp[idx_disp_min, np.arange(len(idx_disp_min))]  # deg
+        sep0 *= 3600 * 1000  # mas
+        del [b_t_sources, l_t_sources, b_t_lens, l_t_lens, disp]
 
         # Only keep potential sources that are further away than the lens.
         # It is possible that the source has become closer than the lens
         # during the time of the survey!
         timei_array = time_array[idx_disp_min]
-        r_lens = bigpatch[lens_idx]['rad'] + timei_array * bigpatch[lens_idx]['vr'] * kms_to_kpcday  # kpc
-        r_source = bigpatch[source_idxs]['rad'] + timei_array * bigpatch[source_idxs]['vr'] * kms_to_kpcday  # kpc
-        rad_cond = r_source > r_lens
+        r_lens0 = bigpatch[lens_idx1]['rad'] + timei_array * bigpatch[lens_idx1]['vr'] * kms_to_kpcday  # kpc
+        r_source0 = bigpatch[source_idxs3]['rad'] + timei_array * bigpatch[source_idxs3]['vr'] * kms_to_kpcday  # kpc
+        rad_cond = r_source0 > r_lens0
         if np.all(~rad_cond):
             continue
-        source_idxs = source_idxs[rad_cond]
-        r_lens = r_lens[rad_cond]
-        r_source = r_source[rad_cond]
-        sep = sep[rad_cond]
+        source_idxs4 = source_idxs3[rad_cond]
+        r_lens1 = r_lens0[rad_cond]
+        r_source1 = r_source0[rad_cond]
+        sep1 = sep0[rad_cond]
+        del [source_idxs3, idx_disp_min, rad_cond, r_lens0, r_source0, sep0]
 
         # Calculate the minimum separation in units of Einstein radius
-        theta_E = einstein_radius(bigpatch[lens_idx]['mass'], r_lens, r_source) # mas
-        u = sep / theta_E
+        theta_E = einstein_radius(bigpatch[lens_idx1]['mass'], r_lens1, r_source1) # mas
+        u0 = sep1 / theta_E
+        del [r_lens1, r_source1]
 
         # Only keep potential sources that are within theta_frac of the lens
-        theta_frac_cond = u < theta_frac
+        theta_frac_cond = u0 < theta_frac
         if np.all(~theta_frac_cond):
             continue
-        source_idxs = source_idxs[theta_frac_cond]
+        source_idxs5 = source_idxs4[theta_frac_cond]
         theta_E = theta_E[theta_frac_cond]
         timei_array = timei_array[theta_frac_cond]
-        sep = sep[theta_frac_cond]
-        u = sep / theta_E
+        sep2 = sep1[theta_frac_cond]
+        u1 = sep2 / theta_E
+        del [source_idxs4, theta_frac_cond, sep1, sep2]
 
         # Prepare arrays to index into bigpatch at the location
         # of the lens and sources
-        lens_and_source_idxs = np.append(lens_idx, source_idxs)
+        lens_and_source_idxs = np.append(lens_idx1, source_idxs5)
         # lens_id and sorc_id index into lens_and_source_idxs, not bigpatch
-        lens_id = np.zeros(len(source_idxs)).astype(int)
-        sorc_id = np.arange(len(source_idxs)).astype(int) + 1
+        lens_id = np.zeros(len(source_idxs5)).astype(int)
+        sorc_id = np.arange(len(source_idxs5)).astype(int) + 1
+        del [lens_idx1, source_idxs5]
 
         # Return the event table
         event_lbt = _calc_event_cands_thetaE(bigpatch[lens_and_source_idxs],
-                                             theta_E, u, theta_frac,
+                                             theta_E, u1, theta_frac,
                                              lens_id, sorc_id,
                                              timei_array)
+        del [theta_E, u1, lens_id, sorc_id, timei_array]
 
         if event_lbt is not None:
-            # Concatenate the current event table
-            # (at this l, b, time) with the rest.
-            if events_llbb is not None:
-                events_llbb = np.hstack((events_llbb, event_lbt))
-            else:
-                events_llbb = event_lbt
+            # Add the current events table to the total list
+            # if events_lbt_arr is None:
+            #     events_lbt_arr = event_lbt
+            # else:
+            #     events_lbt_arr = np.hstack((events_lbt_arr, event_lbt))
+            events_lbt_arr.append(event_lbt)
 
             #########
             # Get blending.
@@ -1680,16 +1694,21 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             ##########
             blends_lbt = _calc_blends(bigpatch, coords_static,
                                       event_lbt, blend_rad)
+            del event_lbt
 
             if blends_lbt is not None:
-                # Concatenate the current blend table (at this l, b, time)
-                # with the rest.
-                if blends_llbb is not None:
-                    blends_llbb = np.hstack((blends_llbb, blends_lbt))
-                else:
-                    blends_llbb = blends_lbt
+                # Add the current blend table to the total list
+                # if blends_lbt_arr is None:
+                #     blends_lbt_arr = blends_lbt
+                # else:
+                #     blends_lbt_arr = np.hstack((blends_lbt_arr, blends_lbt))
+                blends_lbt_arr.append(blends_lbt)
+                del blends_lbt
 
-        del [event_lbt, blends_lbt]
+        gc.collect()
+
+    events_llbb = np.hstack(events_lbt_arr)
+    blends_llbb = np.hstack(blends_lbt_arr)
 
     # Keep only unique events (not sure if this is still necessary)
     if events_llbb is not None:
@@ -1698,6 +1717,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # Keep only unique blends (not sure if this is still necessary)
     if blends_llbb is not None:
         blends_llbb = unique_blends(blends_llbb)
+
+    del [coords_static, source_idxs_arr]
+    gc.collect()
 
     t1 = time.time()
     print('Loop Time: %.2fs' % (t1 - t0))
@@ -1795,6 +1817,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                                       mu_rel, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 't0',
                                       t_event, usemask=False)
+
+        del [sorc_table, lens_table]
+        gc.collect()
+
         return event_lbt
 
     else:
@@ -1905,7 +1931,9 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
         sep_LN_list.extend(sep_LN.value.tolist())
 
         # cleanup
+        del [large_blends_idxs, glat_blends_tmp, glon_blends_tmp]
         del [coords_lens, coords_blends_tmp, coords_blends]
+        gc.collect()
 
     # Convert our lists into arrays.
     blend_neigh_obj_id = np.array(blend_neigh_obj_id)
@@ -1933,6 +1961,9 @@ def _calc_blends(bigpatch, coords_static, event_lbt, blend_rad):
                                        sep_LN_list, usemask=False)
     else:
         blends_lbt = None
+
+    del [blend_neigh_obj_id, blend_lens_obj_id, blend_sorc_obj_id,
+         blend_neigh_idx, sep_LN_list]
 
     return blends_lbt
 

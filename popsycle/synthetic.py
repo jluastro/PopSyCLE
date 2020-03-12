@@ -1678,9 +1678,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Calculate the maximum speed that two stars headed directly for
     # each other would have to be to not be captured by the `radius_cut`
-    print('radius_cut = %.1f' % radius_cut)
     radius_cut_mas = radius_cut * 1000  # mas
-    print('radius_cut_mas = %.1f' % radius_cut_mas)
     obs_time_yrs = obs_time / 365.25  # yrs
     speed_cut = radius_cut_mas / (2 * obs_time_yrs)  # mas
     print('Speed Cut : %.1f mas/yr' % speed_cut)

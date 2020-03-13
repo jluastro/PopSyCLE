@@ -2756,9 +2756,9 @@ class EbfFile():
         if numpy.max(ind)<self.elements:
             ind1=numpy.argsort(ind)
             data=numpy.zeros(len(ind),dtype=self.dtype)
-            ind_sorted = ind[ind1]
             begin_data = 0
-            for k, g in groupby(enumerate(ind_sorted), lambda ix : ix[0] - ix[1]):
+            for k, g in groupby(enumerate(ind[ind1]),
+                                lambda ix : ix[0] - ix[1]):
                 ind_grp = list(map(itemgetter(1), g))
                 begin = ind_grp[0]
                 nsize = len(ind_grp)

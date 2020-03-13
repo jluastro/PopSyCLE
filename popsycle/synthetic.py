@@ -81,13 +81,13 @@ filt_dict['ztf_i'] = {'Damineli16': 1.553}
 ##########
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
-photometric_system_dict['ztf'] = ['g', 'r']
+photometric_system_dict['ztf'] = ['g', 'r', 'i']
 
 ##########
 # List of all supported photometric systems and filters with PyPopStar labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r', 'ztf,i']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############

@@ -7,3 +7,5 @@ c: 12.94 #concentration index
 r_vir: 200 #kpc
 inner_slope: .5
 v_esc: 550
+rho_0 : 0.0106 
+n_lin : 1000

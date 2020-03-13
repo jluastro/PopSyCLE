@@ -29,7 +29,7 @@ from popstar import synthetic, evolution, reddening, ifmr
 import scipy
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
-from scipy import special
+from scipy import special, integrate, interpolate
 import time
 import datetime
 from popsycle import ebf
@@ -3171,10 +3171,26 @@ def angdist(ra1, dec1, ra2, dec2):
     distance = arccos(cosdist) / d2r
     return distance
 
+def rho_dmhalo(r, rho_0, r_s, gamma):
+    """
+    Density profile of the dark matter halo.
+    We are using the parametrization from McMillan (2017) Equation 5,
+    with defaults based on the mean values in Table 2.
+    r: galactocentric radius [units: kpc]
+    rho_0: characteristic density in [units: m_sun / pc**3]
+    r_s: scale radius in [units: kpc]
+    gamma: gamma=1 for NFW, gamma > 1 cuspy, gamma < 1 cored
+    
+    returns: density at r [units: m_sun / pc**3]
+    """
+    x = r / r_s
+    rho = rho_0 / (x**gamma * (1 + x)**(3 - gamma))
+    return rho
+
 
 def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
             r_max=8.3, c=12.94, r_vir=200, inner_slope=.5, v_esc=550,
-            overwrite=False, seed=None):
+            rho_0=0.0106, n_lin=1000, overwrite=False, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.
@@ -3215,6 +3231,15 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     r_vir : float
         The virial radius.
         Defaults to 200 kpc (The virial radius of the Milky Way)
+
+    rho_0: float
+        The initial density that will be used in the NFW profile equations.
+        Defaults to .0106 from McMillan 2016
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
+
 
     Optional Parameters
     -------------------
@@ -3338,109 +3363,90 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     #Obtain survey area and center latitude and longitude
     b = float(ebf_log['latitude'])
+    b_radian = b * np.pi / 180
     l = float(ebf_log['longitude'])
+    l_radian = l * np.pi /180
     surveyArea = float(ebf_log['surveyArea'])
 
     #Calculate the size of the field of view we are running
     field_of_view_radius = (surveyArea/np.pi)**(1/2)
 
-    #NFW Profile calculations to determine mass of dark matter within given distance of galactic center
-    rho_crit = ((3*(h**2))/(8*np.pi*g))*(10**6) #Msun/Mpc^3
-    rho_knot = (200/3)*(rho_crit)*((c**3)/(np.log(c+1)-(c/(1+c)))) # Msun/Mpc^3
-    mass_within_r_max = (4*np.pi*rho_knot*(r_s**3)*(np.log((r_s + r_max)/r_s) - (r_max/(r_s+r_max))))*(((10**3)**3)/((10**6)**3))*fdm #Msun
+    # Generate an array of heliocentric radii
+    # These radii will just be used to numerically integrate the density
+    n_lin = 1000
+    if np.logical_and(np.logical_and(np.abs(l_radian)<0.5 * np.pi / 180, 
+                                     np.abs(b_radian)<0.5 * np.pi / 180), 
+                      n_lin<100000):
+        print('Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
+    r_h_linspace = np.linspace(0, 2*r_max, num=n_lin)
 
-    #Determine the number of PBHs within that distance
-    num_pbh_within_r_max = (mass_within_r_max/pbh_mass)
-    num_pbh_within_r_max = int(num_pbh_within_r_max)
-    num_pbh_within_r_max = int(1e7)
-    print('%i PBHs generated' % num_pbh_within_r_max)
+    # Represent the line of sight line in galactic coordinates
+    galactic_lin = coord.Galactic(l=l_radian * units.rad,
+                                  b=b_radian * units.rad,
+                                  distance=r_h_linspace * units.kpc)
 
-    """
-    Defining needed functions from the python package "NFWdist".
-    Used to calculate PBH radii from galactic center assuming NFW profile.
-    https://github.com/CullanHowlett/NFWdist
-    
-    x, q: array_like
-          Vector of quantiles. This is scaled such that x=R/Rvir for NFW. This means the PDF is only defined between 0 and 1.
-        p: array_like
-          Vector of probabilities
-    
-    pnfw: distribution function
-    qnfw: Quantile function (CDF inversion)
-    """
-
-    def pnfwunorm(q, con=5):
-        if hasattr(con, '__len__'):
-            y = np.outer(q,con)
-        else:
-            y = q*con
-        return np.log(1.0 + y)-y/(1.0 + y)
-
-    def pnfw(q, con=5, logp=False):
-        p = pnfwunorm(q, con=con)/pnfwunorm(1, con=con)
-        if hasattr(q, '__len__'):
-            p[q>1] = 1
-            p[q<=0] = 0
-        else:
-            if (q > 1):
-                p = 1
-            elif (q <= 0):
-                p = 0
-        if(logp):
-            return np.log(p)
-        else:
-            return p
-
-    def qnfw(p, con=5, logp=False):
-        if (logp):
-            p = np.exp(p)
-        if hasattr(p, '__len__'):
-            p[p>1] = 1
-            p[p<=0] = 0
-        else:
-            if (p > 1):
-                p = 1
-            elif (p <= 0):
-                p = 0
-        if hasattr(con, '__len__'):
-            p = np.outer(p,pnfwunorm(1, con=con))
-        else:
-            p *= pnfwunorm(1, con=con)
-        return (-(1.0/np.real(special.lambertw(-np.exp(-p-1))))-1)/con
-
-    #Calculating radius values for all PBHs within r_max of the galactic center, using NFWDist functions
-    r_values = (qnfw(np.random.rand(int(num_pbh_within_r_max)) * pnfw(r_max/r_vir,con=c, logp=False), con=c)*r_vir)
-
-    #Sample PBH latitude and longitudes to get full spherical coordinates.
-    sin_lats = np.random.uniform(-1, 1, int(num_pbh_within_r_max))
-    lats = np.arcsin(sin_lats)
-    longs = np.random.uniform(0, np.pi*2, int(num_pbh_within_r_max))
-
-    #Converting spherical galactocentric coordinates to cartesian galactocentric coordinates
-    cart = astropy.coordinates.spherical_to_cartesian(r_values, lats, longs)
-
-    #Defining galactocentric coordinate frame
-    galacto = coord.Galactocentric(x=cart[0] * units.kpc, y=cart[1] * units.kpc, z=cart[2] * units.kpc)
-
-    #Transforming from galactocentric to galactic coordinates
+    # convert the line of sight to galactocentric coordinates
     #outputs l, b, and distance in degrees.
-    galactic = galacto.transform_to(coord.Galactic(representation_type='cartesian'))
+    galactocen_lin = galactic_lin.transform_to(coord.Galactocentric(representation_type='spherical'))
 
-    latitude = galactic.b.deg
-    longitude = galactic.l.deg
-    #Adjusting longitude values to match the coordinate format that we need
-    longitude = np.where(longitude>180, longitude-360, longitude)
+    # Determine the dark matter density at all galactocentric radii along the line of sight.
+    rho_lin = rho_dmhalo(galactocen_lin.spherical.distance.value,
+                         rho_0=rho_0, r_s=r_s, gamma=inner_slope)
 
-    #Calculating distances between each latitude, longitude pair, and the center of the field of view.
-    # dists = angdist(l, b, longitude, latitude)
-    delta_l = np.cos(np.radians(b)) * (longitude - l)
-    delta_b = latitude - b
-    dists = np.hypot(delta_l, delta_b)
+    # Estimate the total mass within the line-of-sight cylinder [units: M_sun kpc**-2]
+    # Projected density along line of light
+    # (multiply by projected area to get total mass)
+    rho_marg_r = np.trapz(rho_lin, dx=(2*r_max) / n_lin) * 1000**3
+    print("Projected density along line-of-sight = {0:0.2e} [M_sun kpc**-2]".format(rho_marg_r))
+    # LOS cylinder radius in kpc, assuming small angle approximation [units: kpc]
+    r_proj_los_cyl = field_of_view_radius * np.pi / 180 * (2 * r_max)
+    # Projected area of the LOS cylinder [units: kpc**2]
+    area_proj_los_cyl = np.pi * r_proj_los_cyl**2
+    # Mass within the total cylinder
+    mass_los_cyl = rho_marg_r * area_proj_los_cyl
+    print("Mass within line-of-sight cylinder = {0:0.2e} [M_sun]".format(mass_los_cyl))
 
-    #Masking the full PBH data to obtain just the PBHs in our field of view.
-    mask = (galactic.distance.kpc <= 2*r_max) & (dists < field_of_view_radius)
-    data_in_field = galactic[mask]
-    N_PBHs_in_field = len(data_in_field)
+    # Total number of black holes to randomly draw
+    n_pbh = int(np.round(fdm * mass_los_cyl / pbh_mass))
+    print('Number of PBH to populate LOS cylinder with = {0}'.format(n_pbh))
+
+    # Estimate the discrete CDF based on the discrete PDF
+    rho_marg_r_cum = integrate.cumtrapz(y=rho_lin,
+                                        x=galactic_lin.distance.kpc,
+                                        dx=(2*r_max) / n_lin)
+    cdf_los = rho_marg_r_cum / rho_marg_r_cum[-1]
+    # Since cumtrapz does not include zero for the first element insert it
+    cdf_los = np.insert(cdf_los,0,0)
+
+    # Create a function to interpolate the CDF so that we can randomly sample from it
+    f_cdf_d = interpolate.interp1d(cdf_los, galactic_lin.distance.kpc)
+
+    # Randomly sample galactic coordinates for the PBHs based on CDF
+    d_galac = f_cdf_d(np.random.uniform(size=n_pbh))
+
+    # Randomly assign a l & b galactic coordinate to each PBH, within the LOS cone
+    # sample the angle from 0 to 2pi
+    theta = np.random.uniform(size=n_pbh) * 2 * np.pi
+    # sample radius correcting for annular area to make uniform
+    r_cyl = r_proj_los_cyl * np.sqrt(np.random.uniform(size=n_pbh)) # kpc
+    y_cyl = r_cyl * np.sin(theta) # kpc
+    x_cyl = r_cyl * np.cos(theta) # kpc
+
+    # Verify correct size
+    print(np.size(cdf_los))
+    print(np.size(galactic_lin.distance.kpc))
+
+    # Mask out sampled PBH outside the observation cone
+    mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (2 * r_max)
+
+    # Assuming small angle approximation
+    b_galac = r_cyl * np.sin(theta) / d_galac + b_radian # rad
+    l_galac = r_cyl * np.cos(theta) / np.cos(b_radian) / d_galac + l_radian # rad
+
+    latitude = b_galac * (180/np.pi) #degrees
+    longitude = l_galac * (180/np.pi) #degrees
+    
+    N_PBHs_in_field = len(d_galac)
     print('%i PBHs in the field' % N_PBHs_in_field)
 
     if N_PBHs_in_field == 0:
@@ -3449,15 +3455,10 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         shutil.copy(hdf5_file, output_hdf5_file)
         return
 
-    #Obtain the radius, l, and b values for all of the PBHs in our field of view.
-    r_in_field = data_in_field.distance.kpc
-    l_in_field = data_in_field.l.deg
-    b_in_field = data_in_field.b.deg
-
     #Converting the PBH positions from the field of view back to galactocentric for determining velocities.
-    galactic_pbh = coord.Galactic(l=l_in_field * units.deg, b=b_in_field * units.deg, distance=r_in_field * units.kpc)
-    galactic_pbh = galactic_pbh.transform_to(coord.Galactocentric(representation_type='spherical'))
-    cart_pbh = astropy.coordinates.cartesian_to_spherical(galactic_pbh.x, galactic_pbh.y, galactic_pbh.z)
+    galactic_pbh = coord.Galactic(l=longitude * units.deg, b=latitude * units.deg, distance=d_galac * units.kpc)
+    galacto_pbh = galactic_pbh.transform_to(coord.Galactocentric(representation_type='spherical'))
+    cart_pbh = astropy.coordinates.cartesian_to_spherical(galacto_pbh.x, galacto_pbh.y, galacto_pbh.z)
     pbh_r_galacto = cart_pbh[0]
 
     #Inner slope of the MW halo
@@ -3484,35 +3485,36 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     interpreted_rms_velocities = np.interp(rand_cdf, cdf, v_vals)
 
     #Sampling random latitude and longitude values for velocity to complete the spherical velocities.
-    sin_lat_vel = np.random.uniform(-1, 1, len(data_in_field))
+    sin_lat_vel = np.random.uniform(-1, 1, len(d_galac))
     lat_vel = np.arcsin(sin_lat_vel)
-    long_vel = np.random.uniform(0, 2*np.pi, len(data_in_field))
+    long_vel = np.random.uniform(0, 2*np.pi, len(d_galac))
 
     #Transforming velocities to cartesian to get vx, vy, and vz.
     cart_vel = astropy.coordinates.spherical_to_cartesian(interpreted_rms_velocities, lat_vel, long_vel)
 
     #Load up a numpy array
     comp_dtype = _generate_comp_dtype(hdf5_dset_names)
-    pbh_data = np.empty(len(data_in_field), dtype=comp_dtype)
+    pbh_data = np.empty(len(d_galac), dtype=comp_dtype)
 
-    pbh_data['rad'] = r_in_field
-    pbh_data['glon'] = l_in_field
-    pbh_data['glat'] = b_in_field
+    #Getting longitude into the right format for PopSyCLE
+    longitude = np.where(longitude>180, longitude-360, longitude)
+
+    pbh_data['rad'] = d_galac
+    pbh_data['glon'] = longitude
+    pbh_data['glat'] = latitude
 
     pbh_data['vx'] = cart_vel[0]
     pbh_data['vy'] = cart_vel[1]
     pbh_data['vz'] = cart_vel[2]
 
     #Getting the rest of the PBH data for the combined .h5 file
-    pbh_data['mass'] = np.full(len(data_in_field), pbh_mass)
-    pbh_data['zams_mass'] = np.full(len(data_in_field), pbh_mass)
-    pbh_data['age'] = np.full(len(data_in_field), np.nan)
-    pbh_data['popid'] = np.full(len(data_in_field), 10)
-    pbh_data['rem_id'] = np.full(len(data_in_field), 104)
+    pbh_data['mass'] = np.full(len(d_galac), pbh_mass)
+    pbh_data['zams_mass'] = np.full(len(d_galac), pbh_mass)
+    pbh_data['age'] = np.full(len(d_galac), np.nan)
+    pbh_data['popid'] = np.full(len(d_galac), 10)
+    pbh_data['rem_id'] = np.full(len(d_galac), 104)
 
-    b_rad = np.radians(b_in_field)
-    l_rad = np.radians(l_in_field)
-    cart_helio = astropy.coordinates.spherical_to_cartesian(r_in_field, b_rad, l_rad)
+    cart_helio = astropy.coordinates.spherical_to_cartesian(d_galac, b_galac, l_galac)
     pbh_data['px'] = cart_helio[0]
     pbh_data['py'] = cart_helio[1]
     pbh_data['pz'] = cart_helio[2]
@@ -3520,28 +3522,28 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     vr, mu_b, mu_lcosb = calc_sph_motion(pbh_data['vx'],
                                          pbh_data['vy'],
                                          pbh_data['vz'],
-                                         r_in_field, b_in_field, l_in_field)
+                                         d_galac, b_galac, l_galac)
     pbh_data['vr'] = vr
     pbh_data['mu_b'] = mu_b
     pbh_data['mu_lcosb'] = mu_lcosb
-    pbh_data['obj_id'] = np.arange((max_id+1), (max_id+len(data_in_field)+1))
+    pbh_data['obj_id'] = np.arange((max_id+1), (max_id+len(d_galac)+1))
 
-    pbh_data['exbv'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_K'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_J'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_I'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_U'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_R'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_B'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_H'] = np.full(len(data_in_field), np.nan)
-    pbh_data['ubv_V'] = np.full(len(data_in_field), np.nan)
-    pbh_data['teff'] = np.full(len(data_in_field), np.nan)
-    pbh_data['grav'] = np.full(len(data_in_field), np.nan)
-    pbh_data['mbol'] = np.full(len(data_in_field), np.nan)
-    pbh_data['feh'] = np.full(len(data_in_field), np.nan)
+    pbh_data['exbv'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_K'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_J'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_I'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_U'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_R'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_B'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_H'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_V'] = np.full(len(d_galac), np.nan)
+    pbh_data['teff'] = np.full(len(d_galac), np.nan)
+    pbh_data['grav'] = np.full(len(d_galac), np.nan)
+    pbh_data['mbol'] = np.full(len(d_galac), np.nan)
+    pbh_data['feh'] = np.full(len(d_galac), np.nan)
     if any(['ztf' in n for n in hdf5_dset_names]):
-        pbh_data['ztf_g'] = np.full(len(data_in_field), np.nan)
-        pbh_data['ztf_r'] = np.full(len(data_in_field), np.nan)
+        pbh_data['ztf_g'] = np.full(len(d_galac), np.nan)
+        pbh_data['ztf_r'] = np.full(len(d_galac), np.nan)
 
     #Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
     #so that we can determine which datasets to correctly add the PBHs.
@@ -3554,11 +3556,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
             min_b = lat_bin[idx2]
             lat_long_list.append((min_l, max_l, min_b, max_b))
 
-    """
-    WARNING: THIS CODE IS NOW BROKEN AND NEEDS TO BE REWRITTEN
-    THE NEW DATA FORMAT FOR HDF5 FILES IS COMPOUND DATATYPE
-    AND THE DATA ONCE READ IS A NUMPY RECARRAY
-    """
+    
     #Opening the file with no PBHs and creating a new file for the PBHs added.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
     pbh_hdf5_file = h5py.File(output_hdf5_file, 'w')

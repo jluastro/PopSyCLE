@@ -286,7 +286,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
     generate_config_file(config_filename, config)
 
 
-def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, inner_slope, v_esc):
+def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, inner_slope, v_esc, rho_0, n_lin):
     """
     Save PBH configuration parameters into a yaml file
 
@@ -317,6 +317,13 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, in
         The escape velocity of the Milky Way.
         v_esc is used in calculating the velocities.
 
+    rho_0: float
+        The initial density that will be used in the NFW profile equations.
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
+
     Output
     ------
     None
@@ -328,7 +335,9 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, in
               'c': c,
               'r_vir': r_vir,
               'inner_slope': inner_slope,
-              'v_esc': v_esc}
+              'v_esc': v_esc,
+              'rho_0':rho_0,
+              'n_lin':n_lin}
     generate_config_file(config_filename, config)
 
 

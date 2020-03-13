@@ -259,6 +259,9 @@ import numpy
 import sys
 import time
 import os
+from itertools import groupby
+from operator import itemgetter
+
 
 __version__ = "0.0.14"
 
@@ -2753,9 +2756,17 @@ class EbfFile():
         if numpy.max(ind)<self.elements:
             ind1=numpy.argsort(ind)
             data=numpy.zeros(len(ind),dtype=self.dtype)
-            for i in ind1:
-                data[i]=self.read(ind[i])    
-            return data
+            ind_sorted = ind[ind1]
+            begin_data = 0
+            for k, g in groupby(enumerate(ind_sorted), lambda ix : ix[0] - ix[1]):
+                ind_grp = list(map(itemgetter(1), g))
+                begin = ind_grp[0]
+                nsize = len(ind_grp)
+                d = self.read(begin, nsize=nsize)
+                end_data = begin_data + nsize
+                data[begin_data:end_data] = d
+                begin_data += nsize
+            return data[ind1]
         else:
             return None
             

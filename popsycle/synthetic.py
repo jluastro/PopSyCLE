@@ -1385,6 +1385,7 @@ def calc_events(hdf5_file, output_root2,
     # Astropy Table for easier consumption.
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
+    N_events = len(events_final)
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
@@ -1421,17 +1422,18 @@ def calc_events(hdf5_file, output_root2,
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(N_events) + ' : total number of events' + '\n'
 
-    line14 = 'FILES CREATED' + '\n'
-    line15 = output_root2 + '_events.fits : events file' + '\n'
-    line16 = output_root2 + '_blends.fits : blends file' + '\n'
+    line15 = 'FILES CREATED' + '\n'
+    line16 = output_root2 + '_events.fits : events file' + '\n'
+    line17 = output_root2 + '_blends.fits : blends file' + '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
                         line4, line5, line6, line7, line8, empty_line,
                         line9, dash_line, line10, line11, empty_line,
-                        line12, dash_line, line13, empty_line, line14,
-                        dash_line, line15, line16])
+                        line12, dash_line, line13, line14, empty_line, line15,
+                        dash_line, line16, line17])
 
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
@@ -2199,9 +2201,11 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
-    print('Original candidate events: ', len(event_tab))
+    N_events_original = len(event_tab)
+    print('Original candidate events: ', N_events_original)
     u0, t0 = calc_closest_approach(event_tab, obs_time)
-    print('Candidate events in survey window: ', len(event_tab))
+    N_events_survey = len(event_tab)
+    print('Candidate events in survey window: ', N_events_survey)
     event_tab['t0'] = t0  # days
     event_tab['u0'] = u0
     if len(event_tab) == 0:
@@ -2258,15 +2262,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
+    line10 = str(N_events_original) + ' : original candidate events (dark sources removed)' + '\n'
+    line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
-    line10 = 'FILES CREATED' + '\n'
-    line11 = output_file + ' : refined events'
+    line12 = 'FILES CREATED' + '\n'
+    line13 = output_file + ' : refined events'
 
     with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, empty_line,
-                        line10, dash_line, line11])
+                        line8, dash_line, line9, line10, line11, empty_line,
+                        line12, dash_line, line13])
 
     print('Total runtime: {0:f} s'.format(t_1 - t_0))
     return

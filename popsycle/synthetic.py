@@ -3208,18 +3208,18 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     r_s: float
         The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
-        Defaults to 18.6 kpc. The median value given in McMillan 2016
+        Defaults to 18.6 kpc. The median value given in McMillan 2017.
 
     rho_0: float
         The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
-        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2016.
+        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
 
     n_lin: int
         The number of times you want the density determined along the line of sight when calculating PBH positions
         Defaults to 1000. Will need to make large if you are closer to the galactic center.
 
     gamma: float
-        The inner slope of the MW dark matter halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
+        The inner slope of the MW dark matter halo as described in LaCroix 2018.
         Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
         The default value is 1, corresponding to an NFW profile.
 
@@ -3416,10 +3416,15 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     # Mask out sampled PBH outside the observation cone
     mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (2 * r_max)
-
+    print('Number of PBH before and after light cone masking: {0} and {1}, respectively'.format(n_pbh, np.sum(mask_obs_cone)))
+    
     # Assuming small angle approximation
     b_galac = r_cyl * np.sin(theta) / d_galac + b_radian # rad
     l_galac = r_cyl * np.cos(theta) / np.cos(b_radian) / d_galac + l_radian # rad
+
+    d_galac = d_galac[mask_obs_cone]
+    b_galac = b_galac[mask_obs_cone]
+    l_galac = l_galac[mask_obs_cone]
 
     latitude = b_galac * (180/np.pi) #degrees
     longitude = l_galac * (180/np.pi) #degrees
@@ -3528,14 +3533,10 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     lat_long_list = []
     for idx in range(len(long_bin) - 1):
         max_l = long_bin[idx + 1]
-        print(max_l)
         min_l = long_bin[idx]
-        print(min_l)
         for idx2 in range(len(lat_bin)-1):
             max_b = lat_bin[idx2 + 1]
-            print(max_b)
             min_b = lat_bin[idx2]
-            print(min_b)
             lat_long_list.append((min_l, max_l, min_b, max_b))
 
     
@@ -3560,11 +3561,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
             combined_data = key_data
         else:
             pbh_data_in_key = pbh_data[mask]
-            print(len(pbh_data_in_key))
             combined_data = np.hstack((key_data, pbh_data_in_key))
-            print(len(combined_data))
         N_objs_pbh += combined_data.shape[0]
-        print(N_objs_pbh)
         _ = pbh_hdf5_file.create_dataset(key,
                                          shape=(combined_data.shape[0],),
                                          dtype=comp_dtype,

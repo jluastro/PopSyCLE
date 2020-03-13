@@ -307,7 +307,7 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, r_s, gamma, 
         The scale radius of the Milky Way (in units of kpc). r_s = r_vir / c (virial radius / concentration index) 
 
     gamma: float
-        The inner slope of the MW dark matter halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
+        The inner slope of the MW dark matter halo as described in LaCroix 2018.
         Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
 
     v_esc: int

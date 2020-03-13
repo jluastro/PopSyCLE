@@ -3153,32 +3153,14 @@ def calc_f(lambda_eff):
 
     return f
 
-
-def angdist(ra1, dec1, ra2, dec2):
-    '''
-    Takes two spherical coordinates and determines the angluar distance between
-    them.
-    Input:
-    ra1,dec1 [degrees] angular coordinates of the first point
-    ra2,dec2 [degrees] angular coordinates of the second point
-    Output:
-    distance [degrees] angular distance between the two points
-    '''
-    from numpy import pi, sin, cos, arccos
-    d2r = pi / 180.0
-    cosdist = (cos(np.absolute(ra1 - ra2) * d2r) * cos(np.absolute(dec1 * d2r)) * cos(np.absolute(dec2 * d2r)) +
-                sin(np.absolute(dec1 * d2r)) * sin(np.absolute(dec2 * d2r)))
-    distance = arccos(cosdist) / d2r
-    return distance
-
-def rho_dmhalo(r, rho_0, r_s, gamma):
+def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
     """
     Density profile of the dark matter halo.
     We are using the parametrization from McMillan (2017) Equation 5,
     with defaults based on the mean values in Table 2.
     r: galactocentric radius [units: kpc]
     rho_0: characteristic density in [units: m_sun / pc**3]
-    r_s: scale radius in [units: kpc]
+    r_s: scale radius in [units: kpc].
     gamma: gamma=1 for NFW, gamma > 1 cuspy, gamma < 1 cored
     
     returns: density at r [units: m_sun / pc**3]
@@ -3189,8 +3171,8 @@ def rho_dmhalo(r, rho_0, r_s, gamma):
 
 
 def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
-            r_max=8.3, c=12.94, r_vir=200, inner_slope=.5, v_esc=550,
-            rho_0=0.0106, n_lin=1000, overwrite=False, seed=None):
+            r_max=8.3, r_s=18.6, gamma=1, v_esc=550, 
+            rho_0=0.0093, n_lin=1000, overwrite=False, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.
@@ -3217,42 +3199,37 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         Defaults to 1.
 
     pbh_mass : int
-        The single mass that all PBHs will have.
+        The single mass that all PBHs will have (in units of Msun).
         Defaults to 40 Msun (from LIGO detections thought to be primordial)
 
     r_max : float
         The maximum radius from the galactic center that you want to find PBHs at.
         Defaults to 8.3 kpc (Where Earth is located)
 
-    c : float
-        Concentration index.
-        Defaults to 12.94 (the value given in McMillan 2016, used in the paper we derive the velocities from)
-
-    r_vir : float
-        The virial radius.
-        Defaults to 200 kpc (The virial radius of the Milky Way)
+    r_s: float
+        The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
+        Defaults to 18.6 kpc. The median value given in McMillan 2016
 
     rho_0: float
-        The initial density that will be used in the NFW profile equations.
-        Defaults to .0106 from McMillan 2016
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
+        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2016.
 
     n_lin: int
         The number of times you want the density determined along the line of sight when calculating PBH positions
         Defaults to 1000. Will need to make large if you are closer to the galactic center.
 
+    gamma: float
+        The inner slope of the MW dark matter halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
+        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
+        The default value is 1, corresponding to an NFW profile.
+
+    v_esc: int
+        The escape velocity of the Milky Way (in km/s).
+        v_esc is used in calculating the velocities.
+        Default is 550 km/s. Most papers cite values of 515-575.
 
     Optional Parameters
     -------------------
-    inner_slope: float
-        The inner slope of the MW halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
-        Inner_slope goes into the determination of the velocities and each value returns a slightly different distribution.
-        The default value is .5 because it is in the middle of the options. More investigation is needed.
-
-    v_esc: int
-        The escape velocity of the Milky Way.
-        v_esc is used in calculating the velocities.
-        Default is 550 because most papers cite values of 515-575, with a lot being around 550.
-
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
@@ -3300,13 +3277,24 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         if type(r_max) != int:
             raise Exception('r_max must be a float or an integer.')
 
-    if type(c) != int:
-        if type(c) != float:
-            raise Exception('c must be an integer or a float.')
+    if type(r_s) != float:
+        if type(r_s) != int:
+            raise Exception('r_s must be a float or an integer.')
 
-    if type(r_vir) != float:
-        if type(r_vir) != int:
-            raise Exception('r_vir must be a float or an integer.')
+    if type(rho_0) != float:
+        if type(rho_0) != int:
+            raise Exception('rho_0 must be a float or an integer.')
+
+    if type(n_lin) != int:
+        raise Exception('n_lin must be an integer.')
+
+    if type(gamma) != float:
+        if type(gamma) != int:
+            raise Exception('gamma must be a float or an integer.')
+
+    if type(v_esc) != int:
+        if type(v_esc) != float:
+            raise Exception('v_esc must be an interger or a float.')
 
     if seed is not None:
         if type(seed) != int:
@@ -3327,11 +3315,6 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     np.random.seed(seed)
 
     t0 = time.time()
-
-    #Define parameters for NFW profile calculations
-    r_s = r_vir/c #kpc, scale radius
-    g = 4.3*(10**-3) #(pc*km^2)/(Msun*s^2)
-    h = 70 #km/(s*Mpc)
 
     #Read in the hdf5 file that doesn't have PBHs. Product of perform_pop_syn.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
@@ -3362,11 +3345,11 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     ebf_log = make_ebf_log(t)
 
     #Obtain survey area and center latitude and longitude
-    b = float(ebf_log['latitude'])
-    b_radian = b * np.pi / 180
-    l = float(ebf_log['longitude'])
-    l_radian = l * np.pi /180
-    surveyArea = float(ebf_log['surveyArea'])
+    b = float(ebf_log['latitude']) #deg
+    b_radian = b * np.pi / 180 #rad
+    l = float(ebf_log['longitude']) #deg
+    l_radian = l * np.pi /180 #rad
+    surveyArea = float(ebf_log['surveyArea']) #deg^2
 
     #Calculate the size of the field of view we are running
     field_of_view_radius = (surveyArea/np.pi)**(1/2)
@@ -3391,7 +3374,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     # Determine the dark matter density at all galactocentric radii along the line of sight.
     rho_lin = rho_dmhalo(galactocen_lin.spherical.distance.value,
-                         rho_0=rho_0, r_s=r_s, gamma=inner_slope)
+                         rho_0=rho_0, r_s=r_s, gamma=gamma)
 
     # Estimate the total mass within the line-of-sight cylinder [units: M_sun kpc**-2]
     # Projected density along line of light
@@ -3408,7 +3391,6 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     # Total number of black holes to randomly draw
     n_pbh = int(np.round(fdm * mass_los_cyl / pbh_mass))
-    print('Number of PBH to populate LOS cylinder with = {0}'.format(n_pbh))
 
     # Estimate the discrete CDF based on the discrete PDF
     rho_marg_r_cum = integrate.cumtrapz(y=rho_lin,
@@ -3431,10 +3413,6 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     r_cyl = r_proj_los_cyl * np.sqrt(np.random.uniform(size=n_pbh)) # kpc
     y_cyl = r_cyl * np.sin(theta) # kpc
     x_cyl = r_cyl * np.cos(theta) # kpc
-
-    # Verify correct size
-    print(np.size(cdf_los))
-    print(np.size(galactic_lin.distance.kpc))
 
     # Mask out sampled PBH outside the observation cone
     mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (2 * r_max)
@@ -3464,9 +3442,9 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     #Inner slope of the MW halo
     #From Lacroix et al 2018, Figure 11 (top left panel)
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(add_pbh))
-    if inner_slope == 1:
+    if gamma == 1:
         vel_data = pd.read_csv('%s/radial_velocity_profile_steep.csv' % data_dir)
-    elif inner_slope == .25:
+    elif gamma == .25:
         vel_data = pd.read_csv('%s/radial_velocity_profile_shallow.csv' % data_dir)
     else:
         vel_data = pd.read_csv('%s/radial_velocity_profile_middle.csv' % data_dir)
@@ -3550,10 +3528,14 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     lat_long_list = []
     for idx in range(len(long_bin) - 1):
         max_l = long_bin[idx + 1]
+        print(max_l)
         min_l = long_bin[idx]
+        print(min_l)
         for idx2 in range(len(lat_bin)-1):
             max_b = lat_bin[idx2 + 1]
+            print(max_b)
             min_b = lat_bin[idx2]
+            print(min_b)
             lat_long_list.append((min_l, max_l, min_b, max_b))
 
     
@@ -3578,8 +3560,11 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
             combined_data = key_data
         else:
             pbh_data_in_key = pbh_data[mask]
+            print(len(pbh_data_in_key))
             combined_data = np.hstack((key_data, pbh_data_in_key))
+            print(len(combined_data))
         N_objs_pbh += combined_data.shape[0]
+        print(N_objs_pbh)
         _ = pbh_hdf5_file.create_dataset(key,
                                          shape=(combined_data.shape[0],),
                                          dtype=comp_dtype,

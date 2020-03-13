@@ -286,7 +286,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
     generate_config_file(config_filename, config)
 
 
-def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, inner_slope, v_esc, rho_0, n_lin):
+def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, r_s, gamma, v_esc, rho_0, n_lin):
     """
     Save PBH configuration parameters into a yaml file
 
@@ -298,27 +298,24 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, in
         The fraction of dark matter that you want to consist of PBHs.
 
     pbh_mass : int
-        The single mass that all PBHs will have.
+        The single mass that all PBHs will have (in units of Msun).
 
     r_max : float
-        The maximum radius from the galactic center that you want to find PBHs at.
+        The maximum radius (in kpc) from the galactic center that you want to find PBHs at.
 
-    c : float
-        Concentration index.
+    r_s: float
+        The scale radius of the Milky Way (in units of kpc). r_s = r_vir / c (virial radius / concentration index) 
 
-    r_vir : float
-        The virial radius.
-
-    inner_slope: float
-        The inner slope of the MW halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
-        Inner_slope goes into the determination of the velocities and each value returns a slightly different distribution.
+    gamma: float
+        The inner slope of the MW dark matter halo as described in https://iopscience.iop.org/article/10.1088/1475-7516/2018/09/040/pdf.
+        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
 
     v_esc: int
-        The escape velocity of the Milky Way.
+        The escape velocity of the Milky Way in km/s.
         v_esc is used in calculating the velocities.
 
     rho_0: float
-        The initial density that will be used in the NFW profile equations.
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
 
     n_lin: int
         The number of times you want the density determined along the line of sight when calculating PBH positions
@@ -332,9 +329,8 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, c, r_vir, in
     config = {'fdm': fdm,
               'pbh_mass': pbh_mass,
               'r_max': r_max,
-              'c': c,
-              'r_vir': r_vir,
-              'inner_slope': inner_slope,
+              'r_s': r_s,
+              'gamma': gamma,
               'v_esc': v_esc,
               'rho_0':rho_0,
               'n_lin':n_lin}

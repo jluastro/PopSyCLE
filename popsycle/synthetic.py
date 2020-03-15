@@ -87,7 +87,7 @@ photometric_system_dict['ztf'] = ['g', 'r', 'i']
 # List of all supported photometric systems and filters with PyPopStar labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r', 'ztf,i']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -865,6 +865,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     """
     comp_dict = None
 
+    # Add additional filters to isochrones if additional_photometric_systems
+    # contains photometric systems
+    my_filt_list = all_filt_list
+    if additional_photometric_systems is not None:
+        if 'ztf' in additional_photometric_systems:
+            my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
@@ -888,14 +895,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         # Using MIST models to get white dwarfs
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=all_filt_list,
+                                         filters=my_filt_list,
                                          iso_dir=iso_dir)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        filt_list = ['m_%s' % f.replace(',', '_') for f in all_filt_list]
-        if set(filt_list) != set(my_iso_filters):
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
                                              filters=all_filt_list,

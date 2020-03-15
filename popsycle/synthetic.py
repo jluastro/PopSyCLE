@@ -477,6 +477,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
             # Create the KDTree used for calculating extinction from the first
             # sample of stars
+            kdt_star_p = None
             if len_adx > 0:
                 num_kdtree_samples = int(min(len_adx, 1e5))
                 kdt_idx = np.random.choice(np.arange(len_adx),
@@ -488,6 +489,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
                 star_xyz = np.array([star_px, star_py, star_pz]).T
                 kdt_star_p = cKDTree(star_xyz)
+                del bin_idx, star_px, star_py, star_pz
 
             ##########
             # Loop through bins of 2 million stars at a time.

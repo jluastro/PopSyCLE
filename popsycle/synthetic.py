@@ -475,20 +475,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             num_stars_in_bin = 2e6
             num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
-            # Create the KDTree used for calculating extinction from the first
-            # sample of stars
-            if len_adx > 0:
-                num_kdtree_samples = int(min(len_adx, 1e5))
-                kdt_idx = np.random.choice(np.arange(len_adx),
-                                           size=num_kdtree_samples,
-                                           replace=False)
-                bin_idx = popid_idx[age_idx[kdt_idx]]
-                star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
-                star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
-                star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
-                star_xyz = np.array([star_px, star_py, star_pz]).T
-                kdt_star_p = cKDTree(star_xyz)
-
             ##########
             # Loop through bins of 2 million stars at a time.
             ##########
@@ -591,7 +577,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
                                                      mass_in_bin, stars_in_bin, next_id,
-                                                     kdt_star_p,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
@@ -613,7 +598,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 del star_dict
                 gc.collect()
-            del kdt_star_p
 
     t1 = time.time()
     print('Total run time is {0:f} s'.format(t1 - t0))
@@ -823,7 +807,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass,
-                    star_dict, next_id, kdt_star_p,
+                    star_dict, next_id,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
                     seed=None):
@@ -846,9 +830,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
     next_id : The next unique ID number (int) that will be assigned to
               the new compact objects created.
-
-    kdt_star_p
-    #FIXME#
 
     Optional Parameters
     -------------------
@@ -1075,10 +1056,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
             if len(lum_WD_idx) > 0:
+                star_xyz = np.array([star_dict['px'],
+                                     star_dict['py'],
+                                     star_dict['pz']]).T
                 comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T
-                dist, indices = kdt_star_p.query(comp_xyz)
+                kdt = cKDTree(star_xyz)
+                dist, indices = kdt.query(comp_xyz)
 
                 comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
 

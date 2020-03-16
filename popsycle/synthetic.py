@@ -479,7 +479,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             # sample of stars
             kdt_star_p = None
             if len_adx > 0:
-                num_kdtree_samples = int(min(len_adx, 1e5))
+                num_kdtree_samples = int(min(len_adx, 2e6))
                 kdt_idx = np.random.choice(np.arange(len_adx),
                                            size=num_kdtree_samples,
                                            replace=False)

@@ -81,19 +81,20 @@ filt_dict['ubv_I'] = {'Schlafly11': 1.505, 'Schlegel99': 1.940, 'Damineli16': 1.
 filt_dict['ubv_R'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.102}
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
+filt_dict['ztf_i'] = {'Damineli16': 1.553}
 
 ##########
 # Dictionary for listing out supported photometric systems and filters
 ##########
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
-photometric_system_dict['ztf'] = ['g', 'r']
+photometric_system_dict['ztf'] = ['g', 'r', 'i']
 
 ##########
 # List of all supported photometric systems and filters with PyPopStar labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -544,10 +545,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         ubv_b = star_dict['ubv_B']
                         ubv_v = star_dict['ubv_V']
                         ubv_r = star_dict['ubv_R']
+                        ubv_i = star_dict['ubv_I']
 
-                    ztf_g, ztf_r = transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r)
+                    ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
+                    ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
+                    ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
                     star_dict['ztf_g'] = ztf_g
                     star_dict['ztf_r'] = ztf_r
+                    star_dict['ztf_i'] = ztf_i
 
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
@@ -808,7 +813,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
+def _make_comp_dict(iso_dir, log_age, currentClusterMass,
+                    star_dict, next_id,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
                     seed=None):
@@ -866,6 +872,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     """
     comp_dict = None
 
+    # Add additional filters to isochrones if additional_photometric_systems
+    # contains photometric systems
+    my_filt_list = all_filt_list
+    if additional_photometric_systems is not None:
+        if 'ztf' in additional_photometric_systems:
+            my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
@@ -889,14 +902,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # Using MIST models to get white dwarfs
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=all_filt_list,
+                                         filters=my_filt_list,
                                          iso_dir=iso_dir)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        filt_list = ['m_%s' % f.replace(',', '_') for f in all_filt_list]
-        if set(filt_list) != set(my_iso_filters):
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
                                              filters=all_filt_list,
@@ -931,7 +944,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                         'm_ukirt_J', 'm_ukirt_K']
         if additional_photometric_systems is not None:
             if 'ztf' in additional_photometric_systems:
-                keep_columns += ['m_ztf_g', 'm_ztf_r']
+                keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
         comp_table.keep_columns(keep_columns)
 
         # Fill out the rest of comp_dict
@@ -1046,6 +1059,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 if 'ztf' in additional_photometric_systems:
                     comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
                     comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
+                    comp_dict['ztf_i'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1062,7 +1076,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T
-
                 kdt = cKDTree(star_xyz)
                 dist, indices = kdt.query(comp_xyz)
 
@@ -1080,6 +1093,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                     if 'ztf' in additional_photometric_systems:
                         comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_g'][lum_WD_idx].data
                         comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_r'][lum_WD_idx].data
+                        comp_dict['ztf_i'][lum_WD_idx] = comp_table['m_ztf_i'][lum_WD_idx].data
 
                 # Memory cleaning
                 del comp_table
@@ -1224,7 +1238,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
-                seed=None, overwrite=False):
+                overwrite=False):
     """
     Calculate microlensing events
 
@@ -1254,15 +1268,6 @@ def calc_events(hdf5_file, output_root2,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
-
-    additional_photometric_systems : list of strs
-        The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
-
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -1314,16 +1319,9 @@ def calc_events(hdf5_file, output_root2,
         if type(theta_frac) != float:
             raise Exception('theta_frac must be an integer or a float.')
 
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
-
     ##########
     # Start of code
     #########
-
-    # Set random seed
-    np.random.seed(seed)
 
     t0 = time.time()
 
@@ -1401,6 +1399,7 @@ def calc_events(hdf5_file, output_root2,
     # Astropy Table for easier consumption.
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
+    N_events = len(events_final)
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
@@ -1437,17 +1436,18 @@ def calc_events(hdf5_file, output_root2,
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(N_events) + ' : total number of events' + '\n'
 
-    line14 = 'FILES CREATED' + '\n'
-    line15 = output_root2 + '_events.fits : events file' + '\n'
-    line16 = output_root2 + '_blends.fits : blends file' + '\n'
+    line15 = 'FILES CREATED' + '\n'
+    line16 = output_root2 + '_events.fits : events file' + '\n'
+    line17 = output_root2 + '_blends.fits : blends file' + '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
                         line4, line5, line6, line7, line8, empty_line,
                         line9, dash_line, line10, line11, empty_line,
-                        line12, dash_line, line13, empty_line, line14,
-                        dash_line, line15, line16])
+                        line12, dash_line, line13, line14, empty_line, line15,
+                        dash_line, line16, line17])
 
     print('Total runtime: {0:f} s'.format(t1 - t0))
 
@@ -2210,15 +2210,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         for num, line in enumerate(my_file):
             if 'obs_time' in line:
                 obs_time = line.split(',')[1]
-                obs_time = int(obs_time)
+                obs_time = float(obs_time)
                 break
 
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
-    print('Original candidate events: ', len(event_tab))
+    N_events_original = len(event_tab)
+    print('Original candidate events: ', N_events_original)
     u0, t0 = calc_closest_approach(event_tab, obs_time)
-    print('Candidate events in survey window: ', len(event_tab))
+    N_events_survey = len(event_tab)
+    print('Candidate events in survey window: ', N_events_survey)
     event_tab['t0'] = t0  # days
     event_tab['u0'] = u0
     if len(event_tab) == 0:
@@ -2275,15 +2277,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
+    line10 = str(N_events_original) + ' : original candidate events (dark sources removed)' + '\n'
+    line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
-    line10 = 'FILES CREATED' + '\n'
-    line11 = output_file + ' : refined events'
+    line12 = 'FILES CREATED' + '\n'
+    line13 = output_file + ' : refined events'
 
     with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, empty_line,
-                        line10, dash_line, line11])
+                        line8, dash_line, line9, line10, line11, empty_line,
+                        line12, dash_line, line13])
 
     print('Total runtime: {0:f} s'.format(t_1 - t_0))
     return

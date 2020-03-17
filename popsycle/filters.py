@@ -32,6 +32,11 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         y-axis : ubv_B - ubv_V
         z-axis : ztf_r - ubv_R
 
+    ubv-to-ztf-i
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ztf_i - ubv_I
+
     Parameters
     ----------
     iso_dir : filepath
@@ -57,9 +62,9 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     atm_func = atmospheres.get_merged_atmosphere
     red_law = reddening.RedLawDamineli16()
 
-    # Also specify filters for synthetic photometry (optional). Here we use
-    # the HST WFC3-IR F127M, F139M, and F153M filters
-    filt_list = ['ztf,r', 'ztf,g', 'ubv,B', 'ubv,V', 'ubv,R']
+    # Also specify filters for synthetic photometry
+    filt_list = ['ztf,r', 'ztf,g', 'ztf,i',
+                 'ubv,B', 'ubv,V', 'ubv,R', 'ubv,I']
     filt_list_reformat = ['m_%s' % f.replace(',', '_') for f in filt_list]
 
     # Make multiplicity object
@@ -81,8 +86,10 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     ubv_b = np.array([])
     ubv_v = np.array([])
     ubv_r = np.array([])
+    ubv_i = np.array([])
     ztf_g = np.array([])
     ztf_r = np.array([])
+    ztf_i = np.array([])
 
     # Create photometry for a range of extinctions
     for AKs in np.arange(0, 1.1, .1):
@@ -117,14 +124,19 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         ubv_b = np.append(ubv_b, clust['m_ubv_B'][clust_cond])
         ubv_v = np.append(ubv_v, clust['m_ubv_V'][clust_cond])
         ubv_r = np.append(ubv_r, clust['m_ubv_R'][clust_cond])
+        ubv_i = np.append(ubv_i, clust['m_ubv_I'][clust_cond])
         ztf_g = np.append(ztf_g, clust['m_ztf_g'][clust_cond])
         ztf_r = np.append(ztf_r, clust['m_ztf_r'][clust_cond])
+        ztf_i = np.append(ztf_i, clust['m_ztf_i'][clust_cond])
 
     # Given the filter name, define a difference in magnitude to be fit for
     if filter_name == 'g':
         delta_m = ztf_g - ubv_v
     elif filter_name == 'r':
         delta_m = ztf_r - ubv_r
+    elif filter_name == 'i':
+        delta_m = ztf_i - ubv_i
+
 
     # Colors in both x and y direction go from 0 to 6 magnitudes
     # x_grid_arr: ubv_v - ubv_r
@@ -194,11 +206,16 @@ def load_ubv_to_ztf_grid(filter_name):
         y-axis : ubv_B - ubv_V
         z-axis : ztf_r - ubv_R
 
+    ubv-to-ztf-i
+        x-axis : ubv_V - ubv_R
+        y-axis : ubv_B - ubv_V
+        z-axis : ztf_i - ubv_I
+
     Parameters
     ----------
     filter_name : str
         The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
+        microlensing events. Must be either 'g' or 'r' or 'i'.
 
     Output
     ------
@@ -210,6 +227,10 @@ def load_ubv_to_ztf_grid(filter_name):
         kdtree containing the grid of colors on the x-axis and y-axis
 
     """
+    # Check for correct filter
+    if filter_name not in ['g', 'r', 'i']:
+        raise Exception("filter_name must be in: ['g', 'r', 'i']")
+
     # Load the ubv_to_ztf_grid from the file
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(load_ubv_to_ztf_grid))
     ubv_to_ztf_filename = '%s/ubv_to_ztf-%s_grid.npz' % (data_dir, filter_name)
@@ -222,9 +243,9 @@ def load_ubv_to_ztf_grid(filter_name):
     return ubv_to_ztf_grid, kdtree
 
 
-def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
+def transform_ubv_to_ztf(filter_name, ubv_B, ubv_V, ubv_R, ubv_I=None):
     """
-    Converts ubv filters (b, v, r) into ztf filters (g, r).
+    Converts ubv filters into ztf filters.
 
     Function is valid for values of:
         0 < ubv_V - ubv_R < 6
@@ -232,50 +253,65 @@ def transform_ubv_to_ztf(ubv_b, ubv_v, ubv_r):
 
     Parameters
     ----------
-    ubv_b : array of floats
+    filter_name : str
+        ZTF filter name of converted photometry
+        Can be 'g', 'r', or 'i'
+        If converting to ztf_i, then ubv_I must be provided
+
+    ubv_B : array of floats
         ubv_B photometry of galaxia / PyPopStar sources
 
-    ubv_v : array of floats
+    ubv_V : array of floats
         ubv_V photometry of galaxia / PyPopStar sources
 
-    ubv_r : array of floats
+    ubv_R : array of floats
         ubv_R photometry of galaxia / PyPopStar sources
+
+    Optional Parameters
+    -------------------
+    ubv_I : array of floats
+        ubv_I photometry of galaxia / PyPopStar sources,
+        required for converting to ztf_i
 
     Output
     ------
-    ztf_g : array of floats
-        ztf_g photometry of galaxia / PyPopStar sources
-
-    ztf_r : array of floats
-        ztf_r photometry of galaxia / PyPopStar sources
+    ztf_mag : array of floats
+        ztf photometry of galaxia / PyPopStar sources in `filter_name`
 
     """
+    # Check for correct filter
+    if filter_name not in ['g', 'r', 'i']:
+        raise Exception("filter_name must be in: ['g', 'r', 'i']")
+
+    if filter_name == 'i' and ubv_I is None:
+        raise Exception('ubv_I must be provided to convert to ztf_i')
 
     # Convert the ubv photometry into the right format
-    x_data = ubv_v - ubv_r
-    y_data = ubv_b - ubv_v
+    x_data = ubv_V - ubv_R
+    y_data = ubv_B - ubv_V
     data = np.squeeze(np.dstack([x_data, y_data]), axis=0)
 
     # Only query on data that is luminous
     cond_lum = ~np.isnan(data).any(axis=1)
 
-    for filter_name in ['g', 'r']:
-        # Start with an empty array of nans
-        ztf_diff = np.full(len(ubv_b), np.nan)
+    # Start with an empty array of nans
+    ztf_diff = np.full(len(ubv_B), np.nan)
 
-        # Find locations on the grid where x_data and y_data are located.
-        # Put those values into the ztf_diff arrays
-        ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
-        _, indexes = kdtree.query(data[cond_lum])
-        ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
+    # Find locations on the grid where x_data and y_data are located.
+    # Put those values into the ztf_diff arrays
+    ubv_to_ztf_grid, kdtree = load_ubv_to_ztf_grid(filter_name)
+    _, indexes = kdtree.query(data[cond_lum])
+    ztf_diff[cond_lum] = ubv_to_ztf_grid.flatten()[indexes]
 
-        # Convert to ztf_g and ztf_r
-        if filter_name == 'g':
-            ztf_g = ubv_v + ztf_diff
-        elif filter_name == 'r':
-            ztf_r = ubv_r + ztf_diff
+    # Convert to ztf_g, ztf_r or ztf_i
+    if filter_name == 'g':
+        ztf_mag = ubv_V + ztf_diff
+    elif filter_name == 'r':
+        ztf_mag = ubv_R + ztf_diff
+    elif filter_name == 'i':
+        ztf_mag = ubv_I + ztf_diff
 
-    return ztf_g, ztf_r
+    return ztf_mag
 
 
 def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
@@ -292,7 +328,7 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
 
     filter_name : str
         The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
+        microlensing events. Must be either 'g' or 'r' or 'i'.
 
     Output
     ------
@@ -304,9 +340,11 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
         ztf_mag_AB = ztf_mag_vega - 0.07
     elif filter_name == 'r':
         ztf_mag_AB = ztf_mag_vega + 0.19
+    elif filter_name == 'i':
+        ztf_mag_AB = ztf_mag_vega + 0.43
     else:
-        print('filter_name must be either g or r')
-        ztf_mag_AB = None
+        raise Exception('filter_name must be either g or r or i')
+
     return ztf_mag_AB
 
 
@@ -324,7 +362,7 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
 
     filter_name : str
         The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
+        microlensing events. Must be either 'g' or 'r' or 'i'.
 
     Output
     ------
@@ -336,7 +374,9 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
         ztf_mag_vega = ztf_mag_AB + 0.07
     elif filter_name == 'r':
         ztf_mag_vega = ztf_mag_AB - 0.19
+    elif filter_name == 'i':
+        ztf_mag_vega = ztf_mag_AB - 0.43
     else:
-        print('filter_name must be either g or r')
-        ztf_mag_vega = None
+        raise Exception('filter_name must be either g or r or i')
+
     return ztf_mag_vega

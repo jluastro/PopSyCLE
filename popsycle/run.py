@@ -753,7 +753,7 @@ def run():
             Exiting...""".format(args.pbh_config_filename))
             sys.exit(1)
 
-        pbh_config = synthetic.load_config(args.pbh_config_filename)
+        pbh_config = load_config_file(args.pbh_config_filename)
 
         # Check if .h5 file exists from perform popsyn, use as input for following function
         if not os.path.exists(filename_dict['hdf5_filename']):

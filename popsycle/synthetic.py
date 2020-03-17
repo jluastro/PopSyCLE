@@ -43,6 +43,7 @@ import inspect
 import numpy.lib.recfunctions as rfn
 import shutil
 from popsycle import utils
+import matplotlib.pyplot as plt
 
 
 ##########

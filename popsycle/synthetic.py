@@ -3172,7 +3172,7 @@ def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
 
 
 def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
-            r_max=8.3, r_s=18.6, gamma=1, v_esc=550, 
+            r_max=16.6, r_s=18.6, gamma=1, v_esc=550, 
             rho_0=0.0093, n_lin=1000, overwrite=False, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
@@ -3204,8 +3204,8 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         Defaults to 40 Msun (from LIGO detections thought to be primordial)
 
     r_max : float
-        The maximum radius from the galactic center that you want to find PBHs at.
-        Defaults to 8.3 kpc (Where Earth is located)
+        The maximum radius from the Earth that you want to find PBHs.
+        Defaults to 16.6 kpc. (2 * distance to galactic center)
 
     r_s: float
         The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
@@ -3362,7 +3362,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
                                      np.abs(b_radian)<0.5 * np.pi / 180), 
                       n_lin<100000):
         print('Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
-    r_h_linspace = np.linspace(0, 2*r_max, num=n_lin)
+    r_h_linspace = np.linspace(0, r_max, num=n_lin)
 
     # Represent the line of sight line in galactic coordinates
     galactic_lin = coord.Galactic(l=l_radian * units.rad,
@@ -3380,10 +3380,10 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     # Estimate the total mass within the line-of-sight cylinder [units: M_sun kpc**-2]
     # Projected density along line of light
     # (multiply by projected area to get total mass)
-    rho_marg_r = np.trapz(rho_lin, dx=(2*r_max) / n_lin) * 1000**3
+    rho_marg_r = np.trapz(rho_lin, dx=(r_max) / n_lin) * 1000**3
     print("Projected density along line-of-sight = {0:0.2e} [M_sun kpc**-2]".format(rho_marg_r))
     # LOS cylinder radius in kpc, assuming small angle approximation [units: kpc]
-    r_proj_los_cyl = field_of_view_radius * np.pi / 180 * (2 * r_max)
+    r_proj_los_cyl = field_of_view_radius * np.pi / 180 * (r_max)
     # Projected area of the LOS cylinder [units: kpc**2]
     area_proj_los_cyl = np.pi * r_proj_los_cyl**2
     # Mass within the total cylinder
@@ -3396,7 +3396,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     # Estimate the discrete CDF based on the discrete PDF
     rho_marg_r_cum = integrate.cumtrapz(y=rho_lin,
                                         x=galactic_lin.distance.kpc,
-                                        dx=(2*r_max) / n_lin)
+                                        dx=(r_max) / n_lin)
     cdf_los = rho_marg_r_cum / rho_marg_r_cum[-1]
     # Since cumtrapz does not include zero for the first element insert it
     cdf_los = np.insert(cdf_los,0,0)
@@ -3416,7 +3416,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     x_cyl = r_cyl * np.cos(theta) # kpc
 
     # Mask out sampled PBH outside the observation cone
-    mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (2 * r_max)
+    mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (r_max)
     print('Number of PBH before and after light cone masking: {0} and {1}, respectively'.format(n_pbh, np.sum(mask_obs_cone)))
     
     # Assuming small angle approximation

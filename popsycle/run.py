@@ -301,7 +301,7 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, r_s, gamma, 
         The single mass that all PBHs will have (in units of Msun).
 
     r_max : float
-        The maximum radius (in kpc) from the galactic center that you want to find PBHs at.
+        The maximum radius (in kpc) from the Earth that you want to find PBHs.
 
     r_s: float
         The scale radius of the Milky Way (in units of kpc). r_s = r_vir / c (virial radius / concentration index) 

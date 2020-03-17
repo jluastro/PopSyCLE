@@ -760,10 +760,11 @@ def run():
                           fdm=pbh_config['fdm'],
                           pbh_mass=pbh_config['pbh_mass'],
                           r_max=pbh_config['r_max'],
-                          c=pbh_config['c'],
-                          r_vir=pbh_config['r_vir'],
-                          inner_slope=pbh_config['inner_slope'],
+                          r_s=pbh_config['r_s'],
+                          gamma=pbh_config['gamma'],
                           v_esc=pbh_config['v_esc'],
+                          rho_0=pbh_config['rho_0'],
+                          n_lin=pbh_config['n_lin'],
                           overwrite=args.overwrite,
                           seed=args.seed)
 

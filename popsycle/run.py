@@ -453,6 +453,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 #SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
+#SBATCH --output={jobname}.out
 echo "---------------------------"
 echo Longitude = {longitude}
 echo Latitude = {latitude}

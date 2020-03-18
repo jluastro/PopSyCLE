@@ -332,9 +332,6 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if ebf_file[-4:] != '.ebf':
         raise Exception('ebf_file must be an ebf file.')
 
-    if not os.path.exists(ebf_file):
-        raise Exception('ebf_file %s must exist' % ebf_file)
-
     if type(output_root) != str:
         raise Exception('output_root must be a string.')
 
@@ -1397,9 +1394,6 @@ def _check_calc_events(hdf5_file, output_root2,
     """
     if hdf5_file[-3:] != '.h5':
         raise Exception('hdf5_file must be an h5 file.')
-
-    if not os.path.exists(hdf5_file):
-        raise Exception('hdf5_file %s must exist' % hdf5_file)
 
     if type(output_root2) != str:
         raise Exception('output_root2 must be a string.')

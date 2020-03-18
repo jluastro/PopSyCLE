@@ -610,11 +610,6 @@ date
 echo "All done!"
 """
 
-    # Check that the specified number of cores does not exceed the resource max
-    if n_cores_calc_events > n_cores_per_node:
-        print('Error: specified number of cores exceeds limit. Exiting...')
-        return None
-
     optional_cmds = ''
 
     # Pass along optional parameters if present

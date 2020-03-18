@@ -313,6 +313,67 @@ def load_config_file(config_filename):
     return config
 
 
+def _check_slurm_config(slurm_config, walltime):
+    """
+    Checks that the values in slurm_config are valid
+
+    Parameters
+    ----------
+    slurm_config : dict
+        Dictionary of values for configuring slurm scripts
+
+    walltime : str
+        Amount of walltime that the script will request from slurm.
+        Format: hh:mm:ss
+    """
+
+    if 'path_python' not in slurm_config:
+        raise Exception('path_python must be set in slurm_config')
+
+    if 'account' not in slurm_config:
+        raise Exception('account must be set in slurm_config')
+
+    if 'queue' not in slurm_config:
+        raise Exception('queue must be set in slurm_config')
+
+    if 'resource' not in slurm_config:
+        raise Exception('resource must be set in slurm_config')
+
+    if 'n_cores_per_node' not in slurm_config[slurm_config['resource']]:
+        raise Exception('n_cores_per_node must be set in slurm_config')
+
+    n_cores_per_node = slurm_config[slurm_config['resource']]['n_cores_per_node']
+    if type(n_cores_per_node) != int:
+        raise Exception('n_cores_per_node (%s) must be an integer.' % str(n_cores_per_node))
+
+    if 'n_nodes_max' not in slurm_config[slurm_config['resource']]:
+        raise Exception('n_nodes_max must be set in slurm_config')
+
+    n_nodes_max = slurm_config[slurm_config['resource']]['n_nodes_max']
+    if type(n_nodes_max) != int:
+        raise Exception('n_nodes_max (%s) must be an integer.' % str(n_nodes_max))
+
+    if 'walltime_max' not in slurm_config[slurm_config['resource']]:
+        raise Exception('walltime_max must be set in slurm_config')
+
+    walltime_max = slurm_config[slurm_config['resource']]['walltime_max']
+    if walltime_max.count(':') != 2:
+        raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+    if len(walltime_max) != 8:
+        raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+    for num in walltime_max.split(':'):
+        if not num.isdigit():
+            raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+
+    if walltime.count(':') != 2:
+        raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
+    if len(walltime) != 8:
+        raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
+    for num in walltime.split(':'):
+        if not num.isdigit():
+            raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
+
+
 def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
@@ -419,7 +480,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     popsycle_config_filename = os.path.abspath(popsycle_config_filename)
     popsycle_config = load_config_file(popsycle_config_filename)
 
+    # Load the slurm configuration file
+    slurm_config = load_config_file(slurm_config_filename)
+
     # Check pipeline stages for valid inputs
+    _check_slurm_config(slurm_config, walltime)
     if not skip_galaxia:
         _check_run_galaxia(output_root=output_root,
                            longitude=longitude,
@@ -469,9 +534,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
                                                                output_root)
     generate_config_file(field_config_filename, config)
-
-    # Load the slurm configuration file
-    slurm_config = load_config_file(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
     jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)

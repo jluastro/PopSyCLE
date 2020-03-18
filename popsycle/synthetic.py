@@ -2224,7 +2224,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         for num, line in enumerate(my_file):
             if 'obs_time' in line:
                 obs_time = line.split(',')[1]
-                obs_time = int(obs_time)
+                obs_time = float(obs_time)
                 break
 
     # Calculate time and separation at closest approach, add to table

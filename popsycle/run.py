@@ -17,6 +17,7 @@ from popsycle.synthetic import _check_run_galaxia
 from popsycle.synthetic import _check_perform_pop_syn
 from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
+from popsycle.synthetic import _check_add_pbh
 
 
 def _return_filename_dict(output_root, add_pbh_flag=False):
@@ -279,7 +280,10 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     generate_config_file(config_filename, config)
 
 
-def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, r_s, gamma, v_esc, rho_0, n_lin):
+def generate_pbh_config_file(fdm=1, pbh_mass=40,
+                             r_max=16.6, r_s=18.6, gamma=1,
+                             v_esc=550, rho_0=0.0093, n_lin=1000,
+                             config_filename='pbh_config.yaml'):
     """
     Save PBH configuration parameters into a yaml file
 
@@ -325,8 +329,8 @@ def generate_pbh_config_file(config_filename, fdm, pbh_mass, r_max, r_s, gamma, 
               'r_s': r_s,
               'gamma': gamma,
               'v_esc': v_esc,
-              'rho_0':rho_0,
-              'n_lin':n_lin}
+              'rho_0': rho_0,
+              'n_lin': n_lin}
     generate_config_file(config_filename, config)
 
 
@@ -576,6 +580,21 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                additional_photometric_systems=[popsycle_config['photometric_system']],
                                overwrite=overwrite,
                                seed=seed)
+    if pbh_config_filename is not None:
+        pbh_config = load_config_file(pbh_config_filename)
+        _check_add_pbh(hdf5_file='test.h5',
+                       ebf_file='test.ebf',
+                       output_root2=output_root,
+                       fdm=pbh_config['fdm'],
+                       pbh_mass=pbh_config['pbh_mass'],
+                       r_max=pbh_config['r_max'],
+                       r_s=pbh_config['r_s'],
+                       gamma=pbh_config['gamma'],
+                       v_esc=pbh_config['v_esc'],
+                       rho_0=pbh_config['rho_0'],
+                       n_lin=pbh_config['n_lin'],
+                       overwrite=overwrite,
+                       seed=seed)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,
@@ -857,6 +876,21 @@ def run():
                                additional_photometric_systems=additional_photometric_systems,
                                overwrite=args.overwrite,
                                seed=args.seed)
+    if add_pbh_flag:
+        pbh_config = load_config_file(args.pbh_config_filename)
+        _check_add_pbh(hdf5_file=filename_dict['hdf5_filename'],
+                       ebf_file=filename_dict['ebf_filename'],
+                       output_root2=args.output_root,
+                       fdm=pbh_config['fdm'],
+                       pbh_mass=pbh_config['pbh_mass'],
+                       r_max=pbh_config['r_max'],
+                       r_s=pbh_config['r_s'],
+                       gamma=pbh_config['gamma'],
+                       v_esc=pbh_config['v_esc'],
+                       rho_0=pbh_config['rho_0'],
+                       n_lin=pbh_config['n_lin'],
+                       overwrite=args.overwrite,
+                       seed=args.seed)
     if not args.skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
                            output_root2=args.output_root,

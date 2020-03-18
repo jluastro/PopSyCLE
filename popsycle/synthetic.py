@@ -3409,6 +3409,122 @@ def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
     return rho
 
 
+def _check_add_pbh(hdf5_file, ebf_file, output_root2,
+                   fdm, pbh_mass,
+                   r_max, r_s, gamma, v_esc,
+                   rho_0, n_lin, overwrite, seed):
+    """
+    Checks that the inputs of add_pbj are valid
+
+    Parameters
+    ----------
+    hdf5_file : str or hdf5 file
+        str : name of the hdf5 file from the output of perform_pop_syn
+
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+
+    output_root2 : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    fdm : float
+        Fraction of dark matter.
+        The fraction of dark matter that you want to consist of PBHs.
+        Defaults to 1.
+
+    pbh_mass : int
+        The single mass that all PBHs will have (in units of Msun).
+        Defaults to 40 Msun (from LIGO detections thought to be primordial)
+
+    r_max : float
+        The maximum radius from the Earth that you want to find PBHs.
+        Defaults to 16.6 kpc. (2 * distance to galactic center)
+
+    r_s: float
+        The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
+        Defaults to 18.6 kpc. The median value given in McMillan 2017.
+
+    rho_0: float
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
+        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
+
+    gamma: float
+        The inner slope of the MW dark matter halo as described in LaCroix 2018.
+        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
+        The default value is 1, corresponding to an NFW profile.
+
+    v_esc: int
+        The escape velocity of the Milky Way (in km/s).
+        v_esc is used in calculating the velocities.
+        Default is 550 km/s. Most papers cite values of 515-575.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
+    """
+    if hdf5_file[-3:] != '.h5':
+        raise Exception('hdf5_file (%s) must be an ebf file.' % str(hdf5_file))
+
+    if ebf_file[-4:] != '.ebf':
+        raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
+
+    if type(output_root2) != str:
+        raise Exception('output_root2 (%s) must be a string.' % str(output_root))
+
+    if type(fdm) != int:
+        if type(fdm) != float:
+            raise Exception('fdm (%s) must be an integer or a float.' % str(fdm))
+
+    if type(pbh_mass) != int:
+        if type(pbh_mass) != float:
+            raise Exception('pbh_mass (%s) must be an integer or a float.' % str(pbh_mass))
+
+    if type(r_max) != int:
+        if type(r_max) != float:
+            raise Exception('r_max (%s) must be an integer or a float.' % str(r_max))
+
+    if type(r_s) != int:
+        if type(r_s) != float:
+            raise Exception('r_s (%s) must be an integer or a float.' % str(r_s))
+
+    if gamma not in [.25, 1]:
+            raise Exception('gamma (%s) must be either .25 or 1' % str(gamma))
+
+    if type(v_esc) != int:
+        if type(v_esc) != float:
+            raise Exception('v_esc (%s) must be an integer or a float.' % str(v_esc))
+
+    if type(rho_0) != int:
+        if type(rho_0) != float:
+            raise Exception('rho_0 (%s) must be an integer or a float.' % str(rho_0))
+
+    if type(n_lin) != int:
+        raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
+
+    if type(overwrite) != bool:
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
+
+
+
 def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
             r_max=16.6, r_s=18.6, gamma=1, v_esc=550, 
             rho_0=0.0093, n_lin=1000, overwrite=False, seed=None):
@@ -3489,6 +3605,12 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     # whether input types are correct.
     ##########
 
+    _check_add_pbh(hdf5_file=hdf5_file, ebf_file=ebf_file,
+                   output_root2=output_root2, fdm=fdm, pbh_mass=pbh_mass,
+                   r_max=r_max, r_s=r_s, gamma=gamma, v_esc=v_esc,
+                   rho_0=rho_0, n_lin=n_lin,
+                   overwrite=overwrite, seed=seed)
+
     if not overwrite:
         # Check if HDF5 file exists already. If it does, throw an error message
         # to complain and exit.
@@ -3497,54 +3619,13 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
                 'That .h5 file name is taken! Either delete the .h5 file, '
                 'or pick a new name.')
 
-    # Error handling/complaining if input types are not right.
-    if ebf_file[-4:] != '.ebf':
-        raise Exception('ebf_file must be an ebf file.')
-
-    if type(output_root2) != str:
-        raise Exception('output_root must be a string.')
-
-    if type(fdm) != float:
-        if type(fdm) != int:
-            raise Exception('fdm must be a float or an integer.')
-
-    if type(pbh_mass) != int:
-        if type(pbh_mass) != float:
-            raise Exception('pbh_mass must be an integer or a float.')
-
-    if type(r_max) != float:
-        if type(r_max) != int:
-            raise Exception('r_max must be a float or an integer.')
-
-    if type(r_s) != float:
-        if type(r_s) != int:
-            raise Exception('r_s must be a float or an integer.')
-
-    if type(rho_0) != float:
-        if type(rho_0) != int:
-            raise Exception('rho_0 must be a float or an integer.')
-
-    if type(n_lin) != int:
-        raise Exception('n_lin must be an integer.')
-
-    if type(gamma) != float:
-        if type(gamma) != int:
-            raise Exception('gamma must be a float or an integer.')
-
-    if type(v_esc) != int:
-        if type(v_esc) != float:
-            raise Exception('v_esc must be an interger or a float.')
-
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
-
     # Check to make sure that the output hdf5 file
     # will not overwrite the input hdf5 file
     output_hdf5_file = '%s.h5' % output_root2
     if hdf5_file == output_hdf5_file:
         raise Exception('Output hdf5 file %s cannot be equal to '
                         'input hdf5 file %s' % (output_hdf5_file, hdf5_file))
+
 
     ##########
     # Start of code

@@ -2329,7 +2329,7 @@ def _check_refine_events(input_root, filter_name,
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
         exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. ' \
+                        'photometric_system_dict. \n' \
                         'Acceptable values are : '
         for photometric_system in photometric_system_dict:
             exception_str += '%s, ' % photometric_system
@@ -2338,7 +2338,7 @@ def _check_refine_events(input_root, filter_name,
 
     if filter_name not in photometric_system_dict[photometric_system]:
         exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. ' \
+                        'photometric_system_dict[%s]. \n' \
                         'Acceptable values are : ' % photometric_system
         for filter_name in photometric_system_dict[photometric_system]:
             exception_str += '%s, ' % filter_name
@@ -2347,7 +2347,13 @@ def _check_refine_events(input_root, filter_name,
 
     key = photometric_system + '_' + filter_name
     if red_law not in filt_dict[key]:
-        raise Exception('%s not in filt_dict[%s]' % (red_law, key))
+        exception_str = 'red_law must be a value in ' \
+                        'filt_dict[%s]. \n' \
+                        'Acceptable values are : ' % key
+        for red_law in filt_dict[key]:
+            exception_str += '%s, ' % red_law
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
 
 
 def refine_events(input_root, filter_name, photometric_system, red_law,

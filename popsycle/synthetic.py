@@ -1584,6 +1584,7 @@ def calc_events(hdf5_file, output_root2,
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
     N_events = len(events_final)
+    print('Candidate events detected: ', N_events)
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)

@@ -192,7 +192,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   BH_kick_speed_mean=50,
                                   NS_kick_speed_mean=400,
                                   photometric_system='ubv',
-                                  filter_name='ubv', red_law='Damineliy16',
+                                  filter_name='ubv', red_law='Damineli16',
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file

@@ -427,7 +427,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            area=area,
                            seed=seed)
     if not skip_perform_pop_syn:
-        _check_perform_pop_syn(ebf_file='test',
+        _check_perform_pop_syn(ebf_file='test.ebf',
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
@@ -437,7 +437,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                overwrite=overwrite,
                                seed=seed)
     if not skip_calc_events:
-        _check_calc_events(hdf5_file='test',
+        _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,
                            radius_cut=popsycle_config['radius_cut'],
                            obs_time=popsycle_config['obs_time'],

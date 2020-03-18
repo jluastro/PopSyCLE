@@ -584,6 +584,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
+    slurm_config['include_constraint'] = bool(slurm_config['include_constraint'])
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)

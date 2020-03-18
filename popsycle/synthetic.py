@@ -905,7 +905,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
-                                             filters=all_filt_list,
+                                             filters=my_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True)
 

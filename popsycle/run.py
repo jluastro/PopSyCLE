@@ -427,6 +427,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            area=area,
                            seed=seed)
     if not skip_perform_pop_syn:
+        if popsycle_config['bin_edges_number'] == 'None':
+            popsycle_config['bin_edges_number'] = None
         _check_perform_pop_syn(ebf_file='test.ebf',
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],

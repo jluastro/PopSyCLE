@@ -978,14 +978,16 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     star_dict : dictionary
         The number of entries for each key is the number of stars.
 
-    next_id : The next unique ID number (int) that will be assigned to
-              the new compact objects created.
+    next_id : int
+        The next unique ID number (int) that will be assigned to
+        the new compact objects created.
 
-    kdt_star_p
-    #FIXME#
+    kdt_star_p : scipy cKDTree
+        KDTree constructed from the positions of randomly selected stars
+        that all share the same popid and log_age.
 
-    kdt_star_exbv
-    #FIXME#
+    kdt_star_exbv : numpy
+        Array of galactic extinctions for the stars in kdt_star_p
 
     Optional Parameters
     -------------------

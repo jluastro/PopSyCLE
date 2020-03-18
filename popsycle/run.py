@@ -435,7 +435,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-                               additional_photometric_systems=popsycle_config['photometric_system'],
+                               additional_photometric_systems=[popsycle_config['photometric_system']],
                                overwrite=overwrite,
                                seed=seed)
     if not skip_calc_events:

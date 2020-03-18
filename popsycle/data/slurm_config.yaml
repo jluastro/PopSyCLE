@@ -9,6 +9,9 @@ account: ulens
 queue: regular
 # Name of the resource that will be used for the run
 resource: haswell
+# Set to true if slurm scheduler requires a CONSTRAINT specification
+# Set to false if slurm scheduler does not
+include_constraint: true
 # Additional lines to be run before executing run.py
 additional_lines:
 - module load cray-hdf5/1.10.5.2

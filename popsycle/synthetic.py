@@ -2322,6 +2322,9 @@ def _check_refine_events(input_root, filter_name,
     if type(output_file) != str:
         raise Exception('output_file must be a string.')
 
+    if type(overwrite) != bool:
+        raise Exception('overwrite must be a boolean.')
+
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
         exception_str = 'photometric_system must be a key in ' \

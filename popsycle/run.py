@@ -13,6 +13,10 @@ import sys
 import time
 from popsycle import synthetic
 from popsycle import utils
+from popsycle.synthetic import _check_run_galaxia
+from popsycle.synthetic import _check_perform_pop_syn
+from popsycle.synthetic import _check_calc_events
+from popsycle.synthetic import _check_refine_events
 
 
 def _return_filename_dict(output_root):
@@ -318,7 +322,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
-    Generates the slurm script that executes the PopSyCLE pipeline
+    Generates (and possibly submits) the slurm script that
+    executes the PopSyCLE pipeline
 
     Parameters
     ----------
@@ -412,6 +417,43 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Enforce popsycle_config_filename is an absolute path
     popsycle_config_filename = os.path.abspath(popsycle_config_filename)
+    popsycle_config = load_config_file(popsycle_config_filename)
+
+    # Check pipeline stages for valid inputs
+    if not skip_galaxia:
+        _check_run_galaxia(output_root=output_root,
+                           longitude=longitude,
+                           latitude=latitude,
+                           area=area,
+                           seed=seed)
+    if not skip_perform_pop_syn:
+        _check_perform_pop_syn(ebf_file='test',
+                               output_root=output_root,
+                               iso_dir=popsycle_config['isochrones_dir'],
+                               bin_edges_number=popsycle_config['bin_edges_number'],
+                               BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               additional_photometric_systems=popsycle_config['photometric_system'],
+                               overwrite=overwrite,
+                               seed=seed)
+    if not skip_calc_events:
+        _check_calc_events(hdf5_file='test',
+                           output_root2=output_root,
+                           radius_cut=popsycle_config['radius_cut'],
+                           obs_time=popsycle_config['obs_time'],
+                           n_obs=popsycle_config['n_obs'],
+                           theta_frac=popsycle_config['theta_frac'],
+                           blend_rad=popsycle_config['blend_rad'],
+                           n_proc=n_cores_calc_events,
+                           overwrite=overwrite)
+    if not skip_refine_events:
+        _check_refine_events(input_root='test',
+                             filter_name=popsycle_config['filter_name'],
+                             photometric_system=popsycle_config['photometric_system'],
+                             red_law=popsycle_config['red_law'],
+                             overwrite=overwrite,
+                             output_file='default')
+
 
     # Make a run directory for the PopSyCLE output
     path_run = os.path.abspath(path_run)
@@ -633,6 +675,41 @@ def run():
     additional_photometric_systems = None
     if popsycle_config['photometric_system'] != 'ubv':
         additional_photometric_systems = [popsycle_config['photometric_system']]
+
+    # Check pipeline stages for valid inputs
+    if not args.skip_galaxia:
+        _check_run_galaxia(output_root=args.output_root,
+                           longitude=field_config['longitude'],
+                           latitude=field_config['latitude'],
+                           area=field_config['area'],
+                           seed=args.seed)
+    if not args.skip_perform_pop_syn:
+        _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
+                               output_root=args.output_root,
+                               iso_dir=popsycle_config['isochrones_dir'],
+                               bin_edges_number=popsycle_config['bin_edges_number'],
+                               BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               additional_photometric_systems=additional_photometric_systems,
+                               overwrite=args.overwrite,
+                               seed=args.seed)
+    if not args.skip_calc_events:
+        _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
+                           output_root2=args.output_root,
+                           radius_cut=popsycle_config['radius_cut'],
+                           obs_time=popsycle_config['obs_time'],
+                           n_obs=popsycle_config['n_obs'],
+                           theta_frac=popsycle_config['theta_frac'],
+                           blend_rad=popsycle_config['blend_rad'],
+                           n_proc=args.n_cores_calc_events,
+                           overwrite=args.overwrite)
+    if not args.skip_refine_events:
+        _check_refine_events(input_root=args.output_root,
+                             filter_name=popsycle_config['filter_name'],
+                             photometric_system=popsycle_config['photometric_system'],
+                             red_law=popsycle_config['red_law'],
+                             overwrite=args.overwrite,
+                             output_file='default')
 
     if not args.skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True

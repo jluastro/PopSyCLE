@@ -266,6 +266,10 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 
     if bin_edges_number is None:
         bin_edges_number = 'None'
+    if isochrones_dir == '/Users/myself/popsycle_isochrones':
+        print('** WARNING **')
+        print("'isochrones_dir' must be set by the user. "
+              "The default value is only an example.")
 
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,

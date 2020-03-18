@@ -178,6 +178,55 @@ def write_galaxia_params(output_root,
             print('-- %s' % param)
 
 
+def _check_run_galaxia(output_root, longitude, latitude, area,
+                       seed):
+    """
+    Check that the inputs to run_galaxia are valid
+
+    Parameters
+    ----------
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a seed from the current time. Setting this seed guarantees
+         identical results.
+    """
+
+    if type(output_root) != str:
+        raise Exception('output_root (%s) must be a string.' % str(output_root))
+
+    if type(longitude) != int:
+        if type(longitude) != float:
+            raise Exception('longitude (%s) must be an integer or a float.' % str(longitude))
+
+    if type(latitude) != int:
+        if type(latitude) != float:
+            raise Exception('latitude (%s) must be an integer or a float.' % str(latitude))
+
+    if type(area) != int:
+        if type(area) != float:
+            raise Exception('area (%s) must be an integer or a float.' % str(area))
+
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
+
+
 def run_galaxia(output_root, longitude, latitude, area,
                 seed=None):
     """
@@ -211,6 +260,10 @@ def run_galaxia(output_root, longitude, latitude, area,
          identical results.
     """
 
+    # Error handling/complaining if input types are not right.
+    _check_run_galaxia(output_root, longitude, latitude, area,
+                       seed)
+
     # Writes out galaxia params to disk
     write_galaxia_params(output_root=output_root,
                          longitude=longitude,
@@ -223,6 +276,111 @@ def run_galaxia(output_root, longitude, latitude, area,
     print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
     _ = utils.execute(cmd)
     print('** Galaxia complete **')
+
+
+def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
+                           bin_edges_number,
+                           BH_kick_speed_mean, NS_kick_speed_mean,
+                           additional_photometric_systems,
+                           overwrite, seed):
+    """
+    Checks that the inputs of perform_pop_syn are valid
+
+    Parameters
+    ----------
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    iso_dir : filepath
+        Where are the isochrones stored (for PopStar)
+
+    bin_edges_number : int
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
+
+    BH_kick_speed_mean : float
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
+
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
+
+    """
+
+    if ebf_file[-4:] != '.ebf':
+        raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
+
+    if type(output_root) != str:
+        raise Exception('output_root (%s) must be a string.' % str(output_root))
+
+    if type(iso_dir) != str:
+        raise Exception('iso_dir (%s) must be a string.' % str(iso_dir))
+
+    if not os.path.exists(iso_dir):
+        raise Exception('iso_dir (%s) must exist' % str(iso_dir))
+
+    if bin_edges_number is not None:
+        if type(bin_edges_number) != int:
+            raise Exception('bin_edges_number (%s) must be None or an integer.' % str(bin_edges_number))
+
+    if type(BH_kick_speed_mean) != int:
+        if type(BH_kick_speed_mean) != float:
+            raise Exception('BH_kick_speed_mean (%s) must be an integer or a float.' % str(BH_kick_speed_mean))
+
+    if type(NS_kick_speed_mean) != int:
+        if type(NS_kick_speed_mean) != float:
+            raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
+
+    if type(overwrite) != bool:
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
+
+    if additional_photometric_systems is not None:
+        if type(additional_photometric_systems) != list:
+            raise Exception('additional_photometric_systems (%s) must '
+                            'either None or a list of strings.' % str(additional_photometric_systems))
+
+        for photometric_system in additional_photometric_systems:
+            if photometric_system not in photometric_system_dict:
+                exception_str = 'photometric_system must be a key in ' \
+                                'photometric_system_dict. \n' \
+                                'Acceptable values are : '
+                for photometric_system in photometric_system_dict:
+                    exception_str += '%s, ' % photometric_system
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
@@ -253,8 +411,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     Optional Parameters
     -------------------
     bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
@@ -293,10 +455,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         A fits file that shows the correspondence between dataset name,
         latitude, longitude, and number of objects in that bin.
     """
-    ##########
-    # Error handling: check whether files exist and
-    # whether input types are correct.
-    ##########
+    # Check whether files exist
 
     if not overwrite:
         # Check if HDF5 file exists already. If it does, throw an error message
@@ -313,41 +472,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 'or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    if ebf_file[-4:] != '.ebf':
-        raise Exception('ebf_file must be an ebf file.')
-
-    if type(output_root) != str:
-        raise Exception('output_root must be a string.')
-
-    if bin_edges_number is not None:
-        if type(bin_edges_number) != int:
-            raise Exception('bin_edges_number must be an integer.')
-
-    if type(BH_kick_speed_mean) != int:
-        if type(BH_kick_speed_mean) != float:
-            raise Exception('BH_kick_speed_mean must be an integer or a float.')
-
-    if type(NS_kick_speed_mean) != int:
-        if type(NS_kick_speed_mean) != float:
-            raise Exception('NS_kick_speed_mean must be an integer or a float.')
-
-    if type(iso_dir) != str:
-        raise Exception('iso_dir must be a string.')
-
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
-
-    if additional_photometric_systems is not None:
-        if type(additional_photometric_systems) != list:
-            raise Exception('additional_photometric_systems must either '
-                            'None or a List (of strings).')
-
-        for photometric_system in additional_photometric_systems:
-            if photometric_system not in photometric_system_dict:
-                raise Exception('strings in additional_photometric_systems '
-                                'must be a valid option '
-                                'in the photometric_system_dict.')
+    _check_perform_pop_syn(ebf_file, output_root, iso_dir,
+                           bin_edges_number,
+                           BH_kick_speed_mean, NS_kick_speed_mean,
+                           additional_photometric_systems,
+                           overwrite, seed)
 
     ##########
     # Start of code
@@ -912,7 +1041,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
-                                             filters=all_filt_list,
+                                             filters=my_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True)
 
@@ -1235,6 +1364,77 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ########### Candidate event calculation and associated functions ###########
 ############################################################################
 
+def _check_calc_events(hdf5_file, output_root2,
+                       radius_cut, obs_time, n_obs, theta_frac,
+                       blend_rad, n_proc, overwrite):
+    """
+    Checks that the inputs of calc_events are valid
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Name of the HDF5 file.
+
+    output_root2 : str
+        The name for the h5 file
+
+    radius_cut : float
+        Initial radius cut, in ARCSECONDS.
+
+    obs_time : float
+        Survey duration, in DAYS.
+
+    n_obs : int
+        Number of observations.
+
+    theta_frac : float
+        Another cut, in multiples of Einstein radii.
+
+    blend_rad : float
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
+
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+    """
+    if hdf5_file[-3:] != '.h5':
+        raise Exception('hdf5_file (%s) must be an h5 file.' % str(hdf5_file))
+
+    if type(output_root2) != str:
+        raise Exception('output_root2 (%s) must be a string.' % str(output_root2))
+
+    if type(radius_cut) != int:
+        if type(radius_cut) != float:
+            raise Exception('radius_cut (%s) must be an integer or a float.' % str(radius_cut))
+
+    if type(obs_time) != int:
+        if type(obs_time) != float:
+            raise Exception('obs_time (%s) must be an integer or a float.' % str(obs_time))
+
+    if type(blend_rad) != int:
+        if type(blend_rad) != float:
+            raise Exception('blend_rad (%s) must be an integer or a float.' % str(blend_rad))
+
+    if type(n_obs) != int:
+        raise Exception('n_obs (%s) must be an integer.' % str(n_obs))
+
+    if type(n_proc) != int:
+        raise Exception('n_proc (%s) must be an integer.' % str(n_proc))
+
+    if type(overwrite) != bool:
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if type(theta_frac) != int:
+        if type(theta_frac) != float:
+            raise Exception('theta_frac (%s) must be an integer or a float.' % str(theta_frac))
+
+
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
@@ -1247,13 +1447,16 @@ def calc_events(hdf5_file, output_root2,
     hdf5_file : str
         Name of the HDF5 file.
 
+    output_root2 : str
+        The name for the h5 file
+
     radius_cut : float
         Initial radius cut, in ARCSECONDS.
 
     obs_time : float
         Survey duration, in DAYS.
 
-    n_obs : float
+    n_obs : int
         Number of observations.
 
     theta_frac : float
@@ -1301,23 +1504,9 @@ def calc_events(hdf5_file, output_root2,
                 'file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    if type(output_root2) != str:
-        raise Exception('output_root2 must be a string.')
-
-    if type(radius_cut) != int:
-        if type(radius_cut) != float:
-            raise Exception('radius_cut must be an integer or a float.')
-
-    if type(obs_time) != int:
-        if type(obs_time) != float:
-            raise Exception('obs_time must be an integer or a float.')
-
-    if type(n_obs) != int:
-        raise Exception('n_obs must be an integer.')
-
-    if type(theta_frac) != int:
-        if type(theta_frac) != float:
-            raise Exception('theta_frac must be an integer or a float.')
+    _check_calc_events(hdf5_file, output_root2,
+                       radius_cut, obs_time, n_obs, theta_frac,
+                       blend_rad, n_proc, overwrite)
 
     ##########
     # Start of code
@@ -1400,6 +1589,7 @@ def calc_events(hdf5_file, output_root2,
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
     N_events = len(events_final)
+    print('Candidate events detected: ', N_events)
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
@@ -2096,6 +2286,82 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
+def _check_refine_events(input_root, filter_name,
+                         photometric_system, red_law, overwrite,
+                         output_file):
+    """
+    Checks that the inputs of refine_events are valid
+
+    Parameters
+    ----------
+    input_root : str
+        The root path and name of the *_events.fits and *_blends.fits.
+        Don't include those suffixes yet.
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+
+    red_law : str
+        The name of the reddening law to use from PopStar.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    """
+    if type(input_root) != str:
+        raise Exception('input_root (%s) must be a string.' % str(input_root))
+
+    if type(filter_name) != str:
+        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
+
+    if type(photometric_system) != str:
+        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+
+    if type(red_law) != str:
+        raise Exception('red_law (%s) must be a string.' % str(red_law))
+
+    if type(output_file) != str:
+        raise Exception('output_file (%s) must be a string.' % str(output_file))
+
+    if type(overwrite) != bool:
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    # Check to see that the filter name, photometric system, red_law are valid
+    if photometric_system not in photometric_system_dict:
+        exception_str = 'photometric_system must be a key in ' \
+                        'photometric_system_dict. \n' \
+                        'Acceptable values are : '
+        for photometric_system in photometric_system_dict:
+            exception_str += '%s, ' % photometric_system
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+    if filter_name not in photometric_system_dict[photometric_system]:
+        exception_str = 'filter_name must be a value in ' \
+                        'photometric_system_dict[%s]. \n' \
+                        'Acceptable values are : ' % photometric_system
+        for filter_name in photometric_system_dict[photometric_system]:
+            exception_str += '%s, ' % filter_name
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+    key = photometric_system + '_' + filter_name
+    if red_law not in filt_dict[key]:
+        exception_str = 'red_law must be a value in ' \
+                        'filt_dict[%s]. \n' \
+                        'Acceptable values are : ' % key
+        for red_law in filt_dict[key]:
+            exception_str += '%s, ' % red_law
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
                   output_file='default'):
@@ -2128,69 +2394,37 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         function if output files are already on disk.
         Default is False.
 
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be:
+            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+
     Output:
     ----------
     A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
-    same objects, only now with lots of extra
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+    that contains all the same objects, only now with lots of extra
     columns of data.
 
     """
-    ##########
-    # Error handling: check whether files exist and
-    # whether input types are correct.
-    ##########
-
-    # Error handling/complaining if input types are not right.
-    if type(input_root) != str:
-        raise Exception('input_root must be a string.')
-
-    if type(filter_name) != str:
-        raise Exception('filter_name must be a string.')
-
-    if type(red_law) != str:
-        raise Exception('red_law must be a string.')
-
-    if type(output_file) != str:
-        raise Exception('output_file must be a string.')
-
-    # Check to see that the filter name, photometric system, red_law are valid
-    if photometric_system not in photometric_system_dict:
-        exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. ' \
-                        'Acceptable values are : '
-        for photometric_system in photometric_system_dict:
-            exception_str += '%s, ' % photometric_system
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
-
-    if filter_name not in photometric_system_dict[photometric_system]:
-        exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. ' \
-                        'Acceptable values are : ' % photometric_system
-        for filter_name in photometric_system_dict[photometric_system]:
-            exception_str += '%s, ' % filter_name
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
-
-    key = photometric_system + '_' + filter_name
-    if red_law not in filt_dict[key]:
-        raise Exception('%s not in filt_dict[%s]' % (red_law, key))
-
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.
-    # Error handling.
     if not overwrite and os.path.isfile(output_file):
         raise Exception('That refined_events.fits file name is taken! '
                         'Either delete the .fits file, or pick a new name.')
 
-    t_0 = time.time()
+    # Error handling/complaining if input types are not right.
+    _check_refine_events(input_root, filter_name,
+                         photometric_system, red_law,
+                         overwrite, output_file)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
                                                                            photometric_system,
                                                                            filter_name,
                                                                            red_law)
+
+    t_0 = time.time()
 
     event_fits_file = input_root + '_events.fits'
     blend_fits_file = input_root + '_blends.fits'

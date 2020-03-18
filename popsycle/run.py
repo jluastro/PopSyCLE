@@ -697,18 +697,13 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Template for writing slurm script. Text must be left adjusted.
     slurm_template = """#!/bin/sh
-    # Job name
-    #SBATCH --account={account}
-    #SBATCH --qos={queue}
-    """
-    if slurm_config['include_constraint']:
-        slurm_template += '#SBATCH --constraint={resource}\n'
-    slurm_template += """#!/bin/sh
 # Job name
 #SBATCH --account={account}
 #SBATCH --qos={queue}
-#SBATCH --constraint={resource}
-#SBATCH --nodes=1
+    """
+    if slurm_config['include_constraint']:
+        slurm_template += '#SBATCH --constraint={resource}\n'
+    slurm_template += """#SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
 #SBATCH --output={jobname}.out

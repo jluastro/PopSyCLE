@@ -553,7 +553,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     queue = slurm_config['queue']
     # Name of the resource that will be ussed for the run
     resource = slurm_config['resource']
-    # Maximum number of ores per node
+    # Maximum number of cores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
     n_nodes_max = slurm_config[resource]['n_nodes_max']
@@ -561,6 +561,23 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
     run_filepath = os.path.dirname(inspect.getfile(load_config_file))
+
+    if n_cores_calc_events > n_cores_per_node:
+        raise Exception('n_cores_calc_events (%s) '
+                        'must be less than or equal to '
+                        'n_cores_per_node (%s)' % (n_cores_calc_events,
+                                                   n_cores_per_node))
+
+    walltime_s = int(walltime.split(':')[0]) * 3600
+    walltime_s += int(walltime.split(':')[1]) * 60
+    walltime_s += int(walltime.split(':')[2])
+    walltime_max_s = int(walltime_max.split(':')[0]) * 3600
+    walltime_max_s += int(walltime_max.split(':')[1]) * 60
+    walltime_max_s += int(walltime_max.split(':')[2])
+    if walltime_s > walltime_max_s:
+        raise Exception('walltime (%s) '
+                        'must be less than or equal to '
+                        'walltime_max (%s)' % (walltime, walltime_max))
 
     # Template for writing slurm script. Text must be left adjusted.
     slurm_template = """#!/bin/sh

@@ -2386,11 +2386,16 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         function if output files are already on disk.
         Default is False.
 
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be:
+            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+
     Output:
     ----------
     A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
-    same objects, only now with lots of extra
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+    that contains all the same objects, only now with lots of extra
     columns of data.
 
     """

@@ -179,8 +179,8 @@ def generate_slurm_config_file(path_python='python', account='ulens',
               'queue': queue,
               'resource': resource,
               'additional_lines': additional_lines,
-              resource: {'n_cores_per_node': int(n_cores_per_node),
-                         'n_nodes_max': int(n_nodes_max),
+              resource: {'n_cores_per_node': n_cores_per_node,
+                         'n_nodes_max': n_nodes_max,
                          'walltime_max': walltime_max}}
     generate_config_file(config_filename, config)
 

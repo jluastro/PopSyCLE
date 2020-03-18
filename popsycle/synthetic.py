@@ -3502,8 +3502,8 @@ def _check_add_pbh(hdf5_file, ebf_file, output_root2,
         if type(r_s) != float:
             raise Exception('r_s (%s) must be an integer or a float.' % str(r_s))
 
-    if gamma not in [.25, 1]:
-            raise Exception('gamma (%s) must be either .25 or 1' % str(gamma))
+    if gamma not in [.25, .5, 1]:
+            raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
 
     if type(v_esc) != int:
         if type(v_esc) != float:
@@ -3771,8 +3771,10 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         vel_data = pd.read_csv('%s/radial_velocity_profile_steep.csv' % data_dir)
     elif gamma == .25:
         vel_data = pd.read_csv('%s/radial_velocity_profile_shallow.csv' % data_dir)
-    else:
+    elif gamma == .5:
         vel_data = pd.read_csv('%s/radial_velocity_profile_middle.csv' % data_dir)
+    else:
+        raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
 
     #Interpolating v values from the above data, given the PBH r values.
     pbh_vrms = np.interp(pbh_r_galacto, vel_data['r'], vel_data['v'])

@@ -1361,6 +1361,556 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
 
 ############################################################################
+########### Primordial black hole injection and associated functions #######
+############################################################################
+
+
+def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
+    """
+    Density profile of the dark matter halo.
+    We are using the parametrization from McMillan (2017) Equation 5,
+    with defaults based on the mean values in Table 2.
+    r: galactocentric radius [units: kpc]
+    rho_0: characteristic density in [units: m_sun / pc**3]
+    r_s: scale radius in [units: kpc].
+    gamma: gamma=1 for NFW, gamma > 1 cuspy, gamma < 1 cored
+
+    returns: density at r [units: m_sun / pc**3]
+    """
+    x = r / r_s
+    rho = rho_0 / (x ** gamma * (1 + x) ** (3 - gamma))
+    return rho
+
+
+def _check_add_pbh(hdf5_file, ebf_file, output_root2,
+                   fdm, pbh_mass,
+                   r_max, r_s, gamma, v_esc,
+                   rho_0, n_lin, overwrite, seed):
+    """
+    Checks that the inputs of add_pbj are valid
+
+    Parameters
+    ----------
+    hdf5_file : str or hdf5 file
+        str : name of the hdf5 file from the output of perform_pop_syn
+
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+
+    output_root2 : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    fdm : float
+        Fraction of dark matter.
+        The fraction of dark matter that you want to consist of PBHs.
+        Defaults to 1.
+
+    pbh_mass : int
+        The single mass that all PBHs will have (in units of Msun).
+        Defaults to 40 Msun (from LIGO detections thought to be primordial)
+
+    r_max : float
+        The maximum radius from the Earth that you want to find PBHs.
+        Defaults to 16.6 kpc. (2 * distance to galactic center)
+
+    r_s: float
+        The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
+        Defaults to 18.6 kpc. The median value given in McMillan 2017.
+
+    rho_0: float
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
+        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
+
+    gamma: float
+        The inner slope of the MW dark matter halo as described in LaCroix 2018.
+        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
+        The default value is 1, corresponding to an NFW profile.
+
+    v_esc: int
+        The escape velocity of the Milky Way (in km/s).
+        v_esc is used in calculating the velocities.
+        Default is 550 km/s. Most papers cite values of 515-575.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
+    """
+    if hdf5_file[-3:] != '.h5':
+        raise Exception('hdf5_file (%s) must be an ebf file.' % str(hdf5_file))
+
+    if ebf_file[-4:] != '.ebf':
+        raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
+
+    if type(output_root2) != str:
+        raise Exception(
+            'output_root2 (%s) must be a string.' % str(output_root))
+
+    if type(fdm) != int:
+        if type(fdm) != float:
+            raise Exception(
+                'fdm (%s) must be an integer or a float.' % str(fdm))
+
+    if type(pbh_mass) != int:
+        if type(pbh_mass) != float:
+            raise Exception(
+                'pbh_mass (%s) must be an integer or a float.' % str(pbh_mass))
+
+    if type(r_max) != int:
+        if type(r_max) != float:
+            raise Exception(
+                'r_max (%s) must be an integer or a float.' % str(r_max))
+
+    if type(r_s) != int:
+        if type(r_s) != float:
+            raise Exception(
+                'r_s (%s) must be an integer or a float.' % str(r_s))
+
+    if gamma not in [.25, .5, 1]:
+        raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
+
+    if type(v_esc) != int:
+        if type(v_esc) != float:
+            raise Exception(
+                'v_esc (%s) must be an integer or a float.' % str(v_esc))
+
+    if type(rho_0) != int:
+        if type(rho_0) != float:
+            raise Exception(
+                'rho_0 (%s) must be an integer or a float.' % str(rho_0))
+
+    if type(n_lin) != int:
+        raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
+
+    if type(overwrite) != bool:
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if seed is not None:
+        if type(seed) != int:
+            raise Exception(
+                'seed (%s) must be None or an integer.' % str(seed))
+
+
+def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
+            r_max=16.6, r_s=18.6, gamma=1, v_esc=550,
+            rho_0=0.0093, n_lin=1000, overwrite=False, seed=None):
+    """
+    Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
+    and saves them in a new HDF5 file with the PBHs added.
+
+    Parameters
+    ----------
+    hdf5_file : str or hdf5 file
+        str : name of the hdf5 file from the output of perform_pop_syn
+
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+
+    output_root2 : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    fdm : float
+        Fraction of dark matter.
+        The fraction of dark matter that you want to consist of PBHs.
+        Defaults to 1.
+
+    pbh_mass : int
+        The single mass that all PBHs will have (in units of Msun).
+        Defaults to 40 Msun (from LIGO detections thought to be primordial)
+
+    r_max : float
+        The maximum radius from the Earth that you want to find PBHs.
+        Defaults to 16.6 kpc. (2 * distance to galactic center)
+
+    r_s: float
+        The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
+        Defaults to 18.6 kpc. The median value given in McMillan 2017.
+
+    rho_0: float
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
+        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
+
+    gamma: float
+        The inner slope of the MW dark matter halo as described in LaCroix 2018.
+        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
+        The default value is 1, corresponding to an NFW profile.
+
+    v_esc: int
+        The escape velocity of the Milky Way (in km/s).
+        v_esc is used in calculating the velocities.
+        Default is 550 km/s. Most papers cite values of 515-575.
+
+    Optional Parameters
+    -------------------
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
+
+    Outputs
+    -------
+    <output_root2>.h5 : hdf5 file
+        The new .h5 file with PBHs injected in.
+    """
+    ##########
+    # Error handling: check whether files exist and
+    # whether input types are correct.
+    ##########
+
+    _check_add_pbh(hdf5_file=hdf5_file, ebf_file=ebf_file,
+                   output_root2=output_root2, fdm=fdm, pbh_mass=pbh_mass,
+                   r_max=r_max, r_s=r_s, gamma=gamma, v_esc=v_esc,
+                   rho_0=rho_0, n_lin=n_lin,
+                   overwrite=overwrite, seed=seed)
+
+    if not overwrite:
+        # Check if HDF5 file exists already. If it does, throw an error message
+        # to complain and exit.
+        if os.path.isfile(output_root2 + '.h5'):
+            raise Exception(
+                'That .h5 file name is taken! Either delete the .h5 file, '
+                'or pick a new name.')
+
+    # Check to make sure that the output hdf5 file
+    # will not overwrite the input hdf5 file
+    output_hdf5_file = '%s.h5' % output_root2
+    if hdf5_file == output_hdf5_file:
+        raise Exception('Output hdf5 file %s cannot be equal to '
+                        'input hdf5 file %s' % (output_hdf5_file, hdf5_file))
+
+    ##########
+    # Start of code
+    #########
+
+    # Set random seed
+    np.random.seed(seed)
+
+    t0 = time.time()
+
+    # Read in the hdf5 file that doesn't have PBHs. Product of perform_pop_syn.
+    no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
+    key_list = list(no_pbh_hdf5_file)
+    # Delete lat_bin_edges and long_bin_edges from key_list.
+    key_list = [key for key in key_list if 'bin_edges' not in key]
+
+    # Get data from lat_bin_edges and long_bin_edges
+    lat_bin = no_pbh_hdf5_file['lat_bin_edges'][:]
+    long_bin = no_pbh_hdf5_file['long_bin_edges'][:]
+    bin_edges_number = len(long_bin)
+
+    # Getting the maximum ID from all of the stars and compact objects.
+    # Later used to set the IDs of the PBHs.
+    max_id_no_pbh = []
+    for key in key_list:
+        # max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key][20]))
+        max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key]['obj_id']))
+    max_id = np.amax(max_id_no_pbh)
+
+    hdf5_dset_names = no_pbh_hdf5_file[key_list[0]][:].dtype.names
+
+    no_pbh_hdf5_file.close()
+
+    # Read in ebf file
+    t = ebf.read_ind(ebf_file, '/log', 0)
+    # Convert log to useful dictionary.
+    ebf_log = make_ebf_log(t)
+
+    # Obtain survey area and center latitude and longitude
+    b = float(ebf_log['latitude'])  # deg
+    b_radian = b * np.pi / 180  # rad
+    l = float(ebf_log['longitude'])  # deg
+    l_radian = l * np.pi / 180  # rad
+    surveyArea = float(ebf_log['surveyArea'])  # deg^2
+
+    # Calculate the size of the field of view we are running
+    field_of_view_radius = (surveyArea / np.pi) ** (1 / 2)
+
+    # Generate an array of heliocentric radii
+    # These radii will just be used to numerically integrate the density
+    n_lin = 1000
+    if np.logical_and(np.logical_and(np.abs(l_radian) < 0.5 * np.pi / 180,
+                                     np.abs(b_radian) < 0.5 * np.pi / 180),
+                      n_lin < 100000):
+        print(
+            'Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
+    r_h_linspace = np.linspace(0, r_max, num=n_lin)
+
+    # Represent the line of sight line in galactic coordinates
+    galactic_lin = coord.Galactic(l=l_radian * units.rad,
+                                  b=b_radian * units.rad,
+                                  distance=r_h_linspace * units.kpc)
+
+    # convert the line of sight to galactocentric coordinates
+    # outputs l, b, and distance in degrees.
+    galactocen_lin = galactic_lin.transform_to(
+        coord.Galactocentric(representation_type='spherical'))
+
+    # Determine the dark matter density at all galactocentric radii along the line of sight.
+    rho_lin = rho_dmhalo(galactocen_lin.spherical.distance.value,
+                         rho_0=rho_0, r_s=r_s, gamma=gamma)
+
+    # Estimate the total mass within the line-of-sight cylinder [units: M_sun kpc**-2]
+    # Projected density along line of light
+    # (multiply by projected area to get total mass)
+    rho_marg_r = np.trapz(rho_lin, dx=(r_max) / n_lin) * 1000 ** 3
+    print(
+        "Projected density along line-of-sight = {0:0.2e} [M_sun kpc**-2]".format(
+            rho_marg_r))
+    # LOS cylinder radius in kpc, assuming small angle approximation [units: kpc]
+    r_proj_los_cyl = field_of_view_radius * np.pi / 180 * (r_max)
+    # Projected area of the LOS cylinder [units: kpc**2]
+    area_proj_los_cyl = np.pi * r_proj_los_cyl ** 2
+    # Mass within the total cylinder
+    mass_los_cyl = rho_marg_r * area_proj_los_cyl
+    print("Mass within line-of-sight cylinder = {0:0.2e} [M_sun]".format(
+        mass_los_cyl))
+
+    # Total number of black holes to randomly draw
+    n_pbh = int(np.round(fdm * mass_los_cyl / pbh_mass))
+
+    # Estimate the discrete CDF based on the discrete PDF
+    rho_marg_r_cum = integrate.cumtrapz(y=rho_lin,
+                                        x=galactic_lin.distance.kpc,
+                                        dx=(r_max) / n_lin)
+    cdf_los = rho_marg_r_cum / rho_marg_r_cum[-1]
+    # Since cumtrapz does not include zero for the first element insert it
+    cdf_los = np.insert(cdf_los, 0, 0)
+
+    # Create a function to interpolate the CDF so that we can randomly sample from it
+    f_cdf_d = interpolate.interp1d(cdf_los, galactic_lin.distance.kpc)
+
+    # Randomly sample galactic coordinates for the PBHs based on CDF
+    d_galac = f_cdf_d(np.random.uniform(size=n_pbh))
+
+    # Randomly assign a l & b galactic coordinate to each PBH, within the LOS cone
+    # sample the angle from 0 to 2pi
+    theta = np.random.uniform(size=n_pbh) * 2 * np.pi
+    # sample radius correcting for annular area to make uniform
+    r_cyl = r_proj_los_cyl * np.sqrt(np.random.uniform(size=n_pbh))  # kpc
+    y_cyl = r_cyl * np.sin(theta)  # kpc
+    x_cyl = r_cyl * np.cos(theta)  # kpc
+
+    # Mask out sampled PBH outside the observation cone
+    mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (r_max)
+    print(
+        'Number of PBH before and after light cone masking: {0} and {1}, respectively'.format(
+            n_pbh, np.sum(mask_obs_cone)))
+
+    # Assuming small angle approximation
+    b_galac = r_cyl * np.sin(theta) / d_galac + b_radian  # rad
+    l_galac = r_cyl * np.cos(theta) / np.cos(
+        b_radian) / d_galac + l_radian  # rad
+
+    d_galac = d_galac[mask_obs_cone]
+    b_galac = b_galac[mask_obs_cone]
+    l_galac = l_galac[mask_obs_cone]
+
+    latitude = b_galac * (180 / np.pi)  # degrees
+    longitude = l_galac * (180 / np.pi)  # degrees
+
+    N_PBHs_in_field = len(d_galac)
+    print('%i PBHs in the field' % N_PBHs_in_field)
+
+    if N_PBHs_in_field == 0:
+        print('-- No PBHs in the field')
+        print('-- Copying %s to %s' % (hdf5_file, output_hdf5_file))
+        shutil.copy(hdf5_file, output_hdf5_file)
+        return
+
+    # Converting the PBH positions from the field of view back to galactocentric for determining velocities.
+    galactic_pbh = coord.Galactic(l=longitude * units.deg,
+                                  b=latitude * units.deg,
+                                  distance=d_galac * units.kpc)
+    galacto_pbh = galactic_pbh.transform_to(
+        coord.Galactocentric(representation_type='spherical'))
+    cart_pbh = astropy.coordinates.cartesian_to_spherical(galacto_pbh.x,
+                                                          galacto_pbh.y,
+                                                          galacto_pbh.z)
+    pbh_r_galacto = cart_pbh[0]
+
+    # Inner slope of the MW halo
+    # From Lacroix et al 2018, Figure 11 (top left panel)
+    data_dir = '%s/data' % os.path.dirname(inspect.getfile(add_pbh))
+    if gamma == 1:
+        vel_data = pd.read_csv(
+            '%s/radial_velocity_profile_steep.csv' % data_dir)
+    elif gamma == .25:
+        vel_data = pd.read_csv(
+            '%s/radial_velocity_profile_shallow.csv' % data_dir)
+    elif gamma == .5:
+        vel_data = pd.read_csv(
+            '%s/radial_velocity_profile_middle.csv' % data_dir)
+    else:
+        raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
+
+    # Interpolating v values from the above data, given the PBH r values.
+    pbh_vrms = np.interp(pbh_r_galacto, vel_data['r'], vel_data['v'])
+    v_vals = np.arange(0, v_esc)  # Goes from v to v_esc
+    a = (1 / 2) * pbh_vrms * ((np.pi / 2) ** (1 / 2))
+
+    # Calculating the v_rms velocities for the PBHs by randomly sampling from the CDF.
+    rand_cdf = np.array([])
+
+    for a_val in a:
+        cdf = scipy.special.erf(v_vals / (a_val * 2 ** (1 / 2))) - (
+                    ((2 / np.pi) ** (1 / 2)) * ((v_vals * np.exp(
+                -v_vals ** 2 / 2 * a_val ** 2)) / a_val))
+        rand_cdf = np.append(rand_cdf, np.random.uniform(0, np.amax(cdf)))
+    interpreted_rms_velocities = np.interp(rand_cdf, cdf, v_vals)
+
+    # Sampling random latitude and longitude values for velocity to complete the spherical velocities.
+    sin_lat_vel = np.random.uniform(-1, 1, len(d_galac))
+    lat_vel = np.arcsin(sin_lat_vel)
+    long_vel = np.random.uniform(0, 2 * np.pi, len(d_galac))
+
+    # Transforming velocities to cartesian to get vx, vy, and vz.
+    cart_vel = astropy.coordinates.spherical_to_cartesian(
+        interpreted_rms_velocities, lat_vel, long_vel)
+
+    # Load up a numpy array
+    comp_dtype = _generate_comp_dtype(hdf5_dset_names)
+    pbh_data = np.empty(len(d_galac), dtype=comp_dtype)
+
+    # Getting longitude into the right format for PopSyCLE
+    longitude = np.where(longitude > 180, longitude - 360, longitude)
+
+    pbh_data['rad'] = d_galac
+    pbh_data['glon'] = longitude
+    pbh_data['glat'] = latitude
+
+    pbh_data['vx'] = cart_vel[0]
+    pbh_data['vy'] = cart_vel[1]
+    pbh_data['vz'] = cart_vel[2]
+
+    # Getting the rest of the PBH data for the combined .h5 file
+    pbh_data['mass'] = np.full(len(d_galac), pbh_mass)
+    pbh_data['zams_mass'] = np.full(len(d_galac), pbh_mass)
+    pbh_data['age'] = np.full(len(d_galac), np.nan)
+    pbh_data['popid'] = np.full(len(d_galac), 10)
+    pbh_data['rem_id'] = np.full(len(d_galac), 104)
+
+    cart_helio = astropy.coordinates.spherical_to_cartesian(d_galac, b_galac,
+                                                            l_galac)
+    pbh_data['px'] = cart_helio[0]
+    pbh_data['py'] = cart_helio[1]
+    pbh_data['pz'] = cart_helio[2]
+
+    vr, mu_b, mu_lcosb = calc_sph_motion(pbh_data['vx'],
+                                         pbh_data['vy'],
+                                         pbh_data['vz'],
+                                         d_galac, b_galac, l_galac)
+    pbh_data['vr'] = vr
+    pbh_data['mu_b'] = mu_b
+    pbh_data['mu_lcosb'] = mu_lcosb
+    pbh_data['obj_id'] = np.arange((max_id + 1), (max_id + len(d_galac) + 1))
+
+    pbh_data['exbv'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_K'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_J'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_I'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_U'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_R'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_B'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_H'] = np.full(len(d_galac), np.nan)
+    pbh_data['ubv_V'] = np.full(len(d_galac), np.nan)
+    pbh_data['teff'] = np.full(len(d_galac), np.nan)
+    pbh_data['grav'] = np.full(len(d_galac), np.nan)
+    pbh_data['mbol'] = np.full(len(d_galac), np.nan)
+    pbh_data['feh'] = np.full(len(d_galac), np.nan)
+    if any(['ztf' in n for n in hdf5_dset_names]):
+        pbh_data['ztf_g'] = np.full(len(d_galac), np.nan)
+        pbh_data['ztf_r'] = np.full(len(d_galac), np.nan)
+
+    # Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
+    # so that we can determine which datasets to correctly add the PBHs.
+    lat_long_list = []
+    for idx in range(len(long_bin) - 1):
+        max_l = long_bin[idx + 1]
+        min_l = long_bin[idx]
+        for idx2 in range(len(lat_bin) - 1):
+            max_b = lat_bin[idx2 + 1]
+            min_b = lat_bin[idx2]
+            lat_long_list.append((min_l, max_l, min_b, max_b))
+
+    # Opening the file with no PBHs and creating a new file for the PBHs added.
+    no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
+    pbh_hdf5_file = h5py.File(output_hdf5_file, 'w')
+
+    # Appending the PBH data to the no PBH data and writing to the new .h5 file.
+    N_objs_no_pbh = 0
+    N_objs_pbh = 0
+    for idx, key in enumerate(key_list):
+        key_data = no_pbh_hdf5_file[key][:]
+        N_objs_no_pbh += key_data.shape[0]
+
+        min_l, max_l, min_b, max_b = lat_long_list[idx]
+        mask = (pbh_data['glon'] >= min_l) & \
+               (pbh_data['glon'] <= max_l) & \
+               (pbh_data['glat'] >= min_b) & \
+               (pbh_data['glat'] <= max_b)
+
+        if np.sum(mask) == 0:
+            combined_data = key_data
+        else:
+            pbh_data_in_key = pbh_data[mask]
+            combined_data = np.hstack((key_data, pbh_data_in_key))
+        N_objs_pbh += combined_data.shape[0]
+        _ = pbh_hdf5_file.create_dataset(key,
+                                         shape=(combined_data.shape[0],),
+                                         dtype=comp_dtype,
+                                         data=combined_data)
+    _ = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1),
+                                     data=lat_bin)
+    _ = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1),
+                                     data=long_bin)
+    no_pbh_hdf5_file.close()
+    pbh_hdf5_file.close()
+
+    print('Checking totals')
+    print('-- %i original objects' % N_objs_no_pbh)
+    print('-- %i PBHs in the field' % N_PBHs_in_field)
+    print('-- %i new total objects' % N_objs_pbh)
+
+    if N_objs_pbh == N_objs_no_pbh + N_PBHs_in_field:
+        print('-- Totals match!')
+    else:
+        print('** MISSING PBHs!! **')
+
+    t1 = time.time()
+    print('Total runtime: {0:f} s'.format(t1 - t0))
+
+    return
+
+
+############################################################################
 ########### Candidate event calculation and associated functions ###########
 ############################################################################
 
@@ -3391,520 +3941,3 @@ def calc_f(lambda_eff):
     f = L * (B - V) ** -1
 
     return f
-
-def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
-    """
-    Density profile of the dark matter halo.
-    We are using the parametrization from McMillan (2017) Equation 5,
-    with defaults based on the mean values in Table 2.
-    r: galactocentric radius [units: kpc]
-    rho_0: characteristic density in [units: m_sun / pc**3]
-    r_s: scale radius in [units: kpc].
-    gamma: gamma=1 for NFW, gamma > 1 cuspy, gamma < 1 cored
-    
-    returns: density at r [units: m_sun / pc**3]
-    """
-    x = r / r_s
-    rho = rho_0 / (x**gamma * (1 + x)**(3 - gamma))
-    return rho
-
-
-def _check_add_pbh(hdf5_file, ebf_file, output_root2,
-                   fdm, pbh_mass,
-                   r_max, r_s, gamma, v_esc,
-                   rho_0, n_lin, overwrite, seed):
-    """
-    Checks that the inputs of add_pbj are valid
-
-    Parameters
-    ----------
-    hdf5_file : str or hdf5 file
-        str : name of the hdf5 file from the output of perform_pop_syn
-
-    ebf_file : str or ebf file
-        str : name of the ebf file from Galaxia
-        ebf file : actually the ebf file from Galaxia
-
-    output_root2 : str
-        The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
-
-    fdm : float
-        Fraction of dark matter.
-        The fraction of dark matter that you want to consist of PBHs.
-        Defaults to 1.
-
-    pbh_mass : int
-        The single mass that all PBHs will have (in units of Msun).
-        Defaults to 40 Msun (from LIGO detections thought to be primordial)
-
-    r_max : float
-        The maximum radius from the Earth that you want to find PBHs.
-        Defaults to 16.6 kpc. (2 * distance to galactic center)
-
-    r_s: float
-        The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
-        Defaults to 18.6 kpc. The median value given in McMillan 2017.
-
-    rho_0: float
-        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
-        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
-
-    n_lin: int
-        The number of times you want the density determined along the line of sight when calculating PBH positions
-        Defaults to 1000. Will need to make large if you are closer to the galactic center.
-
-    gamma: float
-        The inner slope of the MW dark matter halo as described in LaCroix 2018.
-        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
-        The default value is 1, corresponding to an NFW profile.
-
-    v_esc: int
-        The escape velocity of the Milky Way (in km/s).
-        v_esc is used in calculating the velocities.
-        Default is 550 km/s. Most papers cite values of 515-575.
-
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
-    """
-    if hdf5_file[-3:] != '.h5':
-        raise Exception('hdf5_file (%s) must be an ebf file.' % str(hdf5_file))
-
-    if ebf_file[-4:] != '.ebf':
-        raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
-
-    if type(output_root2) != str:
-        raise Exception('output_root2 (%s) must be a string.' % str(output_root))
-
-    if type(fdm) != int:
-        if type(fdm) != float:
-            raise Exception('fdm (%s) must be an integer or a float.' % str(fdm))
-
-    if type(pbh_mass) != int:
-        if type(pbh_mass) != float:
-            raise Exception('pbh_mass (%s) must be an integer or a float.' % str(pbh_mass))
-
-    if type(r_max) != int:
-        if type(r_max) != float:
-            raise Exception('r_max (%s) must be an integer or a float.' % str(r_max))
-
-    if type(r_s) != int:
-        if type(r_s) != float:
-            raise Exception('r_s (%s) must be an integer or a float.' % str(r_s))
-
-    if gamma not in [.25, .5, 1]:
-            raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
-
-    if type(v_esc) != int:
-        if type(v_esc) != float:
-            raise Exception('v_esc (%s) must be an integer or a float.' % str(v_esc))
-
-    if type(rho_0) != int:
-        if type(rho_0) != float:
-            raise Exception('rho_0 (%s) must be an integer or a float.' % str(rho_0))
-
-    if type(n_lin) != int:
-        raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
-
-    if type(overwrite) != bool:
-        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
-
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed (%s) must be None or an integer.' % str(seed))
-
-
-
-def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
-            r_max=16.6, r_s=18.6, gamma=1, v_esc=550, 
-            rho_0=0.0093, n_lin=1000, overwrite=False, seed=None):
-    """
-    Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
-    and saves them in a new HDF5 file with the PBHs added.
-
-    Parameters
-    ----------
-    hdf5_file : str or hdf5 file
-        str : name of the hdf5 file from the output of perform_pop_syn
-
-    ebf_file : str or ebf file
-        str : name of the ebf file from Galaxia
-        ebf file : actually the ebf file from Galaxia
-
-    output_root2 : str
-        The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
-
-    fdm : float
-        Fraction of dark matter.
-        The fraction of dark matter that you want to consist of PBHs.
-        Defaults to 1.
-
-    pbh_mass : int
-        The single mass that all PBHs will have (in units of Msun).
-        Defaults to 40 Msun (from LIGO detections thought to be primordial)
-
-    r_max : float
-        The maximum radius from the Earth that you want to find PBHs.
-        Defaults to 16.6 kpc. (2 * distance to galactic center)
-
-    r_s: float
-        The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
-        Defaults to 18.6 kpc. The median value given in McMillan 2017.
-
-    rho_0: float
-        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
-        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
-
-    n_lin: int
-        The number of times you want the density determined along the line of sight when calculating PBH positions
-        Defaults to 1000. Will need to make large if you are closer to the galactic center.
-
-    gamma: float
-        The inner slope of the MW dark matter halo as described in LaCroix 2018.
-        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
-        The default value is 1, corresponding to an NFW profile.
-
-    v_esc: int
-        The escape velocity of the Milky Way (in km/s).
-        v_esc is used in calculating the velocities.
-        Default is 550 km/s. Most papers cite values of 515-575.
-
-    Optional Parameters
-    -------------------
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
-
-    Outputs
-    -------
-    <output_root2>.h5 : hdf5 file
-        The new .h5 file with PBHs injected in.
-    """
-    ##########
-    # Error handling: check whether files exist and
-    # whether input types are correct.
-    ##########
-
-    _check_add_pbh(hdf5_file=hdf5_file, ebf_file=ebf_file,
-                   output_root2=output_root2, fdm=fdm, pbh_mass=pbh_mass,
-                   r_max=r_max, r_s=r_s, gamma=gamma, v_esc=v_esc,
-                   rho_0=rho_0, n_lin=n_lin,
-                   overwrite=overwrite, seed=seed)
-
-    if not overwrite:
-        # Check if HDF5 file exists already. If it does, throw an error message
-        # to complain and exit.
-        if os.path.isfile(output_root2 + '.h5'):
-            raise Exception(
-                'That .h5 file name is taken! Either delete the .h5 file, '
-                'or pick a new name.')
-
-    # Check to make sure that the output hdf5 file
-    # will not overwrite the input hdf5 file
-    output_hdf5_file = '%s.h5' % output_root2
-    if hdf5_file == output_hdf5_file:
-        raise Exception('Output hdf5 file %s cannot be equal to '
-                        'input hdf5 file %s' % (output_hdf5_file, hdf5_file))
-
-
-    ##########
-    # Start of code
-    #########
-
-    # Set random seed
-    np.random.seed(seed)
-
-    t0 = time.time()
-
-    #Read in the hdf5 file that doesn't have PBHs. Product of perform_pop_syn.
-    no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
-    key_list = list(no_pbh_hdf5_file)
-    #Delete lat_bin_edges and long_bin_edges from key_list.
-    key_list = [key for key in key_list if 'bin_edges' not in key]
-
-    #Get data from lat_bin_edges and long_bin_edges
-    lat_bin = no_pbh_hdf5_file['lat_bin_edges'][:]
-    long_bin = no_pbh_hdf5_file['long_bin_edges'][:]
-    bin_edges_number = len(long_bin)
-
-    #Getting the maximum ID from all of the stars and compact objects.
-    #Later used to set the IDs of the PBHs.
-    max_id_no_pbh = []
-    for key in key_list:
-        # max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key][20]))
-        max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key]['obj_id']))
-    max_id = np.amax(max_id_no_pbh)
-
-    hdf5_dset_names = no_pbh_hdf5_file[key_list[0]][:].dtype.names
-
-    no_pbh_hdf5_file.close()
-
-    #Read in ebf file
-    t = ebf.read_ind(ebf_file, '/log', 0)
-    # Convert log to useful dictionary.
-    ebf_log = make_ebf_log(t)
-
-    #Obtain survey area and center latitude and longitude
-    b = float(ebf_log['latitude']) #deg
-    b_radian = b * np.pi / 180 #rad
-    l = float(ebf_log['longitude']) #deg
-    l_radian = l * np.pi /180 #rad
-    surveyArea = float(ebf_log['surveyArea']) #deg^2
-
-    #Calculate the size of the field of view we are running
-    field_of_view_radius = (surveyArea/np.pi)**(1/2)
-
-    # Generate an array of heliocentric radii
-    # These radii will just be used to numerically integrate the density
-    n_lin = 1000
-    if np.logical_and(np.logical_and(np.abs(l_radian)<0.5 * np.pi / 180, 
-                                     np.abs(b_radian)<0.5 * np.pi / 180), 
-                      n_lin<100000):
-        print('Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
-    r_h_linspace = np.linspace(0, r_max, num=n_lin)
-
-    # Represent the line of sight line in galactic coordinates
-    galactic_lin = coord.Galactic(l=l_radian * units.rad,
-                                  b=b_radian * units.rad,
-                                  distance=r_h_linspace * units.kpc)
-
-    # convert the line of sight to galactocentric coordinates
-    #outputs l, b, and distance in degrees.
-    galactocen_lin = galactic_lin.transform_to(coord.Galactocentric(representation_type='spherical'))
-
-    # Determine the dark matter density at all galactocentric radii along the line of sight.
-    rho_lin = rho_dmhalo(galactocen_lin.spherical.distance.value,
-                         rho_0=rho_0, r_s=r_s, gamma=gamma)
-
-    # Estimate the total mass within the line-of-sight cylinder [units: M_sun kpc**-2]
-    # Projected density along line of light
-    # (multiply by projected area to get total mass)
-    rho_marg_r = np.trapz(rho_lin, dx=(r_max) / n_lin) * 1000**3
-    print("Projected density along line-of-sight = {0:0.2e} [M_sun kpc**-2]".format(rho_marg_r))
-    # LOS cylinder radius in kpc, assuming small angle approximation [units: kpc]
-    r_proj_los_cyl = field_of_view_radius * np.pi / 180 * (r_max)
-    # Projected area of the LOS cylinder [units: kpc**2]
-    area_proj_los_cyl = np.pi * r_proj_los_cyl**2
-    # Mass within the total cylinder
-    mass_los_cyl = rho_marg_r * area_proj_los_cyl
-    print("Mass within line-of-sight cylinder = {0:0.2e} [M_sun]".format(mass_los_cyl))
-
-    # Total number of black holes to randomly draw
-    n_pbh = int(np.round(fdm * mass_los_cyl / pbh_mass))
-
-    # Estimate the discrete CDF based on the discrete PDF
-    rho_marg_r_cum = integrate.cumtrapz(y=rho_lin,
-                                        x=galactic_lin.distance.kpc,
-                                        dx=(r_max) / n_lin)
-    cdf_los = rho_marg_r_cum / rho_marg_r_cum[-1]
-    # Since cumtrapz does not include zero for the first element insert it
-    cdf_los = np.insert(cdf_los,0,0)
-
-    # Create a function to interpolate the CDF so that we can randomly sample from it
-    f_cdf_d = interpolate.interp1d(cdf_los, galactic_lin.distance.kpc)
-
-    # Randomly sample galactic coordinates for the PBHs based on CDF
-    d_galac = f_cdf_d(np.random.uniform(size=n_pbh))
-
-    # Randomly assign a l & b galactic coordinate to each PBH, within the LOS cone
-    # sample the angle from 0 to 2pi
-    theta = np.random.uniform(size=n_pbh) * 2 * np.pi
-    # sample radius correcting for annular area to make uniform
-    r_cyl = r_proj_los_cyl * np.sqrt(np.random.uniform(size=n_pbh)) # kpc
-    y_cyl = r_cyl * np.sin(theta) # kpc
-    x_cyl = r_cyl * np.cos(theta) # kpc
-
-    # Mask out sampled PBH outside the observation cone
-    mask_obs_cone = r_cyl <= r_proj_los_cyl * d_galac / (r_max)
-    print('Number of PBH before and after light cone masking: {0} and {1}, respectively'.format(n_pbh, np.sum(mask_obs_cone)))
-    
-    # Assuming small angle approximation
-    b_galac = r_cyl * np.sin(theta) / d_galac + b_radian # rad
-    l_galac = r_cyl * np.cos(theta) / np.cos(b_radian) / d_galac + l_radian # rad
-
-    d_galac = d_galac[mask_obs_cone]
-    b_galac = b_galac[mask_obs_cone]
-    l_galac = l_galac[mask_obs_cone]
-
-    latitude = b_galac * (180/np.pi) #degrees
-    longitude = l_galac * (180/np.pi) #degrees
-    
-    N_PBHs_in_field = len(d_galac)
-    print('%i PBHs in the field' % N_PBHs_in_field)
-
-    if N_PBHs_in_field == 0:
-        print('-- No PBHs in the field')
-        print('-- Copying %s to %s' % (hdf5_file, output_hdf5_file))
-        shutil.copy(hdf5_file, output_hdf5_file)
-        return
-
-    #Converting the PBH positions from the field of view back to galactocentric for determining velocities.
-    galactic_pbh = coord.Galactic(l=longitude * units.deg, b=latitude * units.deg, distance=d_galac * units.kpc)
-    galacto_pbh = galactic_pbh.transform_to(coord.Galactocentric(representation_type='spherical'))
-    cart_pbh = astropy.coordinates.cartesian_to_spherical(galacto_pbh.x, galacto_pbh.y, galacto_pbh.z)
-    pbh_r_galacto = cart_pbh[0]
-
-    #Inner slope of the MW halo
-    #From Lacroix et al 2018, Figure 11 (top left panel)
-    data_dir = '%s/data' % os.path.dirname(inspect.getfile(add_pbh))
-    if gamma == 1:
-        vel_data = pd.read_csv('%s/radial_velocity_profile_steep.csv' % data_dir)
-    elif gamma == .25:
-        vel_data = pd.read_csv('%s/radial_velocity_profile_shallow.csv' % data_dir)
-    elif gamma == .5:
-        vel_data = pd.read_csv('%s/radial_velocity_profile_middle.csv' % data_dir)
-    else:
-        raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
-
-    #Interpolating v values from the above data, given the PBH r values.
-    pbh_vrms = np.interp(pbh_r_galacto, vel_data['r'], vel_data['v'])
-    v_vals = np.arange(0, v_esc) #Goes from v to v_esc
-    a = (1/2)*pbh_vrms*((np.pi/2)**(1/2))
-
-    #Calculating the v_rms velocities for the PBHs by randomly sampling from the CDF.
-    rand_cdf = np.array([])
-
-    for a_val in a:
-        cdf = scipy.special.erf(v_vals/(a_val*2**(1/2)))-(((2/np.pi)**(1/2))*((v_vals*np.exp(-v_vals**2/2*a_val**2))/a_val))
-        rand_cdf = np.append(rand_cdf, np.random.uniform(0, np.amax(cdf)))
-    interpreted_rms_velocities = np.interp(rand_cdf, cdf, v_vals)
-
-    #Sampling random latitude and longitude values for velocity to complete the spherical velocities.
-    sin_lat_vel = np.random.uniform(-1, 1, len(d_galac))
-    lat_vel = np.arcsin(sin_lat_vel)
-    long_vel = np.random.uniform(0, 2*np.pi, len(d_galac))
-
-    #Transforming velocities to cartesian to get vx, vy, and vz.
-    cart_vel = astropy.coordinates.spherical_to_cartesian(interpreted_rms_velocities, lat_vel, long_vel)
-
-    #Load up a numpy array
-    comp_dtype = _generate_comp_dtype(hdf5_dset_names)
-    pbh_data = np.empty(len(d_galac), dtype=comp_dtype)
-
-    #Getting longitude into the right format for PopSyCLE
-    longitude = np.where(longitude>180, longitude-360, longitude)
-
-    pbh_data['rad'] = d_galac
-    pbh_data['glon'] = longitude
-    pbh_data['glat'] = latitude
-
-    pbh_data['vx'] = cart_vel[0]
-    pbh_data['vy'] = cart_vel[1]
-    pbh_data['vz'] = cart_vel[2]
-
-    #Getting the rest of the PBH data for the combined .h5 file
-    pbh_data['mass'] = np.full(len(d_galac), pbh_mass)
-    pbh_data['zams_mass'] = np.full(len(d_galac), pbh_mass)
-    pbh_data['age'] = np.full(len(d_galac), np.nan)
-    pbh_data['popid'] = np.full(len(d_galac), 10)
-    pbh_data['rem_id'] = np.full(len(d_galac), 104)
-
-    cart_helio = astropy.coordinates.spherical_to_cartesian(d_galac, b_galac, l_galac)
-    pbh_data['px'] = cart_helio[0]
-    pbh_data['py'] = cart_helio[1]
-    pbh_data['pz'] = cart_helio[2]
-
-    vr, mu_b, mu_lcosb = calc_sph_motion(pbh_data['vx'],
-                                         pbh_data['vy'],
-                                         pbh_data['vz'],
-                                         d_galac, b_galac, l_galac)
-    pbh_data['vr'] = vr
-    pbh_data['mu_b'] = mu_b
-    pbh_data['mu_lcosb'] = mu_lcosb
-    pbh_data['obj_id'] = np.arange((max_id+1), (max_id+len(d_galac)+1))
-
-    pbh_data['exbv'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_K'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_J'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_I'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_U'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_R'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_B'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_H'] = np.full(len(d_galac), np.nan)
-    pbh_data['ubv_V'] = np.full(len(d_galac), np.nan)
-    pbh_data['teff'] = np.full(len(d_galac), np.nan)
-    pbh_data['grav'] = np.full(len(d_galac), np.nan)
-    pbh_data['mbol'] = np.full(len(d_galac), np.nan)
-    pbh_data['feh'] = np.full(len(d_galac), np.nan)
-    if any(['ztf' in n for n in hdf5_dset_names]):
-        pbh_data['ztf_g'] = np.full(len(d_galac), np.nan)
-        pbh_data['ztf_r'] = np.full(len(d_galac), np.nan)
-
-    #Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
-    #so that we can determine which datasets to correctly add the PBHs.
-    lat_long_list = []
-    for idx in range(len(long_bin) - 1):
-        max_l = long_bin[idx + 1]
-        min_l = long_bin[idx]
-        for idx2 in range(len(lat_bin)-1):
-            max_b = lat_bin[idx2 + 1]
-            min_b = lat_bin[idx2]
-            lat_long_list.append((min_l, max_l, min_b, max_b))
-
-    
-    #Opening the file with no PBHs and creating a new file for the PBHs added.
-    no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
-    pbh_hdf5_file = h5py.File(output_hdf5_file, 'w')
-
-    #Appending the PBH data to the no PBH data and writing to the new .h5 file.
-    N_objs_no_pbh = 0
-    N_objs_pbh = 0
-    for idx, key in enumerate(key_list):
-        key_data = no_pbh_hdf5_file[key][:]
-        N_objs_no_pbh += key_data.shape[0]
-
-        min_l, max_l, min_b, max_b = lat_long_list[idx]
-        mask = (pbh_data['glon'] >= min_l) & \
-               (pbh_data['glon'] <= max_l) & \
-               (pbh_data['glat'] >= min_b) & \
-               (pbh_data['glat'] <= max_b)
-
-        if np.sum(mask) == 0:
-            combined_data = key_data
-        else:
-            pbh_data_in_key = pbh_data[mask]
-            combined_data = np.hstack((key_data, pbh_data_in_key))
-        N_objs_pbh += combined_data.shape[0]
-        _ = pbh_hdf5_file.create_dataset(key,
-                                         shape=(combined_data.shape[0],),
-                                         dtype=comp_dtype,
-                                         data=combined_data)
-    _ = pbh_hdf5_file.create_dataset('lat_bin_edges', (len(lat_bin), 1), data=lat_bin)
-    _ = pbh_hdf5_file.create_dataset('long_bin_edges', (len(lat_bin), 1), data=long_bin)
-    no_pbh_hdf5_file.close()
-    pbh_hdf5_file.close()
-
-    print('Checking totals')
-    print('-- %i original objects' % N_objs_no_pbh)
-    print('-- %i PBHs in the field' % N_PBHs_in_field)
-    print('-- %i new total objects' % N_objs_pbh)
-
-    if N_objs_pbh == N_objs_no_pbh + N_PBHs_in_field:
-        print('-- Totals match!')
-    else:
-        print('** MISSING PBHs!! **')
-
-    t1 = time.time()
-    print('Total runtime: {0:f} s'.format(t1 - t0))
-
-    return

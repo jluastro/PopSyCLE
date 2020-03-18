@@ -22,7 +22,7 @@ haswell:
   # Maximum number of nodes
   n_nodes_max: 2388
   # Maximum walltime (hours)
-  walltime_max: 48
+  walltime_max: '48:00:00'
 
 knl:
   # Number of cores per node to use
@@ -31,5 +31,5 @@ knl:
   # Maximum number of nodes
   n_nodes_max: 9668
   # Maximum walltime (hours)
-  walltime_max: 48
+  walltime_max: '48:00:00'
 

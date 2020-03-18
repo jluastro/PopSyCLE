@@ -2281,7 +2281,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
 def _check_refine_events(input_root, filter_name,
                          photometric_system, red_law, overwrite,
                          output_file):
-{    """
+    """
     Checks that the inputs of refine_events are valid
 
     Parameters

@@ -1373,7 +1373,7 @@ def _check_calc_events(hdf5_file, output_root2,
     obs_time : float
         Survey duration, in DAYS.
 
-    n_obs : float
+    n_obs : int
         Number of observations.
 
     theta_frac : float
@@ -1445,7 +1445,7 @@ def calc_events(hdf5_file, output_root2,
     obs_time : float
         Survey duration, in DAYS.
 
-    n_obs : float
+    n_obs : int
         Number of observations.
 
     theta_frac : float

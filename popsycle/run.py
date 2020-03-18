@@ -205,7 +205,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     obs_time : float
         Survey duration, in DAYS.
 
-    n_obs : float
+    n_obs : int
         Number of observations.
 
     theta_frac : float

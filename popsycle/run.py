@@ -382,7 +382,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
                           n_cores_calc_events,
-                          walltime,
+                          walltime, jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
@@ -429,6 +429,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     Optional Parameters
     -------------------
+    jobname : str
+        The name of the slurm job and run_popsycle execution file.
+        If set to 'default', the format will be:
+            <longitude>_<latitude>_<output_root>
+
     seed : int
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
@@ -540,7 +545,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     generate_config_file(field_config_filename, config)
 
     # Create a slurm jobname base that all stages will be appended to
-    jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
+    if jobname == 'default':
+        jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
 
     ## Bring the slurm_config values into the namespace so that down before
     ## the **locals() command can be executed

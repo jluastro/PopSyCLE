@@ -357,6 +357,8 @@ def _check_slurm_config(slurm_config, walltime):
         raise Exception('walltime_max must be set in slurm_config')
 
     walltime_max = slurm_config[slurm_config['resource']]['walltime_max']
+    if type(walltime_max) != str:
+        raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
     if walltime_max.count(':') != 2:
         raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
     if len(walltime_max) != 8:
@@ -365,6 +367,8 @@ def _check_slurm_config(slurm_config, walltime):
         if not num.isdigit():
             raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
 
+    if type(walltime) != str:
+        raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime_max))
     if walltime.count(':') != 2:
         raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
     if len(walltime) != 8:

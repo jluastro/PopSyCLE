@@ -984,7 +984,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
     kdt_star_p : scipy cKDTree
         KDTree constructed from the positions of randomly selected stars
-        that all share the same popid and log_age.
+        that all share the same popid and similar log_age.
 
     kdt_star_exbv : numpy
         Array of galactic extinctions for the stars in kdt_star_p

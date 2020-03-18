@@ -122,9 +122,12 @@ def generate_field_config_file(longitude, latitude, area,
     generate_config_file(config_filename, config)
 
 
-def generate_slurm_config_file(path_python, account, queue,
-                               resource, n_cores_per_node, n_nodes_max,
-                               walltime_max, additional_lines,
+def generate_slurm_config_file(path_python='python', account='ulens',
+                               queue='regular', resource='haswell',
+                               n_cores_per_node=32, n_nodes_max=2388,
+                               walltime_max='48:00:00',
+                               additional_lines=['module load cray-hdf5/1.10.5.2',
+                                                 'export HDF5_USE_FILE_LOCKING=FALSE'],
                                config_filename='slurm_config.yaml'):
     """
     Save slurm configuration parameters from a dictionary into a yaml file
@@ -172,19 +175,20 @@ def generate_slurm_config_file(path_python, account, queue,
               'queue': queue,
               'resource': resource,
               'additional_lines': additional_lines,
-              resource: {'n_cores_per_node': n_cores_per_node,
-                         'n_nodes_max': n_nodes_max,
-                         'walltime_max': walltime_max}}
+              resource: {'n_cores_per_node': int(n_cores_per_node),
+                         'n_nodes_max': int(n_nodes_max),
+                         'walltime_max': walltime_max}
     generate_config_file(config_filename, config)
 
 
-def generate_popsycle_config_file(radius_cut, obs_time,
-                                  n_obs, theta_frac, blend_rad,
-                                  isochrones_dir,
-                                  bin_edges_number,
-                                  BH_kick_speed_mean, NS_kick_speed_mean,
-                                  photometric_system,
-                                  filter_name, red_law,
+def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
+                                  n_obs=101, theta_frac=2, blend_rad=0.75,
+                                  isochrones_dir='/Users/myself/popsycle_isochrones',
+                                  bin_edges_number=None,
+                                  BH_kick_speed_mean=50,
+                                  NS_kick_speed_mean=400,
+                                  photometric_system='ubv',
+                                  filter_name='ubv', red_law='Damineliy16',
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -211,8 +215,12 @@ def generate_popsycle_config_file(radius_cut, obs_time,
         Directory for PyPopStar isochrones
 
     bin_edges_number : int
-        Number of edges for the bins (bins = bin_edges_number - 1)
-        Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.

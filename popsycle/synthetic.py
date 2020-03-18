@@ -296,8 +296,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         Where are the isochrones stored (for PopStar)
 
     bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
@@ -399,8 +403,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     Optional Parameters
     -------------------
     bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.

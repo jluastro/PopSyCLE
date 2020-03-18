@@ -2351,7 +2351,7 @@ def _check_refine_events(input_root, filter_name,
         for red_law in filt_dict[key]:
             exception_str += '%s, ' % red_law
         exception_str = exception_str[:-2]
-        raise Exception(exception_str)}
+        raise Exception(exception_str)
 
 
 def refine_events(input_root, filter_name, photometric_system, red_law,

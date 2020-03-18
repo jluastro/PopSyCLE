@@ -81,13 +81,13 @@ filt_dict['ztf_i'] = {'Damineli16': 1.553}
 ##########
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
-photometric_system_dict['ztf'] = ['g', 'r']
+photometric_system_dict['ztf'] = ['g', 'r', 'i']
 
 ##########
 # List of all supported photometric systems and filters with PyPopStar labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -806,7 +806,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
+def _make_comp_dict(iso_dir, log_age, currentClusterMass,
+                    star_dict, next_id,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
                     seed=None):
@@ -864,6 +865,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     """
     comp_dict = None
 
+    # Add additional filters to isochrones if additional_photometric_systems
+    # contains photometric systems
+    my_filt_list = all_filt_list
+    if additional_photometric_systems is not None:
+        if 'ztf' in additional_photometric_systems:
+            my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
@@ -887,14 +895,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # Using MIST models to get white dwarfs
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=all_filt_list,
+                                         filters=my_filt_list,
                                          iso_dir=iso_dir)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        filt_list = ['m_%s' % f.replace(',', '_') for f in all_filt_list]
-        if set(filt_list) != set(my_iso_filters):
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
                                              filters=all_filt_list,
@@ -1061,7 +1069,6 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
                 comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T
-
                 kdt = cKDTree(star_xyz)
                 dist, indices = kdt.query(comp_xyz)
 
@@ -1398,6 +1405,7 @@ def calc_events(hdf5_file, output_root2,
     # Make log file
     ##########
     now = datetime.datetime.now()
+    radius_cut = radius_cut / 1000.0  # back to arcsec
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()
@@ -2474,7 +2482,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
     N_events_original = len(event_tab)
-    print('Original candidate events (dark sources removed): ', N_events_original)
+    print('Original candidate events: ', N_events_original)
     u0, t0 = calc_closest_approach(event_tab, obs_time)
     N_events_survey = len(event_tab)
     print('Candidate events in survey window: ', N_events_survey)

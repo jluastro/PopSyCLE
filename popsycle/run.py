@@ -424,7 +424,8 @@ def _check_slurm_config(slurm_config, walltime):
 
     include_constraint = slurm_config['include_constraint']
     if type('include_constraint') != bool:
-        raise Exception('include_constraint (%s) must be a boolean.' % str(include_constraint))
+        if type('include_constraint') != str:
+            raise Exception('include_constraint (%s) must be a boolean.' % str(include_constraint))
 
     if 'n_cores_per_node' not in slurm_config[slurm_config['resource']]:
         raise Exception('n_cores_per_node must be set in slurm_config')

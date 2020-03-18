@@ -13,6 +13,10 @@ import sys
 import time
 from popsycle import synthetic
 from popsycle import utils
+from popsycle.synthetic import _check_run_galaxia
+from popsycle.synthetic import _check_perform_pop_syn
+from popsycle.synthetic import _check_calc_events
+from popsycle.synthetic import _check_refine_events
 
 
 def _return_filename_dict(output_root):
@@ -122,9 +126,12 @@ def generate_field_config_file(longitude, latitude, area,
     generate_config_file(config_filename, config)
 
 
-def generate_slurm_config_file(path_python, account, queue,
-                               resource, n_cores_per_node, n_nodes_max,
-                               walltime_max, additional_lines,
+def generate_slurm_config_file(path_python='python', account='ulens',
+                               queue='regular', resource='haswell',
+                               n_cores_per_node=32, n_nodes_max=2388,
+                               walltime_max='48:00:00',
+                               additional_lines=['module load cray-hdf5/1.10.5.2',
+                                                 'export HDF5_USE_FILE_LOCKING=FALSE'],
                                config_filename='slurm_config.yaml'):
     """
     Save slurm configuration parameters from a dictionary into a yaml file
@@ -178,13 +185,14 @@ def generate_slurm_config_file(path_python, account, queue,
     generate_config_file(config_filename, config)
 
 
-def generate_popsycle_config_file(radius_cut, obs_time,
-                                  n_obs, theta_frac, blend_rad,
-                                  isochrones_dir,
-                                  bin_edges_number,
-                                  BH_kick_speed_mean, NS_kick_speed_mean,
-                                  photometric_system,
-                                  filter_name, red_law,
+def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
+                                  n_obs=101, theta_frac=2, blend_rad=0.75,
+                                  isochrones_dir='/Users/myself/popsycle_isochrones',
+                                  bin_edges_number=None,
+                                  BH_kick_speed_mean=50,
+                                  NS_kick_speed_mean=400,
+                                  photometric_system='ubv',
+                                  filter_name='R', red_law='Damineli16',
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -197,7 +205,7 @@ def generate_popsycle_config_file(radius_cut, obs_time,
     obs_time : float
         Survey duration, in DAYS.
 
-    n_obs : float
+    n_obs : int
         Number of observations.
 
     theta_frac : float
@@ -211,8 +219,12 @@ def generate_popsycle_config_file(radius_cut, obs_time,
         Directory for PyPopStar isochrones
 
     bin_edges_number : int
-        Number of edges for the bins (bins = bin_edges_number - 1)
-        Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
@@ -301,6 +313,71 @@ def load_config_file(config_filename):
     return config
 
 
+def _check_slurm_config(slurm_config, walltime):
+    """
+    Checks that the values in slurm_config are valid
+
+    Parameters
+    ----------
+    slurm_config : dict
+        Dictionary of values for configuring slurm scripts
+
+    walltime : str
+        Amount of walltime that the script will request from slurm.
+        Format: hh:mm:ss
+    """
+
+    if 'path_python' not in slurm_config:
+        raise Exception('path_python must be set in slurm_config')
+
+    if 'account' not in slurm_config:
+        raise Exception('account must be set in slurm_config')
+
+    if 'queue' not in slurm_config:
+        raise Exception('queue must be set in slurm_config')
+
+    if 'resource' not in slurm_config:
+        raise Exception('resource must be set in slurm_config')
+
+    if 'n_cores_per_node' not in slurm_config[slurm_config['resource']]:
+        raise Exception('n_cores_per_node must be set in slurm_config')
+
+    n_cores_per_node = slurm_config[slurm_config['resource']]['n_cores_per_node']
+    if type(n_cores_per_node) != int:
+        raise Exception('n_cores_per_node (%s) must be an integer.' % str(n_cores_per_node))
+
+    if 'n_nodes_max' not in slurm_config[slurm_config['resource']]:
+        raise Exception('n_nodes_max must be set in slurm_config')
+
+    n_nodes_max = slurm_config[slurm_config['resource']]['n_nodes_max']
+    if type(n_nodes_max) != int:
+        raise Exception('n_nodes_max (%s) must be an integer.' % str(n_nodes_max))
+
+    if 'walltime_max' not in slurm_config[slurm_config['resource']]:
+        raise Exception('walltime_max must be set in slurm_config')
+
+    walltime_max = slurm_config[slurm_config['resource']]['walltime_max']
+    if type(walltime_max) != str:
+        raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+    if walltime_max.count(':') != 2:
+        raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+    if len(walltime_max) != 8:
+        raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+    for num in walltime_max.split(':'):
+        if not num.isdigit():
+            raise Exception('walltime_max (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+
+    if type(walltime) != str:
+        raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime_max))
+    if walltime.count(':') != 2:
+        raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
+    if len(walltime) != 8:
+        raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
+    for num in walltime.split(':'):
+        if not num.isdigit():
+            raise Exception('walltime (%s) must be formatted as HH:MM:SS' % str(walltime))
+
+
 def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
@@ -310,7 +387,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
-    Generates the slurm script that executes the PopSyCLE pipeline
+    Generates (and possibly submits) the slurm script that
+    executes the PopSyCLE pipeline
 
     Parameters
     ----------
@@ -404,6 +482,49 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Enforce popsycle_config_filename is an absolute path
     popsycle_config_filename = os.path.abspath(popsycle_config_filename)
+    popsycle_config = load_config_file(popsycle_config_filename)
+
+    # Load the slurm configuration file
+    slurm_config = load_config_file(slurm_config_filename)
+
+    # Check pipeline stages for valid inputs
+    _check_slurm_config(slurm_config, walltime)
+    if not skip_galaxia:
+        _check_run_galaxia(output_root=output_root,
+                           longitude=longitude,
+                           latitude=latitude,
+                           area=area,
+                           seed=seed)
+    if not skip_perform_pop_syn:
+        if popsycle_config['bin_edges_number'] == 'None':
+            popsycle_config['bin_edges_number'] = None
+        _check_perform_pop_syn(ebf_file='test.ebf',
+                               output_root=output_root,
+                               iso_dir=popsycle_config['isochrones_dir'],
+                               bin_edges_number=popsycle_config['bin_edges_number'],
+                               BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               additional_photometric_systems=[popsycle_config['photometric_system']],
+                               overwrite=overwrite,
+                               seed=seed)
+    if not skip_calc_events:
+        _check_calc_events(hdf5_file='test.h5',
+                           output_root2=output_root,
+                           radius_cut=popsycle_config['radius_cut'],
+                           obs_time=popsycle_config['obs_time'],
+                           n_obs=popsycle_config['n_obs'],
+                           theta_frac=popsycle_config['theta_frac'],
+                           blend_rad=popsycle_config['blend_rad'],
+                           n_proc=n_cores_calc_events,
+                           overwrite=overwrite)
+    if not skip_refine_events:
+        _check_refine_events(input_root='test',
+                             filter_name=popsycle_config['filter_name'],
+                             photometric_system=popsycle_config['photometric_system'],
+                             red_law=popsycle_config['red_law'],
+                             overwrite=overwrite,
+                             output_file='default')
+
 
     # Make a run directory for the PopSyCLE output
     path_run = os.path.abspath(path_run)
@@ -417,9 +538,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
                                                                output_root)
     generate_config_file(field_config_filename, config)
-
-    # Load the slurm configuration file
-    slurm_config = load_config_file(slurm_config_filename)
 
     # Create a slurm jobname base that all stages will be appended to
     jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
@@ -435,7 +553,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     queue = slurm_config['queue']
     # Name of the resource that will be ussed for the run
     resource = slurm_config['resource']
-    # Maximum number of ores per node
+    # Maximum number of cores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
     n_nodes_max = slurm_config[resource]['n_nodes_max']
@@ -443,6 +561,23 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
     run_filepath = os.path.dirname(inspect.getfile(load_config_file))
+
+    if n_cores_calc_events > n_cores_per_node:
+        raise Exception('n_cores_calc_events (%s) '
+                        'must be less than or equal to '
+                        'n_cores_per_node (%s)' % (n_cores_calc_events,
+                                                   n_cores_per_node))
+
+    walltime_s = int(walltime.split(':')[0]) * 3600
+    walltime_s += int(walltime.split(':')[1]) * 60
+    walltime_s += int(walltime.split(':')[2])
+    walltime_max_s = int(walltime_max.split(':')[0]) * 3600
+    walltime_max_s += int(walltime_max.split(':')[1]) * 60
+    walltime_max_s += int(walltime_max.split(':')[2])
+    if walltime_s > walltime_max_s:
+        raise Exception('walltime (%s) '
+                        'must be less than or equal to '
+                        'walltime_max (%s)' % (walltime, walltime_max))
 
     # Template for writing slurm script. Text must be left adjusted.
     slurm_template = """#!/bin/sh
@@ -453,6 +588,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 #SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
+#SBATCH --output={jobname}.out
 echo "---------------------------"
 echo Longitude = {longitude}
 echo Latitude = {latitude}
@@ -473,11 +609,6 @@ srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} -
 date
 echo "All done!"
 """
-
-    # Check that the specified number of cores does not exceed the resource max
-    if n_cores_calc_events > n_cores_per_node:
-        print('Error: specified number of cores exceeds limit. Exiting...')
-        return None
 
     optional_cmds = ''
 
@@ -624,6 +755,41 @@ def run():
     additional_photometric_systems = None
     if popsycle_config['photometric_system'] != 'ubv':
         additional_photometric_systems = [popsycle_config['photometric_system']]
+
+    # Check pipeline stages for valid inputs
+    if not args.skip_galaxia:
+        _check_run_galaxia(output_root=args.output_root,
+                           longitude=field_config['longitude'],
+                           latitude=field_config['latitude'],
+                           area=field_config['area'],
+                           seed=args.seed)
+    if not args.skip_perform_pop_syn:
+        _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
+                               output_root=args.output_root,
+                               iso_dir=popsycle_config['isochrones_dir'],
+                               bin_edges_number=popsycle_config['bin_edges_number'],
+                               BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               additional_photometric_systems=additional_photometric_systems,
+                               overwrite=args.overwrite,
+                               seed=args.seed)
+    if not args.skip_calc_events:
+        _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
+                           output_root2=args.output_root,
+                           radius_cut=popsycle_config['radius_cut'],
+                           obs_time=popsycle_config['obs_time'],
+                           n_obs=popsycle_config['n_obs'],
+                           theta_frac=popsycle_config['theta_frac'],
+                           blend_rad=popsycle_config['blend_rad'],
+                           n_proc=args.n_cores_calc_events,
+                           overwrite=args.overwrite)
+    if not args.skip_refine_events:
+        _check_refine_events(input_root=args.output_root,
+                             filter_name=popsycle_config['filter_name'],
+                             photometric_system=popsycle_config['photometric_system'],
+                             red_law=popsycle_config['red_law'],
+                             overwrite=args.overwrite,
+                             output_file='default')
 
     if not args.skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True

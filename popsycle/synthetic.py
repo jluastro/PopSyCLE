@@ -2131,7 +2131,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     Return
     ------
     events_lens : array
-        Lenses and sources pf a particular lens
+        Lenses and sources of a particular lens
 
     """
     # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)

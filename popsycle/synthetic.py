@@ -1390,6 +1390,7 @@ def calc_events(hdf5_file, output_root2,
     events_tmp = unique_events(events_tmp)
     events_final = Table(events_tmp)
     N_events = len(events_final)
+    print('Candidate events detected: ', N_events)
 
     if len(results_bl) != 0:
         blends_tmp = unique_blends(blends_tmp)
@@ -1405,7 +1406,6 @@ def calc_events(hdf5_file, output_root2,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    radius_cut = radius_cut / 1000.0  # back to arcsec
     microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=microlens_path).decode('ascii').strip()

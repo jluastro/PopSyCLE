@@ -37,6 +37,7 @@ from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
 from popsycle import utils
+from sklearn.neighbors import BallTree
 
 
 ##########
@@ -1633,56 +1634,82 @@ def calc_events(hdf5_file, output_root2,
     return
 
 
-def _return_match_idxs(coords_centers, coords_surrounding, radius_cut):
+# def _return_match_idxs(coords_centers, coords_surrounding, radius_cut):
+#     """
+#     Returns the indices of stars in 'coords_surrounding' that fall within
+#     the 'radius' of stars in 'coords_centers'.
+#
+#     Functions taken from astropy.coordinates.search_around_sky
+#         https://docs.astropy.org/en/stable/api/
+#         astropy.coordinates.search_around_sky.html
+#
+#     Parameters
+#     ----------
+#     coords_centers : astropy.coordinates.SkyCoord
+#         SkyCoord of stars that are placed in the center of the search radius
+#
+#     coords_surrounding : astropy.coordinates.SkyCoords
+#         SkyCoord of stars that are evaluated for falling in the search
+#         radii of 'coords_centers'
+#
+#     radius_cut : float
+#         Radius of the circle around each star in 'coords_centers' that a
+#         star in 'coords_surrounding' may be placed into.
+#         'radius' must be provided in ARCSECONDS.
+#
+#     Return
+#     ------
+#     sep : float
+#         separation of two coordinates, in degrees
+#
+#     """
+#     seplimit = radius_cut * units.arcsec
+#     coords_centers_trans = coords_centers.transform_to(coords_surrounding)
+#     urepr1 = coords_centers_trans.data.represent_as(UnitSphericalRepresentation)
+#     ucoords1 = coords_centers_trans.realize_frame(urepr1)
+#     cartxyz1 = ucoords1.cartesian.xyz
+#     flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
+#     # Define the query distance.
+#     r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
+#
+#     # Query ball against the existing (cached) tree.
+#     # NOTE: results is an array of lists.
+#     if 'kdtree_sky' not in coords_surrounding.cache:
+#         _ = coord.match_coordinates_sky(coords_surrounding,
+#                                         coords_surrounding,
+#                                         nthneighbor=2)
+#
+#     kdtree_cache = coords_surrounding.cache['kdtree_sky']
+#     match_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+#
+#     # Return the first element if 'coords_centers' is a single point
+#     if coords_centers.ndim == 0:
+#         match_idxs = match_idxs[0]
+#
+#     return match_idxs
+
+def _return_match_idxs(glon_center, glat_center,
+                       glon_surrounding, glat_surrounding,
+                       radius_cut):
     """
-    Returns the indices of stars in 'coords_surrounding' that fall within
-    the 'radius' of stars in 'coords_centers'.
-
-    Functions taken from astropy.coordinates.search_around_sky
-        https://docs.astropy.org/en/stable/api/
-        astropy.coordinates.search_around_sky.html
-
-    Parameters
-    ----------
-    coords_centers : astropy.coordinates.SkyCoord
-        SkyCoord of stars that are placed in the center of the search radius
-
-    coords_surrounding : astropy.coordinates.SkyCoords
-        SkyCoord of stars that are evaluated for falling in the search
-        radii of 'coords_centers'
-
-    radius_cut : float
-        Radius of the circle around each star in 'coords_centers' that a
-        star in 'coords_surrounding' may be placed into.
-        'radius' must be provided in ARCSECONDS.
-
-    Return
-    ------
-    sep : float
-        separation of two coordinates, in degrees
-
     """
-    seplimit = radius_cut * units.arcsec
-    coords_centers_trans = coords_centers.transform_to(coords_surrounding)
-    urepr1 = coords_centers_trans.data.represent_as(UnitSphericalRepresentation)
-    ucoords1 = coords_centers_trans.realize_frame(urepr1)
-    cartxyz1 = ucoords1.cartesian.xyz
-    flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
-    # Define the query distance.
-    r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
+    glon_surrounding = np.atleast_1d(glon_surrounding)
+    points_surronding = np.zeros((len(glon_surrounding), 2))
+    points_surronding[:, 0] = np.radians(glat_surrounding)
+    points_surronding[:, 1] = np.radians(glon_surrounding)
 
-    # Query ball against the existing (cached) tree.
-    # NOTE: results is an array of lists.
-    if 'kdtree_sky' not in coords_surrounding.cache:
-        _ = coord.match_coordinates_sky(coords_surrounding,
-                                        coords_surrounding,
-                                        nthneighbor=2)
+    glon_center = np.atleast_1d(glon_center)
+    points_center = np.zeros((len(glon_center), 2))
+    points_center[:, 0] = np.radians(glat_center)
+    points_center[:, 1] = np.radians(glon_center)
 
-    kdtree_cache = coords_surrounding.cache['kdtree_sky']
-    match_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+    tree = BallTree(points_surronding, leaf_size=3, metric='haversine')
+    radius_cut_rad = np.radians(radius_cut / 3600)
+    match_idxs = tree.query_radius(points_center, radius_cut_rad)
+    del tree
 
     # Return the first element if 'coords_centers' is a single point
-    if coords_centers.ndim == 0:
+    if len(glon_center) == 1:
         match_idxs = match_idxs[0]
 
     return match_idxs
@@ -1934,11 +1961,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     t0 = time.time()
 
-    # Create a static coordinate catalog of the stars without any motion
-    coords_static = SkyCoord(frame='galactic',
-                            l=bigpatch['glon'] * units.deg,
-                            b=bigpatch['glat'] * units.deg)
-
     # Calculate the maximum speed that two stars headed directly for
     # each other would have to be to not be captured by the `radius_cut`
     radius_cut_mas = radius_cut * 1000  # mas
@@ -1948,7 +1970,11 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Calculate the indices of stars that are within this
     # possible lensing radius for all stars in bigpatch
-    source_idxs_arr = _return_match_idxs(coords_static, coords_static,
+    # source_idxs_arr = _return_match_idxs(coords_static, coords_static,
+    #                                      radius_cut)
+
+    source_idxs_arr = _return_match_idxs(bigpatch['glon'], bigpatch['glat'],
+                                         bigpatch['glon'], bigpatch['glat'],
                                          radius_cut)
 
     # Create a time array for all obseravtions
@@ -1961,9 +1987,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Loop through source_idxs_arr and insert fast stars into
     # the list of stars that they will travel into during the search
-    source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static,
-                                                         time_array_T, speed_cut,
-                                                         radius_cut, source_idxs_arr)
+    # source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static,
+    #                                                      time_array_T, speed_cut,
+    #                                                      radius_cut, source_idxs_arr)
 
     t1 = time.time()
     print('Fast Stars Time: %.2fs' % (t1 - t0))
@@ -2073,8 +2099,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
             ##########
-            blends_lens = _calc_blends(bigpatch, coords_static,
-                                      events_lens, blend_rad)
+            blends_lens = _calc_blends(bigpatch, events_lens, blend_rad)
             del events_lens
 
             if blends_lens is not None:
@@ -2091,7 +2116,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     else:
         blends_llbb = None
 
-    del [coords_static, source_idxs_arr]
+    del source_idxs_arr
     gc.collect()
 
     t1 = time.time()
@@ -2199,7 +2224,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         return None
 
 
-def _calc_blends(bigpatch, coords_static, events_lens, blend_rad):
+def _calc_blends(bigpatch, events_lens, blend_rad):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -2237,14 +2262,12 @@ def _calc_blends(bigpatch, coords_static, events_lens, blend_rad):
     # If multiple sources are around the same lens, loop over them
     for event in events_lens:
 
-        # Define the center of the blending disk (the lens)
-        coords_lens = SkyCoord(frame='galactic',
-                               l=event['glon_L'] * units.deg,
-                               b=event['glat_L'] * units.deg)
-
-        # Gather coordinates of sources within 2 * blend_rad
-        radius = 2 * blend_rad
-        large_blends_idxs = _return_match_idxs(coords_lens, coords_static,
+        # Gather coordinates of sources within 1.5 * blend_rad of the lens
+        radius = 1.5 * blend_rad
+        large_blends_idxs = _return_match_idxs(event['glon_L'],
+                                               event['glat_L'],
+                                               bigpatch['glon'],
+                                               bigpatch['glat'],
                                                radius)
 
         # Remove the source and lens
@@ -2256,13 +2279,13 @@ def _calc_blends(bigpatch, coords_static, events_lens, blend_rad):
         timei = event['t0']
         b_blends_tmp = bigpatch[large_blends_idxs]['glat'] + timei * bigpatch[large_blends_idxs]['mu_b'] * masyr_to_degday  # deg
         l_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
-        coords_blends_tmp = SkyCoord(frame='galactic',
-                                    l=l_blends_tmp * units.deg,
-                                    b=b_blends_tmp * units.deg)
 
         # Calculate the indices of stars that are within the blend radius
         # at the time of t0
-        blends_idxs_tmp = _return_match_idxs(coords_lens, coords_blends_tmp,
+        blends_idxs_tmp = _return_match_idxs(event['glon_L'],
+                                             event['glat_L'],
+                                             l_blends_tmp,
+                                             b_blends_tmp,
                                              blend_rad)
         blends_idxs = [large_blends_idxs[idx] for idx in blends_idxs_tmp]
 
@@ -2292,7 +2315,12 @@ def _calc_blends(bigpatch, coords_static, events_lens, blend_rad):
         #   coords_blends = SkyCoord(frame='galactic',
         #                           l=glon_blends * units.deg,
         #                           b=glat_blends * units.deg)
-        coords_blends = coords_blends_tmp[blends_idxs_tmp]
+        coords_lens = SkyCoord(frame='galactic',
+                               l=event['glon_L'] * units.deg,
+                               b=event['glat_L'] * units.deg)
+        coords_blends = SkyCoord(frame='galactic',
+                                 l=l_blends_tmp[blends_idxs_tmp] * units.deg,
+                                 b=b_blends_tmp[blends_idxs_tmp] * units.deg)
         sep_LN = coords_lens.separation(coords_blends)
         sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
 
@@ -2307,7 +2335,7 @@ def _calc_blends(bigpatch, coords_static, events_lens, blend_rad):
 
         # cleanup
         del [large_blends_idxs, b_blends_tmp, l_blends_tmp]
-        del [coords_lens, coords_blends_tmp, coords_blends]
+        del [coords_lens, coords_blends]
 
     # Convert our lists into arrays.
     blend_neigh_obj_id = np.array(blend_neigh_obj_id)

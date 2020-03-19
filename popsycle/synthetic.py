@@ -1514,9 +1514,6 @@ def calc_events(hdf5_file, output_root2,
     b_array = np.array(hf['lat_bin_edges'])
     hf.close()
 
-    # Set up the multiprocessing
-    pool = Pool(n_proc)
-
     # Set up inputs to be able to be read by pool.map
     nll = len(l_array[:]) - 2
     nbb = len(b_array[:]) - 2
@@ -1542,10 +1539,19 @@ def calc_events(hdf5_file, output_root2,
     # Duplicate events are removed.
     ##########
     # Should I use starmap_async?
+
+    # Set up the multiprocessing
+    pool = Pool(n_proc)
+
     results = pool.starmap(_calc_event_time_loop, inputs)
 
     pool.close()
     pool.join()
+
+    # results = []
+    # for lb in llbb:
+    #     results.append(_calc_event_time_loop(lb, hdf5_file, obs_time, n_obs,
+    #                                          radius_cut, theta_frac, blend_rad))
 
     # Remove all the None values
     # (occurs for patches with less than 10 objects)
@@ -1630,66 +1636,45 @@ def calc_events(hdf5_file, output_root2,
     return
 
 
-# def _return_match_idxs(coords_centers, coords_surrounding, radius_cut):
-#     """
-#     Returns the indices of stars in 'coords_surrounding' that fall within
-#     the 'radius' of stars in 'coords_centers'.
-#
-#     Functions taken from astropy.coordinates.search_around_sky
-#         https://docs.astropy.org/en/stable/api/
-#         astropy.coordinates.search_around_sky.html
-#
-#     Parameters
-#     ----------
-#     coords_centers : astropy.coordinates.SkyCoord
-#         SkyCoord of stars that are placed in the center of the search radius
-#
-#     coords_surrounding : astropy.coordinates.SkyCoords
-#         SkyCoord of stars that are evaluated for falling in the search
-#         radii of 'coords_centers'
-#
-#     radius_cut : float
-#         Radius of the circle around each star in 'coords_centers' that a
-#         star in 'coords_surrounding' may be placed into.
-#         'radius' must be provided in ARCSECONDS.
-#
-#     Return
-#     ------
-#     sep : float
-#         separation of two coordinates, in degrees
-#
-#     """
-#     seplimit = radius_cut * units.arcsec
-#     coords_centers_trans = coords_centers.transform_to(coords_surrounding)
-#     urepr1 = coords_centers_trans.data.represent_as(UnitSphericalRepresentation)
-#     ucoords1 = coords_centers_trans.realize_frame(urepr1)
-#     cartxyz1 = ucoords1.cartesian.xyz
-#     flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
-#     # Define the query distance.
-#     r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
-#
-#     # Query ball against the existing (cached) tree.
-#     # NOTE: results is an array of lists.
-#     if 'kdtree_sky' not in coords_surrounding.cache:
-#         _ = coord.match_coordinates_sky(coords_surrounding,
-#                                         coords_surrounding,
-#                                         nthneighbor=2)
-#
-#     kdtree_cache = coords_surrounding.cache['kdtree_sky']
-#     match_idxs = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
-#
-#     # Return the first element if 'coords_centers' is a single point
-#     if coords_centers.ndim == 0:
-#         match_idxs = match_idxs[0]
-#
-#     return match_idxs
-
-
 def _generate_ball_tree(glon, glat, leaf_size=3):
+    """
+    Generate a sklearn.neighbors.BallTree from the provided positions.
+    Longitude and latitude must be provided in DEGREES.
+
+    Parameters
+    ----------
+    glon : float, numpy array
+        Galactic longitudes (degrees)
+
+    glat : float, numpy array
+        Galactic latitudes (degrees)
+
+    Optional Parameters
+    -------------------
+    leaf_size : int
+        Number of points at which to switch to brute-force.
+        Changing leaf_size will not affect the results of a query,
+        but can significantly impact the speed of a query and the memory
+        required to store the constructed tree. The amount of memory needed
+        to store the tree scales as approximately n_samples / leaf_size.
+        For a specified leaf_size, a leaf node is guaranteed to satisfy
+        leaf_size <= n_points <= 2 * leaf_size, except in the case that
+        n_samples < leaf_size.
+
+    Return
+    ------
+    ball_tree : sklearn.neighbors.BallTree
+        BallTree of all static sources in bigpatch.
+        Can be queried using _return_match_idxs
+
+    """
+    # Support for either a list or a single point
     glon = np.atleast_1d(glon)
+    # BallTree requires a list of (lat, lon) in radians
     points = np.zeros((len(glon), 2))
     points[:, 0] = np.radians(glat)
     points[:, 1] = np.radians(glon)
+    # Build the ball_tree
     ball_tree = neighbors.BallTree(points,
                                    leaf_size=leaf_size,
                                    metric='haversine')
@@ -1698,6 +1683,33 @@ def _generate_ball_tree(glon, glat, leaf_size=3):
 
 def _return_match_idxs(glon, glat, ball_tree, radius_cut):
     """
+    Returns the neighbor within a radius_cut surrounding
+    a single or list of galactic longtiudes and latitudes.
+    Longitude and latitude must be provided in DEGREES.
+
+    Parameters
+    ----------
+    glon : float, numpy array
+        Galactic longitudes (degrees)
+
+    glat : float, numpy array
+        Galactic latitudes (degrees)
+
+    ball_tree : sklearn.neighbors.BallTree
+        BallTree of all static sources in bigpatch.
+        Can be generated using _generate_ball_tree
+
+    radius_cut : float
+        Radius around which each lens looks for stars that could be
+        its microlensing source.
+        'radius' must be provided in ARCSECONDS.
+
+    Return
+    ------
+    source_idxs_arr : array
+        Array of indices of all neighbors within radius_cut
+        for each object in glon, glat
+
     """
     glon = np.atleast_1d(glon)
     points = np.zeros((len(glon), 2))
@@ -1713,7 +1725,7 @@ def _return_match_idxs(glon, glat, ball_tree, radius_cut):
     return match_idxs
 
 
-def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
+def _add_fast_stars_to_source_idxs_arr(bigpatch, ball_tree_static, time_array_T,
                                        speed_cut, radius_cut, source_idxs_arr):
     """
     Find the fast stars that move into the search radii of a new star during
@@ -1724,8 +1736,8 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
 
-    coords_static : astropy.coordinates.SkyCoord
-        SkyCoord of all stars in bigpatch at t0
+    ball_tree_static : sklearn.neighbors.BallTree
+        BallTree of all static sources in bigpatch
 
     time_array_T : array
         List of observations times at which to search for microlensing events.
@@ -1771,13 +1783,10 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     for timei in time_array_T:
         b_t_fast = bigpatch[fast_idxs]['glat'] + timei * bigpatch[fast_idxs]['mu_b'] * masyr_to_degday  # deg
         l_t_fast = bigpatch[fast_idxs]['glon'] + timei * (bigpatch[fast_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[fast_idxs]['glat']))) * masyr_to_degday  # deg
-        coords_fast = SkyCoord(frame='galactic',
-                               l=l_t_fast * units.deg,
-                               b=b_t_fast * units.deg)
         # Find all the static stars that fall within the search radius
         # of a fast star at this time
-        bigpatch_match_idxs_arr = _return_match_idxs(coords_fast,
-                                                     coords_static,
+        bigpatch_match_idxs_arr = _return_match_idxs(l_t_fast, b_t_fast,
+                                                     ball_tree_static,
                                                      radius_cut)
 
         # Loop over each fast star and it's static star matches
@@ -1804,13 +1813,15 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
 
                 # Add the static stars into the fast lens star's
                 # list of possible sources
-                source_idxs_arr[bigpatch_lens_idx] += bigpatch_match_idxs
+                source_idxs_arr[bigpatch_lens_idx] = np.append(source_idxs_arr[bigpatch_lens_idx],
+                                                               bigpatch_match_idxs)
 
                 # And for each static star, add this loop's fast star into
                 # the static star's list of possible sources
                 for bigpatch_match_idx in bigpatch_match_idxs:
                     new_apertures_counter += 1
-                    source_idxs_arr[bigpatch_match_idx].append(bigpatch_lens_idx)
+                    source_idxs_arr[bigpatch_match_idx] = np.append(source_idxs_arr[bigpatch_match_idx],
+                                                                    bigpatch_lens_idx)
 
             del [fast_lens_idx, bigpatch_match_idxs]
 
@@ -1839,9 +1850,8 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     l_t_fast_source = bigpatch[fast_idxs]['glon'] + time_array_T * (bigpatch[fast_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[fast_idxs]['glat']))) * masyr_to_degday  # deg
     b_t_fast_source = b_t_fast_source.flatten()
     l_t_fast_source = l_t_fast_source.flatten()
-    coords_fast_source = SkyCoord(frame='galactic',
-                                  l=l_t_fast_source * units.deg,
-                                  b=b_t_fast_source * units.deg)
+    ball_tree_fast = _generate_ball_tree(l_t_fast_source,
+                                         b_t_fast_source)
 
     # Loop over each fast star as a lens at each time
     fast_stars_counter = 0
@@ -1849,17 +1859,14 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
     for timei in time_array_T:
         b_t_fast_lens = bigpatch[fast_idxs]['glat'] + timei * bigpatch[fast_idxs]['mu_b'] * masyr_to_degday  # deg
         l_t_fast_lens = bigpatch[fast_idxs]['glon'] + timei * (bigpatch[fast_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[fast_idxs]['glat']))) * masyr_to_degday  # deg
-        coords_fast_lens = SkyCoord(frame='galactic',
-                                    l=l_t_fast_lens * units.deg,
-                                    b=b_t_fast_lens * units.deg)
 
         # Find the fast source stars at all times
         # that fall within the search radius of the fast lens stars
         # at this particular time
-        flat_match_idxs_arr = _return_match_idxs(coords_fast_lens,
-                                                 coords_fast_source,
+        flat_match_idxs_arr = _return_match_idxs(l_t_fast_lens,
+                                                 b_t_fast_lens,
+                                                 ball_tree_fast,
                                                  radius_cut)
-        del coords_fast_lens
 
         # Loop over each fast lens star and it's fast star matches
         for fast_lens_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
@@ -1894,15 +1901,18 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static, time_array_T,
 
                 # Add the fast match stars into the fast lens star's
                 # list of possible sources
-                source_idxs_arr[bigpatch_lens_idx] += bigpatch_match_idxs
+                source_idxs_arr[bigpatch_lens_idx] = np.append(source_idxs_arr[bigpatch_lens_idx],
+                                                               bigpatch_match_idxs)
 
                 # And for each fast match star, add this loop's fast lens star
                 # into the fast match star's list of possible sources
                 for bigpatch_match_idx in bigpatch_match_idxs:
                     new_apertures_counter += 1
-                    source_idxs_arr[bigpatch_match_idx].append(bigpatch_lens_idx)
+                    source_idxs_arr[bigpatch_match_idx] = np.append(source_idxs_arr[bigpatch_match_idx],
+                                                                    bigpatch_lens_idx)
 
         del flat_match_idxs_arr
+    del ball_tree_fast
 
     print('%i fast stars added to '
           '%i fast star lensing apertures' % (fast_stars_counter,
@@ -1968,8 +1978,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Calculate the indices of stars that are within this
     # possible lensing radius for all stars in bigpatch
-    # source_idxs_arr = _return_match_idxs(coords_static, coords_static,
-    #                                      radius_cut)
     ball_tree_static = _generate_ball_tree(bigpatch['glon'],
                                            bigpatch['glat'])
     source_idxs_arr = _return_match_idxs(bigpatch['glon'],
@@ -1987,9 +1995,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
     # Loop through source_idxs_arr and insert fast stars into
     # the list of stars that they will travel into during the search
-    # source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, coords_static,
-    #                                                      time_array_T, speed_cut,
-    #                                                      radius_cut, source_idxs_arr)
+    source_idxs_arr = _add_fast_stars_to_source_idxs_arr(bigpatch, ball_tree_static,
+                                                         time_array_T, speed_cut,
+                                                         radius_cut, source_idxs_arr)
 
     t1 = time.time()
     print('Fast Stars Time: %.2fs' % (t1 - t0))

@@ -1711,14 +1711,18 @@ def _return_match_idxs(glon, glat, ball_tree, radius_cut):
         for each object in glon, glat
 
     """
+    # Support for either a list or a single point
     glon = np.atleast_1d(glon)
+    # BallTree requires a list of (lat, lon) in radians
     points = np.zeros((len(glon), 2))
     points[:, 0] = np.radians(glat)
     points[:, 1] = np.radians(glon)
+    # Convert radius_cut from arcseconds to radians
     radius_cut_rad = np.radians(radius_cut / 3600)
+    # Returns an array of arrays
     match_idxs = ball_tree.query_radius(points, radius_cut_rad)
 
-    # Return the first element if 'coords_centers' is a single point
+    # Return the first array if the positions are a single point
     if len(glon) == 1:
         match_idxs = match_idxs[0]
 

@@ -15,10 +15,7 @@ import math
 from astropy import units
 from popsycle.filters import transform_ubv_to_ztf
 from scipy.stats import maxwell
-import astropy.coordinates as coord
-from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
-from astropy.coordinates import Angle  # Angles
 from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
@@ -37,7 +34,6 @@ from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
 from popsycle import utils
-from sklearn.neighbors import BallTree
 
 
 ##########
@@ -1688,28 +1684,30 @@ def calc_events(hdf5_file, output_root2,
 #
 #     return match_idxs
 
-def _return_match_idxs(glon_center, glat_center,
-                       glon_surrounding, glat_surrounding,
-                       radius_cut):
+
+def _generate_ball_tree(glon, glat, leaf_size=3):
+    glon = np.atleast_1d(glon)
+    points = np.zeros((len(glon), 2))
+    points[:, 0] = np.radians(glat)
+    points[:, 1] = np.radians(glon)
+    ball_tree = neighbors.BallTree(points,
+                                   leaf_size=leaf_size,
+                                   metric='haversine')
+    return ball_tree
+
+
+def _return_match_idxs(glon, glat, ball_tree, radius_cut):
     """
     """
-    glon_surrounding = np.atleast_1d(glon_surrounding)
-    points_surronding = np.zeros((len(glon_surrounding), 2))
-    points_surronding[:, 0] = np.radians(glat_surrounding)
-    points_surronding[:, 1] = np.radians(glon_surrounding)
-
-    glon_center = np.atleast_1d(glon_center)
-    points_center = np.zeros((len(glon_center), 2))
-    points_center[:, 0] = np.radians(glat_center)
-    points_center[:, 1] = np.radians(glon_center)
-
-    tree = BallTree(points_surronding, leaf_size=3, metric='haversine')
+    glon = np.atleast_1d(glon)
+    points = np.zeros((len(glon), 2))
+    points[:, 0] = np.radians(glat)
+    points[:, 1] = np.radians(glon)
     radius_cut_rad = np.radians(radius_cut / 3600)
-    match_idxs = tree.query_radius(points_center, radius_cut_rad)
-    del tree
+    match_idxs = ball_tree.query_radius(points, radius_cut_rad)
 
     # Return the first element if 'coords_centers' is a single point
-    if len(glon_center) == 1:
+    if len(glon) == 1:
         match_idxs = match_idxs[0]
 
     return match_idxs
@@ -1972,9 +1970,11 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # possible lensing radius for all stars in bigpatch
     # source_idxs_arr = _return_match_idxs(coords_static, coords_static,
     #                                      radius_cut)
-
-    source_idxs_arr = _return_match_idxs(bigpatch['glon'], bigpatch['glat'],
-                                         bigpatch['glon'], bigpatch['glat'],
+    ball_tree_static = _generate_ball_tree(bigpatch['glon'],
+                                           bigpatch['glat'])
+    source_idxs_arr = _return_match_idxs(bigpatch['glon'],
+                                         bigpatch['glat'],
+                                         ball_tree_static,
                                          radius_cut)
 
     # Create a time array for all obseravtions
@@ -2099,7 +2099,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
             ##########
-            blends_lens = _calc_blends(bigpatch, events_lens, blend_rad)
+            blends_lens = _calc_blends(bigpatch, ball_tree_static,
+                                       events_lens, blend_rad)
             del events_lens
 
             if blends_lens is not None:
@@ -2224,7 +2225,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         return None
 
 
-def _calc_blends(bigpatch, events_lens, blend_rad):
+def _calc_blends(bigpatch, ball_tree_static, events_lens, blend_rad):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -2236,8 +2237,8 @@ def _calc_blends(bigpatch, events_lens, blend_rad):
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
 
-    coords_static : astropy.coordinates.SkyCoord
-        SkyCoord of all stars in bigpatch
+    ball_tree_static : sklearn.neighbors.BallTree
+        BallTree of all static sources in bigpatch
 
     events_lens : array
         Microlensing lenses and sources of a particular lens
@@ -2262,32 +2263,14 @@ def _calc_blends(bigpatch, events_lens, blend_rad):
     # If multiple sources are around the same lens, loop over them
     for event in events_lens:
 
-        # Gather coordinates of sources within 1.5 * blend_rad of the lens
-        radius = 1.5 * blend_rad
-        large_blends_idxs = _return_match_idxs(event['glon_L'],
-                                               event['glat_L'],
-                                               bigpatch['glon'],
-                                               bigpatch['glat'],
-                                               radius)
+        # Gather coordinates of sources within blend_rad of the lens
+        blends_idxs = _return_match_idxs(event['glon_L'],
+                                         event['glat_L'],
+                                         ball_tree_static, blend_rad)
 
         # Remove the source and lens
-        large_blends_idxs = [i for i in large_blends_idxs if
-                             bigpatch[i]['obj_id']
-                             not in event[['obj_id_L', 'obj_id_S']]]
-
-        # Calculate coordinates of all potential neighbors at the time of t0
-        timei = event['t0']
-        b_blends_tmp = bigpatch[large_blends_idxs]['glat'] + timei * bigpatch[large_blends_idxs]['mu_b'] * masyr_to_degday  # deg
-        l_blends_tmp = bigpatch[large_blends_idxs]['glon'] + timei * (bigpatch[large_blends_idxs]['mu_lcosb'] / np.cos(np.radians(bigpatch[large_blends_idxs]['glat']))) * masyr_to_degday
-
-        # Calculate the indices of stars that are within the blend radius
-        # at the time of t0
-        blends_idxs_tmp = _return_match_idxs(event['glon_L'],
-                                             event['glat_L'],
-                                             l_blends_tmp,
-                                             b_blends_tmp,
-                                             blend_rad)
-        blends_idxs = [large_blends_idxs[idx] for idx in blends_idxs_tmp]
+        blends_idxs = [i for i in blends_idxs if bigpatch[i]['obj_id']
+                       not in event[['obj_id_L', 'obj_id_S']]]
 
         if len(blends_idxs) == 0:
             continue
@@ -2305,24 +2288,11 @@ def _calc_blends(bigpatch, events_lens, blend_rad):
         tmp_sorc_id = np.repeat(sid, len(nid)).tolist()
 
         # Calculate the distance from lens to each neighbor.
-        # Note that this is the distance to the neighbors at the time t0 of
-        # the lensing event. Earlier versions of this code found the
-        # distances to neighbors at t0 = 0 and therefore may result in
-        # different aperture fluxes and associated parameters. To compare,
-        # replace the glon_neigh / glat_neigh calculations below with:
-        #   glon_blends = bigpatch[blends_idxs]['glon']
-        #   glat_blends = bigpatch[blends_idxs]['glat']
-        #   coords_blends = SkyCoord(frame='galactic',
-        #                           l=glon_blends * units.deg,
-        #                           b=glat_blends * units.deg)
-        coords_lens = SkyCoord(frame='galactic',
-                               l=event['glon_L'] * units.deg,
-                               b=event['glat_L'] * units.deg)
-        coords_blends = SkyCoord(frame='galactic',
-                                 l=l_blends_tmp[blends_idxs_tmp] * units.deg,
-                                 b=b_blends_tmp[blends_idxs_tmp] * units.deg)
-        sep_LN = coords_lens.separation(coords_blends)
-        sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
+        sep_LN = utils.return_angular_separation(event['glon_L'],
+                                                 event['glat_L'],
+                                                 bigpatch[blends_idxs]['glon'],
+                                                 bigpatch[blends_idxs]['glat'])
+        sep_LN *= 3600  # as
 
         # Add the non-lens, non-source blended object IDs to a list.
         # Add the lens and the source object ID to a new list as well.
@@ -2331,11 +2301,7 @@ def _calc_blends(bigpatch, events_lens, blend_rad):
         blend_lens_obj_id.extend(tmp_lens_id)
         blend_sorc_obj_id.extend(tmp_sorc_id)
         blend_neigh_idx.extend(blends_idxs)
-        sep_LN_list.extend(sep_LN.value.tolist())
-
-        # cleanup
-        del [large_blends_idxs, b_blends_tmp, l_blends_tmp]
-        del [coords_lens, coords_blends]
+        sep_LN_list.extend(sep_LN)
 
     # Convert our lists into arrays.
     blend_neigh_obj_id = np.array(blend_neigh_obj_id)

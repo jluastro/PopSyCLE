@@ -1796,6 +1796,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, ball_tree_static, time_array_T,
         # Loop over each fast star and it's static star matches
         for fast_lens_idx, bigpatch_match_idxs in enumerate(bigpatch_match_idxs_arr):
             # Skip if there are no matches:
+            bigpatch_match_idxs = np.atleast_1d(bigpatch_match_idxs)
             if len(bigpatch_match_idxs) == 0:
                 continue
 
@@ -1875,6 +1876,7 @@ def _add_fast_stars_to_source_idxs_arr(bigpatch, ball_tree_static, time_array_T,
         # Loop over each fast lens star and it's fast star matches
         for fast_lens_idx, flat_match_idxs in enumerate(flat_match_idxs_arr):
             # Extract the fast_match_idxs from the flattened match array
+            flat_match_idxs = np.atleast_1d(flat_match_idxs)
             fast_match_idxs = flat_to_fast_match_idxs(flat_match_idxs,
                                                       N_fast_stars)
 
@@ -2013,6 +2015,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     events_lens_arr = []
     blends_lens_arr = []
     for lens_idx0, source_idxs0 in enumerate(source_idxs_arr):
+        source_idxs0 = np.atleast_1d(source_idxs0)
 
         # Convert all idx lists into numpy arrays
         lens_idx1 = np.array(lens_idx0).astype(int)
@@ -2279,6 +2282,7 @@ def _calc_blends(bigpatch, ball_tree_static, events_lens, blend_rad):
         blends_idxs = _return_match_idxs(event['glon_L'],
                                          event['glat_L'],
                                          ball_tree_static, blend_rad)
+        blends_idxs = np.atleast_1d(blends_idxs)
 
         # Remove the source and lens
         blends_idxs = [i for i in blends_idxs if bigpatch[i]['obj_id']

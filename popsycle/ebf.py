@@ -2755,7 +2755,7 @@ class EbfFile():
     def read_ind(self,ind):
         # This method looks for groups of contiguous indices in 'ind' and
         # loads those blocks of memory with a single copy command.
-        # This method is ~__% faster than looping over each index and running:
+        # This method is ~50% faster than looping over each index and running:
         #   data[i] = self.read(ind[i])
         if numpy.max(ind)<self.elements:
             # Find the ascending order of indices

@@ -2752,16 +2752,16 @@ class EbfFile():
         else:
             return None
 
-    def read_ind(self,ind):
+    def read_ind(self, ind):
         # This method looks for groups of contiguous indices in 'ind' and
         # loads those blocks of memory with a single copy command.
         # This method is ~50% faster than looping over each index and running:
         #   data[i] = self.read(ind[i])
-        if numpy.max(ind)<self.elements:
+        if numpy.max(ind) < self.elements:
             # Find the ascending order of indices
-            ind1=numpy.argsort(ind)
+            ind1 = numpy.argsort(ind)
             # Create an empty data array for copying the data into
-            data=numpy.zeros(len(ind),dtype=self.dtype)
+            data = numpy.zeros(len(ind),dtype=self.dtype)
             # Begin at the start of the data array
             begin_data = 0
             # groupy with this lambda returns a list of generators, with 

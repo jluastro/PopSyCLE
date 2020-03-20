@@ -1918,7 +1918,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         event_lbt = rfn.append_fields(event_lbt, 'theta_E',
                                       theta_E, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 'u0',
-                                      u, usemask=False)
+                                      u.value, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 'mu_rel',
                                       mu_rel, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 't0',

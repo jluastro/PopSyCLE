@@ -604,8 +604,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             num_stars_in_bin = 2e6
             num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
-            # Create the KDTree used for calculating extinction from the first
-            # sample of stars
+            # Create a KDTree from randomly selected stars in the
+            # pop_id / age_bin used for calculating extinction to luminous
+            # white dwarfs. Because the same KDTree is used for each sub-bin,
+            # two compact objects randomly selected to have nearly identical
+            # positions would have identical extinctions. This low
+            # probability event is a reasonable trade-off for the reduced
+            # compute time gained by only constructing the KDTree once.
             kdt_star_p = None
             exbv_arr4kdt = None
             if len_adx > 0:
@@ -1221,6 +1226,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
             if len(lum_WD_idx) > 0:
+                # The extinction to the luminous white dwarfs is calculated
+                # by finding the nearest star in the pop_id / age_bin KDTree
+                # to the compact object and copying that star's extinction.
                 comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T

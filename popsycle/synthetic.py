@@ -607,7 +607,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             # Create the KDTree used for calculating extinction from the first
             # sample of stars
             kdt_star_p = None
-            kdt_star_exbv = None
+            exbv_arr4kdt = None
             if len_adx > 0:
                 num_kdtree_samples = int(min(len_adx, 2e6))
                 kdt_idx = np.random.choice(np.arange(len_adx),
@@ -619,7 +619,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
                 star_xyz = np.array([star_px, star_py, star_pz]).T
                 kdt_star_p = cKDTree(star_xyz)
-                kdt_star_exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
                 del bin_idx, star_px, star_py, star_pz
 
             ##########
@@ -724,7 +724,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
                                                      mass_in_bin, stars_in_bin, next_id,
-                                                     kdt_star_p, kdt_star_exbv,
+                                                     kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
@@ -746,7 +746,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 del star_dict
                 gc.collect()
-            del kdt_star_p, kdt_star_exbv
+            del kdt_star_p, exbv_arr4kdt
 
     t1 = time.time()
     print('Total run time is {0:f} s'.format(t1 - t0))
@@ -957,7 +957,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                     star_dict, next_id,
-                    kdt_star_p, kdt_star_exbv,
+                    kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
                     seed=None):
@@ -986,7 +986,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         KDTree constructed from the positions of randomly selected stars
         that all share the same popid and similar log_age.
 
-    kdt_star_exbv : numpy
+    exbv_arr4kdt : numpy
         Array of galactic extinctions for the stars in kdt_star_p
 
     Optional Parameters
@@ -1225,7 +1225,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T
                 dist, indices = kdt_star_p.query(comp_xyz)
-                comp_dict['exbv'][lum_WD_idx] = kdt_star_exbv[indices.T]
+                comp_dict['exbv'][lum_WD_idx] = exbv_arr4kdt[indices.T]
 
                 comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
                 comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data

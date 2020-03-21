@@ -8,12 +8,10 @@ Including:
 - calc_events
 - refine_events
 """
-
 import numpy as np
 import h5py
 import math
 from astropy import units
-from popsycle.filters import transform_ubv_to_ztf
 from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
@@ -27,7 +25,6 @@ from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time
 import datetime
-from popsycle import ebf
 import gc
 import subprocess
 import os
@@ -36,6 +33,9 @@ import itertools
 from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
+import copy
+from popsycle import ebf
+from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
 
 
@@ -996,7 +996,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
     # Add additional filters to isochrones if additional_photometric_systems
     # contains photometric systems
-    my_filt_list = all_filt_list
+    my_filt_list = copy.deepcopy(all_filt_list)
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
             my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']

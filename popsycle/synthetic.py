@@ -1841,14 +1841,14 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     pbh_data['ubv_B'] = np.full(len(d_galac), np.nan)
     pbh_data['ubv_H'] = np.full(len(d_galac), np.nan)
     pbh_data['ubv_V'] = np.full(len(d_galac), np.nan)
-    pbh_data['teff'] = np.full(len(d_galac), np.nan)
-    pbh_data['grav'] = np.full(len(d_galac), np.nan)
-    pbh_data['mbol'] = np.full(len(d_galac), np.nan)
-    pbh_data['feh'] = np.full(len(d_galac), np.nan)
-    if any(['ztf' in n for n in hdf5_dset_names]):
-        pbh_data['ztf_g'] = np.full(len(d_galac), np.nan)
-        pbh_data['ztf_r'] = np.full(len(d_galac), np.nan)
-        pbh_data['ztf_i'] = np.full(len(d_galac), np.nan)
+
+    # The first four elements may not be in the compound datatype
+    # due to legacy files. The ztf filters will only be present if
+    # the hdf5 file was created with additional_photometric_systems = ['ztf']
+    for field in ['teff', 'grav', 'mbol', 'feh',
+                  'ztf_g', 'ztf_r', 'ztf_i']:
+        if field in hdf5_dset_names:
+            pbh_data[field] = np.full(len(d_galac), np.nan)
 
     # Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
     # so that we can determine which datasets to correctly add the PBHs.

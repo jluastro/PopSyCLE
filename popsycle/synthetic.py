@@ -278,7 +278,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     _ = utils.execute(cmd)
     t1 = time.time()
     print('Galaxia complete')
-    print('total runtime {0:f} s'.format(t1 - t0))
+    print('Total runtime {0:f} s'.format(t1 - t0))
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,

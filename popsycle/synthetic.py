@@ -759,7 +759,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             del kdt_star_p, kdt_star_exbv
 
     t1 = time.time()
-    print('Total run time is {0:f} s'.format(t1 - t0))
+    print('Total runtime is {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.

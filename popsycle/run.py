@@ -1046,7 +1046,7 @@ def run():
                                 output_file='default')
 
     t1 = time.time()
-    print('run.py complete : total run time is {0:f} s'.format(t1 - t0))
+    print('run.py complete : total runtime is {0:f} s'.format(t1 - t0))
 
 
 if __name__ == '__main__':

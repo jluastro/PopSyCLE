@@ -1633,7 +1633,8 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # Later used to set the IDs of the PBHs.
     max_id_no_pbh = []
     for key in key_list:
-        # max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key][20]))
+        if len(no_pbh_hdf5_file[key]) == 0:
+            continue
         max_id_no_pbh.append(np.max(no_pbh_hdf5_file[key]['obj_id']))
     max_id = np.amax(max_id_no_pbh)
 
@@ -1847,6 +1848,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     if any(['ztf' in n for n in hdf5_dset_names]):
         pbh_data['ztf_g'] = np.full(len(d_galac), np.nan)
         pbh_data['ztf_r'] = np.full(len(d_galac), np.nan)
+        pbh_data['ztf_i'] = np.full(len(d_galac), np.nan)
 
     # Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
     # so that we can determine which datasets to correctly add the PBHs.

@@ -540,11 +540,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     long_bin_edges[wrap_id] -= 360
 
     ##########
-    # Create h5py file to store lat/long binned output
+    # Create h5py file to store lat/long binned output and
+    # that this hdf5 file was created without / before add_pbh
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
-    dataset = h5file.create_dataset('lat_bin_edges', data=lat_bin_edges)
-    dataset = h5file.create_dataset('long_bin_edges', data=long_bin_edges)
+    h5file['lat_bin_edges'] = lat_bin_edges
+    h5file['long_bin_edges'] = long_bin_edges
+    h5file['add_pbh'] = False
     h5file.close()
 
     ##########
@@ -767,7 +769,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     binned_counter = 0
     hf = h5py.File(output_root + '.h5', 'r')
     for key in hf:
-        if 'bin_edges' not in key:
+        if 'bin_edges' not in key and 'add_pbh' not in key:
             binned_counter += len(hf[key])
 
     ##########
@@ -1618,8 +1620,9 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # Read in the hdf5 file that doesn't have PBHs. Product of perform_pop_syn.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
     key_list = list(no_pbh_hdf5_file)
-    # Delete lat_bin_edges and long_bin_edges from key_list.
+    # Delete lat_bin_edges, long_bin_edges, add_pbh from key_list.
     key_list = [key for key in key_list if 'bin_edges' not in key]
+    key_list = [key for key in key_list if 'add_pbh' not in key]
 
     # Get data from lat_bin_edges and long_bin_edges
     lat_bin = no_pbh_hdf5_file['lat_bin_edges'][:]
@@ -1859,6 +1862,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # Opening the file with no PBHs and creating a new file for the PBHs added.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')
     pbh_hdf5_file = h5py.File(output_hdf5_file, 'w')
+    pbh_hdf5_file['add_pbh'] = True
 
     # Appending the PBH data to the no PBH data and writing to the new .h5 file.
     N_objs_no_pbh = 0

@@ -47,6 +47,7 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
     hdf5_file_new = hdf5_file.replace('.h5', '.compound_dtype.h5')
     f_in = h5py.File(hdf5_file, 'r')
     f_out = h5py.File(hdf5_file_new, 'w')
+    f_out['add_pbh'] = False
 
     # Looping over all of the datasets
     for key in f_in:

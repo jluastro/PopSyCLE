@@ -20,7 +20,7 @@ from popsycle.synthetic import _check_refine_events
 from popsycle.synthetic import _check_add_pbh
 
 
-def _return_filename_dict(output_root, add_pbh_flag=False):
+def _return_filename_dict(output_root):
     """
     Return the filenames of the files output by the pipeline
 
@@ -42,16 +42,9 @@ def _return_filename_dict(output_root, add_pbh_flag=False):
     # Write out all of the filenames using the output_root
     ebf_filename = '%s.ebf' % output_root
     hdf5_filename = '%s.h5' % output_root
-
-    # Append _pbh to filenames if add_pbh will be run
-    if add_pbh_flag:
-        events_filename = '%s_pbh_events.fits' % output_root
-        blends_filename = '%s_pbh_blends.fits' % output_root
-        noevents_filename = '%s_pbh_NOEVENTS.txt' % output_root
-    else:
-        events_filename = '%s_events.fits' % output_root
-        blends_filename = '%s_blends.fits' % output_root
-        noevents_filename = '%s_NOEVENTS.txt' % output_root
+    events_filename = '%s_events.fits' % output_root
+    blends_filename = '%s_blends.fits' % output_root
+    noevents_filename = '%s_NOEVENTS.txt' % output_root
 
     # Add the filenames to a dictionary
     filename_dict = {
@@ -475,10 +468,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           longitude, latitude, area,
                           n_cores_calc_events,
                           walltime, jobname='default',
+                          pbh_config_filename=None,
                           seed=None, overwrite=False, submitFlag=True,
                           skip_galaxia=False, skip_perform_pop_syn=False,
-                          skip_calc_events=False, skip_refine_events=False,
-                          pbh_config_filename=None):
+                          skip_calc_events=False, skip_refine_events=False):
     """
     Generates (and possibly submits) the slurm script that
     executes the PopSyCLE pipeline
@@ -530,7 +523,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     pbh_config_filename : str
         Name of pbh_config.yaml file containing the PBH parameters
         that will be passed along to the run_on_slurm.py command in the
-        slurm script.
+        slurm script. If set to None, `add_pbh` is skipped over.
+        Default None.
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
@@ -615,7 +609,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         pbh_config = load_config_file(pbh_config_filename)
         _check_add_pbh(hdf5_file='test.h5',
                        ebf_file='test.ebf',
-                       output_root2=output_root,
                        fdm=pbh_config['fdm'],
                        pbh_mass=pbh_config['pbh_mass'],
                        r_max=pbh_config['r_max'],
@@ -624,7 +617,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
                        n_lin=pbh_config['n_lin'],
-                       overwrite=overwrite,
+                       new_output_root=None,
                        seed=seed)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
@@ -864,6 +857,16 @@ def run():
         Exiting...""".format(args.popsycle_config_filename))
         sys.exit(1)
 
+    # Check for pbh config file, if provided. Exit if not present.
+    if args.pbh_config_filename is not None:
+        if not os.path.exists(args.pbh_config_filename):
+            print("""Error: PBH configuration file {0} missing, 
+            cannot continue. In order to execute run.py with 'add_pbh', 
+            generate a PBH configuration file using 
+            popsycle.run.generate_pbh_config_file. 
+            Exiting...""".format(args.pbh_config_filename))
+            sys.exit(1)
+
     # Load the config files for field parameters
     field_config = load_config_file(args.field_config_filename)
 
@@ -913,7 +916,6 @@ def run():
         pbh_config = load_config_file(args.pbh_config_filename)
         _check_add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                        ebf_file=filename_dict['ebf_filename'],
-                       output_root2=args.output_root,
                        fdm=pbh_config['fdm'],
                        pbh_mass=pbh_config['pbh_mass'],
                        r_max=pbh_config['r_max'],
@@ -922,7 +924,7 @@ def run():
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
                        n_lin=pbh_config['n_lin'],
-                       overwrite=args.overwrite,
+                       new_output_root=None,
                        seed=args.seed)
     if not args.skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
@@ -975,34 +977,18 @@ def run():
             overwrite=args.overwrite,
             seed=args.seed)
 
-    # Append '_pbh' to output_root if add_pbh will be run
+    # If optional pbh_config_filename is provided:
     if args.pbh_config_filename is not None:
-        output_root = '%s_pbh' % args.output_root
-    else:
-        output_root = args.output_root
-
-    # only do stuff if optional config file for pbhs was provided
-    if args.pbh_config_filename is not None:
-        # Check for pbh config file. Exit if not present.
-        if not os.path.exists(args.pbh_config_filename):
-            print("""Error: PBH configuration file {0} missing, 
-            cannot continue. In order to execute run.py, generate a 
-            PBH configuration file using 
-            popsycle.synthetic.generate_pbh_config_file. 
-            Exiting...""".format(args.pbh_config_filename))
-            sys.exit(1)
-
-        pbh_config = load_config_file(args.pbh_config_filename)
-
-        # Check if .h5 file exists from perform popsyn, use as input for following function
+        # Check if .h5 file exists from perform popsyn,
+        # use as input for following function
         if not os.path.exists(filename_dict['hdf5_filename']):
-          print("""Error: H5 file was not created properly by 
-            synthetic.perform_pop_syn""")
+          print("""Error: hdf5 file was not created properly by 
+            synthetic.perform_pop_syn.
+            Exiting....""")
           sys.exit(1)
 
         synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                           ebf_file=filename_dict['ebf_filename'],
-                          output_root2=output_root,
                           fdm=pbh_config['fdm'],
                           pbh_mass=pbh_config['pbh_mass'],
                           r_max=pbh_config['r_max'],
@@ -1011,7 +997,7 @@ def run():
                           v_esc=pbh_config['v_esc'],
                           rho_0=pbh_config['rho_0'],
                           n_lin=pbh_config['n_lin'],
-                          overwrite=args.overwrite,
+                          new_output_root=None,
                           seed=args.seed)
 
     if not args.skip_calc_events:
@@ -1026,7 +1012,7 @@ def run():
         # Run calc_events
         print('-- Executing calc_events')
         synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
-                              output_root2=output_root,
+                              output_root2=args.output_root,
                               radius_cut=popsycle_config['radius_cut'],
                               obs_time=popsycle_config['obs_time'],
                               n_obs=popsycle_config['n_obs'],
@@ -1045,7 +1031,7 @@ def run():
     if not args.skip_refine_events:
         # Remove refine_events output if already exists and overwrite=True
         filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
-                   'fits'.format(output_root,
+                   'fits'.format(args.output_root,
                                  popsycle_config['filter_name'],
                                  popsycle_config['red_law'])
         if _check_for_output(filename, args.overwrite):
@@ -1053,7 +1039,7 @@ def run():
 
         # Run refine_events
         print('-- Executing refine_events')
-        synthetic.refine_events(input_root=output_root,
+        synthetic.refine_events(input_root=args.output_root,
                                 filter_name=popsycle_config['filter_name'],
                                 photometric_system=popsycle_config['photometric_system'],
                                 red_law=popsycle_config['red_law'],

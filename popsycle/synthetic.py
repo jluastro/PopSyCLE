@@ -1406,10 +1406,10 @@ def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
     return rho
 
 
-def _check_add_pbh(hdf5_file, ebf_file, output_root2,
+def _check_add_pbh(hdf5_file, ebf_file,
                    fdm, pbh_mass,
                    r_max, r_s, gamma, v_esc,
-                   rho_0, n_lin, overwrite, seed):
+                   rho_0, n_lin, new_output_root, seed):
     """
     Checks that the inputs of add_pbj are valid
 
@@ -1421,13 +1421,6 @@ def _check_add_pbh(hdf5_file, ebf_file, output_root2,
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
         ebf file : actually the ebf file from Galaxia
-
-    output_root2 : str
-        The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
 
     fdm : float
         Fraction of dark matter.
@@ -1464,10 +1457,11 @@ def _check_add_pbh(hdf5_file, ebf_file, output_root2,
         v_esc is used in calculating the velocities.
         Default is 550 km/s. Most papers cite values of 515-575.
 
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
+    new_output_root : str
+        If set to None, 'add_pbh' overwrites the original hdf5 file with a
+        new hdf5 file of the same name. If set to a string, this string is the
+        prefix of the new hdf5 file.
+        Default None.
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
@@ -1480,58 +1474,49 @@ def _check_add_pbh(hdf5_file, ebf_file, output_root2,
     if ebf_file[-4:] != '.ebf':
         raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
 
-    if type(output_root2) != str:
-        raise Exception(
-            'output_root2 (%s) must be a string.' % str(output_root))
-
     if type(fdm) != int:
         if type(fdm) != float:
-            raise Exception(
-                'fdm (%s) must be an integer or a float.' % str(fdm))
+            raise Exception('fdm (%s) must be an integer or a float.' % str(fdm))
 
     if type(pbh_mass) != int:
         if type(pbh_mass) != float:
-            raise Exception(
-                'pbh_mass (%s) must be an integer or a float.' % str(pbh_mass))
+            raise Exception('pbh_mass (%s) must be an integer or a float.' % str(pbh_mass))
 
     if type(r_max) != int:
         if type(r_max) != float:
-            raise Exception(
-                'r_max (%s) must be an integer or a float.' % str(r_max))
+            raise Exception('r_max (%s) must be an integer or a float.' % str(r_max))
 
     if type(r_s) != int:
         if type(r_s) != float:
-            raise Exception(
-                'r_s (%s) must be an integer or a float.' % str(r_s))
+            raise Exception('r_s (%s) must be an integer or a float.' % str(r_s))
 
     if gamma not in [.25, .5, 1]:
         raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
 
     if type(v_esc) != int:
         if type(v_esc) != float:
-            raise Exception(
-                'v_esc (%s) must be an integer or a float.' % str(v_esc))
+            raise Exception('v_esc (%s) must be an integer or a float.' % str(v_esc))
 
     if type(rho_0) != int:
         if type(rho_0) != float:
-            raise Exception(
-                'rho_0 (%s) must be an integer or a float.' % str(rho_0))
+            raise Exception('rho_0 (%s) must be an integer or a float.' % str(rho_0))
 
     if type(n_lin) != int:
         raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
 
-    if type(overwrite) != bool:
-        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+    if new_output_root is not None:
+        if type(new_output_root) != str:
+            raise Exception('new_output_root (%s) must be None or a string.' % str(new_output_root))
 
     if seed is not None:
         if type(seed) != int:
-            raise Exception(
-                'seed (%s) must be None or an integer.' % str(seed))
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
 
-def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
+def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
             r_max=16.6, r_s=18.6, gamma=1, v_esc=550,
-            rho_0=0.0093, n_lin=1000, overwrite=False, seed=None):
+            rho_0=0.0093, n_lin=1000,
+            new_output_root=None, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
     and saves them in a new HDF5 file with the PBHs added.
@@ -1544,13 +1529,6 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
         ebf file : actually the ebf file from Galaxia
-
-    output_root2 : str
-        The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
 
     fdm : float
         Fraction of dark matter.
@@ -1589,10 +1567,11 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     Optional Parameters
     -------------------
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
+    new_output_root : str
+        If set to None, 'add_pbh' overwrites the original hdf5 file with a
+        new hdf5 file of the same name. If set to a string, this string is the
+        prefix of the new hdf5 file.
+        Default None.
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
@@ -1601,7 +1580,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
 
     Outputs
     -------
-    <output_root2>.h5 : hdf5 file
+    <new_output_root>.h5 : hdf5 file
         The new .h5 file with PBHs injected in.
     """
     ##########
@@ -1610,25 +1589,19 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     ##########
 
     _check_add_pbh(hdf5_file=hdf5_file, ebf_file=ebf_file,
-                   output_root2=output_root2, fdm=fdm, pbh_mass=pbh_mass,
+                   fdm=fdm, pbh_mass=pbh_mass,
                    r_max=r_max, r_s=r_s, gamma=gamma, v_esc=v_esc,
                    rho_0=rho_0, n_lin=n_lin,
-                   overwrite=overwrite, seed=seed)
+                   new_output_root=new_output_root,
+                   seed=seed)
 
-    if not overwrite:
-        # Check if HDF5 file exists already. If it does, throw an error message
-        # to complain and exit.
-        if os.path.isfile(output_root2 + '.h5'):
-            raise Exception(
-                'That .h5 file name is taken! Either delete the .h5 file, '
-                'or pick a new name.')
-
-    # Check to make sure that the output hdf5 file
-    # will not overwrite the input hdf5 file
-    output_hdf5_file = '%s.h5' % output_root2
-    if hdf5_file == output_hdf5_file:
-        raise Exception('Output hdf5 file %s cannot be equal to '
-                        'input hdf5 file %s' % (output_hdf5_file, hdf5_file))
+    if new_output_root is None:
+        output_hdf5_file = hdf5_file.replace('.h5', '_pbh_tmp.h5')
+        print('** WARNING **')
+        print("   'add_pbh' will overwrite %s. PBHs are appended to each key." % hdf5_file)
+        print("    To generate a new hdf5 file instead, rerun 'add_pbh' with the 'new_output_root' argument.")
+    else:
+        output_hdf5_file = '%s.h5' % new_output_root
 
     ##########
     # Start of code
@@ -1932,6 +1905,11 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
         print('-- Totals match!')
     else:
         print('** MISSING PBHs!! **')
+
+    # If 'new_output_root' is None, replace temporary file with original
+    if new_output_root is None:
+        os.remove(hdf5_file)
+        os.rename(output_hdf5_file, hdf5_file)
 
     t1 = time.time()
     print('Total runtime: {0:f} s'.format(t1 - t0))

@@ -1598,8 +1598,8 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     if new_output_root is None:
         output_hdf5_file = hdf5_file.replace('.h5', '_pbh_tmp.h5')
         print('** WARNING **')
-        print("   'add_pbh' will overwrite %s. PBHs are appended to each key." % hdf5_file)
-        print("    To generate a new hdf5 file instead, rerun 'add_pbh' with the 'new_output_root' argument.")
+        print("    'add_pbh' will overwrite %s, with PBHs appended to each key." % hdf5_file)
+        print("    To generate a new hdf5 file, rerun 'add_pbh' with the 'new_output_root' argument.")
     else:
         output_hdf5_file = '%s.h5' % new_output_root
 
@@ -1860,12 +1860,14 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # Appending the PBH data to the no PBH data and writing to the new .h5 file.
     N_objs_no_pbh = 0
     N_objs_pbh = 0
+    N_pbhs_removed = 0
     for idx, key in enumerate(key_list):
         key_data = no_pbh_hdf5_file[key][:]
 
         # Remove any PBHs that are already in the h5 file
         cond = key_data['rem_id'] != 104
         key_data = key_data[cond]
+        N_pbhs_removed += np.sum(~cond)
 
         # Count the number of objects in the key
         N_objs_no_pbh += key_data.shape[0]
@@ -1897,12 +1899,13 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     pbh_hdf5_file.close()
 
     print('Checking totals')
-    print('-- %i original objects' % N_objs_no_pbh)
-    print('-- %i PBHs in the field' % N_PBHs_in_field)
-    print('-- %i new total objects' % N_objs_pbh)
+    print('- %i PBHS removed from %s' % (N_pbhs_removed, hdf5_file))
+    print('--- %i original objects' % N_objs_no_pbh)
+    print('--- %i PBHs in the field' % N_PBHs_in_field)
+    print('--- %i new total objects' % N_objs_pbh)
 
     if N_objs_pbh == N_objs_no_pbh + N_PBHs_in_field:
-        print('-- Totals match!')
+        print('Binned PBHs equals total PBHs')
     else:
         print('** MISSING PBHs!! **')
 

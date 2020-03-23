@@ -832,8 +832,8 @@ def run():
                           action='store_true')
     optional.add_argument('--pbh-config-filename', type=str,
                           help='Name of configuration file containing '
-                               'pbh inputs. Default if needed is: '
-                               'pbh_config.yaml')
+                               'pbh inputs. Default None.',
+                          default=None)
 
     args = parser.parse_args()
 
@@ -882,13 +882,7 @@ def run():
         sys.exit(1)
 
     # Return the dictionary containing PopSyCLE output filenames
-    # Append '_pbh' to filenames if add_pbh will be run
-    if args.pbh_config_filename is not None:
-        add_pbh_flag = True
-    else:
-        add_pbh_flag = False
-    filename_dict = _return_filename_dict(args.output_root,
-                                          add_pbh_flag=add_pbh_flag)
+    filename_dict = _return_filename_dict(args.output_root)
 
     # Prepare additional_photometric_systems
     additional_photometric_systems = None
@@ -912,7 +906,7 @@ def run():
                                additional_photometric_systems=additional_photometric_systems,
                                overwrite=args.overwrite,
                                seed=args.seed)
-    if add_pbh_flag:
+    if args.pbh_config_filename is not None:
         pbh_config = load_config_file(args.pbh_config_filename)
         _check_add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                        ebf_file=filename_dict['ebf_filename'],
@@ -987,6 +981,11 @@ def run():
             Exiting....""")
           sys.exit(1)
 
+        print("** COMMENT ON WARNING **")
+        print("    run.py executes 'add_pbh' without ")
+        print("    using the 'new_output_root' argument")
+        print("    and instead replaces %s." % filename_dict['hdf5_filename'])
+        print("    Therefore ignore the following warning:")
         synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                           ebf_file=filename_dict['ebf_filename'],
                           fdm=pbh_config['fdm'],

@@ -1683,8 +1683,7 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     if np.logical_and(np.logical_and(np.abs(l_radian) < 0.5 * np.pi / 180,
                                      np.abs(b_radian) < 0.5 * np.pi / 180),
                       n_lin < 100000):
-        print(
-            'Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
+        print('Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
     r_h_linspace = np.linspace(0, r_max, num=n_lin)
 
     # Represent the line of sight line in galactic coordinates
@@ -1890,16 +1889,25 @@ def add_pbh(hdf5_file, ebf_file, output_root2, fdm=1, pbh_mass=40,
     N_objs_pbh = 0
     for idx, key in enumerate(key_list):
         key_data = no_pbh_hdf5_file[key][:]
+
+        # Remove any PBHs that are already in the h5 file
+        cond = key_data['rem_id'] != 104
+        key_data = key_data[cond]
+
+        # Count the number of objects in the key
         N_objs_no_pbh += key_data.shape[0]
 
+        # Build a mask on the PBHs that fits the bounds of the key
         min_l, max_l, min_b, max_b = lat_long_list[idx]
         mask = (pbh_data['glon'] >= min_l) & \
                (pbh_data['glon'] <= max_l) & \
                (pbh_data['glat'] >= min_b) & \
                (pbh_data['glat'] <= max_b)
 
+        # If there are no PBHs in the key, copy over the original key
         if np.sum(mask) == 0:
             combined_data = key_data
+        # If there are PBHs in the key, append them to the original key
         else:
             pbh_data_in_key = pbh_data[mask]
             combined_data = np.hstack((key_data, pbh_data_in_key))

@@ -273,9 +273,13 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Execute Galaxia
     cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
-    print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
+    print('** Galaxia **')
+    print('Executing with galaxia_params.%s.txt' % output_root)
+    t0 = time.time()
     _ = utils.execute(cmd)
-    print('** Galaxia complete **')
+    t1 = time.time()
+    print('Galaxia complete')
+    print('total runtime {0:f} s'.format(t1 - t0))
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,

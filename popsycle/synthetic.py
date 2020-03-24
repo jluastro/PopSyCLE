@@ -770,7 +770,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line8 = 'VERSION INFORMATION' + '\n'
     line9 = str(now) + ' : creation date' + '\n'
     line10 = popstar_hash + ' : PopStar commit' + '\n'
-    line11 = microlens_hash + ' : microlens commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'

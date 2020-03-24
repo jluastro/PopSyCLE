@@ -334,14 +334,30 @@ def _check_slurm_config(slurm_config, walltime):
     if 'path_python' not in slurm_config:
         raise Exception('path_python must be set in slurm_config')
 
+    path_python = slurm_config['path_python']
+    if type('path_python') != str:
+        raise Exception('path_python (%s) must be a string.' % str(path_python))
+
     if 'account' not in slurm_config:
         raise Exception('account must be set in slurm_config')
+
+    account = slurm_config['account']
+    if type('account') != str:
+        raise Exception('account (%s) must be a string.' % str(account))
 
     if 'queue' not in slurm_config:
         raise Exception('queue must be set in slurm_config')
 
+    queue = slurm_config['queue']
+    if type('queue') != str:
+        raise Exception('queue (%s) must be a string.' % str(queue))
+
     if 'resource' not in slurm_config:
         raise Exception('resource must be set in slurm_config')
+
+    resource = slurm_config['resource']
+    if type('resource') != str:
+        raise Exception('resource (%s) must be a string.' % str(resource))
 
     if 'n_cores_per_node' not in slurm_config[slurm_config['resource']]:
         raise Exception('n_cores_per_node must be set in slurm_config')

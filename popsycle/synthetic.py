@@ -781,10 +781,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -802,7 +802,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line8 = 'VERSION INFORMATION' + '\n'
     line9 = str(now) + ' : creation date' + '\n'
     line10 = popstar_hash + ' : PopStar commit' + '\n'
-    line11 = microlens_hash + ' : microlens commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
@@ -1926,9 +1926,9 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
 
@@ -1948,7 +1948,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
 
     line13 = 'VERSION INFORMATION' + '\n'
     line14 = str(now) + ' : creation date' + '\n'
-    line15 = microlens_hash + ' : microlens commit' + '\n'
+    line15 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line16 = 'OTHER INFORMATION' + '\n'
     line17 = str(t1 - t0) + ' : total runtime (s)' + '\n'
@@ -2228,9 +2228,9 @@ def calc_events(hdf5_file, output_root2,
     ##########
     now = datetime.datetime.now()
     radius_cut = radius_cut / 1000.0  # back to arcsec
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
@@ -2244,7 +2244,7 @@ def calc_events(hdf5_file, output_root2,
     line8 = 'n_proc , ' + str(n_proc) + '\n'
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
-    line11 = microlens_hash + ' : microlens commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
@@ -3112,10 +3112,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -3129,7 +3129,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line4 = 'VERSION INFORMATION' + '\n'
     line5 = str(now) + ' : creation date' + '\n'
     line6 = popstar_hash + ' : PopStar commit' + '\n'
-    line7 = microlens_hash + ' : microlens commit' + '\n'
+    line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'

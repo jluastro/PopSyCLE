@@ -12,7 +12,6 @@ Including:
 import numpy as np
 import h5py
 import math
-import astropy
 from astropy import units
 from scipy.stats import maxwell
 import astropy.coordinates as coord
@@ -23,7 +22,6 @@ from astropy.table import Table
 from astropy.table import vstack
 from popstar.imf import imf
 from popstar import synthetic, evolution, reddening, ifmr
-import scipy
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 from scipy import special, integrate, interpolate
@@ -42,7 +40,6 @@ from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 import shutil
 from popsycle import utils
-import matplotlib.pyplot as plt
 
 
 ##########
@@ -1756,9 +1753,9 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
                                   distance=d_galac * units.kpc)
     galacto_pbh = galactic_pbh.transform_to(
         coord.Galactocentric(representation_type='spherical'))
-    cart_pbh = astropy.coordinates.cartesian_to_spherical(galacto_pbh.x,
-                                                          galacto_pbh.y,
-                                                          galacto_pbh.z)
+    cart_pbh = coord.cartesian_to_spherical(galacto_pbh.x,
+                                            galacto_pbh.y,
+                                            galacto_pbh.z)
     pbh_r_galacto = cart_pbh[0]
 
     # Inner slope of the MW halo
@@ -1785,9 +1782,9 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     rand_cdf = np.array([])
 
     for a_val in a:
-        cdf = scipy.special.erf(v_vals / (a_val * 2 ** (1 / 2))) - (
-                    ((2 / np.pi) ** (1 / 2)) * ((v_vals * np.exp(
-                -v_vals ** 2 / 2 * a_val ** 2)) / a_val))
+        cdf = special.erf(v_vals / (a_val * 2 ** (1 / 2))) - (
+                ((2 / np.pi) ** (1 / 2)) * ((v_vals * np.exp(
+            -v_vals ** 2 / 2 * a_val ** 2)) / a_val))
         rand_cdf = np.append(rand_cdf, np.random.uniform(0, np.amax(cdf)))
     interpreted_rms_velocities = np.interp(rand_cdf, cdf, v_vals)
 
@@ -1797,8 +1794,8 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     long_vel = np.random.uniform(0, 2 * np.pi, len(d_galac))
 
     # Transforming velocities to cartesian to get vx, vy, and vz.
-    cart_vel = astropy.coordinates.spherical_to_cartesian(
-        interpreted_rms_velocities, lat_vel, long_vel)
+    cart_vel = coord.spherical_to_cartesian(interpreted_rms_velocities,
+                                            lat_vel, long_vel)
 
     # Load up a numpy array
     comp_dtype = _generate_comp_dtype(hdf5_dset_names)
@@ -1822,8 +1819,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     pbh_data['popid'] = np.full(len(d_galac), 10)
     pbh_data['rem_id'] = np.full(len(d_galac), 104)
 
-    cart_helio = astropy.coordinates.spherical_to_cartesian(d_galac, b_galac,
-                                                            l_galac)
+    cart_helio = coord.spherical_to_cartesian(d_galac, b_galac, l_galac)
     pbh_data['px'] = cart_helio[0]
     pbh_data['py'] = cart_helio[1]
     pbh_data['pz'] = cart_helio[2]

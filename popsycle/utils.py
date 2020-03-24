@@ -166,3 +166,49 @@ def execute(cmd, shell=False):
     stdout, stderr = process.communicate()
 
     return stdout, stderr
+
+
+def generate_all_isochrones(iso_dir, include_ztf=True):
+    """
+    Generates all solar metallicity isochrones needed for PopSyCLE simulations
+
+    Parameters
+    ----------
+    iso_dir : filepath
+        Where are the isochrones stored (for PopStar)
+
+    Optional Parameters
+    -------------------
+    include_ztf : bool
+        Determines if ztf filters should be included
+        in the generated isochrones. Default is True.
+    """
+    from popsycle.synthetic import all_filt_list, evolution, synthetic
+    my_filt_list = all_filt_list
+    # Add ztf filters to generated isochrones
+    if include_ztf:
+        my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+
+    # All possibles ages to two digit precision
+    log_age_arr = np.arange(5.01, 10.291, 0.01)
+    print('Generating %i isochrones for '
+          '%.2f < log_age < %.2f' % (len(log_age_arr),
+                                     log_age_arr[0],
+                                     log_age_arr[-1]))
+    for i, log_age in enumerate(log_age_arr):
+        print('Generating log_age = %.2f (%03d / %03d)' % (log_age, i+1, len(log_age_arr)))
+        my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                         evo_model=evolution.MISTv1(),
+                                         filters=my_filt_list,
+                                         iso_dir=iso_dir)
+
+        # Check that the isochrone has all of the filters in my_filt_list
+        # If not, force recreating the isochrone with recomp=True
+        my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
+            _ = synthetic.IsochronePhot(log_age, 0, 10,
+                                        evo_model=evolution.MISTv1(),
+                                        filters=my_filt_list,
+                                        iso_dir=iso_dir,
+                                        recomp=True)

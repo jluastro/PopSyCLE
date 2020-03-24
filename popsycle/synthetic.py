@@ -278,7 +278,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     _ = utils.execute(cmd)
     t1 = time.time()
     print('Galaxia complete')
-    print('Total runtime {0:f} s'.format(t1 - t0))
+    print('galaxia runtime : {0:f} s'.format(t1 - t0))
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
@@ -761,7 +761,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             del kdt_star_p, kdt_star_exbv
 
     t1 = time.time()
-    print('Total runtime is {0:f} s'.format(t1 - t0))
+    print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.
@@ -1552,14 +1552,6 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         The scale radius of the Milky Way (in kpc). r_s = r_vir / c (virial radius / concentration index)
         Defaults to 18.6 kpc. The median value given in McMillan 2017.
 
-    rho_0: float
-        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
-        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
-
-    n_lin: int
-        The number of times you want the density determined along the line of sight when calculating PBH positions
-        Defaults to 1000. Will need to make large if you are closer to the galactic center.
-
     gamma: float
         The inner slope of the MW dark matter halo as described in LaCroix 2018.
         Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
@@ -1569,6 +1561,14 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         The escape velocity of the Milky Way (in km/s).
         v_esc is used in calculating the velocities.
         Default is 550 km/s. Most papers cite values of 515-575.
+
+    rho_0: float
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
+        Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
 
     Optional Parameters
     -------------------
@@ -1601,11 +1601,13 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
                    seed=seed)
 
     if new_output_root is None:
+        output_root = hdf5_file.replace('.h5', '')
         output_hdf5_file = hdf5_file.replace('.h5', '_pbh_tmp.h5')
         print('** WARNING **')
         print("    'add_pbh' will overwrite %s, with PBHs appended to each key." % hdf5_file)
         print("    To generate a new hdf5 file, rerun 'add_pbh' with the 'new_output_root' argument.")
     else:
+        output_root = new_output_root
         output_hdf5_file = '%s.h5' % new_output_root
 
     ##########
@@ -1911,7 +1913,61 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     no_pbh_hdf5_file.close()
     pbh_hdf5_file.close()
 
-    print('Checking totals')
+    # If 'new_output_root' is None, replace temporary file with original
+    if new_output_root is None:
+        os.remove(hdf5_file)
+        os.rename(output_hdf5_file, hdf5_file)
+
+    t1 = time.time()
+    print('add_pbh runtime: {0:f} s'.format(t1 - t0))
+
+    ##########
+    # Make log file
+    ##########
+    now = datetime.datetime.now()
+    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=microlens_path).decode('ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'hdf5_file , ' + hdf5_file + '\n'
+    line2 = 'ebf_file , ' + ebf_file + '\n'
+    line3 = 'fdm , ' + str(fdm) + '\n'
+    line4 = 'pbh_mass , ' + str(pbh_mass) + ' , (Msun)' + '\n'
+    line5 = 'r_max , ' + str(r_max) + ' , (kpc)' + '\n'
+    line6 = 'r_s , ' + str(r_s) + ' , (kpc)' + '\n'
+    line7 = 'gamma , ' + str(gamma) + '\n'
+    line8 = 'v_esc , ' + str(v_esc) + ' , (km/s)' + '\n'
+    line9 = 'rho_0 , ' + str(rho_0) + ' , (Msun / pc^3)' + '\n'
+    line10 = 'n_lin , ' + str(n_lin) + '\n'
+    line11 = 'new_output_root , ' + str(new_output_root) + '\n'
+    line12 = 'seed , ' + str(seed) + '\n'
+
+    line13 = 'VERSION INFORMATION' + '\n'
+    line14 = str(now) + ' : creation date' + '\n'
+    line15 = microlens_hash + ' : microlens commit' + '\n'
+
+    line16 = 'OTHER INFORMATION' + '\n'
+    line17 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line18 = str(N_objs_no_pbh) + ' : original objects' + '\n'
+    line19 = str(N_PBHs_in_field) + ' : PBHs in the field' + '\n'
+    line20 = str(N_objs_pbh) + ' : new total objects' + '\n'
+
+    line21 = 'FILES CREATED' + '\n'
+    line22 = output_hdf5_file + ' : HDF5 file' + '\n'
+
+    with open(output_root + '_add_pbh.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
+                        line6, line7, line8, line9, line10, line11, line12,
+                        empty_line, line13, dash_line, line14, line15,
+                        empty_line, line16, dash_line, line17, line18, line19,
+                        line20, empty_line, line21, dash_line, line22])
+
+    ##########
+    # Informative print statements.
+    ##########
     print('- %i PBHS removed from %s' % (N_pbhs_removed, hdf5_file))
     print('--- %i original objects' % N_objs_no_pbh)
     print('--- %i PBHs in the field' % N_PBHs_in_field)
@@ -1921,14 +1977,6 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         print('Binned PBHs equals total PBHs')
     else:
         print('** MISSING PBHs!! **')
-
-    # If 'new_output_root' is None, replace temporary file with original
-    if new_output_root is None:
-        os.remove(hdf5_file)
-        os.rename(output_hdf5_file, hdf5_file)
-
-    t1 = time.time()
-    print('Total runtime: {0:f} s'.format(t1 - t0))
 
     return
 
@@ -2212,7 +2260,7 @@ def calc_events(hdf5_file, output_root2,
                         line12, dash_line, line13, line14, empty_line, line15,
                         dash_line, line16, line17])
 
-    print('Total runtime: {0:f} s'.format(t1 - t0))
+    print('calc_events runtime : {0:f} s'.format(t1 - t0))
 
     return
 
@@ -3096,7 +3144,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         line8, dash_line, line9, line10, line11, empty_line,
                         line12, dash_line, line13])
 
-    print('Total runtime: {0:f} s'.format(t_1 - t_0))
+    print('refined_events runtime : {0:f} s'.format(t_1 - t_0))
     return
 
 

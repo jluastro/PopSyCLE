@@ -606,6 +606,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                overwrite=overwrite,
                                seed=seed)
     if pbh_config_filename is not None:
+        # Enforce pbh_config_filename is an absolute path
+        pbh_config_filename = os.path.abspath(pbh_config_filename)
         pbh_config = load_config_file(pbh_config_filename)
         _check_add_pbh(hdf5_file='test.h5',
                        ebf_file='test.ebf',

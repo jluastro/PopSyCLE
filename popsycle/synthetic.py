@@ -11,7 +11,6 @@ Including:
 """
 
 import numpy as np
-import pandas as pd
 import h5py
 import math
 import astropy
@@ -1766,11 +1765,14 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # From Lacroix et al 2018, Figure 11 (top left panel)
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(add_pbh))
     if gamma == 1:
-        vel_data = pd.read_csv('%s/radial_velocity_profile_steep.csv' % data_dir)
+        vel_data = np.genfromtxt('%s/radial_velocity_profile_steep.csv' % data_dir,
+                                  names=True, delimiter=',')
     elif gamma == .25:
-        vel_data = pd.read_csv('%s/radial_velocity_profile_shallow.csv' % data_dir)
+        vel_data = np.genfromtxt('%s/radial_velocity_profile_shallow.csv' % data_dir,
+                                  names=True, delimiter=',')
     elif gamma == .5:
-        vel_data = pd.read_csv('%s/radial_velocity_profile_middle.csv' % data_dir)
+        vel_data = np.genfromtxt('%s/radial_velocity_profile_middle.csv' % data_dir,
+                                  names=True, delimiter=',')
     else:
         raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
 

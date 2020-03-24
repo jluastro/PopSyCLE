@@ -266,9 +266,12 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Execute Galaxia
     cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
-    print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
+    print('Executing with galaxia_params.%s.txt' % output_root)
+    t0 = time.time()
     _ = utils.execute(cmd)
-    print('** Galaxia complete **')
+    t1 = time.time()
+    print('Galaxia complete')
+    print('galaxia runtime : {0:f} s'.format(t1 - t0))
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
@@ -533,8 +536,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Create h5py file to store lat/long binned output
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
-    dataset = h5file.create_dataset('lat_bin_edges', data=lat_bin_edges)
-    dataset = h5file.create_dataset('long_bin_edges', data=long_bin_edges)
+    h5file['lat_bin_edges'] = lat_bin_edges
+    h5file['long_bin_edges'] = long_bin_edges
     h5file.close()
 
     ##########
@@ -729,7 +732,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 gc.collect()
 
     t1 = time.time()
-    print('Total run time is {0:f} s'.format(t1 - t0))
+    print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.
@@ -1633,7 +1636,7 @@ def calc_events(hdf5_file, output_root2,
                         line12, dash_line, line13, line14, empty_line, line15,
                         dash_line, line16, line17])
 
-    print('Total runtime: {0:f} s'.format(t1 - t0))
+    print('calc_events runtime : {0:f} s'.format(t1 - t0))
 
     return
 
@@ -2516,7 +2519,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         line8, dash_line, line9, line10, line11, empty_line,
                         line12, dash_line, line13])
 
-    print('Total runtime: {0:f} s'.format(t_1 - t_0))
+    print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return
 
 
@@ -3383,5 +3386,3 @@ def calc_f(lambda_eff):
     f = L * (B - V) ** -1
 
     return f
-
-

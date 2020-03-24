@@ -1850,16 +1850,20 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         if field in hdf5_dset_names:
             pbh_data[field] = np.full(len(d_galac), np.nan)
 
-    # Calculate the maximum and minimum l and b values for each dataset in the no PBH file,
-    # so that we can determine which datasets to correctly add the PBHs.
+    # Calculate the maximum and minimum l and b values for each dataset in
+    # the no PBH file, so that we can determine which datasets to
+    # correctly append the PBHs.
     lat_long_list = []
-    for idx in range(len(long_bin) - 1):
-        max_l = long_bin[idx + 1]
-        min_l = long_bin[idx]
-        for idx2 in range(len(lat_bin) - 1):
-            max_b = lat_bin[idx2 + 1]
-            min_b = lat_bin[idx2]
-            lat_long_list.append((min_l, max_l, min_b, max_b))
+    for key in key_list:
+        idx_l = int(key.split('b')[0].replace('l', ''))
+        max_l = long_bin[idx_l + 1]
+        min_l = long_bin[idx_l]
+
+        idx_b = int(key.split('b')[1])
+        max_b = lat_bin[idx_b + 1]
+        min_b = lat_bin[idx_b]
+
+        lat_long_list.append((min_l, max_l, min_b, max_b))
 
     # Opening the file with no PBHs and creating a new file for the PBHs added.
     no_pbh_hdf5_file = h5py.File(hdf5_file, 'r')

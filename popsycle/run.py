@@ -566,27 +566,48 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     """
     # Check for files
+    # Enforce slurm_config_filename is an absolute path
+    slurm_config_filename = os.path.abspath(slurm_config_filename)
+    # Check for slurm config file. Exit if not present.
     if not os.path.exists(slurm_config_filename):
         raise Exception('Slurm configuration file {0} does not exist. '
                         'Write out file using '
                         'run.generate_slurm_config_file '
                         'before proceeding.'.format(slurm_config_filename))
+
+    # Enforce popsycle_config_filename is an absolute path
+    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
+    # Check for popsycle config file. Exit if not present.
     if not os.path.exists(popsycle_config_filename):
         raise Exception('PopSyCLE configuration file {0} does not exist. '
                         'Write out file using '
                         'run.generate_popsycle_config_file '
                         'before proceeding.'.format(popsycle_config_filename))
 
-    # Enforce popsycle_config_filename is an absolute path
-    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
-    popsycle_config = load_config_file(popsycle_config_filename)
+    if pbh_config_filename is not None:
+        # Enforce pbh_config_filename is an absolute path
+        pbh_config_filename = os.path.abspath(pbh_config_filename)
+        # Check for pbh config file, if provided. Exit if not present.
+        if not os.path.exists(pbh_config_filename):
+            raise Exception('PBH configuration file {0} does not exist. '
+                            'Write out file using '
+                            'run.generate_pbh_config_file '
+                            'before proceeding.'.format(pbh_config_filename))
 
-    # Load the slurm configuration file
+    # Load the configuration files
+    # Load slurm config
     slurm_config = load_config_file(slurm_config_filename)
+    slurm_config['include_constraint'] = bool(slurm_config['include_constraint'])  # Enforce boolean for 'include_constraint'
+    # Load popsycle config
+    popsycle_config = load_config_file(popsycle_config_filename)
+    if popsycle_config['bin_edges_number'] == 'None':  # Enforce None for 'bin_edges_number'
+        popsycle_config['bin_edges_number'] = None
+    # Load pbh config, if provided.
+    if pbh_config_filename is not None:
+        pbh_config = load_config_file(pbh_config_filename)
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
-    slurm_config['include_constraint'] = bool(slurm_config['include_constraint'])
     if not skip_galaxia:
         _check_run_galaxia(output_root=output_root,
                            longitude=longitude,
@@ -594,8 +615,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            area=area,
                            seed=seed)
     if not skip_perform_pop_syn:
-        if popsycle_config['bin_edges_number'] == 'None':
-            popsycle_config['bin_edges_number'] = None
         _check_perform_pop_syn(ebf_file='test.ebf',
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
@@ -606,9 +625,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                overwrite=overwrite,
                                seed=seed)
     if pbh_config_filename is not None:
-        # Enforce pbh_config_filename is an absolute path
-        pbh_config_filename = os.path.abspath(pbh_config_filename)
-        pbh_config = load_config_file(pbh_config_filename)
         _check_add_pbh(hdf5_file='test.h5',
                        ebf_file='test.ebf',
                        fdm=pbh_config['fdm'],
@@ -638,7 +654,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
                              output_file='default')
-
 
     # Make a run directory for the PopSyCLE output
     path_run = os.path.abspath(path_run)

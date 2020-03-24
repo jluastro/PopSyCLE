@@ -9,13 +9,11 @@ Including:
 - refine_events
 - add_pbh
 """
-
 import numpy as np
 import h5py
 import math
 import astropy
 from astropy import units
-from popsycle.filters import transform_ubv_to_ztf
 from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
@@ -31,7 +29,6 @@ from scipy.spatial import cKDTree
 from scipy import special, integrate, interpolate
 import time
 import datetime
-from popsycle import ebf
 import gc
 import subprocess
 import os
@@ -40,6 +37,9 @@ import itertools
 from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
+import copy
+from popsycle import ebf
+from popsycle.filters import transform_ubv_to_ztf
 import shutil
 from popsycle import utils
 import matplotlib.pyplot as plt
@@ -1037,7 +1037,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
     # Add additional filters to isochrones if additional_photometric_systems
     # contains photometric systems
-    my_filt_list = all_filt_list
+    my_filt_list = copy.deepcopy(all_filt_list)
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
             my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
@@ -2617,7 +2617,6 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     # Query ball against the existing (cached) tree.
     # NOTE: results is an array of lists.
-    #results = kdtree_cache.query_ball_point(flatxyz1.T.copy(order='C'), r_kdt)
     results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
 
     # Figure out the number of blends for each lens.
@@ -3147,7 +3146,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         line8, dash_line, line9, line10, line11, empty_line,
                         line12, dash_line, line13])
 
-    print('refined_events runtime : {0:f} s'.format(t_1 - t_0))
+    print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return
 
 
@@ -4015,3 +4014,5 @@ def calc_f(lambda_eff):
     f = L * (B - V) ** -1
 
     return f
+
+

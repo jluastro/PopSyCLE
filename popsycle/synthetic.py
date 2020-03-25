@@ -1774,7 +1774,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         raise Exception('gamma (%s) must be either .25, .5, 1' % str(gamma))
 
     # Interpolating v values from the above data, given the PBH r values.
-    pbh_vrms = np.interp(pbh_r_galacto, vel_data['r'], vel_data['v'])
+    pbh_vrms = np.interp(pbh_r_galacto.value, vel_data['r'], vel_data['v'])
     v_vals = np.arange(0, v_esc)  # Goes from v to v_esc
     a = (1 / 2) * pbh_vrms * ((np.pi / 2) ** (1 / 2))
 

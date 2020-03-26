@@ -17,6 +17,7 @@ from popsycle.synthetic import _check_run_galaxia
 from popsycle.synthetic import _check_perform_pop_syn
 from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
+from popsycle.synthetic import _check_add_pbh
 
 
 def _return_filename_dict(output_root):
@@ -128,6 +129,7 @@ def generate_field_config_file(longitude, latitude, area,
 
 def generate_slurm_config_file(path_python='python', account='ulens',
                                queue='regular', resource='haswell',
+                               include_constraint=True,
                                n_cores_per_node=32, n_nodes_max=2388,
                                walltime_max='48:00:00',
                                additional_lines=['module load cray-hdf5/1.10.5.2',
@@ -178,6 +180,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
               'account': account,
               'queue': queue,
               'resource': resource,
+              'include_constraint': bool(include_constraint),
               'additional_lines': additional_lines,
               resource: {'n_cores_per_node': n_cores_per_node,
                          'n_nodes_max': n_nodes_max,
@@ -276,6 +279,60 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     generate_config_file(config_filename, config)
 
 
+def generate_pbh_config_file(fdm=1, pbh_mass=40,
+                             r_max=16.6, r_s=18.6, gamma=1,
+                             v_esc=550, rho_0=0.0093, n_lin=1000,
+                             config_filename='pbh_config.yaml'):
+    """
+    Save PBH configuration parameters into a yaml file
+
+    Parameters
+    ----------
+
+    fdm : float
+        Fraction of dark matter.
+        The fraction of dark matter that you want to consist of PBHs.
+
+    pbh_mass : int
+        The single mass that all PBHs will have (in units of Msun).
+
+    r_max : float
+        The maximum radius (in kpc) from the Earth that you want to find PBHs.
+
+    r_s: float
+        The scale radius of the Milky Way (in units of kpc). r_s = r_vir / c (virial radius / concentration index)
+
+    gamma: float
+        The inner slope of the MW dark matter halo as described in LaCroix 2018.
+        Gamma goes into the determination of the velocities and each value returns a slightly different distribution.
+
+    v_esc: int
+        The escape velocity of the Milky Way in km/s.
+        v_esc is used in calculating the velocities.
+
+    rho_0: float
+        The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
+
+    n_lin: int
+        The number of times you want the density determined along the line of sight when calculating PBH positions
+        Defaults to 1000. Will need to make large if you are closer to the galactic center.
+
+    Output
+    ------
+    None
+    """
+
+    config = {'fdm': fdm,
+              'pbh_mass': pbh_mass,
+              'r_max': r_max,
+              'r_s': r_s,
+              'gamma': gamma,
+              'v_esc': v_esc,
+              'rho_0': rho_0,
+              'n_lin': n_lin}
+    generate_config_file(config_filename, config)
+
+
 def generate_config_file(config_filename, config):
     """
     Save configuration parameters from a dictionary into a yaml file
@@ -359,6 +416,14 @@ def _check_slurm_config(slurm_config, walltime):
     if type('resource') != str:
         raise Exception('resource (%s) must be a string.' % str(resource))
 
+    if 'include_constraint' not in slurm_config:
+        raise Exception('include_constraint must be set in slurm_config')
+
+    include_constraint = slurm_config['include_constraint']
+    if type('include_constraint') != bool:
+        if type('include_constraint') != str:
+            raise Exception('include_constraint (%s) must be a boolean.' % str(include_constraint))
+
     if 'n_cores_per_node' not in slurm_config[slurm_config['resource']]:
         raise Exception('n_cores_per_node must be set in slurm_config')
 
@@ -403,6 +468,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           longitude, latitude, area,
                           n_cores_calc_events,
                           walltime, jobname='default',
+                          pbh_config_filename=None,
                           seed=None, overwrite=False, submitFlag=True,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
@@ -454,6 +520,12 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         If set to 'default', the format will be:
             <longitude>_<latitude>_<output_root>
 
+    pbh_config_filename : str
+        Name of pbh_config.yaml file containing the PBH parameters
+        that will be passed along to the run_on_slurm.py command in the
+        slurm script. If set to None, `add_pbh` is skipped over.
+        Default None.
+
     seed : int
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
@@ -494,23 +566,45 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     """
     # Check for files
+    # Enforce slurm_config_filename is an absolute path
+    slurm_config_filename = os.path.abspath(slurm_config_filename)
+    # Check for slurm config file. Exit if not present.
     if not os.path.exists(slurm_config_filename):
         raise Exception('Slurm configuration file {0} does not exist. '
                         'Write out file using '
                         'run.generate_slurm_config_file '
                         'before proceeding.'.format(slurm_config_filename))
+
+    # Enforce popsycle_config_filename is an absolute path
+    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
+    # Check for popsycle config file. Exit if not present.
     if not os.path.exists(popsycle_config_filename):
         raise Exception('PopSyCLE configuration file {0} does not exist. '
                         'Write out file using '
                         'run.generate_popsycle_config_file '
                         'before proceeding.'.format(popsycle_config_filename))
 
-    # Enforce popsycle_config_filename is an absolute path
-    popsycle_config_filename = os.path.abspath(popsycle_config_filename)
-    popsycle_config = load_config_file(popsycle_config_filename)
+    if pbh_config_filename is not None:
+        # Enforce pbh_config_filename is an absolute path
+        pbh_config_filename = os.path.abspath(pbh_config_filename)
+        # Check for pbh config file, if provided. Exit if not present.
+        if not os.path.exists(pbh_config_filename):
+            raise Exception('PBH configuration file {0} does not exist. '
+                            'Write out file using '
+                            'run.generate_pbh_config_file '
+                            'before proceeding.'.format(pbh_config_filename))
 
-    # Load the slurm configuration file
+    # Load the configuration files
+    # Load slurm config
     slurm_config = load_config_file(slurm_config_filename)
+    slurm_config['include_constraint'] = bool(slurm_config['include_constraint'])  # Enforce boolean for 'include_constraint'
+    # Load popsycle config
+    popsycle_config = load_config_file(popsycle_config_filename)
+    if popsycle_config['bin_edges_number'] == 'None':  # Enforce None for 'bin_edges_number'
+        popsycle_config['bin_edges_number'] = None
+    # Load pbh config, if provided.
+    if pbh_config_filename is not None:
+        pbh_config = load_config_file(pbh_config_filename)
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
@@ -521,8 +615,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            area=area,
                            seed=seed)
     if not skip_perform_pop_syn:
-        if popsycle_config['bin_edges_number'] == 'None':
-            popsycle_config['bin_edges_number'] = None
         _check_perform_pop_syn(ebf_file='test.ebf',
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
@@ -532,6 +624,20 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                additional_photometric_systems=[popsycle_config['photometric_system']],
                                overwrite=overwrite,
                                seed=seed)
+    if pbh_config_filename is not None:
+        _check_add_pbh(hdf5_file='test.h5',
+                       ebf_file='test.ebf',
+                       fdm=pbh_config['fdm'],
+                       pbh_mass=pbh_config['pbh_mass'],
+                       r_max=pbh_config['r_max'],
+                       r_s=pbh_config['r_s'],
+                       gamma=pbh_config['gamma'],
+                       v_esc=pbh_config['v_esc'],
+                       rho_0=pbh_config['rho_0'],
+                       n_lin=pbh_config['n_lin'],
+                       diagnostic_plots=True,
+                       new_output_root=None,
+                       seed=seed)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,
@@ -549,7 +655,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
                              output_file='default')
-
 
     # Make a run directory for the PopSyCLE output
     path_run = os.path.abspath(path_run)
@@ -610,8 +715,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 # Job name
 #SBATCH --account={account}
 #SBATCH --qos={queue}
-#SBATCH --constraint={resource}
-#SBATCH --nodes=1
+"""
+    if slurm_config['include_constraint']:
+        slurm_template += '#SBATCH --constraint={resource}\n'
+    slurm_template += """#SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
 #SBATCH --output={jobname}-%j.out
@@ -656,6 +763,9 @@ echo "All done!"
 
     if skip_refine_events:
         optional_cmds += '--skip-refine-events '
+
+    if pbh_config_filename:
+        optional_cmds += '--pbh-config-filename={0}'.format(pbh_config_filename)
 
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())
@@ -738,6 +848,11 @@ def run():
     optional.add_argument('--skip-refine-events',
                           help="Skip running refine_events.",
                           action='store_true')
+    optional.add_argument('--pbh-config-filename', type=str,
+                          help='Name of configuration file containing '
+                               'pbh inputs. Default None.',
+                          default=None)
+
     args = parser.parse_args()
 
     t0 = time.time()
@@ -759,6 +874,16 @@ def run():
         popsycle.run.generate_popsycle_config_file. 
         Exiting...""".format(args.popsycle_config_filename))
         sys.exit(1)
+
+    # Check for pbh config file, if provided. Exit if not present.
+    if args.pbh_config_filename is not None:
+        if not os.path.exists(args.pbh_config_filename):
+            print("""Error: PBH configuration file {0} missing, 
+            cannot continue. In order to execute run.py with 'add_pbh', 
+            generate a PBH configuration file using 
+            popsycle.run.generate_pbh_config_file. 
+            Exiting...""".format(args.pbh_config_filename))
+            sys.exit(1)
 
     # Load the config files for field parameters
     field_config = load_config_file(args.field_config_filename)
@@ -799,6 +924,21 @@ def run():
                                additional_photometric_systems=additional_photometric_systems,
                                overwrite=args.overwrite,
                                seed=args.seed)
+    if args.pbh_config_filename is not None:
+        pbh_config = load_config_file(args.pbh_config_filename)
+        _check_add_pbh(hdf5_file=filename_dict['hdf5_filename'],
+                       ebf_file=filename_dict['ebf_filename'],
+                       fdm=pbh_config['fdm'],
+                       pbh_mass=pbh_config['pbh_mass'],
+                       r_max=pbh_config['r_max'],
+                       r_s=pbh_config['r_s'],
+                       gamma=pbh_config['gamma'],
+                       v_esc=pbh_config['v_esc'],
+                       rho_0=pbh_config['rho_0'],
+                       n_lin=pbh_config['n_lin'],
+                       diagnostic_plots=True,
+                       new_output_root=None,
+                       seed=args.seed)
     if not args.skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
                            output_root2=args.output_root,
@@ -849,6 +989,33 @@ def run():
             additional_photometric_systems=additional_photometric_systems,
             overwrite=args.overwrite,
             seed=args.seed)
+
+    # If optional pbh_config_filename is provided:
+    if args.pbh_config_filename is not None:
+        # Check if .h5 file exists from perform popsyn,
+        # use as input for following function
+        if not os.path.exists(filename_dict['hdf5_filename']):
+          print("""Error: hdf5 file was not created properly by 
+            synthetic.perform_pop_syn.
+            Exiting....""")
+          sys.exit(1)
+
+        print("** COMMENT ON WARNING **")
+        print("    run.py executes 'add_pbh' without ")
+        print("    using the 'new_output_root' argument")
+        print("    and instead replaces %s." % filename_dict['hdf5_filename'])
+        print("    Therefore ignore the following warning:")
+        synthetic.add_pbh(hdf5_file=filename_dict['hdf5_filename'],
+                          ebf_file=filename_dict['ebf_filename'],
+                          fdm=pbh_config['fdm'],
+                          pbh_mass=pbh_config['pbh_mass'],
+                          r_max=pbh_config['r_max'],
+                          r_s=pbh_config['r_s'],
+                          gamma=pbh_config['gamma'],
+                          v_esc=pbh_config['v_esc'],
+                          rho_0=pbh_config['rho_0'],
+                          n_lin=pbh_config['n_lin'],
+                          seed=args.seed)
 
     if not args.skip_calc_events:
         # Remove calc_events output if already exists and overwrite=True

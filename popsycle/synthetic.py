@@ -1460,7 +1460,7 @@ def _check_add_pbh(hdf5_file, ebf_file,
         Default is 550 km/s. Most papers cite values of 515-575.
 
     diagnostic_plots: bool
-        If set to True, pbh_diagnostic_plots.py is run, and diagnostic plots are saved into a png file.
+        If set to True, pbh_diagnostic_plots.py is run, and diagnostic plots are saved into a pdf file.
         Default False.
 
     new_output_root : str
@@ -1510,9 +1510,8 @@ def _check_add_pbh(hdf5_file, ebf_file,
     if type(n_lin) != int:
         raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
 
-    if diagnostic_plots is not False:
-        if type(diagnostic_plots) != bool:
-            raise Exception('diagnostic plot (%s) must be False or a boolean.' % str(diagnostic_plots))
+    if type(diagnostic_plots) != bool:
+        raise Exception('diagnostic_plots (%s) must be a boolean.' % str(diagnostic_plots))
 
     if new_output_root is not None:
         if type(new_output_root) != str:
@@ -1578,7 +1577,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     Optional Parameters
     -------------------
     diagnostic_plots: bool
-        If set to True, pbh_diagnostic_plots.py is run, and diagnostic plots are saved into a png file.
+        If set to True, pbh_diagnostic_plots.py is run, and diagnostic plots are saved into a pdf file.
         Default False.
 
     new_output_root : str

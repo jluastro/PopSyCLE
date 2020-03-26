@@ -1410,8 +1410,8 @@ def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
 
 def _check_add_pbh(hdf5_file, ebf_file,
                    fdm, pbh_mass,
-                   r_max, r_s, gamma, v_esc,
-                   rho_0, n_lin, new_output_root, seed):
+                   r_max, r_s, gamma, v_esc, rho_0, 
+                   n_lin, diagnostic_plots, new_output_root, seed):
     """
     Checks that the inputs of add_pbj are valid
 
@@ -1458,6 +1458,10 @@ def _check_add_pbh(hdf5_file, ebf_file,
         The escape velocity of the Milky Way (in km/s).
         v_esc is used in calculating the velocities.
         Default is 550 km/s. Most papers cite values of 515-575.
+
+    diagnostic_plots: bool
+        If set to True, pbh_diagnostic_plots.py is run, and diagnostic plots are saved into a png file.
+        Default False.
 
     new_output_root : str
         If set to None, 'add_pbh' overwrites the original hdf5 file with a
@@ -1506,6 +1510,10 @@ def _check_add_pbh(hdf5_file, ebf_file,
     if type(n_lin) != int:
         raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
 
+    if diagnostic_plots is not False:
+        if type(diagnostic_plots) != bool:
+            raise Exception('diagnostic plot (%s) must be False or a boolean.' % str(diagnostic_plots))
+
     if new_output_root is not None:
         if type(new_output_root) != str:
             raise Exception('new_output_root (%s) must be None or a string.' % str(new_output_root))
@@ -1517,7 +1525,7 @@ def _check_add_pbh(hdf5_file, ebf_file,
 
 def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
             r_max=16.6, r_s=18.6, gamma=1, v_esc=550,
-            rho_0=0.0093, n_lin=1000,
+            rho_0=0.0093, n_lin=1000, diagnostic_plots=False,
             new_output_root=None, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
@@ -1569,6 +1577,10 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
 
     Optional Parameters
     -------------------
+    diagnostic_plots: bool
+        If set to True, pbh_diagnostic_plots.py is run, and diagnostic plots are saved into a png file.
+        Default False.
+
     new_output_root : str
         If set to None, 'add_pbh' overwrites the original hdf5 file with a
         new hdf5 file of the same name. If set to a string, this string is the
@@ -1594,6 +1606,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
                    fdm=fdm, pbh_mass=pbh_mass,
                    r_max=r_max, r_s=r_s, gamma=gamma, v_esc=v_esc,
                    rho_0=rho_0, n_lin=n_lin,
+                   diagnostic_plots=diagnostic_plots,
                    new_output_root=new_output_root,
                    seed=seed)
 
@@ -1730,6 +1743,20 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     b_galac = r_cyl * np.sin(theta) / d_galac + b_radian  # rad
     l_galac = r_cyl * np.cos(theta) / np.cos(
         b_radian) / d_galac + l_radian  # rad
+
+    if diagnostic_plots:
+        print('Saving diagnostic plots')
+        from popsycle.add_pbh_plots import print_plots
+        print_plots(output_root=output_root, galactic_lin_distance=galactic_lin.distance.kpc, 
+                galactic_lin_b=galactic_lin.b.deg, galactic_lin_l=galactic_lin.l.deg, 
+                galactocen_lin_spherical_distance=galactocen_lin.spherical.distance.kpc,
+                galactocen_lin_spherical_b=galactocen_lin.spherical.lat.deg, 
+                galactocen_lin_spherical_l=galactocen_lin.spherical.lon.deg, rho_lin=rho_lin, 
+                r_max=r_max, n_lin=n_lin, cdf_los=cdf_los,
+                x_cyl=x_cyl, y_cyl=y_cyl, r_cyl=r_cyl, r_proj_los_cyl=r_proj_los_cyl, n_pbh=n_pbh, 
+                d_galac=d_galac, b_galac=b_galac, l_galac=l_galac, area_proj_los_cyl=area_proj_los_cyl,
+                mask_obs_cone=mask_obs_cone, field_of_view_radius=field_of_view_radius, l_radian=l_radian, 
+                b_radian=b_radian, f_cdf_d=f_cdf_d, pbh_mass=pbh_mass)
 
     d_galac = d_galac[mask_obs_cone]
     b_galac = b_galac[mask_obs_cone]

@@ -635,6 +635,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
                        n_lin=pbh_config['n_lin'],
+                       diagnostic_plots=True,
                        new_output_root=None,
                        seed=seed)
     if not skip_calc_events:
@@ -935,6 +936,7 @@ def run():
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
                        n_lin=pbh_config['n_lin'],
+                       diagnostic_plots=True,
                        new_output_root=None,
                        seed=args.seed)
     if not args.skip_calc_events:
@@ -1013,7 +1015,6 @@ def run():
                           v_esc=pbh_config['v_esc'],
                           rho_0=pbh_config['rho_0'],
                           n_lin=pbh_config['n_lin'],
-                          new_output_root=None,
                           seed=args.seed)
 
     if not args.skip_calc_events:

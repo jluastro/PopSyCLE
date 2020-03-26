@@ -10,7 +10,9 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     ##################################################################################
     #Line of Sight - Galactic Coordinates
     ##################################################################################
+    fig_arr = []
     fig1, axs = plt.subplots(3, sharex=True, gridspec_kw={'hspace': 0}, figsize=(8,8))
+    fig_arr.append(fig1)
     axs[0].plot(galactic_lin_distance, '.', label='Distance', c='C0')
     axs[1].plot(galactic_lin_b, '.', label='Latitude',c='C1')
     axs[2].plot(galactic_lin_l, '.', label='Longitude', c='C2')
@@ -36,6 +38,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     #Line of Sight - Galactocentric Coordinates
     ##################################################################################
     fig2, axs = plt.subplots(3, sharex=True, gridspec_kw={'hspace': 0}, figsize=(8,8))
+    fig_arr.append(fig2)
     axs[0].plot(galactic_lin_distance,
                 galactocen_lin_spherical_distance, '.', label='Distance', c='C0')
     axs[1].plot(galactic_lin_distance,
@@ -64,6 +67,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     ##################################################################################
     fig3, (ax1, ax2) = plt.subplots(1, 2, figsize=(9,4),
                                    sharey=True, gridspec_kw={'wspace': 0})
+    fig_arr.append(fig3)
     # 
     ax1.semilogy(galactic_lin_distance,
                  rho_lin, '.',c='k')
@@ -81,6 +85,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     #Cumulative Projected Desnity
     ##################################################################################
     fig4 = plt.figure(figsize=(10,7))
+    fig_arr.append(fig4)
 
     plt.plot(galactic_lin_distance,
              np.cumsum(rho_lin) * r_max / n_lin,
@@ -94,6 +99,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     #Discrete CDF
     ##################################################################################
     fig5 = plt.figure(figsize=(10,7))
+    fig_arr.append(fig5)
     plt.plot(cdf_los, lw=3)
     plt.ylabel('CDF')
     plt.xlabel('Line-of-Sight Linear Space Coordinate Index')
@@ -102,6 +108,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     #Interpolated CDF
     ##################################################################################
     fig6 = plt.figure(figsize=(10,7))
+    fig_arr.append(fig6)
     x = np.linspace(0,1,100)
     y = f_cdf_d(x)
     plt.plot(y, x, lw=3)
@@ -114,6 +121,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     #Galactic Distance Distribution
     ##################################################################################
     fig7, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14,4))
+    fig_arr.append(fig7)
     # Create a plot to look at the projected cylindrical distribution of PBH
     ax1.plot(x_cyl * 1000, y_cyl * 1000, ',')
     ax1.set_aspect('equal', 'datalim')
@@ -145,6 +153,7 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     ##################################################################################
     fig8, (ax1, ax2) = plt.subplots(2, 1, figsize=(5,8),
                                    sharex=True, gridspec_kw={'hspace': 0})
+    fig_arr.append(fig8)
     ax1.plot(d_galac[~mask_obs_cone], r_cyl[~mask_obs_cone] * 1000,
              '.', alpha=0.1, label='Outside Light Cone')
     ax1.plot(d_galac[mask_obs_cone], r_cyl[mask_obs_cone] * 1000,
@@ -171,13 +180,8 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     ##################################################################################
     #Saving all plots to PDF
     ##################################################################################
-    pp = PdfPages('diagnostic_plots_'+output_root+'.pdf')
-    pp.savefig(fig1)
-    pp.savefig(fig2)
-    pp.savefig(fig3)
-    pp.savefig(fig4)
-    pp.savefig(fig5)
-    pp.savefig(fig6)
-    pp.savefig(fig7)
-    pp.savefig(fig8)
+    pp = PdfPages(output_root+'_pbh_diagnostic_plots.pdf')
+    for fig in fig_arr:
+        pp.savefig(fig)
+        fig.close()
     pp.close()

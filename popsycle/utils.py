@@ -164,6 +164,8 @@ def execute(cmd, shell=False):
                                stderr=subprocess.PIPE,
                                shell=shell)
     stdout, stderr = process.communicate()
+    stdout = stdout.decode('utf-8')
+    stderr = stderr.decode('utf-8')
 
     return stdout, stderr
 
@@ -183,7 +185,8 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
         Determines if ztf filters should be included
         in the generated isochrones. Default is True.
     """
-    from popsycle.synthetic import all_filt_list, evolution, synthetic
+    from popsycle.synthetic import all_filt_list
+    from popstar import evolution, synthetic
     my_filt_list = all_filt_list
     # Add ztf filters to generated isochrones
     if include_ztf:

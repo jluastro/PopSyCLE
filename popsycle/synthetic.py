@@ -273,6 +273,38 @@ def run_galaxia(output_root, longitude, latitude, area,
     print('Galaxia complete')
     print('galaxia runtime : {0:f} s'.format(t1 - t0))
 
+    ##########
+    # Make log file
+    ##########
+    now = datetime.datetime.now()
+    popsycle_path = os.path.dirname(inspect.getfile(run_galaxia))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'longitude , ' + str(longitude) + '\n'
+    line2 = 'latitude , ' + str(latitude) + '\n'
+    line3 = 'area , ' + str(area) + '\n'
+    line4 = 'seed , ' + str(seed) + '\n'
+
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+
+    line17 = 'FILES CREATED' + '\n'
+    line18 = output_root + '.ebf : ebf file' + '\n'
+
+    with open(output_root + '_galaxia.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line4,
+                        empty_line, line8, dash_line, line9, line10,
+                        empty_line, line12, dash_line, line13,
+                        empty_line, line17, dash_line, line18])
+
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,

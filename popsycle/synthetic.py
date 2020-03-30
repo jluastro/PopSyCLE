@@ -276,6 +276,10 @@ def run_galaxia(output_root, longitude, latitude, area,
     ##########
     # Make log file
     ##########
+
+    stdout, _ = utils.execute('which galaxia')
+    galaxia_path = stdout.replace('\n', '')
+
     now = datetime.datetime.now()
     popsycle_path = os.path.dirname(inspect.getfile(run_galaxia))
     popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
@@ -292,6 +296,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     line8 = 'VERSION INFORMATION' + '\n'
     line9 = str(now) + ' : creation date' + '\n'
     line10 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line11 = galaxia_path + ' : galaxia path' + '\n'
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
@@ -301,7 +306,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     with open(output_root + '_galaxia.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4,
-                        empty_line, line8, dash_line, line9, line10,
+                        empty_line, line8, dash_line, line9, line10, line11,
                         empty_line, line12, dash_line, line13,
                         empty_line, line17, dash_line, line18])
 

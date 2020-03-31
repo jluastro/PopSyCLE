@@ -403,7 +403,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           longitude, latitude, area,
                           n_cores_calc_events,
                           walltime, jobname='default',
-                          seed=None, overwrite=False, submitFlag=True,
+                          seed=None, overwrite=False, submitFlag=True, returnJobID=False,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
@@ -469,6 +469,13 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         after being written to disk. If set to False, it will not be submitted.
         Default is True
 
+    returnJobID : bool
+        If set to True and submitFlag is True,
+        function will return the SLURM job id after script submission.
+        If set to False or submitFlag is False,
+        function will return None.
+        Default is False
+
     skip_galaxia : bool
         If set to True, pipeline will not run Galaxia and assume that the
         resulting ebf file is already present.
@@ -490,7 +497,24 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     Output
     ------
-    None
+    <output_root>.h5 : hdf5 file
+        NOTE: This is what _bin_lb_hdf5 returns.
+        An hdf5 file with datasets that correspond to the longitude bin edges,
+        latitude bin edges, and the compact objects
+        and stars sorted into those bins.
+
+    <path_run>/field_config.<output_root>.yaml : yaml file
+        Field config file containing the galactic parameters needed to run pipeline
+
+    <path_run>/run_poopsycle_<jobname>.sh : yaml file
+        SLURM batch script for submitting job with pipeline run
+
+    Returns
+    -------
+    None or slurm_jobid : str
+        If submitFlag is True and returnJobID is True,
+        function returns the SLURM job ID after script submission.
+        Otherwise, function returns None
 
     """
     # Check for files
@@ -666,6 +690,7 @@ echo "All done!"
         f.write(job_script)
 
     # Submit the job to disk
+    slurm_jobid = None
     if submitFlag:
         cwd = os.getcwd()
         os.chdir(path_run)
@@ -679,6 +704,13 @@ echo "All done!"
         print(stderr)
         print('')
         os.chdir(cwd)
+
+        try:
+            slurm_jobid = int(stdout.replace('\n','').split('job')[1])
+        except Exception as e:
+            slurm_jobid = None
+
+    return slurm_jobid
 
 
 def run():

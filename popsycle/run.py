@@ -703,7 +703,7 @@ echo "All done!"
     if submitFlag:
         cwd = os.getcwd()
         os.chdir(path_run)
-        if dependencyJobID:
+        if dependencyJobID is not None:
             results = utils.execute('sbatch --dependency=afterok:{0} '
                                     '{1}'.format(dependencyJobID,
                                                  script_filename))

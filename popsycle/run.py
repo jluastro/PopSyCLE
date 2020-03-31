@@ -223,7 +223,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
             bins = bin_edges_number - 1
         Total number of bins is
             N_bins = (bin_edges_number - 1)**2
-        If set to None (default), then number of bins is
+        If None (default), then number of bins is
             bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
@@ -403,7 +403,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           longitude, latitude, area,
                           n_cores_calc_events,
                           walltime, jobname='default',
-                          seed=None, overwrite=False, submitFlag=True, returnJobID=False,
+                          seed=None, overwrite=False, submitFlag=True,
+                          returnJobID=False, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
@@ -451,48 +452,53 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     -------------------
     jobname : str
         The name of the slurm job and run_popsycle execution file.
-        If set to 'default', the format will be:
+        If 'default', the format will be:
             <longitude>_<latitude>_<output_root>
 
     seed : int
-        If set to non-None, all random sampling will be seeded with the
+        If non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If True, overwrites output files. If False, exists the
         function if output files are already on disk.
         Default is False.
 
     submitFlag : bool
-        If set to True, script will be submitted to the slurm scheduler
-        after being written to disk. If set to False, it will not be submitted.
+        If True, script will be submitted to the slurm scheduler
+        after being written to disk. If False, it will not be submitted.
         Default is True
 
     returnJobID : bool
-        If set to True and submitFlag is True,
+        If True and submitFlag is True,
         function will return the SLURM job id after script submission.
-        If set to False or submitFlag is False,
+        If False or submitFlag is False,
         function will return None.
         Default is False
 
+    dependencyJobID : int
+        If non-None and submitFlag is True, submitted job will only run
+        after dependencyJobID is completed with no errors.
+        Default is None
+
     skip_galaxia : bool
-        If set to True, pipeline will not run Galaxia and assume that the
+        If True, pipeline will not run Galaxia and assume that the
         resulting ebf file is already present.
         Default is False
 
     skip_perform_pop_syn : bool
-        If set to True, pipeline will not run perform_pop_syn and assume that
+        If True, pipeline will not run perform_pop_syn and assume that
         the resulting h5 file is already present.
         Default is False
 
     skip_calc_events : bool
-        If set to True, pipeline will not run calc_events and assume that the
+        If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
         Default is False
 
     skip_refine_events : bool
-        If set to True, pipeline will not run refine_events.
+        If True, pipeline will not run refine_events.
         Default is False
 
     Output
@@ -694,10 +700,21 @@ echo "All done!"
     if submitFlag:
         cwd = os.getcwd()
         os.chdir(path_run)
-        stdout, stderr = utils.execute('sbatch {0}'.format(script_filename))
-        print('Submitted job {0} to {1} for {2} time'.format(script_filename,
-                                                             resource,
-                                                             walltime))
+        if dependencyJobID:
+            results = utils.execute('sbatch --dependency=afterok:{0} '
+                                    '{1}'.format(dependencyJobID,
+                                                 script_filename))
+            print('Submitted job {0} to {1} for '
+                  '{2} time with {3} dependency'.format(script_filename,
+                                                        resource,
+                                                        walltime,
+                                                        dependencyJobID))
+        else:
+            results = utils.execute('sbatch {0}'.format(script_filename))
+            print('Submitted job {0} to {1} for {2} time'.format(script_filename,
+                                                                 resource,
+                                                                 walltime))
+        stdout, stderr = results
         print('---- Standard Out')
         print(stdout)
         print('---- Standard Err')

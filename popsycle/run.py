@@ -503,6 +503,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            longitude=longitude,
                            latitude=latitude,
                            area=area,
+                           galaxia_exe='galaxia',
                            seed=seed)
     if not skip_perform_pop_syn:
         if popsycle_config['bin_edges_number'] == 'None':
@@ -772,6 +773,7 @@ def run():
                            longitude=field_config['longitude'],
                            latitude=field_config['latitude'],
                            area=field_config['area'],
+                           galaxia_exe='galaxia',
                            seed=args.seed)
     if not args.skip_perform_pop_syn:
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],

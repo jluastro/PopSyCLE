@@ -34,6 +34,7 @@ from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
+from distutils import spawn
 from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
@@ -172,7 +173,7 @@ def write_galaxia_params(output_root,
 
 
 def _check_run_galaxia(output_root, longitude, latitude, area,
-                       seed):
+                       galaxia_exe, seed):
     """
     Check that the inputs to run_galaxia are valid
 
@@ -193,6 +194,9 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
     area : float
         Area of the sky that will be generated, in square degrees
+
+    galaxia_exe : str
+        Name of the galaxia executable
 
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
@@ -215,12 +219,20 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
         if type(area) != float:
             raise Exception('area (%s) must be an integer or a float.' % str(area))
 
+    if type(galaxia_exe) != str:
+        raise Exception('galaxia_exe (%s) must be a string.' % str(galaxia_exe))
+
+    if spawn.find_executable(galaxia_exe) is None:
+        raise Exception('galaxia_exe (%s) is not an '
+                        'executable currently in $PATH' % str(galaxia_exe))
+
     if seed is not None:
         if type(seed) != int:
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
 
 def run_galaxia(output_root, longitude, latitude, area,
+                galaxia_exe='galaxia',
                 seed=None):
     """
     Given an object root, sky location and area, creates the parameter
@@ -247,6 +259,9 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     Optional Parameters
     -------------------
+    galaxia_exe : str
+        Name of the galaxia executable
+
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
@@ -255,7 +270,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Error handling/complaining if input types are not right.
     _check_run_galaxia(output_root, longitude, latitude, area,
-                       seed)
+                       galaxia_exe, seed)
 
     # Writes out galaxia params to disk
     write_galaxia_params(output_root=output_root,
@@ -265,7 +280,7 @@ def run_galaxia(output_root, longitude, latitude, area,
                          seed=seed)
 
     # Execute Galaxia
-    cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
+    cmd = '%s -r galaxia_params.%s.txt' % (galaxia_exe, output_root)
     print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
     _ = utils.execute(cmd)
     print('** Galaxia complete **')

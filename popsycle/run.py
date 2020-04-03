@@ -503,7 +503,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            longitude=longitude,
                            latitude=latitude,
                            area=area,
-                           galaxia_exe='galaxia',
+                           galaxia_exe=galaxia_exe,
                            seed=seed)
     if not skip_perform_pop_syn:
         if popsycle_config['bin_edges_number'] == 'None':

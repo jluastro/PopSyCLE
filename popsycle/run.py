@@ -386,7 +386,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
                           n_cores_calc_events,
-                          walltime, jobname='default',
+                          walltime, jobname='default', galaxia_exe='galaxia',
                           seed=None, overwrite=False, submitFlag=True,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
@@ -616,7 +616,7 @@ echo "---------------------------"
         slurm_template += '%s\n' % line
     slurm_template += """
 cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} --galaxia-exe={galaxia_exe} {optional_cmds} 
 date
 echo "All done!"
 """
@@ -700,6 +700,9 @@ def run():
                                'PopSyCLE pipeline that uses multiprocessing). '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
+    required.add_argument('--galaxia-exe', type=str,
+                          help='galaxia_exe',
+                          default='galaxia')
 
     optional = parser.add_argument_group(title='Optional')
     optional.add_argument('--seed', type=int,
@@ -773,7 +776,7 @@ def run():
                            longitude=field_config['longitude'],
                            latitude=field_config['latitude'],
                            area=field_config['area'],
-                           galaxia_exe='galaxia',
+                           galaxia_exe=args.galaxia_exe,
                            seed=args.seed)
     if not args.skip_perform_pop_syn:
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
@@ -815,6 +818,7 @@ def run():
                               longitude=field_config['longitude'],
                               latitude=field_config['latitude'],
                               area=field_config['area'],
+                              galaxia_exe=args.galaxia_exe,
                               seed=args.seed)
 
     if not args.skip_perform_pop_syn:

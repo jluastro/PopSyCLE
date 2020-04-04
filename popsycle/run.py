@@ -223,7 +223,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
             bins = bin_edges_number - 1
         Total number of bins is
             N_bins = (bin_edges_number - 1)**2
-        If set to None (default), then number of bins is
+        If None (default), then number of bins is
             bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
@@ -334,14 +334,30 @@ def _check_slurm_config(slurm_config, walltime):
     if 'path_python' not in slurm_config:
         raise Exception('path_python must be set in slurm_config')
 
+    path_python = slurm_config['path_python']
+    if type('path_python') != str:
+        raise Exception('path_python (%s) must be a string.' % str(path_python))
+
     if 'account' not in slurm_config:
         raise Exception('account must be set in slurm_config')
+
+    account = slurm_config['account']
+    if type('account') != str:
+        raise Exception('account (%s) must be a string.' % str(account))
 
     if 'queue' not in slurm_config:
         raise Exception('queue must be set in slurm_config')
 
+    queue = slurm_config['queue']
+    if type('queue') != str:
+        raise Exception('queue (%s) must be a string.' % str(queue))
+
     if 'resource' not in slurm_config:
         raise Exception('resource must be set in slurm_config')
+
+    resource = slurm_config['resource']
+    if type('resource') != str:
+        raise Exception('resource (%s) must be a string.' % str(resource))
 
     if 'n_cores_per_node' not in slurm_config[slurm_config['resource']]:
         raise Exception('n_cores_per_node must be set in slurm_config')
@@ -388,6 +404,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           n_cores_calc_events,
                           walltime, jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
+                          returnJobID=False, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
@@ -435,46 +452,75 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     -------------------
     jobname : str
         The name of the slurm job and run_popsycle execution file.
-        If set to 'default', the format will be:
+        If 'default', the format will be:
             <longitude>_<latitude>_<output_root>
 
     seed : int
-        If set to non-None, all random sampling will be seeded with the
+        If non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If True, overwrites output files. If False, exists the
         function if output files are already on disk.
         Default is False.
 
     submitFlag : bool
-        If set to True, script will be submitted to the slurm scheduler
-        after being written to disk. If set to False, it will not be submitted.
+        If True, script will be submitted to the slurm scheduler
+        after being written to disk. If False, it will not be submitted.
         Default is True
 
+    returnJobID : bool
+        If True and submitFlag is True,
+        function will return the SLURM job id after script submission.
+        If False or submitFlag is False,
+        function will return None.
+        Default is False
+
+    dependencyJobID : int
+        If non-None and submitFlag is True, submitted job will only run
+        after dependencyJobID is completed with no errors.
+        Default is None
+
     skip_galaxia : bool
-        If set to True, pipeline will not run Galaxia and assume that the
+        If True, pipeline will not run Galaxia and assume that the
         resulting ebf file is already present.
         Default is False
 
     skip_perform_pop_syn : bool
-        If set to True, pipeline will not run perform_pop_syn and assume that
+        If True, pipeline will not run perform_pop_syn and assume that
         the resulting h5 file is already present.
         Default is False
 
     skip_calc_events : bool
-        If set to True, pipeline will not run calc_events and assume that the
+        If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
         Default is False
 
     skip_refine_events : bool
-        If set to True, pipeline will not run refine_events.
+        If True, pipeline will not run refine_events.
         Default is False
 
     Output
     ------
-    None
+    <output_root>.h5 : hdf5 file
+        NOTE: This is what _bin_lb_hdf5 returns.
+        An hdf5 file with datasets that correspond to the longitude bin edges,
+        latitude bin edges, and the compact objects
+        and stars sorted into those bins.
+
+    <path_run>/field_config.<output_root>.yaml : yaml file
+        Field config file containing the galactic parameters needed to run pipeline
+
+    <path_run>/run_poopsycle_<jobname>.sh : yaml file
+        SLURM batch script for submitting job with pipeline run
+
+    Returns
+    -------
+    None or slurm_jobid : str
+        If submitFlag is True and returnJobID is True,
+        function returns the SLURM job ID after script submission.
+        Otherwise, function returns None
 
     """
     # Check for files
@@ -610,12 +656,15 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 date
 echo "---------------------------"
+
+cd {path_run}
+
 """
     for line in slurm_config['additional_lines']:
         slurm_template += '%s\n' % line
     slurm_template += """
-cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds}
+ 
 date
 echo "All done!"
 """
@@ -650,19 +699,38 @@ echo "All done!"
         f.write(job_script)
 
     # Submit the job to disk
+    slurm_jobid = None
     if submitFlag:
         cwd = os.getcwd()
         os.chdir(path_run)
-        stdout, stderr = utils.execute('sbatch {0}'.format(script_filename))
-        print('Submitted job {0} to {1} for {2} time'.format(script_filename,
-                                                             resource,
-                                                             walltime))
+        if dependencyJobID is not None:
+            results = utils.execute('sbatch --dependency=afterok:{0} '
+                                    '{1}'.format(dependencyJobID,
+                                                 script_filename))
+            print('Submitted job {0} to {1} for '
+                  '{2} time with {3} dependency'.format(script_filename,
+                                                        resource,
+                                                        walltime,
+                                                        dependencyJobID))
+        else:
+            results = utils.execute('sbatch {0}'.format(script_filename))
+            print('Submitted job {0} to {1} for {2} time'.format(script_filename,
+                                                                 resource,
+                                                                 walltime))
+        stdout, stderr = results
         print('---- Standard Out')
         print(stdout)
         print('---- Standard Err')
         print(stderr)
         print('')
         os.chdir(cwd)
+
+        try:
+            slurm_jobid = int(stdout.replace('\n','').split('job')[1])
+        except Exception as e:
+            slurm_jobid = None
+
+    return slurm_jobid
 
 
 def run():
@@ -881,7 +949,7 @@ def run():
                                 output_file='default')
 
     t1 = time.time()
-    print('run.py complete : total run time is {0:f} s'.format(t1 - t0))
+    print('run.py runtime : {0:f} s'.format(t1 - t0))
 
 
 if __name__ == '__main__':

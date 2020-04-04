@@ -266,9 +266,49 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Execute Galaxia
     cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
-    print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
+    print('Executing with galaxia_params.%s.txt' % output_root)
+    t0 = time.time()
     _ = utils.execute(cmd)
-    print('** Galaxia complete **')
+    t1 = time.time()
+    print('Galaxia complete')
+    print('galaxia runtime : {0:f} s'.format(t1 - t0))
+
+    ##########
+    # Make log file
+    ##########
+
+    stdout, _ = utils.execute('which galaxia')
+    galaxia_path = stdout.replace('\n', '')
+
+    now = datetime.datetime.now()
+    popsycle_path = os.path.dirname(inspect.getfile(run_galaxia))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'longitude , ' + str(longitude) + '\n'
+    line2 = 'latitude , ' + str(latitude) + '\n'
+    line3 = 'area , ' + str(area) + '\n'
+    line4 = 'seed , ' + str(seed) + '\n'
+
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line11 = galaxia_path + ' : galaxia path' + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+
+    line17 = 'FILES CREATED' + '\n'
+    line18 = output_root + '.ebf : ebf file' + '\n'
+
+    with open(output_root + '_galaxia.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line4,
+                        empty_line, line8, dash_line, line9, line10, line11,
+                        empty_line, line12, dash_line, line13,
+                        empty_line, line17, dash_line, line18])
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
@@ -533,8 +573,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Create h5py file to store lat/long binned output
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
-    dataset = h5file.create_dataset('lat_bin_edges', data=lat_bin_edges)
-    dataset = h5file.create_dataset('long_bin_edges', data=long_bin_edges)
+    h5file['lat_bin_edges'] = lat_bin_edges
+    h5file['long_bin_edges'] = long_bin_edges
     h5file.close()
 
     ##########
@@ -754,7 +794,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             del kdt_star_p, exbv_arr4kdt
 
     t1 = time.time()
-    print('Total run time is {0:f} s'.format(t1 - t0))
+    print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.
@@ -774,10 +814,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -790,28 +830,29 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
+    line7 = 'seed , ' + str(seed) + '\n'
 
-    line7 = 'VERSION INFORMATION' + '\n'
-    line8 = str(now) + ' : creation date' + '\n'
-    line9 = popstar_hash + ' : PopStar commit' + '\n'
-    line10 = microlens_hash + ' : microlens commit' + '\n'
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popstar_hash + ' : PopStar commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
-    line11 = 'OTHER INFORMATION' + '\n'
-    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line13 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line14 = str(comp_counter) + ' : total compact objects made' + '\n'
-    line15 = str(binned_counter) + ' : total things binned' + '\n'
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(n_stars) + ' : total stars from Galaxia' + '\n'
+    line15 = str(comp_counter) + ' : total compact objects made' + '\n'
+    line16 = str(binned_counter) + ' : total things binned' + '\n'
 
-    line16 = 'FILES CREATED' + '\n'
-    line17 = output_root + '.h5 : HDF5 file' + '\n'
-    line18 = output_root + '_label.fits : label file' + '\n'
+    line17 = 'FILES CREATED' + '\n'
+    line18 = output_root + '.h5 : HDF5 file' + '\n'
+    line19 = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
-                        line6, empty_line, line7, dash_line, line8, line9,
-                        line10, empty_line, line11, dash_line, line12, line13,
-                        line14, line15, empty_line, line16, dash_line, line17,
-                        line18])
+                        line6, line7, empty_line, line8, dash_line, line9,
+                        line10, line11, empty_line, line12, dash_line, line13,
+                        line14, line15, line16, empty_line, line17, dash_line,
+                        line18, line19])
 
     ##########
     # Informative print statements.
@@ -1631,9 +1672,9 @@ def calc_events(hdf5_file, output_root2,
     ##########
     now = datetime.datetime.now()
     radius_cut = radius_cut / 1000.0  # back to arcsec
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
@@ -1647,7 +1688,7 @@ def calc_events(hdf5_file, output_root2,
     line8 = 'n_proc , ' + str(n_proc) + '\n'
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
-    line11 = microlens_hash + ' : microlens commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
@@ -1664,7 +1705,7 @@ def calc_events(hdf5_file, output_root2,
                         line12, dash_line, line13, line14, empty_line, line15,
                         dash_line, line16, line17])
 
-    print('Total runtime: {0:f} s'.format(t1 - t0))
+    print('calc_events runtime : {0:f} s'.format(t1 - t0))
 
     return
 
@@ -2514,10 +2555,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -2531,7 +2572,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line4 = 'VERSION INFORMATION' + '\n'
     line5 = str(now) + ' : creation date' + '\n'
     line6 = popstar_hash + ' : PopStar commit' + '\n'
-    line7 = microlens_hash + ' : microlens commit' + '\n'
+    line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
@@ -2547,7 +2588,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         line8, dash_line, line9, line10, line11, empty_line,
                         line12, dash_line, line13])
 
-    print('Total runtime: {0:f} s'.format(t_1 - t_0))
+    print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return
 
 
@@ -3414,5 +3455,3 @@ def calc_f(lambda_eff):
     f = L * (B - V) ** -1
 
     return f
-
-

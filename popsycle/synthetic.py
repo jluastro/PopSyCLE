@@ -292,7 +292,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     # Make log file
     ##########
 
-    stdout, _ = utils.execute('which galaxia')
+    stdout, _ = utils.execute('which %s' % galaxia_exe)
     galaxia_path = stdout.replace('\n', '')
 
     now = datetime.datetime.now()

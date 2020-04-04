@@ -282,6 +282,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     # Execute Galaxia
     cmd = '%s -r galaxia_params.%s.txt' % (galaxia_exe, output_root)
     print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
+    t0 = time.time()
     _ = utils.execute(cmd)
     t1 = time.time()
     print('Galaxia complete')

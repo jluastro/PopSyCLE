@@ -36,6 +36,7 @@ from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
+from distutils import spawn
 from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 import shutil
@@ -175,7 +176,7 @@ def write_galaxia_params(output_root,
 
 
 def _check_run_galaxia(output_root, longitude, latitude, area,
-                       seed):
+                       galaxia_galaxy_model_filename, seed):
     """
     Check that the inputs to run_galaxia are valid
 
@@ -196,6 +197,9 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
     area : float
         Area of the sky that will be generated, in square degrees
+
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
 
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
@@ -218,12 +222,41 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
         if type(area) != float:
             raise Exception('area (%s) must be an integer or a float.' % str(area))
 
+    if spawn.find_executable('galaxia') is None:
+        raise Exception('galaxia is not an executable currently in $PATH')
+
+    stdout, _ = utils.execute('galaxia --version')
+    galaxia_version = stdout.replace('\n', '').split()[1]
+    if galaxia_version != '0.7.2.1':
+        raise Exception('galaxia must be version 0.7.2.1 installed from https://github.com/jluastro/galaxia')
+
+    if type(galaxia_galaxy_model_filename) != str:
+        raise Exception('galaxia_galaxy_model_filename (%s) must be a string.' % str(galaxia_galaxy_model_filename))
+
+    if not os.path.exists(galaxia_galaxy_model_filename):
+        raise Exception('galaxia_galaxy_model_filename (%s) does not exist' % galaxia_galaxy_model_filename)
+
+    GalaxiaData = None
+    for line in open(galaxia_galaxy_model_filename, 'r'):
+        if 'GalaxiaData' in line:
+            GalaxiaData = line.replace('\n','').split()[1]
+            break
+
+    if GalaxiaData is None:
+        raise Exception('GalaxiaData missing from '
+                        'galaxia_galaxy_model_filename (%s)' % galaxia_galaxy_model_filename)
+
+    if not os.path.exists(GalaxiaData):
+        raise Exception('GalaxiaData (%s) in galaxia_galaxy_model_filename '
+                        '(%s) does not exist' % (GalaxiaData, galaxia_galaxy_model_filename))
+
     if seed is not None:
         if type(seed) != int:
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
 
 def run_galaxia(output_root, longitude, latitude, area,
+                galaxia_galaxy_model_filename,
                 seed=None):
     """
     Given an object root, sky location and area, creates the parameter
@@ -248,6 +281,9 @@ def run_galaxia(output_root, longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+
     Optional Parameters
     -------------------
     seed : int
@@ -258,7 +294,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Error handling/complaining if input types are not right.
     _check_run_galaxia(output_root, longitude, latitude, area,
-                       seed)
+                       galaxia_galaxy_model_filename, seed)
 
     # Writes out galaxia params to disk
     write_galaxia_params(output_root=output_root,
@@ -268,13 +304,52 @@ def run_galaxia(output_root, longitude, latitude, area,
                          seed=seed)
 
     # Execute Galaxia
-    cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
-    print('Executing with galaxia_params.%s.txt' % output_root)
+    cmd = 'galaxia -r galaxia_params.%s.txt %s' % (output_root, galaxia_galaxy_model_filename)
+    print('** Executing Galaxia with galaxia_params.%s.txt '
+          'and %s **' % (output_root, galaxia_galaxy_model_filename))
     t0 = time.time()
     _ = utils.execute(cmd)
     t1 = time.time()
     print('Galaxia complete')
     print('galaxia runtime : {0:f} s'.format(t1 - t0))
+
+    ##########
+    # Make log file
+    ##########
+
+    stdout, _ = utils.execute('which galaxia')
+    galaxia_path = stdout.replace('\n', '')
+
+    now = datetime.datetime.now()
+    popsycle_path = os.path.dirname(inspect.getfile(run_galaxia))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'longitude , ' + str(longitude) + '\n'
+    line2 = 'latitude , ' + str(latitude) + '\n'
+    line3 = 'area , ' + str(area) + '\n'
+    line3b = 'galaxia_galaxy_model_filename , ' + galaxia_galaxy_model_filename + '\n'
+    line4 = 'seed , ' + str(seed) + '\n'
+
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line11 = galaxia_path + ' : galaxia path' + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+
+    line17 = 'FILES CREATED' + '\n'
+    line18 = output_root + '.ebf : ebf file' + '\n'
+
+    with open(output_root + '_galaxia.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line3b, line4,
+                        empty_line, line8, dash_line, line9, line10, line11,
+                        empty_line, line12, dash_line, line13,
+                        empty_line, line17, dash_line, line18])
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
@@ -612,10 +687,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             num_stars_in_bin = 2e6
             num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
-            # Create the KDTree used for calculating extinction from the first
-            # sample of stars
+            # Create a KDTree from randomly selected stars in the
+            # pop_id / age_bin used for calculating extinction to luminous
+            # white dwarfs. Because the same KDTree is used for each sub-bin,
+            # two compact objects randomly selected to have nearly identical
+            # positions would have identical extinctions. This low
+            # probability event is a reasonable trade-off for the reduced
+            # compute time gained by only constructing the KDTree once.
             kdt_star_p = None
-            kdt_star_exbv = None
+            exbv_arr4kdt = None
             if len_adx > 0:
                 num_kdtree_samples = int(min(len_adx, 2e6))
                 kdt_idx = np.random.choice(np.arange(len_adx),
@@ -627,7 +707,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
                 star_xyz = np.array([star_px, star_py, star_pz]).T
                 kdt_star_p = cKDTree(star_xyz)
-                kdt_star_exbv = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
                 del bin_idx, star_px, star_py, star_pz
 
             ##########
@@ -732,7 +812,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
                                                      mass_in_bin, stars_in_bin, next_id,
-                                                     kdt_star_p, kdt_star_exbv,
+                                                     kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
@@ -754,7 +834,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 ##########
                 del star_dict
                 gc.collect()
-            del kdt_star_p, kdt_star_exbv
+            del kdt_star_p, exbv_arr4kdt
 
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
@@ -966,7 +1046,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                     star_dict, next_id,
-                    kdt_star_p, kdt_star_exbv,
+                    kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
                     seed=None):
@@ -995,7 +1075,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         KDTree constructed from the positions of randomly selected stars
         that all share the same popid and similar log_age.
 
-    kdt_star_exbv : numpy
+    exbv_arr4kdt : numpy
         Array of galactic extinctions for the stars in kdt_star_p
 
     Optional Parameters
@@ -1230,11 +1310,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
             if len(lum_WD_idx) > 0:
+                # The extinction to the luminous white dwarfs is calculated
+                # by finding the nearest star in the pop_id / age_bin KDTree
+                # to the compact object and copying that star's extinction.
                 comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T
                 dist, indices = kdt_star_p.query(comp_xyz)
-                comp_dict['exbv'][lum_WD_idx] = kdt_star_exbv[indices.T]
+                comp_dict['exbv'][lum_WD_idx] = exbv_arr4kdt[indices.T]
 
                 comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
                 comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data

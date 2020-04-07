@@ -191,6 +191,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   n_obs=101, theta_frac=2, blend_rad=0.75,
                                   isochrones_dir='/Users/myself/popsycle_isochrones',
+                                  galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
                                   NS_kick_speed_mean=400,
@@ -221,12 +222,15 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     isochrones_dir : str
         Directory for PyPopStar isochrones
 
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+
     bin_edges_number : int
         Number of edges for the bins
             bins = bin_edges_number - 1
         Total number of bins is
             N_bins = (bin_edges_number - 1)**2
-        If set to None (default), then number of bins is
+        If None (default), then number of bins is
             bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
@@ -260,9 +264,11 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     if bin_edges_number is None:
         bin_edges_number = 'None'
     if isochrones_dir == '/Users/myself/popsycle_isochrones':
-        print('** WARNING **')
-        print("'isochrones_dir' must be set by the user. "
-              "The default value is only an example.")
+        raise Exception("'isochrones_dir' must be set by the user. "
+                        "The default value is only an example.")
+    if galaxia_galaxy_model_filename == '/Users/myself/galaxia_galaxy_model_filename':
+        raise Exception("'galaxia_galaxy_model_filename' must be set by the user. "
+                        "The default value is only an example.")
 
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
@@ -270,6 +276,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'theta_frac': theta_frac,
               'blend_rad': blend_rad,
               'isochrones_dir': isochrones_dir,
+              'galaxia_galaxy_model_filename': galaxia_galaxy_model_filename,
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
@@ -470,6 +477,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           walltime, jobname='default',
                           pbh_config_filename=None,
                           seed=None, overwrite=False, submitFlag=True,
+                          returnJobID=False, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
@@ -517,7 +525,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     -------------------
     jobname : str
         The name of the slurm job and run_popsycle execution file.
-        If set to 'default', the format will be:
+        If 'default', the format will be:
             <longitude>_<latitude>_<output_root>
 
     pbh_config_filename : str
@@ -527,42 +535,71 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         Default None.
 
     seed : int
-        If set to non-None, all random sampling will be seeded with the
+        If non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
 
     overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
+        If True, overwrites output files. If False, exists the
         function if output files are already on disk.
         Default is False.
 
     submitFlag : bool
-        If set to True, script will be submitted to the slurm scheduler
-        after being written to disk. If set to False, it will not be submitted.
+        If True, script will be submitted to the slurm scheduler
+        after being written to disk. If False, it will not be submitted.
         Default is True
 
+    returnJobID : bool
+        If True and submitFlag is True,
+        function will return the SLURM job id after script submission.
+        If False or submitFlag is False,
+        function will return None.
+        Default is False
+
+    dependencyJobID : int
+        If non-None and submitFlag is True, submitted job will only run
+        after dependencyJobID is completed with no errors.
+        Default is None
+
     skip_galaxia : bool
-        If set to True, pipeline will not run Galaxia and assume that the
+        If True, pipeline will not run Galaxia and assume that the
         resulting ebf file is already present.
         Default is False
 
     skip_perform_pop_syn : bool
-        If set to True, pipeline will not run perform_pop_syn and assume that
+        If True, pipeline will not run perform_pop_syn and assume that
         the resulting h5 file is already present.
         Default is False
 
     skip_calc_events : bool
-        If set to True, pipeline will not run calc_events and assume that the
+        If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
         Default is False
 
     skip_refine_events : bool
-        If set to True, pipeline will not run refine_events.
+        If True, pipeline will not run refine_events.
         Default is False
 
     Output
     ------
-    None
+    <output_root>.h5 : hdf5 file
+        NOTE: This is what _bin_lb_hdf5 returns.
+        An hdf5 file with datasets that correspond to the longitude bin edges,
+        latitude bin edges, and the compact objects
+        and stars sorted into those bins.
+
+    <path_run>/field_config.<output_root>.yaml : yaml file
+        Field config file containing the galactic parameters needed to run pipeline
+
+    <path_run>/run_poopsycle_<jobname>.sh : yaml file
+        SLURM batch script for submitting job with pipeline run
+
+    Returns
+    -------
+    None or slurm_jobid : str
+        If submitFlag is True and returnJobID is True,
+        function returns the SLURM job ID after script submission.
+        Otherwise, function returns None
 
     """
     # Check for files
@@ -613,6 +650,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            longitude=longitude,
                            latitude=latitude,
                            area=area,
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                            seed=seed)
     if not skip_perform_pop_syn:
         _check_perform_pop_syn(ebf_file='test.ebf',
@@ -733,11 +771,13 @@ echo "Proc id = $SLURM_PROCID"
 hostname
 date
 echo "---------------------------"
+
+cd {path_run}
+
 """
     for line in slurm_config['additional_lines']:
         slurm_template += '%s\n' % line
     slurm_template += """
-cd {path_run}
 srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
 date
 echo "All done!"
@@ -776,19 +816,38 @@ echo "All done!"
         f.write(job_script)
 
     # Submit the job to disk
+    slurm_jobid = None
     if submitFlag:
         cwd = os.getcwd()
         os.chdir(path_run)
-        stdout, stderr = utils.execute('sbatch {0}'.format(script_filename))
-        print('Submitted job {0} to {1} for {2} time'.format(script_filename,
-                                                             resource,
-                                                             walltime))
+        if dependencyJobID is not None:
+            results = utils.execute('sbatch --dependency=afterok:{0} '
+                                    '{1}'.format(dependencyJobID,
+                                                 script_filename))
+            print('Submitted job {0} to {1} for '
+                  '{2} time with {3} dependency'.format(script_filename,
+                                                        resource,
+                                                        walltime,
+                                                        dependencyJobID))
+        else:
+            results = utils.execute('sbatch {0}'.format(script_filename))
+            print('Submitted job {0} to {1} for {2} time'.format(script_filename,
+                                                                 resource,
+                                                                 walltime))
+        stdout, stderr = results
         print('---- Standard Out')
         print(stdout)
         print('---- Standard Err')
         print(stderr)
         print('')
         os.chdir(cwd)
+
+        try:
+            slurm_jobid = int(stdout.replace('\n','').split('job')[1])
+        except Exception as e:
+            slurm_jobid = None
+
+    return slurm_jobid
 
 
 def run():
@@ -913,6 +972,7 @@ def run():
                            longitude=field_config['longitude'],
                            latitude=field_config['latitude'],
                            area=field_config['area'],
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                            seed=args.seed)
     if not args.skip_perform_pop_syn:
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
@@ -969,6 +1029,7 @@ def run():
                               longitude=field_config['longitude'],
                               latitude=field_config['latitude'],
                               area=field_config['area'],
+                              galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                               seed=args.seed)
 
     if not args.skip_perform_pop_syn:

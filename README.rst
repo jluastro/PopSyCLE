@@ -10,7 +10,10 @@ PopSyCLE
 
 Dependencies
 ------------
-`Galaxia <http://galaxia.sourceforge.net>`_
+`galaxia <http://galaxia.sourceforge.net>`_
+PopSyCLE requires a custom version of galaxia in order to support
+user select galaxy models. Please follow the installation instructions
+found at our galaxia GitHub repo: https://github.com/jluastro/galaxia_.
 
 `PyPopStar <https://pypopstar.readthedocs.io/en/latest/>`_
 
@@ -60,6 +63,8 @@ Contributing
 
 We love contributions! PopSyCLE is open source,
 built on open source, and we'd love to have you hang out in our community.
+
+`Check out all of PopSyCLE's contributors! <contributors.md>`_.
 
 **Imposter syndrome disclaimer**: We want your help. No, really.
 

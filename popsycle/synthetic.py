@@ -219,20 +219,24 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
         if type(area) != float:
             raise Exception('area (%s) must be an integer or a float.' % str(area))
 
+    # Check that galaxia is in the executable PATH
     if spawn.find_executable('galaxia') is None:
         raise Exception('galaxia is not an executable currently in $PATH')
 
+    # Confrim that galaxia is the PopSyCLE compliant version
     stdout, _ = utils.execute('galaxia --version')
     galaxia_version = stdout.replace('\n', '').split()[1]
     if galaxia_version != '0.7.2.1':
         raise Exception('galaxia must be version 0.7.2.1 installed from https://github.com/jluastro/galaxia')
 
+    # Check the galaxia_galaxy_model_filename for correct type and existence
     if type(galaxia_galaxy_model_filename) != str:
         raise Exception('galaxia_galaxy_model_filename (%s) must be a string.' % str(galaxia_galaxy_model_filename))
 
     if not os.path.exists(galaxia_galaxy_model_filename):
         raise Exception('galaxia_galaxy_model_filename (%s) does not exist' % galaxia_galaxy_model_filename)
 
+    # Check that GalaxiaData is a valid galaxia folder
     GalaxiaData = None
     for line in open(galaxia_galaxy_model_filename, 'r'):
         if 'GalaxiaData' in line:

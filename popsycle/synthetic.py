@@ -173,7 +173,7 @@ def write_galaxia_params(output_root,
 
 
 def _check_run_galaxia(output_root, longitude, latitude, area,
-                       galaxia_exe, seed):
+                       galaxia_galaxy_model_filename, seed):
     """
     Check that the inputs to run_galaxia are valid
 
@@ -195,8 +195,8 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    galaxia_exe : str
-        Name of the galaxia executable
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
 
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
@@ -219,12 +219,33 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
         if type(area) != float:
             raise Exception('area (%s) must be an integer or a float.' % str(area))
 
-    if type(galaxia_exe) != str:
-        raise Exception('galaxia_exe (%s) must be a string.' % str(galaxia_exe))
+    if spawn.find_executable('galaxia') is None:
+        raise Exception('galaxia is not an executable currently in $PATH')
 
-    if spawn.find_executable(galaxia_exe) is None:
-        raise Exception('galaxia_exe (%s) is not an '
-                        'executable currently in $PATH' % str(galaxia_exe))
+    stdout, _ = utils.execute('galaxia --version')
+    galaxia_version = stdout.replace('\n', '').split()[1]
+    if galaxia_version != '0.7.2.1':
+        raise Exception('galaxia must be version 0.7.2.1 installed from https://github.com/jluastro/galaxia')
+
+    if type(galaxia_galaxy_model_filename) != str:
+        raise Exception('galaxia_galaxy_model_filename (%s) must be a string.' % str(galaxia_galaxy_model_filename))
+
+    if not os.path.exists(galaxia_galaxy_model_filename):
+        raise Exception('galaxia_galaxy_model_filename (%s) does not exist' % galaxia_galaxy_model_filename)
+
+    GalaxiaData = None
+    for line in open(galaxia_galaxy_model_filename, 'r'):
+        if 'GalaxiaData' in line:
+            GalaxiaData = line.replace('\n','').split()[1]
+            break
+
+    if GalaxiaData is None:
+        raise Exception('GalaxiaData missing from '
+                        'galaxia_galaxy_model_filename (%s)' % galaxia_galaxy_model_filename)
+
+    if not os.path.exists(GalaxiaData):
+        raise Exception('GalaxiaData (%s) in galaxia_galaxy_model_filename '
+                        '(%s) does not exist' % (GalaxiaData, galaxia_galaxy_model_filename))
 
     if seed is not None:
         if type(seed) != int:
@@ -232,7 +253,7 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
 
 def run_galaxia(output_root, longitude, latitude, area,
-                galaxia_exe='galaxia',
+                galaxia_galaxy_model_filename,
                 seed=None):
     """
     Given an object root, sky location and area, creates the parameter
@@ -257,11 +278,11 @@ def run_galaxia(output_root, longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+
     Optional Parameters
     -------------------
-    galaxia_exe : str
-        Name of the galaxia executable
-
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
@@ -270,7 +291,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Error handling/complaining if input types are not right.
     _check_run_galaxia(output_root, longitude, latitude, area,
-                       galaxia_exe, seed)
+                       galaxia_galaxy_model_filename, seed)
 
     # Writes out galaxia params to disk
     write_galaxia_params(output_root=output_root,
@@ -280,8 +301,9 @@ def run_galaxia(output_root, longitude, latitude, area,
                          seed=seed)
 
     # Execute Galaxia
-    cmd = '%s -r galaxia_params.%s.txt' % (galaxia_exe, output_root)
-    print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
+    cmd = 'galaxia -r galaxia_params.%s.txt %s' % (output_root, galaxia_galaxy_model_filename)
+    print('** Executing Galaxia with galaxia_params.%s.txt '
+          'and %s **' % (output_root, galaxia_galaxy_model_filename))
     t0 = time.time()
     _ = utils.execute(cmd)
     t1 = time.time()
@@ -292,7 +314,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     # Make log file
     ##########
 
-    stdout, _ = utils.execute('which %s' % galaxia_exe)
+    stdout, _ = utils.execute('which galaxia')
     galaxia_path = stdout.replace('\n', '')
 
     now = datetime.datetime.now()
@@ -306,6 +328,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     line1 = 'longitude , ' + str(longitude) + '\n'
     line2 = 'latitude , ' + str(latitude) + '\n'
     line3 = 'area , ' + str(area) + '\n'
+    line3b = 'galaxia_galaxy_model_filename , ' + galaxia_galaxy_model_filename + '\n'
     line4 = 'seed , ' + str(seed) + '\n'
 
     line8 = 'VERSION INFORMATION' + '\n'
@@ -320,7 +343,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     line18 = output_root + '.ebf : ebf file' + '\n'
 
     with open(output_root + '_galaxia.log', 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, line4,
+        out.writelines([line0, dash_line, line1, line2, line3, line3b, line4,
                         empty_line, line8, dash_line, line9, line10, line11,
                         empty_line, line12, dash_line, line13,
                         empty_line, line17, dash_line, line18])

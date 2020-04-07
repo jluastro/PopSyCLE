@@ -188,6 +188,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   n_obs=101, theta_frac=2, blend_rad=0.75,
                                   isochrones_dir='/Users/myself/popsycle_isochrones',
+                                  galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
                                   NS_kick_speed_mean=400,
@@ -217,6 +218,9 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 
     isochrones_dir : str
         Directory for PyPopStar isochrones
+
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
 
     bin_edges_number : int
         Number of edges for the bins
@@ -257,9 +261,11 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     if bin_edges_number is None:
         bin_edges_number = 'None'
     if isochrones_dir == '/Users/myself/popsycle_isochrones':
-        print('** WARNING **')
-        print("'isochrones_dir' must be set by the user. "
-              "The default value is only an example.")
+        raise Exception("'isochrones_dir' must be set by the user. "
+                        "The default value is only an example.")
+    if galaxia_galaxy_model_filename == '/Users/myself/galaxia_galaxy_model_filename':
+        raise Exception("'galaxia_galaxy_model_filename' must be set by the user. "
+                        "The default value is only an example.")
 
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
@@ -267,6 +273,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'theta_frac': theta_frac,
               'blend_rad': blend_rad,
               'isochrones_dir': isochrones_dir,
+              'galaxia_galaxy_model_filename': galaxia_galaxy_model_filename,
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
@@ -402,7 +409,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
                           n_cores_calc_events,
-                          walltime, jobname='default', galaxia_exe='galaxia',
+                          walltime, jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
                           returnJobID=False, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
@@ -549,7 +556,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            longitude=longitude,
                            latitude=latitude,
                            area=area,
-                           galaxia_exe=galaxia_exe,
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                            seed=seed)
     if not skip_perform_pop_syn:
         if popsycle_config['bin_edges_number'] == 'None':
@@ -665,7 +672,7 @@ cd {path_run}
         slurm_template += '%s\n' % line
     slurm_template += """
 cd {path_run}
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} --galaxia-exe={galaxia_exe} {optional_cmds} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
 date
 echo "All done!"
 """
@@ -768,9 +775,6 @@ def run():
                                'PopSyCLE pipeline that uses multiprocessing). '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
-    required.add_argument('--galaxia-exe', type=str,
-                          help='galaxia_exe',
-                          default='galaxia')
 
     optional = parser.add_argument_group(title='Optional')
     optional.add_argument('--seed', type=int,
@@ -844,7 +848,7 @@ def run():
                            longitude=field_config['longitude'],
                            latitude=field_config['latitude'],
                            area=field_config['area'],
-                           galaxia_exe=args.galaxia_exe,
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                            seed=args.seed)
     if not args.skip_perform_pop_syn:
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
@@ -886,7 +890,7 @@ def run():
                               longitude=field_config['longitude'],
                               latitude=field_config['latitude'],
                               area=field_config['area'],
-                              galaxia_exe=args.galaxia_exe,
+                              galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                               seed=args.seed)
 
     if not args.skip_perform_pop_syn:

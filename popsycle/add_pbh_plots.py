@@ -183,5 +183,5 @@ def print_plots(output_root, galactic_lin_distance, galactic_lin_b, galactic_lin
     pp = PdfPages(output_root+'_pbh_diagnostic_plots.pdf')
     for fig in fig_arr:
         pp.savefig(fig)
-        fig.close()
+        plt.close(fig)
     pp.close()

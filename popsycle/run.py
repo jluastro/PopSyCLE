@@ -289,6 +289,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 def generate_pbh_config_file(fdm=1, pbh_mass=40,
                              r_max=16.6, r_s=18.6, gamma=1,
                              v_esc=550, rho_0=0.0093, n_lin=1000,
+                             diagnostic_plots=False,
                              config_filename='pbh_config.yaml'):
     """
     Save PBH configuration parameters into a yaml file
@@ -324,6 +325,15 @@ def generate_pbh_config_file(fdm=1, pbh_mass=40,
         The number of times you want the density determined along the line of sight when calculating PBH positions
         Defaults to 1000. Will need to make large if you are closer to the galactic center.
 
+    diagnostic_plots: bool
+        Generate diganostic plots when running add_pbh. Default False.
+
+    Optional Parameters
+    -------------------
+    config_filename : str
+        Name of the configuration file
+        Default: pbh_config.yaml
+
     Output
     ------
     None
@@ -336,6 +346,7 @@ def generate_pbh_config_file(fdm=1, pbh_mass=40,
               'gamma': gamma,
               'v_esc': v_esc,
               'rho_0': rho_0,
+              'diagnostic_plots': str(diagnostic_plots),
               'n_lin': n_lin}
     generate_config_file(config_filename, config)
 
@@ -642,6 +653,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     # Load pbh config, if provided.
     if pbh_config_filename is not None:
         pbh_config = load_config_file(pbh_config_filename)
+        pbh_config['diagnostic_plots'] = bool(pbh_config['diagnostic_plots'])
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
@@ -673,7 +685,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
                        n_lin=pbh_config['n_lin'],
-                       diagnostic_plots=True,
+                       diagnostic_plots=pbh_config['diagnostic_plots'],
                        new_output_root=None,
                        seed=seed)
     if not skip_calc_events:

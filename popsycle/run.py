@@ -998,6 +998,7 @@ def run():
                                seed=args.seed)
     if args.pbh_config_filename is not None:
         pbh_config = load_config_file(args.pbh_config_filename)
+        pbh_config['diagnostic_plots'] = bool(pbh_config['diagnostic_plots'])
         _check_add_pbh(hdf5_file=filename_dict['hdf5_filename'],
                        ebf_file=filename_dict['ebf_filename'],
                        fdm=pbh_config['fdm'],
@@ -1008,7 +1009,7 @@ def run():
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
                        n_lin=pbh_config['n_lin'],
-                       diagnostic_plots=True,
+                       diagnostic_plots=pbh_config['diagnostic_plots'],
                        new_output_root=None,
                        seed=args.seed)
     if not args.skip_calc_events:
@@ -1088,6 +1089,7 @@ def run():
                           v_esc=pbh_config['v_esc'],
                           rho_0=pbh_config['rho_0'],
                           n_lin=pbh_config['n_lin'],
+                          diagnostic_plots=pbh_config['diagnostic_plots'],
                           seed=args.seed)
 
     if not args.skip_calc_events:

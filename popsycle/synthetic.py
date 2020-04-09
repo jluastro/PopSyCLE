@@ -2031,7 +2031,6 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         os.rename(output_hdf5_file, hdf5_file)
 
     t1 = time.time()
-    print('add_pbh runtime: {0:f} s'.format(t1 - t0))
 
     ##########
     # Make log file
@@ -2090,6 +2089,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     else:
         print('** MISSING PBHs!! **')
 
+    print('add_pbh runtime: {0:f} s'.format(t1 - t0))
     return
 
 

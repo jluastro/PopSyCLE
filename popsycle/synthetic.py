@@ -2053,6 +2053,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     line8 = 'v_esc , ' + str(v_esc) + ' , (km/s)' + '\n'
     line9 = 'rho_0 , ' + str(rho_0) + ' , (Msun / pc^3)' + '\n'
     line10 = 'n_lin , ' + str(n_lin) + '\n'
+    line10b = 'diagnostic_plots , ' + str(diagnostic_plots) + '\n'
     line11 = 'new_output_root , ' + str(new_output_root) + '\n'
     line12 = 'seed , ' + str(seed) + '\n'
 
@@ -2071,7 +2072,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
 
     with open(output_root + '_add_pbh.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
-                        line6, line7, line8, line9, line10, line11, line12,
+                        line6, line7, line8, line9, line10, line10b, line11, line12,
                         empty_line, line13, dash_line, line14, line15,
                         empty_line, line16, dash_line, line17, line18, line19,
                         line20, empty_line, line21, dash_line, line22])

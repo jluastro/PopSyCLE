@@ -204,19 +204,19 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
          identical results.
     """
 
-    if type(output_root) != str:
+    if not isinstance(output_root, str):
         raise Exception('output_root (%s) must be a string.' % str(output_root))
 
-    if type(longitude) != int:
-        if type(longitude) != float:
+    if not isinstance(longitude, int):
+        if not isinstance(longitude, float):
             raise Exception('longitude (%s) must be an integer or a float.' % str(longitude))
 
-    if type(latitude) != int:
-        if type(latitude) != float:
+    if not isinstance(latitude, int):
+        if not isinstance(latitude, float):
             raise Exception('latitude (%s) must be an integer or a float.' % str(latitude))
 
-    if type(area) != int:
-        if type(area) != float:
+    if not isinstance(area, int):
+        if not isinstance(area, float):
             raise Exception('area (%s) must be an integer or a float.' % str(area))
 
     # Check that galaxia is in the executable PATH
@@ -252,7 +252,7 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
                         '(%s) does not exist' % (GalaxiaData, galaxia_galaxy_model_filename))
 
     if seed is not None:
-        if type(seed) != int:
+        if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
 
@@ -411,39 +411,42 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
     """
 
+    if not isinstance(ebf_file, str):
+        raise Exception('ebf_file (%s) must be a string.' % str(ebf_file))
+
     if ebf_file[-4:] != '.ebf':
         raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
 
-    if type(output_root) != str:
+    if not isinstance(output_root, str):
         raise Exception('output_root (%s) must be a string.' % str(output_root))
 
-    if type(iso_dir) != str:
+    if not isinstance(iso_dir, str):
         raise Exception('iso_dir (%s) must be a string.' % str(iso_dir))
 
     if not os.path.exists(iso_dir):
         raise Exception('iso_dir (%s) must exist' % str(iso_dir))
 
     if bin_edges_number is not None:
-        if type(bin_edges_number) != int:
+        if not isinstance(bin_edges_number, int):
             raise Exception('bin_edges_number (%s) must be None or an integer.' % str(bin_edges_number))
 
-    if type(BH_kick_speed_mean) != int:
-        if type(BH_kick_speed_mean) != float:
+    if not isinstance(BH_kick_speed_mean, int):
+        if not isinstance(BH_kick_speed_mean, float):
             raise Exception('BH_kick_speed_mean (%s) must be an integer or a float.' % str(BH_kick_speed_mean))
 
-    if type(NS_kick_speed_mean) != int:
-        if type(NS_kick_speed_mean) != float:
+    if not isinstance(NS_kick_speed_mean, int):
+        if not isinstance(NS_kick_speed_mean, float):
             raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
 
-    if type(overwrite) != bool:
+    if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
 
     if seed is not None:
-        if type(seed) != int:
+        if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
     if additional_photometric_systems is not None:
-        if type(additional_photometric_systems) != list:
+        if not isinstance(additional_photometric_systems, list):
             raise Exception('additional_photometric_systems (%s) must '
                             'either None or a list of strings.' % str(additional_photometric_systems))
 
@@ -1511,35 +1514,39 @@ def _check_calc_events(hdf5_file, output_root2,
         function if output files are already on disk.
         Default is False.
     """
+
+    if not isinstance(hdf5_file, str):
+        raise Exception('hdf5_file (%s) must be a string.' % str(hdf5_file))
+
     if hdf5_file[-3:] != '.h5':
         raise Exception('hdf5_file (%s) must be an h5 file.' % str(hdf5_file))
 
-    if type(output_root2) != str:
+    if not isinstance(output_root2, str):
         raise Exception('output_root2 (%s) must be a string.' % str(output_root2))
 
-    if type(radius_cut) != int:
-        if type(radius_cut) != float:
+    if not isinstance(radius_cut, int):
+        if not isinstance(radius_cut, float):
             raise Exception('radius_cut (%s) must be an integer or a float.' % str(radius_cut))
 
-    if type(obs_time) != int:
-        if type(obs_time) != float:
+    if not isinstance(obs_time, int):
+        if not isinstance(obs_time, float):
             raise Exception('obs_time (%s) must be an integer or a float.' % str(obs_time))
 
-    if type(blend_rad) != int:
-        if type(blend_rad) != float:
+    if not isinstance(blend_rad, int):
+        if not isinstance(blend_rad, float):
             raise Exception('blend_rad (%s) must be an integer or a float.' % str(blend_rad))
 
-    if type(n_obs) != int:
+    if not isinstance(n_obs, int):
         raise Exception('n_obs (%s) must be an integer.' % str(n_obs))
 
-    if type(n_proc) != int:
+    if not isinstance(n_proc, int):
         raise Exception('n_proc (%s) must be an integer.' % str(n_proc))
 
-    if type(overwrite) != bool:
+    if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
 
-    if type(theta_frac) != int:
-        if type(theta_frac) != float:
+    if not isinstance(theta_frac, int):
+        if not isinstance(theta_frac, float):
             raise Exception('theta_frac (%s) must be an integer or a float.' % str(theta_frac))
 
 
@@ -2421,22 +2428,23 @@ def _check_refine_events(input_root, filter_name,
         function if output files are already on disk.
         Default is False.
     """
-    if type(input_root) != str:
+
+    if not isinstance(input_root, str):
         raise Exception('input_root (%s) must be a string.' % str(input_root))
 
-    if type(filter_name) != str:
+    if not isinstance(filter_name, str):
         raise Exception('filter_name (%s) must be a string.' % str(filter_name))
 
-    if type(photometric_system) != str:
+    if not isinstance(photometric_system, str):
         raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
 
-    if type(red_law) != str:
+    if not isinstance(red_law, str):
         raise Exception('red_law (%s) must be a string.' % str(red_law))
 
-    if type(output_file) != str:
+    if not isinstance(output_file, str):
         raise Exception('output_file (%s) must be a string.' % str(output_file))
 
-    if type(overwrite) != bool:
+    if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
 
     # Check to see that the filter name, photometric system, red_law are valid

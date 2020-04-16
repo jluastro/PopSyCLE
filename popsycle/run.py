@@ -881,6 +881,8 @@ def run():
         # Remove Galaxia output if already exists and overwrite=True
         if _check_for_output(filename_dict['ebf_filename'],
                              args.overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
 
         # Run Galaxia
@@ -896,6 +898,8 @@ def run():
         # Remove perform_pop_syn output if already exists and overwrite=True
         if _check_for_output(filename_dict['hdf5_filename'],
                              args.overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
 
         # Run perform_pop_syn
@@ -915,9 +919,13 @@ def run():
         # Remove calc_events output if already exists and overwrite=True
         if _check_for_output(filename_dict['events_filename'],
                              args.overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
         if _check_for_output(filename_dict['blends_filename'],
                              args.overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
 
         # Run calc_events
@@ -937,6 +945,8 @@ def run():
         if not os.path.exists(filename_dict['events_filename']):
             Path(filename_dict['noevents_filename']).touch()
             print('No events present, skipping refine_events')
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(0)
 
     if not args.skip_refine_events:
@@ -946,6 +956,8 @@ def run():
                                  popsycle_config['filter_name'],
                                  popsycle_config['red_law'])
         if _check_for_output(filename, args.overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
 
         # Run refine_events

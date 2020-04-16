@@ -230,7 +230,7 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
         raise Exception('galaxia must be version 0.7.2.1 installed from https://github.com/jluastro/galaxia')
 
     # Check the galaxia_galaxy_model_filename for correct type and existence
-    if type(galaxia_galaxy_model_filename) != str:
+    if not isinstance(galaxia_galaxy_model_filename, str):
         raise Exception('galaxia_galaxy_model_filename (%s) must be a string.' % str(galaxia_galaxy_model_filename))
 
     if not os.path.exists(galaxia_galaxy_model_filename):

@@ -671,9 +671,12 @@ cd {path_run}
     for line in slurm_config['additional_lines']:
         slurm_template += '%s\n' % line
     slurm_template += """
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds}
+exitcode=$?
+ 
 date
 echo "All done!"
+exit $exitcode
 """
 
     optional_cmds = ''

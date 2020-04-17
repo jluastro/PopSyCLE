@@ -128,7 +128,8 @@ def generate_field_config_file(longitude, latitude, area,
 
 def generate_slurm_config_file(path_python='python', account='ulens',
                                queue='regular', resource='haswell',
-                               n_cores_per_node=32, n_nodes_max=2388,
+                               memory=128, n_cores_per_node=32, n_nodes_max=2388,
+                               memory_max=128,
                                walltime_max='48:00:00',
                                additional_lines=['module load cray-hdf5/1.10.5.2',
                                                  'export HDF5_USE_FILE_LOCKING=FALSE'],
@@ -150,11 +151,17 @@ def generate_slurm_config_file(path_python='python', account='ulens',
     resource : str
         Computing resource name
 
+    memory : int
+        Amount of memory allocated for the job, in units of GB
+
     n_cores_per_node : int
         Number of cores in each node of the compute resource
 
     n_nodes_max : int
         Total number of nodes in the compute resource
+
+    memory_max : int
+        Memory per node in the computer resource, in units of GB
 
     walltime_max : int
         Maximum number of hours for single job on the compute resource
@@ -178,9 +185,11 @@ def generate_slurm_config_file(path_python='python', account='ulens',
               'account': account,
               'queue': queue,
               'resource': resource,
+              'memory': memory,
               'additional_lines': additional_lines,
               resource: {'n_cores_per_node': n_cores_per_node,
                          'n_nodes_max': n_nodes_max,
+                         'memory_max': memory_max,
                          'walltime_max': walltime_max}}
     generate_config_file(config_filename, config)
 
@@ -615,12 +624,16 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     account = slurm_config['account']
     # Queue
     queue = slurm_config['queue']
-    # Name of the resource that will be ussed for the run
+    # Name of the resource that will be used for the run
     resource = slurm_config['resource']
+    # Memory that will be used for the run, in GB
+    memory = slurm_config['memory']
     # Maximum number of cores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
     n_nodes_max = slurm_config[resource]['n_nodes_max']
+    # Maximum memory on each compute node
+    memory_max = slurm_config[resource]['memory_max']
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
@@ -631,6 +644,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                         'must be less than or equal to '
                         'n_cores_per_node (%s)' % (n_cores_calc_events,
                                                    n_cores_per_node))
+
+    if memory > memory_max:
+        raise Exception('memory (%s) '
+                        'must be less than or equal to '
+                        'memory_max (%s)' % (memory, memory_max))
 
     walltime_s = int(walltime.split(':')[0]) * 3600
     walltime_s += int(walltime.split(':')[1]) * 60
@@ -649,6 +667,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 #SBATCH --account={account}
 #SBATCH --qos={queue}
 #SBATCH --constraint={resource}
+#SBATCH --mem={memory}GB
 #SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}

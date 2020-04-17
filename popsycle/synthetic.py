@@ -742,6 +742,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         star_dict['ztf_r'] = ztf_r
                         star_dict['ztf_i'] = ztf_i
 
+                        del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
+
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
                 ##########
@@ -793,8 +795,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Garbage collect in order to save space.
                 ##########
                 del star_dict
-                gc.collect()
             del kdt_star_p, exbv_arr4kdt
+            gc.collect()
 
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))

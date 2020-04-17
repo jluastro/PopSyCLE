@@ -666,8 +666,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 # Job name
 #SBATCH --account={account}
 #SBATCH --qos={queue}
-#SBATCH --constraint={resource}
-#SBATCH --mem={memory}GB
+#SBATCH --constraint={resource}"""
+    if memory < memory_max:
+        slurm_template += """
+#SBATCH --mem={memory}GB"""
+    slurm_template += """
 #SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
@@ -726,6 +729,8 @@ exit $exitcode
     script_filename = path_run + '/run_popsycle_%s.sh' % (jobname)
     with open(script_filename, 'w') as f:
         f.write(job_script)
+
+    print(f'  {script_filename} written')
 
     # Submit the job to disk
     slurm_jobid = None

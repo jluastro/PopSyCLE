@@ -735,12 +735,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         ubv_r = star_dict['ubv_R']
                         ubv_i = star_dict['ubv_I']
 
-                    ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
-                    ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
-                    ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
-                    star_dict['ztf_g'] = ztf_g
-                    star_dict['ztf_r'] = ztf_r
-                    star_dict['ztf_i'] = ztf_i
+                        ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
+                        ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
+                        ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
+                        star_dict['ztf_g'] = ztf_g
+                        star_dict['ztf_r'] = ztf_r
+                        star_dict['ztf_i'] = ztf_i
 
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb

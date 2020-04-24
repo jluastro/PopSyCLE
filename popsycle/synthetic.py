@@ -309,7 +309,11 @@ def run_galaxia(output_root, longitude, latitude, area,
     print('** Executing Galaxia with galaxia_params.%s.txt '
           'and %s **' % (output_root, galaxia_galaxy_model_filename))
     t0 = time.time()
-    _ = utils.execute(cmd)
+    stdout, stderr = utils.execute(cmd)
+    print('** STDOUT **')
+    print(stdout)
+    print('** STDERR **')
+    print(stderr)
     t1 = time.time()
     print('Galaxia complete')
     print('galaxia runtime : {0:f} s'.format(t1 - t0))

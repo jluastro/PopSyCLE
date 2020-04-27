@@ -2752,39 +2752,13 @@ class EbfFile():
         else:
             return None
 
-    def read_ind(self, ind):
-        # This method looks for groups of contiguous indices in 'ind' and
-        # loads those blocks of memory with a single copy command.
-        # This method is ~50% faster than looping over each index and running:
-        #   data[i] = self.read(ind[i])
-        if numpy.max(ind) < self.elements:
-            # Find the ascending order of indices
-            ind1 = numpy.argsort(ind)
-            # Create an empty data array for copying the data into
-            data = numpy.zeros(len(ind),dtype=self.dtype)
-            # Begin at the start of the data array
-            begin_data = 0
-            # groupy with this lambda returns a list of generators, with 
-            # each generator containing a contiguous 
-            # block of indices from 'ind'
-            for k, g in groupby(enumerate(ind[ind1]),
-                                lambda ix : ix[0] - ix[1]):
-                # converts the generator into a list 
-                ind_grp = list(map(itemgetter(1), g))
-                # first index of the contiguous block
-                begin = ind_grp[0]
-                # number of elements in the contiguous block
-                nsize = len(ind_grp)
-                # read from memory all the elements in the contiguous block
-                d = self.read(begin, nsize=nsize)
-                # final the final index into data of the contiguous block
-                end_data = begin_data + nsize
-                # place the extracted data into the data array
-                data[begin_data:end_data] = d
-                # Increment the place in the data array
-                # by the size of the contiguous block
-                begin_data += nsize
-            return data[ind1]
+    def read_ind(self,ind):
+        if numpy.max(ind)<self.elements:
+            ind1=numpy.argsort(ind)
+            data=numpy.zeros(len(ind),dtype=self.dtype)
+            for i in ind1:
+                data[i]=self.read(ind[i])
+            return data
         else:
             return None
             

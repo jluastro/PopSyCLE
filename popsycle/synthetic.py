@@ -604,12 +604,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Define bin_edges_number, if not given in input.
     if bin_edges_number is None:
-        # st the widths are 1/2 arcmin
+        # set the widths to 1/2 arcmin
         bin_edges_number = int(60 * 2 * radius) + 1
 
-    # Make sure we have enough bin edges (minimum is 3)
-    if bin_edges_number < 2:
-        bin_edges_number = 3
+    # Make sure we have enough bin edges (min is 3)
+    bin_edges_number = max(bin_edges_number, 3)
+    # Make sure we have don't have too many bin edges (max is 40)
+    bin_edges_number = min(bin_edges_number, 40)
+    
     lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
                                 bin_edges_number)
     long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,

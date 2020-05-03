@@ -2587,30 +2587,30 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     event_tab['u0'] = u0
     if len(event_tab) == 0:
         print('No events!')
-        return
+        output_file = 'None'
+    else:
+        ##########
+        # Calculate apparent magnitudes
+        ##########
 
-    ##########
-    # Calculate apparent magnitudes
-    ##########
+        # Einstein crossing time
+        # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
+        t_E = event_tab['theta_E'] / event_tab['mu_rel']  # yr
+        t_E *= 365.25  # days
+        event_tab['t_E'] = t_E  # days
 
-    # Einstein crossing time
-    # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
-    t_E = event_tab['theta_E'] / event_tab['mu_rel']  # yr
-    t_E *= 365.25  # days
-    event_tab['t_E'] = t_E  # days
+        # Add stuff to event_tab... shouldn't have any direct outputs
+        _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
 
-    # Add stuff to event_tab... shouldn't have any direct outputs
-    _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
+        # Relative parallax
+        pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
+        event_tab['pi_rel'] = pi_rel  # mas
 
-    # Relative parallax
-    pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
-    event_tab['pi_rel'] = pi_rel  # mas
+        # Microlensing parallax
+        pi_E = pi_rel / event_tab['theta_E']
+        event_tab['pi_E'] = pi_E  # dim'less
 
-    # Microlensing parallax
-    pi_E = pi_rel / event_tab['theta_E']
-    event_tab['pi_E'] = pi_E  # dim'less
-
-    event_tab.write(output_file, overwrite=overwrite)
+        event_tab.write(output_file, overwrite=overwrite)
 
     t_1 = time.time()
 

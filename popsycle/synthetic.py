@@ -2587,7 +2587,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     event_tab['u0'] = u0
     if len(event_tab) == 0:
         print('No events!')
-        output_file = 'None'
+        output_file = 'NO FILE CREATED'
     else:
         ##########
         # Calculate apparent magnitudes

@@ -1595,7 +1595,7 @@ def _check_add_pbh(hdf5_file, ebf_file,
             raise Exception('rho_0 (%s) must be an integer or a float.' % str(rho_0))
 
     if type(n_lin) != int:
-        raise Exception('n_lin (%s) must be an integerr.' % str(n_lin))
+        raise Exception('n_lin (%s) must be an integer.' % str(n_lin))
 
     if type(diagnostic_plots) != bool:
         raise Exception('diagnostic_plots (%s) must be a boolean.' % str(diagnostic_plots))

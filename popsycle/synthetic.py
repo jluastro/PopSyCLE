@@ -1757,7 +1757,6 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
 
     # Generate an array of heliocentric radii
     # These radii will just be used to numerically integrate the density
-    n_lin = 1000
     if np.logical_and(np.logical_and(np.abs(l_radian) < 0.5 * np.pi / 180,
                                      np.abs(b_radian) < 0.5 * np.pi / 180),
                       n_lin < 100000):
@@ -1888,7 +1887,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
 
     # Interpolating v values from the above data, given the PBH r values.
     pbh_vrms = np.interp(pbh_r_galacto.value, vel_data['r'], vel_data['v'])
-    v_vals = np.arange(0, v_esc)  # Goes from v to v_esc
+    v_vals = np.arange(0, v_esc)
     a = (1 / 2) * pbh_vrms * ((np.pi / 2) ** (1 / 2))
 
     # Calculating the v_rms velocities for the PBHs by randomly sampling from the CDF.

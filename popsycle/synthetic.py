@@ -2308,31 +2308,30 @@ def calc_events(hdf5_file, output_root2,
             if results[ii][1] is not None:
                 results_bl.append(results[ii][1])
 
-    if len(results_ev) == 0:
-        print('No events!')
-        return
-    else:
+    if len(results_ev) > 0:
         events_tmp = np.concatenate(results_ev, axis=0)
         if len(results_bl) == 0:
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
 
-    # Convert the events numpy recarray into an
-    # Astropy Table for easier consumption.
-    events_tmp = unique_events(events_tmp)
-    events_final = Table(events_tmp)
-    N_events = len(events_final)
-    print('Candidate events detected: ', N_events)
+        # Convert the events numpy recarray into an
+        # Astropy Table for easier consumption.
+        events_tmp = unique_events(events_tmp)
+        events_final = Table(events_tmp)
+        N_events = len(events_final)
+        print('Candidate events detected: ', N_events)
 
-    if len(results_bl) != 0:
-        blends_tmp = unique_blends(blends_tmp)
-    blends_final = Table(blends_tmp)
+        if len(results_bl) != 0:
+            blends_tmp = unique_blends(blends_tmp)
+        blends_final = Table(blends_tmp)
 
-    # Save out file
-    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
-
+        # Save out file
+        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+    else:
+        N_events = 0
+        print('No events!')
     t1 = time.time()
 
     ##########
@@ -2342,7 +2341,7 @@ def calc_events(hdf5_file, output_root2,
     radius_cut = radius_cut / 1000.0  # back to arcsec
     popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=popsycle_path).decode('ascii').strip()
+                                            cwd=popsycle_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
@@ -2354,6 +2353,7 @@ def calc_events(hdf5_file, output_root2,
     line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
     line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
     line8 = 'n_proc , ' + str(n_proc) + '\n'
+
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
     line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
@@ -2362,9 +2362,14 @@ def calc_events(hdf5_file, output_root2,
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
     line14 = str(N_events) + ' : total number of events' + '\n'
 
-    line15 = 'FILES CREATED' + '\n'
-    line16 = output_root2 + '_events.fits : events file' + '\n'
-    line17 = output_root2 + '_blends.fits : blends file' + '\n'
+    if N_events > 0:
+        line15 = 'FILES CREATED' + '\n'
+        line16 = output_root2 + '_events.fits : events file' + '\n'
+        line17 = output_root2 + '_blends.fits : blends file' + '\n'
+    else:
+        line15 = 'NO FILES CREATED' + '\n'
+        line16 = '\n'
+        line17 = '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,

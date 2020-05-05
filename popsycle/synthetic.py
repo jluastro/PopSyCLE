@@ -1761,7 +1761,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     if np.logical_and(np.logical_and(np.abs(l_radian) < 0.5 * np.pi / 180,
                                      np.abs(b_radian) < 0.5 * np.pi / 180),
                       n_lin < 100000):
-        print('Warning: for fields very near the center of the Milky Way it is reocmmended that the number of elements used to estimate the density be n_lin>100000')
+        print('Warning: for fields very near the center of the Milky Way it is recommended that the number of elements used to estimate the density be n_lin>100000')
     r_h_linspace = np.linspace(0, r_max, num=n_lin)
 
     # Represent the line of sight line in galactic coordinates

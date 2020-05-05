@@ -1498,7 +1498,7 @@ def rho_dmhalo(r, rho_0=.0093, r_s=18.6, gamma=1):
 def _check_add_pbh(hdf5_file, ebf_file,
                    fdm, pbh_mass,
                    r_max, r_s, gamma, v_esc, rho_0, 
-                   n_lin, diagnostic_plots, new_output_root, seed):
+                   diagnostic_plots, new_output_root, seed):
     """
     Checks that the inputs of add_pbj are valid
 
@@ -1531,10 +1531,6 @@ def _check_add_pbh(hdf5_file, ebf_file,
     rho_0: float
         The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
         Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
-
-    n_lin: int
-        The number of times you want the density determined along the line of sight when calculating PBH positions
-        Defaults to 1000. Will need to make large if you are closer to the galactic center.
 
     gamma: float
         The inner slope of the MW dark matter halo as described in LaCroix 2018.
@@ -1594,9 +1590,6 @@ def _check_add_pbh(hdf5_file, ebf_file,
         if type(rho_0) != float:
             raise Exception('rho_0 (%s) must be an integer or a float.' % str(rho_0))
 
-    if type(n_lin) != int:
-        raise Exception('n_lin (%s) must be an integer.' % str(n_lin))
-
     if type(diagnostic_plots) != bool:
         raise Exception('diagnostic_plots (%s) must be a boolean.' % str(diagnostic_plots))
 
@@ -1611,7 +1604,7 @@ def _check_add_pbh(hdf5_file, ebf_file,
 
 def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
             r_max=16.6, r_s=18.6, gamma=1, v_esc=550,
-            rho_0=0.0093, n_lin=1000, diagnostic_plots=False,
+            rho_0=0.0093, diagnostic_plots=False,
             new_output_root=None, seed=None):
     """
     Given some hdf5 file from perform_pop_syn output, creates PBH positions, velocities, etc,
@@ -1657,10 +1650,6 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
         The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
         Defaults to .0093 [Msun / pc^3]. The median value given in McMillan 2017.
 
-    n_lin: int
-        The number of times you want the density determined along the line of sight when calculating PBH positions
-        Defaults to 1000. Will need to make large if you are closer to the galactic center.
-
     Optional Parameters
     -------------------
     diagnostic_plots: bool
@@ -1691,10 +1680,8 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     _check_add_pbh(hdf5_file=hdf5_file, ebf_file=ebf_file,
                    fdm=fdm, pbh_mass=pbh_mass,
                    r_max=r_max, r_s=r_s, gamma=gamma, v_esc=v_esc,
-                   rho_0=rho_0, n_lin=n_lin,
-                   diagnostic_plots=diagnostic_plots,
-                   new_output_root=new_output_root,
-                   seed=seed)
+                   rho_0=rho_0, diagnostic_plots=diagnostic_plots,
+                   new_output_root=new_output_root, seed=seed)
 
     if new_output_root is None:
         output_root = hdf5_file.replace('.h5', '')
@@ -1757,10 +1744,11 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
 
     # Generate an array of heliocentric radii
     # These radii will just be used to numerically integrate the density
+    n_lin = 100000
+
     if np.logical_and(np.logical_and(np.abs(l_radian) < 0.5 * np.pi / 180,
                                      np.abs(b_radian) < 0.5 * np.pi / 180),
                       n_lin < 100000):
-        print('Warning: for fields very near the center of the Milky Way it is recommended that the number of elements used to estimate the density be n_lin>100000')
     r_h_linspace = np.linspace(0, r_max, num=n_lin)
 
     # Represent the line of sight line in galactic coordinates

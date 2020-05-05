@@ -288,7 +288,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 
 def generate_pbh_config_file(fdm=1, pbh_mass=40,
                              r_max=16.6, r_s=18.6, gamma=1,
-                             v_esc=550, rho_0=0.0093, n_lin=1000,
+                             v_esc=550, rho_0=0.0093,
                              diagnostic_plots=False,
                              config_filename='pbh_config.yaml'):
     """
@@ -321,10 +321,6 @@ def generate_pbh_config_file(fdm=1, pbh_mass=40,
     rho_0: float
         The initial density that will be used in the NFW profile equations (in units of Msun/pc^3).
 
-    n_lin: int
-        The number of times you want the density determined along the line of sight when calculating PBH positions
-        Defaults to 1000. Will need to make large if you are closer to the galactic center.
-
     diagnostic_plots: bool
         Generate diganostic plots when running add_pbh. Default False.
 
@@ -346,8 +342,7 @@ def generate_pbh_config_file(fdm=1, pbh_mass=40,
               'gamma': gamma,
               'v_esc': v_esc,
               'rho_0': rho_0,
-              'diagnostic_plots': str(diagnostic_plots),
-              'n_lin': n_lin}
+              'diagnostic_plots': str(diagnostic_plots)}
     generate_config_file(config_filename, config)
 
 
@@ -684,7 +679,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                        gamma=pbh_config['gamma'],
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
-                       n_lin=pbh_config['n_lin'],
                        diagnostic_plots=pbh_config['diagnostic_plots'],
                        new_output_root=None,
                        seed=seed)
@@ -1008,7 +1002,6 @@ def run():
                        gamma=pbh_config['gamma'],
                        v_esc=pbh_config['v_esc'],
                        rho_0=pbh_config['rho_0'],
-                       n_lin=pbh_config['n_lin'],
                        diagnostic_plots=pbh_config['diagnostic_plots'],
                        new_output_root=None,
                        seed=args.seed)
@@ -1088,7 +1081,6 @@ def run():
                           gamma=pbh_config['gamma'],
                           v_esc=pbh_config['v_esc'],
                           rho_0=pbh_config['rho_0'],
-                          n_lin=pbh_config['n_lin'],
                           diagnostic_plots=pbh_config['diagnostic_plots'],
                           seed=args.seed)
 

@@ -13,7 +13,7 @@ Dependencies
 `galaxia <http://galaxia.sourceforge.net>`_
 PopSyCLE requires a custom version of galaxia in order to support
 user selected galaxy models. Please follow the installation instructions
-found at our galaxia GitHub repo: https://github.com/jluastro/galaxia_.
+found at our galaxia GitHub repo: https://github.com/jluastro/galaxia.
 
 `PyPopStar <https://pypopstar.readthedocs.io/en/latest/>`_
 

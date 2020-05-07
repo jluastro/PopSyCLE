@@ -34,6 +34,7 @@ from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
+from distutils import spawn
 from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
@@ -172,7 +173,7 @@ def write_galaxia_params(output_root,
 
 
 def _check_run_galaxia(output_root, longitude, latitude, area,
-                       seed):
+                       galaxia_galaxy_model_filename, seed):
     """
     Check that the inputs to run_galaxia are valid
 
@@ -193,6 +194,9 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
     area : float
         Area of the sky that will be generated, in square degrees
+
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
 
     seed : int
          Seed Galaxia will use to generate objects. If not set, script will
@@ -215,12 +219,45 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
         if not isinstance(area, float):
             raise Exception('area (%s) must be an integer or a float.' % str(area))
 
+    # Check that galaxia is in the executable PATH
+    if spawn.find_executable('galaxia') is None:
+        raise Exception('galaxia is not an executable currently in $PATH')
+
+    # Confrim that galaxia is the PopSyCLE compliant version
+    stdout, _ = utils.execute('galaxia --version')
+    galaxia_version = stdout.replace('\n', '').split()[1]
+    if galaxia_version != '0.7.2.1':
+        raise Exception('galaxia must be version 0.7.2.1 installed from https://github.com/jluastro/galaxia')
+
+    # Check the galaxia_galaxy_model_filename for correct type and existence
+    if not isinstance(galaxia_galaxy_model_filename, str):
+        raise Exception('galaxia_galaxy_model_filename (%s) must be a string.' % str(galaxia_galaxy_model_filename))
+
+    if not os.path.exists(galaxia_galaxy_model_filename):
+        raise Exception('galaxia_galaxy_model_filename (%s) does not exist' % galaxia_galaxy_model_filename)
+
+    # Check that GalaxiaData is a valid galaxia folder
+    GalaxiaData = None
+    for line in open(galaxia_galaxy_model_filename, 'r'):
+        if 'GalaxiaData' in line:
+            GalaxiaData = line.replace('\n','').split()[1]
+            break
+
+    if GalaxiaData is None:
+        raise Exception('GalaxiaData missing from '
+                        'galaxia_galaxy_model_filename (%s)' % galaxia_galaxy_model_filename)
+
+    if not os.path.exists(GalaxiaData):
+        raise Exception('GalaxiaData (%s) in galaxia_galaxy_model_filename '
+                        '(%s) does not exist' % (GalaxiaData, galaxia_galaxy_model_filename))
+
     if seed is not None:
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
 
 def run_galaxia(output_root, longitude, latitude, area,
+                galaxia_galaxy_model_filename,
                 seed=None):
     """
     Given an object root, sky location and area, creates the parameter
@@ -245,6 +282,9 @@ def run_galaxia(output_root, longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+
     Optional Parameters
     -------------------
     seed : int
@@ -255,7 +295,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
     # Error handling/complaining if input types are not right.
     _check_run_galaxia(output_root, longitude, latitude, area,
-                       seed)
+                       galaxia_galaxy_model_filename, seed)
 
     # Writes out galaxia params to disk
     write_galaxia_params(output_root=output_root,
@@ -265,10 +305,15 @@ def run_galaxia(output_root, longitude, latitude, area,
                          seed=seed)
 
     # Execute Galaxia
-    cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
-    print('Executing with galaxia_params.%s.txt' % output_root)
+    cmd = 'galaxia -r galaxia_params.%s.txt %s' % (output_root, galaxia_galaxy_model_filename)
+    print('** Executing Galaxia with galaxia_params.%s.txt '
+          'and %s **' % (output_root, galaxia_galaxy_model_filename))
     t0 = time.time()
-    _ = utils.execute(cmd)
+    stdout, stderr = utils.execute(cmd)
+    print('** STDOUT **')
+    print(stdout)
+    print('** STDERR **')
+    print(stderr)
     t1 = time.time()
     print('Galaxia complete')
     print('galaxia runtime : {0:f} s'.format(t1 - t0))
@@ -291,6 +336,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     line1 = 'longitude , ' + str(longitude) + '\n'
     line2 = 'latitude , ' + str(latitude) + '\n'
     line3 = 'area , ' + str(area) + '\n'
+    line3b = 'galaxia_galaxy_model_filename , ' + galaxia_galaxy_model_filename + '\n'
     line4 = 'seed , ' + str(seed) + '\n'
 
     line8 = 'VERSION INFORMATION' + '\n'
@@ -305,7 +351,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     line18 = output_root + '.ebf : ebf file' + '\n'
 
     with open(output_root + '_galaxia.log', 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, line4,
+        out.writelines([line0, dash_line, line1, line2, line3, line3b, line4,
                         empty_line, line8, dash_line, line9, line10, line11,
                         empty_line, line12, dash_line, line13,
                         empty_line, line17, dash_line, line18])
@@ -558,12 +604,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Define bin_edges_number, if not given in input.
     if bin_edges_number is None:
-        # st the widths are 1/2 arcmin
+        # set the widths to 1/2 arcmin
         bin_edges_number = int(60 * 2 * radius) + 1
 
-    # Make sure we have enough bin edges (minimum is 3)
-    if bin_edges_number < 2:
-        bin_edges_number = 3
+    # Make sure we have enough bin edges (min is 3)
+    bin_edges_number = max(bin_edges_number, 3)
+    # Make sure we have don't have too many bin edges (max is 40)
+    bin_edges_number = min(bin_edges_number, 40)
+    
     lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
                                 bin_edges_number)
     long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
@@ -1649,31 +1697,30 @@ def calc_events(hdf5_file, output_root2,
             if results[ii][1] is not None:
                 results_bl.append(results[ii][1])
 
-    if len(results_ev) == 0:
-        print('No events!')
-        return
-    else:
+    if len(results_ev) > 0:
         events_tmp = np.concatenate(results_ev, axis=0)
         if len(results_bl) == 0:
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
 
-    # Convert the events numpy recarray into an
-    # Astropy Table for easier consumption.
-    events_tmp = unique_events(events_tmp)
-    events_final = Table(events_tmp)
-    N_events = len(events_final)
-    print('Candidate events detected: ', N_events)
+        # Convert the events numpy recarray into an
+        # Astropy Table for easier consumption.
+        events_tmp = unique_events(events_tmp)
+        events_final = Table(events_tmp)
+        N_events = len(events_final)
+        print('Candidate events detected: ', N_events)
 
-    if len(results_bl) != 0:
-        blends_tmp = unique_blends(blends_tmp)
-    blends_final = Table(blends_tmp)
+        if len(results_bl) != 0:
+            blends_tmp = unique_blends(blends_tmp)
+        blends_final = Table(blends_tmp)
 
-    # Save out file
-    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
-
+        # Save out file
+        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+    else:
+        N_events = 0
+        print('No events!')
     t1 = time.time()
 
     ##########
@@ -1683,7 +1730,7 @@ def calc_events(hdf5_file, output_root2,
     radius_cut = radius_cut / 1000.0  # back to arcsec
     popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=popsycle_path).decode('ascii').strip()
+                                            cwd=popsycle_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
@@ -1695,6 +1742,7 @@ def calc_events(hdf5_file, output_root2,
     line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
     line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
     line8 = 'n_proc , ' + str(n_proc) + '\n'
+
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
     line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
@@ -1703,9 +1751,14 @@ def calc_events(hdf5_file, output_root2,
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
     line14 = str(N_events) + ' : total number of events' + '\n'
 
-    line15 = 'FILES CREATED' + '\n'
-    line16 = output_root2 + '_events.fits : events file' + '\n'
-    line17 = output_root2 + '_blends.fits : blends file' + '\n'
+    if N_events > 0:
+        line15 = 'FILES CREATED' + '\n'
+        line16 = output_root2 + '_events.fits : events file' + '\n'
+        line17 = output_root2 + '_blends.fits : blends file' + '\n'
+    else:
+        line15 = 'NO FILES CREATED' + '\n'
+        line16 = '\n'
+        line17 = '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
@@ -2534,30 +2587,30 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     event_tab['u0'] = u0
     if len(event_tab) == 0:
         print('No events!')
-        return
+        output_file = 'NO FILE CREATED'
+    else:
+        ##########
+        # Calculate apparent magnitudes
+        ##########
 
-    ##########
-    # Calculate apparent magnitudes
-    ##########
+        # Einstein crossing time
+        # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
+        t_E = event_tab['theta_E'] / event_tab['mu_rel']  # yr
+        t_E *= 365.25  # days
+        event_tab['t_E'] = t_E  # days
 
-    # Einstein crossing time
-    # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
-    t_E = event_tab['theta_E'] / event_tab['mu_rel']  # yr
-    t_E *= 365.25  # days
-    event_tab['t_E'] = t_E  # days
+        # Add stuff to event_tab... shouldn't have any direct outputs
+        _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
 
-    # Add stuff to event_tab... shouldn't have any direct outputs
-    _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
+        # Relative parallax
+        pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
+        event_tab['pi_rel'] = pi_rel  # mas
 
-    # Relative parallax
-    pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
-    event_tab['pi_rel'] = pi_rel  # mas
+        # Microlensing parallax
+        pi_E = pi_rel / event_tab['theta_E']
+        event_tab['pi_E'] = pi_E  # dim'less
 
-    # Microlensing parallax
-    pi_E = pi_rel / event_tab['theta_E']
-    event_tab['pi_E'] = pi_E  # dim'less
-
-    event_tab.write(output_file, overwrite=overwrite)
+        event_tab.write(output_file, overwrite=overwrite)
 
     t_1 = time.time()
 

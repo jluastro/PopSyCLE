@@ -1746,10 +1746,7 @@ def add_pbh(hdf5_file, ebf_file, fdm=1, pbh_mass=40,
     # These radii will just be used to numerically integrate the density
     n_lin = 100000
 
-    if np.logical_and(np.logical_and(np.abs(l_radian) < 0.5 * np.pi / 180,
-                                     np.abs(b_radian) < 0.5 * np.pi / 180),
-                      n_lin < 100000):
-        r_h_linspace = np.linspace(0, r_max, num=n_lin)
+    r_h_linspace = np.linspace(0, r_max, num=n_lin)
 
     # Represent the line of sight line in galactic coordinates
     galactic_lin = coord.Galactic(l=l_radian * units.rad,

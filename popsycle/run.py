@@ -525,10 +525,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         latitude bin edges, and the compact objects
         and stars sorted into those bins.
 
-    <path_run>/field_config.<output_root>.yaml : yaml file
+    <path_run>/<output_root>_field_config.yaml : yaml file
         Field config file containing the galactic parameters needed to run pipeline
 
-    <path_run>/run_poopsycle_<jobname>.sh : yaml file
+    <path_run>/run_popsycle_<jobname>.sh : yaml file
         SLURM batch script for submitting job with pipeline run
 
     Returns
@@ -607,7 +607,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     config = {'longitude': longitude,
               'latitude': latitude,
               'area': area}
-    field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
+    field_config_filename = '{0}/{1}_field_config.yaml'.format(path_run,
                                                                output_root)
     generate_config_file(field_config_filename, config)
 

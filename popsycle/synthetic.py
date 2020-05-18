@@ -130,7 +130,7 @@ def write_galaxia_params(output_root,
 
     Outputs
     -------
-    galaxia_params.<output_root>.txt : text file
+    <output_root>_galaxia_params.txt : text file
         A text file with the parameters that Galaxia requires to run.
     """
 
@@ -162,7 +162,7 @@ def write_galaxia_params(output_root,
         "photoError 0"
     ]
 
-    galaxia_param_fname = 'galaxia_params.%s.txt' % output_root
+    galaxia_param_fname = '%s_galaxia_params.txt' % output_root
 
     print('** Generating %s **' % galaxia_param_fname)
 
@@ -305,8 +305,8 @@ def run_galaxia(output_root, longitude, latitude, area,
                          seed=seed)
 
     # Execute Galaxia
-    cmd = 'galaxia -r galaxia_params.%s.txt %s' % (output_root, galaxia_galaxy_model_filename)
-    print('** Executing Galaxia with galaxia_params.%s.txt '
+    cmd = 'galaxia -r %s_galaxia_params.txt %s' % (output_root, galaxia_galaxy_model_filename)
+    print('** Executing Galaxia with %s_galaxia_params.txt '
           'and %s **' % (output_root, galaxia_galaxy_model_filename))
     t0 = time.time()
     stdout, stderr = utils.execute(cmd)

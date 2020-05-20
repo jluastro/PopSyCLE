@@ -129,6 +129,7 @@ def generate_field_config_file(longitude, latitude, area,
 
 def generate_slurm_config_file(path_python='python', account='ulens',
                                queue='regular', resource='haswell',
+                               srun_options=None,
                                include_constraint=True,
                                n_cores_per_node=32, n_nodes_max=2388,
                                walltime_max='48:00:00',
@@ -151,6 +152,12 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 
     resource : str
         Computing resource name
+
+    srun_options : None, str
+        Options for slurm's srun command
+
+    include_constraint : bool
+        Includes slurm option CONSTRAINT in slurm script header. Default True.
 
     n_cores_per_node : int
         Number of cores in each node of the compute resource
@@ -181,6 +188,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
               'queue': queue,
               'resource': resource,
               'include_constraint': bool(include_constraint),
+              'srun_options': srun_options,
               'additional_lines': additional_lines,
               resource: {'n_cores_per_node': n_cores_per_node,
                          'n_nodes_max': n_nodes_max,

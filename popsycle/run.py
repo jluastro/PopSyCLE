@@ -172,8 +172,6 @@ def generate_slurm_config_file(path_python='python', account='ulens',
     additional_lines : None, list of strings
         None, or additional lines to be run before executing run.py
 
-    Optional Parameters
-    -------------------
     config_filename : str
         Name of the configuration file
         Default: slurm_config.yaml

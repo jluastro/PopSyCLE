@@ -643,7 +643,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     slurm_config['include_constraint'] = bool(slurm_config['include_constraint'])  # Enforce boolean for 'include_constraint'
     if slurm_config['srun_options'] is None:
         slurm_config['srun_options'] = ''
-    if slurm_config['srun_options'] is None:
     # Load popsycle config
     popsycle_config = load_config_file(popsycle_config_filename)
     if popsycle_config['bin_edges_number'] == 'None':  # Enforce None for 'bin_edges_number'

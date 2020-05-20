@@ -162,8 +162,8 @@ def generate_slurm_config_file(path_python='python', account='ulens',
         Maximum number of hours for single job on the compute resource
         Format: hh:mm:ss
 
-    additional_lines : list of strings
-        Additional lines to be run before executing run.py
+    additional_lines : None, list of strings
+        None, or additional lines to be run before executing run.py
 
     Optional Parameters
     -------------------
@@ -641,6 +641,9 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     # Load slurm config
     slurm_config = load_config_file(slurm_config_filename)
     slurm_config['include_constraint'] = bool(slurm_config['include_constraint'])  # Enforce boolean for 'include_constraint'
+    if slurm_config['srun_options'] is None:
+        slurm_config['srun_options'] = ''
+    if slurm_config['srun_options'] is None:
     # Load popsycle config
     popsycle_config = load_config_file(popsycle_config_filename)
     if popsycle_config['bin_edges_number'] == 'None':  # Enforce None for 'bin_edges_number'
@@ -726,6 +729,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     account = slurm_config['account']
     # Queue
     queue = slurm_config['queue']
+    # Options for slurm's srun command
+    srun_options = slurm_config['srun_options']
     # Name of the resource that will be ussed for the run
     resource = slurm_config['resource']
     # Maximum number of cores per node
@@ -781,10 +786,11 @@ echo "---------------------------"
 cd {path_run}
 
 """
-    for line in slurm_config['additional_lines']:
-        slurm_template += '%s\n' % line
+    if slurm_config['additional_lines'] is not None:
+        for line in slurm_config['additional_lines']:
+            slurm_template += '%s\n' % line
     slurm_template += """
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
+srun -N 1 -n 1 {srun_options} {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds} 
 date
 echo "All done!"
 """

@@ -5,6 +5,7 @@ Functions (and their associated functions) for utilities.
 """
 import subprocess
 import numpy as np
+import copy
 
 
 def add_precision64(input_array, power):
@@ -170,30 +171,45 @@ def execute(cmd, shell=False):
     return stdout, stderr
 
 
-def generate_all_isochrones(iso_dir, include_ztf=True):
+def generate_isochrones(iso_dir, logAge_min=5.01, logAge_max=10.291,
+                        logAge_delta=0.01, metallicity=0.0,
+                        include_ztf=True):
     """
-    Generates all solar metallicity isochrones needed for PopSyCLE simulations
+    Generates isochrones needed for PopSyCLE simulations
 
     Parameters
     ----------
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
+    logAge_min : float
+        Minimum log10(age) of generated isochrones
+
+    logAge_max : float
+        Maximum log10(age) of generated isochrones
+
+    logAge_delta : float
+        Resolution in log10(age) of generated isochrones
+
+    metallicity : float
+        The metallicity in [M/H]
+
     Optional Parameters
     -------------------
     include_ztf : bool
         Determines if ztf filters should be included
         in the generated isochrones. Default is True.
+
     """
     from popsycle.synthetic import all_filt_list
     from popstar import evolution, synthetic
-    my_filt_list = all_filt_list
+    my_filt_list = copy.deepcopy(all_filt_list)
     # Add ztf filters to generated isochrones
     if include_ztf:
         my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
 
     # All possibles ages to two digit precision
-    log_age_arr = np.arange(5.01, 10.291, 0.01)
+    log_age_arr = np.arange(logAge_min, logAge_max, logAge_delta)
     print('Generating %i isochrones for '
           '%.2f < log_age < %.2f' % (len(log_age_arr),
                                      log_age_arr[0],
@@ -201,6 +217,7 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
     for i, log_age in enumerate(log_age_arr):
         print('Generating log_age = %.2f (%03d / %03d)' % (log_age, i+1, len(log_age_arr)))
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                         metallicity=metallicity,
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir)
@@ -211,6 +228,7 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
         my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
         if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             _ = synthetic.IsochronePhot(log_age, 0, 10,
+                                        metallicity=metallicity,
                                         evo_model=evolution.MISTv1(),
                                         filters=my_filt_list,
                                         iso_dir=iso_dir,

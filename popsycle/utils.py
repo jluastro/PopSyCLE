@@ -208,6 +208,11 @@ def generate_isochrones(iso_dir, logAge_min=5.01, logAge_max=10.291,
     if include_ztf:
         my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
 
+    # Enforce sensible values
+    logAge_min = max(5.01, logAge_min)
+    logAge_max = min(10.291, logAge_max)
+    logAge_delta = max(0.01, logAge_delta)
+
     # All possibles ages to two digit precision
     log_age_arr = np.arange(logAge_min, logAge_max, logAge_delta)
     print('Generating %i isochrones for '
@@ -226,7 +231,7 @@ def generate_isochrones(iso_dir, logAge_min=5.01, logAge_max=10.291,
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
         my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
-        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
+        if set(my_filt_list_fmt) != set(my_iso_filters):
             _ = synthetic.IsochronePhot(log_age, 0, 10,
                                         metallicity=metallicity,
                                         evo_model=evolution.MISTv1(),

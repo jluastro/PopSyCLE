@@ -621,12 +621,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     wrap_id = np.where(long_bin_edges > 180)[0]
     long_bin_edges[wrap_id] -= 360
 
+
     ##########
     # Create h5py file to store lat/long binned output
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
     h5file['lat_bin_edges'] = lat_bin_edges
     h5file['long_bin_edges'] = long_bin_edges
+    h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
     h5file.close()
 
     ##########
@@ -874,7 +876,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     binned_counter = 0
     hf = h5py.File(output_root + '.h5', 'r')
     for key in hf:
-        if 'bin_edges' not in key:
+        if 'bin_edges' not in key and 'galaxyModel' not in key:
             binned_counter += len(hf[key])
 
     ##########

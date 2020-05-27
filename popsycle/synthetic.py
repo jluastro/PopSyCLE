@@ -2920,13 +2920,10 @@ def make_ebf_log(ebf_table):
 
     ebf_log = {}
     for ii in range(len(log_list)):
-        if len(log_list[ii]) == 0:
+        if ii <= 1 or ii >= len(log_list) - 2:
             continue
 
-        if log_list[ii].startswith(b'#'):
-            continue
-
-        log_list_entry = log_list[ii].split()
+        log_list_entry = log_list[ii].replace(b'# ',b'').split()
 
         ebf_log[log_list_entry[0].decode('utf-8')] = log_list_entry[1].decode(
             'utf-8')

@@ -128,7 +128,8 @@ def generate_field_config_file(longitude, latitude, area,
 
 def generate_slurm_config_file(path_python='python', account='ulens',
                                queue='regular', resource='haswell',
-                               n_cores_per_node=32, n_nodes_max=2388,
+                               memory=128, n_cores_per_node=32, n_nodes_max=2388,
+                               memory_max=128,
                                walltime_max='48:00:00',
                                additional_lines=['module load cray-hdf5/1.10.5.2',
                                                  'export HDF5_USE_FILE_LOCKING=FALSE'],
@@ -150,11 +151,17 @@ def generate_slurm_config_file(path_python='python', account='ulens',
     resource : str
         Computing resource name
 
+    memory : int
+        Amount of memory allocated for the job, in units of GB
+
     n_cores_per_node : int
         Number of cores in each node of the compute resource
 
     n_nodes_max : int
         Total number of nodes in the compute resource
+
+    memory_max : int
+        Memory per node in the computer resource, in units of GB
 
     walltime_max : int
         Maximum number of hours for single job on the compute resource
@@ -178,9 +185,11 @@ def generate_slurm_config_file(path_python='python', account='ulens',
               'account': account,
               'queue': queue,
               'resource': resource,
+              'memory': memory,
               'additional_lines': additional_lines,
               resource: {'n_cores_per_node': n_cores_per_node,
                          'n_nodes_max': n_nodes_max,
+                         'memory_max': memory_max,
                          'walltime_max': walltime_max}}
     generate_config_file(config_filename, config)
 
@@ -188,6 +197,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   n_obs=101, theta_frac=2, blend_rad=0.75,
                                   isochrones_dir='/Users/myself/popsycle_isochrones',
+                                  galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
                                   NS_kick_speed_mean=400,
@@ -217,6 +227,9 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 
     isochrones_dir : str
         Directory for PyPopStar isochrones
+
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
 
     bin_edges_number : int
         Number of edges for the bins
@@ -257,16 +270,19 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     if bin_edges_number is None:
         bin_edges_number = 'None'
     if isochrones_dir == '/Users/myself/popsycle_isochrones':
-        print('** WARNING **')
-        print("'isochrones_dir' must be set by the user. "
-              "The default value is only an example.")
+        raise Exception("'isochrones_dir' must be set by the user. "
+                        "The default value is only an example.")
+    if galaxia_galaxy_model_filename == '/Users/myself/galaxia_galaxy_model_filename':
+        raise Exception("'galaxia_galaxy_model_filename' must be set by the user. "
+                        "The default value is only an example.")
 
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
               'n_obs': n_obs,
               'theta_frac': theta_frac,
               'blend_rad': blend_rad,
-              'isochrones_dir': isochrones_dir,
+              'isochrones_dir': os.path.abspath(isochrones_dir),
+              'galaxia_galaxy_model_filename': os.path.abspath(galaxia_galaxy_model_filename),
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
@@ -509,10 +525,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         latitude bin edges, and the compact objects
         and stars sorted into those bins.
 
-    <path_run>/field_config.<output_root>.yaml : yaml file
+    <path_run>/<output_root>_field_config.yaml : yaml file
         Field config file containing the galactic parameters needed to run pipeline
 
-    <path_run>/run_poopsycle_<jobname>.sh : yaml file
+    <path_run>/run_popsycle_<jobname>.sh : yaml file
         SLURM batch script for submitting job with pipeline run
 
     Returns
@@ -549,6 +565,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            longitude=longitude,
                            latitude=latitude,
                            area=area,
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                            seed=seed)
     if not skip_perform_pop_syn:
         if popsycle_config['bin_edges_number'] == 'None':
@@ -590,7 +607,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     config = {'longitude': longitude,
               'latitude': latitude,
               'area': area}
-    field_config_filename = '{0}/field_config.{1}.yaml'.format(path_run,
+    field_config_filename = '{0}/{1}_field_config.yaml'.format(path_run,
                                                                output_root)
     generate_config_file(field_config_filename, config)
 
@@ -607,12 +624,16 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     account = slurm_config['account']
     # Queue
     queue = slurm_config['queue']
-    # Name of the resource that will be ussed for the run
+    # Name of the resource that will be used for the run
     resource = slurm_config['resource']
+    # Memory that will be used for the run, in GB
+    memory = slurm_config['memory']
     # Maximum number of cores per node
     n_cores_per_node = slurm_config[resource]['n_cores_per_node']
     # Maximum number of nodes
     n_nodes_max = slurm_config[resource]['n_nodes_max']
+    # Maximum memory on each compute node
+    memory_max = slurm_config[resource]['memory_max']
     # Maximum walltime (hours)
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
@@ -623,6 +644,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                         'must be less than or equal to '
                         'n_cores_per_node (%s)' % (n_cores_calc_events,
                                                    n_cores_per_node))
+
+    if memory > memory_max:
+        raise Exception('memory (%s) '
+                        'must be less than or equal to '
+                        'memory_max (%s)' % (memory, memory_max))
 
     walltime_s = int(walltime.split(':')[0]) * 3600
     walltime_s += int(walltime.split(':')[1]) * 60
@@ -640,7 +666,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 # Job name
 #SBATCH --account={account}
 #SBATCH --qos={queue}
-#SBATCH --constraint={resource}
+#SBATCH --constraint={resource}"""
+    if memory < memory_max:
+        slurm_template += """
+#SBATCH --mem={memory}GB"""
+    slurm_template += """
 #SBATCH --nodes=1
 #SBATCH --time={walltime}
 #SBATCH --job-name={jobname}
@@ -699,6 +729,8 @@ exit $exitcode
     script_filename = path_run + '/run_popsycle_%s.sh' % (jobname)
     with open(script_filename, 'w') as f:
         f.write(job_script)
+
+    print(f'  {script_filename} written')
 
     # Submit the job to disk
     slurm_jobid = None
@@ -842,6 +874,7 @@ def run():
                            longitude=field_config['longitude'],
                            latitude=field_config['latitude'],
                            area=field_config['area'],
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                            seed=args.seed)
     if not args.skip_perform_pop_syn:
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
@@ -885,6 +918,7 @@ def run():
                               longitude=field_config['longitude'],
                               latitude=field_config['latitude'],
                               area=field_config['area'],
+                              galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
                               seed=args.seed)
 
     if not args.skip_perform_pop_syn:

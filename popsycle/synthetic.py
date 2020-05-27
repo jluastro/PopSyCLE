@@ -369,7 +369,6 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     ----------
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
-        ebf file : actually the ebf file from Galaxia
 
     output_root : str
         The thing you want the output files to be named
@@ -2559,7 +2558,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     event_fits_file = input_root + '_events.fits'
     blend_fits_file = input_root + '_blends.fits'
-    log_file = input_root + '_calc_events.log'
+    galaxia_params_file = input_root + '_galaxia_params.txt'
+    calc_events_log_file = input_root + '_calc_events.log'
+    perform_pop_syn_log_file = input_root + '_perform_pop_syn.log'
+
+    for filename in [event_fits_file,
+                     blend_fits_file,
+                     galaxia_params_file,
+                     calc_events_log_file,
+                     perform_pop_syn_log_file]:
+        if not os.path.exists(filename):
+            raise Exception(f'{filename} cannot be found.')
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
@@ -2571,11 +2580,31 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Only keep events with luminous sources
     event_tab = event_tab[~np.isnan(event_tab[photometric_system + '_' + filter_name + '_S'])]
 
-    with open(log_file) as my_file:
+    # Grab the obs_time from the calc_events log
+    with open(calc_events_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
             if 'obs_time' in line:
                 obs_time = line.split(',')[1]
                 obs_time = float(obs_time)
+                break
+
+    # Grab the random seed from the galaxia param file
+    with open(galaxia_params_file, 'r') as my_file:
+        for num, line in enumerate(my_file):
+            if 'seed' in line:
+                gal_seed = line.split(' ')[1].replace('\n', '')
+                gal_seed = int(gal_seed)
+                break
+
+    # Grab the random seed from the perform_pop_syn log
+    with open(perform_pop_syn_log_file, 'r') as my_file:
+        for num, line in enumerate(my_file):
+            if 'seed' in line:
+                pps_seed = line.split(',')[1].replace('\n', '')
+                try:
+                    pps_seed = int(pps_seed)
+                except:
+                    pps_seed = np.nan
                 break
 
     # Calculate time and separation at closest approach, add to table
@@ -2612,6 +2641,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         # Microlensing parallax
         pi_E = pi_rel / event_tab['theta_E']
         event_tab['pi_E'] = pi_E  # dim'less
+
+        # Add random seeds as columns
+        event_tab['pps_seed'] = np.ones(len(event_tab)) * pps_seed
+        event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
 
@@ -2892,6 +2925,62 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 
     return
 
+
+def combine_refined_events(refined_events_filenames, overwrite=False,
+                           output_file='default'):
+    """
+    Creates a combined refined_events out of multiple refined_events files
+
+    Parameters
+    ----------
+    refined_events_filenames : list of strs
+        Filenames of refined_events tables to be combined
+
+    Optional Parameters
+    -------------------
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be generated from the first
+        filename in refined_events_filenames following:
+            combined_refined_events_<photometric_system>_<filt>_<red_law>.fits
+    """
+
+
+    # Loop over filenames, checking that each one exists
+    print('Creating combined refined_events')
+    refined_events_arr = []
+    for filename in refined_events_filenames:
+        if not os.path.exists(filename):
+            raise Exception(f'{filename} cannot be found. Skipping...')
+        print(f'-- Loading {filename}')
+        refined_events = Table.read(filename)
+        refined_events['original_filename'] = filename
+        refined_events_arr.append(refined_events)
+
+    # Combine astropy tables
+    combined_refined_events = vstack(refined_events_arr)
+
+    # Create an output_filename following the first filename
+    if output_file == 'default':
+        base = refined_events_filenames[0]
+        output_file = 'combined_'
+        output_file += '_'.join(base.split('_')[-5:])
+
+    # Overwrite any exiting file with the same name
+    if overwrite and os.path.exists(output_file):
+        os.remove(output_file)
+
+    # Save combined table to disk
+    print(f'Saving to {output_file}')
+    Table(combined_refined_events).write(output_file)
+
+    return output_file
 
 ##################################################################
 ############ Reading/writing and format functions  ###############

@@ -2974,7 +2974,10 @@ def combine_refined_events(refined_events_filenames, overwrite=False,
         filename in refined_events_filenames following:
             combined_refined_events_<photometric_system>_<filt>_<red_law>.fits
     """
-
+    # Check to see that all refined_events tables are unique
+    if len(refined_events_filenames) != len(set(refined_events_filenames)):
+        raise Exception('Duplicate filename found in '
+                        'refined_events_filenames. Exiting...')
 
     # Loop over filenames, checking that each one exists
     print('Creating combined refined_events')

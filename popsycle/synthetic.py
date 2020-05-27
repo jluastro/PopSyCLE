@@ -627,7 +627,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     h5file = h5py.File(output_root + '.h5', 'w')
     h5file['lat_bin_edges'] = lat_bin_edges
     h5file['long_bin_edges'] = long_bin_edges
-    h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
+    if 'galaxyModelFile' in ebf_log:
+        h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
     h5file.close()
 
     ##########

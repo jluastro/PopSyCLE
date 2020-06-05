@@ -767,7 +767,192 @@ exit $exitcode
     return slurm_jobid
 
 
-def run(passed_args=None):
+def run(output_root='root0',
+        field_config_filename='field_config.yaml',
+        popsycle_config_filename='popsycle_config.yaml',
+        n_cores_calc_events=1,
+        seed=None,
+        overwrite=False,
+        skip_galaxia=False,
+        skip_perform_pop_syn=False,
+        skip_calc_events=False,
+        skip_refine_events=False):
+
+    t0 = time.time()
+
+    # Check for field config file. Exit if not present.
+    if not os.path.exists(field_config_filename):
+        print("""Error: Field configuration file {0} missing, 
+        cannot continue. In order to execute run.py, generate a 
+        field configuration file using 
+        popsycle.run.generate_field_config_file. 
+        Exiting...""".format(field_config_filename))
+        sys.exit(1)
+
+    # Check for popsycle config file. Exit if not present.
+    if not os.path.exists(popsycle_config_filename):
+        print("""Error: popsycle configuration file {0} missing, 
+        cannot continue. In order to execute run.py, generate a 
+        popsycle configuration file using 
+        popsycle.run.generate_popsycle_config_file. 
+        Exiting...""".format(popsycle_config_filename))
+        sys.exit(1)
+
+    # Load the config files for field parameters
+    field_config = load_config_file(field_config_filename)
+
+    # Load the config files for popsycle parameters. If the `bin_edges_number`
+    # has been set to the string `None`, instead set it to the boolean None.
+    popsycle_config = load_config_file(popsycle_config_filename)
+    if popsycle_config['bin_edges_number'] == 'None':
+        popsycle_config['bin_edges_number'] = None
+    if popsycle_config['photometric_system'] not in synthetic.photometric_system_dict:
+        print("""Error: 'photometric_system' in {0} must be a valid option 
+        in 'photometric_system_dict'. 
+        Exiting...""".format(popsycle_config_filename))
+        sys.exit(1)
+
+    # Return the dictionary containing PopSyCLE output filenames
+    filename_dict = _return_filename_dict(output_root)
+
+    # Prepare additional_photometric_systems
+    additional_photometric_systems = None
+    if popsycle_config['photometric_system'] != 'ubv':
+        additional_photometric_systems = [popsycle_config['photometric_system']]
+
+    # Check pipeline stages for valid inputs
+    if not skip_galaxia:
+        _check_run_galaxia(output_root=output_root,
+                           longitude=field_config['longitude'],
+                           latitude=field_config['latitude'],
+                           area=field_config['area'],
+                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
+                           seed=seed)
+    if not skip_perform_pop_syn:
+        _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
+                               output_root=output_root,
+                               iso_dir=popsycle_config['isochrones_dir'],
+                               bin_edges_number=popsycle_config['bin_edges_number'],
+                               BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               additional_photometric_systems=additional_photometric_systems,
+                               overwrite=overwrite,
+                               seed=seed)
+    if not skip_calc_events:
+        _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
+                           output_root2=output_root,
+                           radius_cut=popsycle_config['radius_cut'],
+                           obs_time=popsycle_config['obs_time'],
+                           n_obs=popsycle_config['n_obs'],
+                           theta_frac=popsycle_config['theta_frac'],
+                           blend_rad=popsycle_config['blend_rad'],
+                           n_proc=n_cores_calc_events,
+                           overwrite=overwrite)
+    if not skip_refine_events:
+        _check_refine_events(input_root=output_root,
+                             filter_name=popsycle_config['filter_name'],
+                             photometric_system=popsycle_config['photometric_system'],
+                             red_law=popsycle_config['red_law'],
+                             overwrite=overwrite,
+                             output_file='default')
+
+    if not skip_galaxia:
+        # Remove Galaxia output if already exists and overwrite=True
+        if _check_for_output(filename_dict['ebf_filename'],
+                             overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+
+        # Run Galaxia
+        print('-- Running Galaxia')
+        synthetic.run_galaxia(output_root=output_root,
+                              longitude=field_config['longitude'],
+                              latitude=field_config['latitude'],
+                              area=field_config['area'],
+                              galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
+                              seed=seed)
+
+    if not skip_perform_pop_syn:
+        # Remove perform_pop_syn output if already exists and overwrite=True
+        if _check_for_output(filename_dict['hdf5_filename'],
+                             overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+
+        # Run perform_pop_syn
+        print('-- Executing perform_pop_syn')
+        synthetic.perform_pop_syn(
+            ebf_file=filename_dict['ebf_filename'],
+            output_root=output_root,
+            iso_dir=popsycle_config['isochrones_dir'],
+            bin_edges_number=popsycle_config['bin_edges_number'],
+            BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
+            NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+            additional_photometric_systems=additional_photometric_systems,
+            overwrite=overwrite,
+            seed=seed)
+
+    if not skip_calc_events:
+        # Remove calc_events output if already exists and overwrite=True
+        if _check_for_output(filename_dict['events_filename'],
+                             overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+        if _check_for_output(filename_dict['blends_filename'],
+                             overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+
+        # Run calc_events
+        print('-- Executing calc_events')
+        synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
+                              output_root2=output_root,
+                              radius_cut=popsycle_config['radius_cut'],
+                              obs_time=popsycle_config['obs_time'],
+                              n_obs=popsycle_config['n_obs'],
+                              theta_frac=popsycle_config['theta_frac'],
+                              blend_rad=popsycle_config['blend_rad'],
+                              n_proc=n_cores_calc_events,
+                              overwrite=overwrite)
+
+        # Write a fle to disk stating that there are no events if
+        # calc_events does not produce an events file
+        if not os.path.exists(filename_dict['events_filename']):
+            Path(filename_dict['noevents_filename']).touch()
+            print('No events present, skipping refine_events')
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(0)
+
+    if not skip_refine_events:
+        # Remove refine_events output if already exists and overwrite=True
+        filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
+                   'fits'.format(output_root,
+                                 popsycle_config['filter_name'],
+                                 popsycle_config['red_law'])
+        if _check_for_output(filename, overwrite):
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+
+        # Run refine_events
+        print('-- Executing refine_events')
+        synthetic.refine_events(input_root=output_root,
+                                filter_name=popsycle_config['filter_name'],
+                                photometric_system=popsycle_config['photometric_system'],
+                                red_law=popsycle_config['red_law'],
+                                overwrite=overwrite,
+                                output_file='default')
+
+    t1 = time.time()
+    print('run.py runtime : {0:f} s'.format(t1 - t0))
+
+
+def main():
     description_str = """
     Run the PopSyCLE pipeline. This executable can be either 
     run by slurm scripts generated by `generate_slurm_scripts` or from the 
@@ -824,181 +1009,19 @@ def run(passed_args=None):
     optional.add_argument('--skip-refine-events',
                           help="Skip running refine_events.",
                           action='store_true')
-    args = parser.parse_args(passed_args)
+    args = parser.parse_args()
 
-    t0 = time.time()
-
-    # Check for field config file. Exit if not present.
-    if not os.path.exists(args.field_config_filename):
-        print("""Error: Field configuration file {0} missing, 
-        cannot continue. In order to execute run.py, generate a 
-        field configuration file using 
-        popsycle.run.generate_field_config_file. 
-        Exiting...""".format(args.field_config_filename))
-        sys.exit(1)
-
-    # Check for popsycle config file. Exit if not present.
-    if not os.path.exists(args.popsycle_config_filename):
-        print("""Error: popsycle configuration file {0} missing, 
-        cannot continue. In order to execute run.py, generate a 
-        popsycle configuration file using 
-        popsycle.run.generate_popsycle_config_file. 
-        Exiting...""".format(args.popsycle_config_filename))
-        sys.exit(1)
-
-    # Load the config files for field parameters
-    field_config = load_config_file(args.field_config_filename)
-
-    # Load the config files for popsycle parameters. If the `bin_edges_number`
-    # has been set to the string `None`, instead set it to the boolean None.
-    popsycle_config = load_config_file(args.popsycle_config_filename)
-    if popsycle_config['bin_edges_number'] == 'None':
-        popsycle_config['bin_edges_number'] = None
-    if popsycle_config['photometric_system'] not in synthetic.photometric_system_dict:
-        print("""Error: 'photometric_system' in {0} must be a valid option 
-        in 'photometric_system_dict'. 
-        Exiting...""".format(args.popsycle_config_filename))
-        sys.exit(1)
-
-    # Return the dictionary containing PopSyCLE output filenames
-    filename_dict = _return_filename_dict(args.output_root)
-
-    # Prepare additional_photometric_systems
-    additional_photometric_systems = None
-    if popsycle_config['photometric_system'] != 'ubv':
-        additional_photometric_systems = [popsycle_config['photometric_system']]
-
-    # Check pipeline stages for valid inputs
-    if not args.skip_galaxia:
-        _check_run_galaxia(output_root=args.output_root,
-                           longitude=field_config['longitude'],
-                           latitude=field_config['latitude'],
-                           area=field_config['area'],
-                           galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
-                           seed=args.seed)
-    if not args.skip_perform_pop_syn:
-        _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
-                               output_root=args.output_root,
-                               iso_dir=popsycle_config['isochrones_dir'],
-                               bin_edges_number=popsycle_config['bin_edges_number'],
-                               BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
-                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-                               additional_photometric_systems=additional_photometric_systems,
-                               overwrite=args.overwrite,
-                               seed=args.seed)
-    if not args.skip_calc_events:
-        _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
-                           output_root2=args.output_root,
-                           radius_cut=popsycle_config['radius_cut'],
-                           obs_time=popsycle_config['obs_time'],
-                           n_obs=popsycle_config['n_obs'],
-                           theta_frac=popsycle_config['theta_frac'],
-                           blend_rad=popsycle_config['blend_rad'],
-                           n_proc=args.n_cores_calc_events,
-                           overwrite=args.overwrite)
-    if not args.skip_refine_events:
-        _check_refine_events(input_root=args.output_root,
-                             filter_name=popsycle_config['filter_name'],
-                             photometric_system=popsycle_config['photometric_system'],
-                             red_law=popsycle_config['red_law'],
-                             overwrite=args.overwrite,
-                             output_file='default')
-
-    if not args.skip_galaxia:
-        # Remove Galaxia output if already exists and overwrite=True
-        if _check_for_output(filename_dict['ebf_filename'],
-                             args.overwrite):
-            t1 = time.time()
-            print('run.py runtime : {0:f} s'.format(t1 - t0))
-            sys.exit(1)
-
-        # Run Galaxia
-        print('-- Running Galaxia')
-        synthetic.run_galaxia(output_root=args.output_root,
-                              longitude=field_config['longitude'],
-                              latitude=field_config['latitude'],
-                              area=field_config['area'],
-                              galaxia_galaxy_model_filename=popsycle_config['galaxia_galaxy_model_filename'],
-                              seed=args.seed)
-
-    if not args.skip_perform_pop_syn:
-        # Remove perform_pop_syn output if already exists and overwrite=True
-        if _check_for_output(filename_dict['hdf5_filename'],
-                             args.overwrite):
-            t1 = time.time()
-            print('run.py runtime : {0:f} s'.format(t1 - t0))
-            sys.exit(1)
-
-        # Run perform_pop_syn
-        print('-- Executing perform_pop_syn')
-        synthetic.perform_pop_syn(
-            ebf_file=filename_dict['ebf_filename'],
-            output_root=args.output_root,
-            iso_dir=popsycle_config['isochrones_dir'],
-            bin_edges_number=popsycle_config['bin_edges_number'],
-            BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
-            NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-            additional_photometric_systems=additional_photometric_systems,
-            overwrite=args.overwrite,
-            seed=args.seed)
-
-    if not args.skip_calc_events:
-        # Remove calc_events output if already exists and overwrite=True
-        if _check_for_output(filename_dict['events_filename'],
-                             args.overwrite):
-            t1 = time.time()
-            print('run.py runtime : {0:f} s'.format(t1 - t0))
-            sys.exit(1)
-        if _check_for_output(filename_dict['blends_filename'],
-                             args.overwrite):
-            t1 = time.time()
-            print('run.py runtime : {0:f} s'.format(t1 - t0))
-            sys.exit(1)
-
-        # Run calc_events
-        print('-- Executing calc_events')
-        synthetic.calc_events(hdf5_file=filename_dict['hdf5_filename'],
-                              output_root2=args.output_root,
-                              radius_cut=popsycle_config['radius_cut'],
-                              obs_time=popsycle_config['obs_time'],
-                              n_obs=popsycle_config['n_obs'],
-                              theta_frac=popsycle_config['theta_frac'],
-                              blend_rad=popsycle_config['blend_rad'],
-                              n_proc=args.n_cores_calc_events,
-                              overwrite=args.overwrite)
-
-        # Write a fle to disk stating that there are no events if
-        # calc_events does not produce an events file
-        if not os.path.exists(filename_dict['events_filename']):
-            Path(filename_dict['noevents_filename']).touch()
-            print('No events present, skipping refine_events')
-            t1 = time.time()
-            print('run.py runtime : {0:f} s'.format(t1 - t0))
-            sys.exit(0)
-
-    if not args.skip_refine_events:
-        # Remove refine_events output if already exists and overwrite=True
-        filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
-                   'fits'.format(args.output_root,
-                                 popsycle_config['filter_name'],
-                                 popsycle_config['red_law'])
-        if _check_for_output(filename, args.overwrite):
-            t1 = time.time()
-            print('run.py runtime : {0:f} s'.format(t1 - t0))
-            sys.exit(1)
-
-        # Run refine_events
-        print('-- Executing refine_events')
-        synthetic.refine_events(input_root=args.output_root,
-                                filter_name=popsycle_config['filter_name'],
-                                photometric_system=popsycle_config['photometric_system'],
-                                red_law=popsycle_config['red_law'],
-                                overwrite=args.overwrite,
-                                output_file='default')
-
-    t1 = time.time()
-    print('run.py runtime : {0:f} s'.format(t1 - t0))
+    run(output_root=args.output_root,
+        field_config_filename=args.field_config_filename,
+        popsycle_config_filename=args.popsycle_config_filename,
+        n_cores_calc_events=args.n_cores_calc_events,
+        seed=args.seed,
+        overwrite=args.overwrite,
+        skip_galaxia=args.skip_galaxia,
+        skip_perform_pop_syn=args.skip_perform_pop_syn,
+        skip_calc_events=args.skip_calc_events,
+        skip_refine_events=args.skip_refine_events)
 
 
 if __name__ == '__main__':
-    run()
+    main()

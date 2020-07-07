@@ -5,6 +5,11 @@ Functions (and their associated functions) for utilities.
 """
 import subprocess
 import numpy as np
+from astropy.table import Table
+from astropy.table import vstack
+import os
+import gc
+from popsycle import synthetic
 
 
 def add_precision64(input_array, power):

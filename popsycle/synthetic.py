@@ -283,7 +283,8 @@ def run_galaxia(output_root, longitude, latitude, area,
         Area of the sky that will be generated, in square degrees
 
     galaxia_galaxy_model_filename : str
-        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+        Name of the galaxia galaxy model parameter file,
+        as outlined at https://github.com/jluastro/galaxia
 
     Optional Parameters
     -------------------

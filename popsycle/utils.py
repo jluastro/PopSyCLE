@@ -170,6 +170,299 @@ def execute(cmd, shell=False):
     return stdout, stderr
 
 
+def calc_normalized_counts(mag):
+    """
+    Parameters
+    ----------
+    mag: float
+    
+    Return
+    ------
+    counts: int
+    
+    CHANGE THIS CODE IN THE FUTURE TO TAKE IN DIFFERENT ZERO POINTS! NEEDS ADDITIONAL DOCUMENTATION
+    Right now this is only applicable for OGLE I band
+    See confluence wiki for where these values come from...
+    """
+    a = -0.67815949
+    b = 15.37993393
+    counts = 10 ** (b + a * mag)
+    return counts
+
+def combine_refined_events(refined_events_filenames, overwrite=False,
+                           output_file='default'):
+    """
+    Creates a combined refined_events out of multiple refined_events files
+
+    Parameters
+    ----------
+    refined_events_filenames : list of strs
+        Filenames of refined_events tables to be combined
+
+    Optional Parameters
+    -------------------
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be generated from the first
+        filename in refined_events_filenames following:
+            combined_refined_events_<photometric_system>_<filt>_<red_law>.fits
+    """
+    # Check to see that all refined_events tables are unique
+    if len(refined_events_filenames) != len(set(refined_events_filenames)):
+        raise Exception('Duplicate filename found in '
+                        'refined_events_filenames. Exiting...')
+
+    # Loop over filenames, checking that each one exists
+    print('Creating combined refined_events')
+    refined_events_arr = []
+    for filename in refined_events_filenames:
+        if not os.path.exists(filename):
+            raise Exception(f'{filename} cannot be found. Skipping...')
+        print(f'-- Loading {filename}')
+        refined_events = Table.read(filename)
+        refined_events['original_filename'] = filename
+        refined_events_arr.append(refined_events)
+
+    # Combine astropy tables
+    combined_refined_events = vstack(refined_events_arr)
+
+    # Create an output_filename following the first filename
+    if output_file == 'default':
+        base = refined_events_filenames[0]
+        output_file = 'combined_'
+        output_file += '_'.join(base.split('_')[-5:])
+
+    # Overwrite any exiting file with the same name
+    if overwrite and os.path.exists(output_file):
+        os.remove(output_file)
+
+    # Save combined table to disk
+    print(f'Saving to {output_file}')
+    Table(combined_refined_events).write(output_file)
+
+    return output_file
+
+def calc_delta_c_LL(fratio, u0, thetaE):
+    """
+    Calculate the maximum-ish centroid shift for a luminous
+    lens, no neighbors
+
+    Parameters
+    ----------
+    fratio : flux ratio of the lens to source, i.e. f_L/f_S
+
+    u0 : impact parameter
+
+    thetaE : Einstein radius
+
+    """
+    final_delta_array = np.zeros(len(u0))
+    final_u_array = np.zeros(len(u0))
+    for j in np.arange(len(u0)):
+        f = fratio[j]
+        u_array = np.linspace(0, u0[j], 20)
+        delta_array = np.zeros(len(u_array))
+        for i in np.arange(len(u_array)):
+            u = u_array[i]
+            delta_array[i] = (u - f * u ** 2 * np.sqrt(u ** 2 + 4)) / (2 + u ** 2 + f * u * np.sqrt(u ** 2 + 4)) + (u * f) / (1 + f)
+        max_idx = np.argmax(delta_array)
+        final_delta_array[j] = delta_array[max_idx]
+        final_u_array[j] = u_array[max_idx]
+    final_delta_array = final_delta_array * thetaE
+
+    return final_delta_array, final_u_array
+
+def max_delta_c(u0, thetaE):
+    max_delta_c_array = np.zeros(len(u0))
+
+    big_idx = np.where(u0 > np.sqrt(2))[0]
+    small_idx = np.where(u0 <= np.sqrt(2))[0]
+
+    max_delta_c_array[big_idx] = calc_delta_c(u0[big_idx], thetaE[big_idx])
+    max_delta_c_array[small_idx] = calc_delta_c(np.ones(len(small_idx)) * np.sqrt(2),
+                                                thetaE[small_idx])
+
+    return max_delta_c_array
+
+def get_u_from_t(u0, t0, tE, t):
+    """
+    Given the time and separation at closest approach of lens and source
+    and the Einstein radius, calculate the separation as a function of time.
+
+    NOTE 1: You need to be consistent with your units for t0, tE, and t,
+    i.e. pick whatever you want (days, years, etc.) but be self consistent.
+
+    NOTE 2: There is a positive and negative solution for u.
+    We return the positive solution.
+
+    Parameters
+    ----------
+    u0 : float or array
+        Minimum separation of lens and source (normalized to Einstein radius)
+
+    t0 : float or array
+        Time of minimum separation of lens and source
+
+    tE : float or array
+        Einstein crossing time of microlensing event
+
+    t : float or array
+        Time at which you want to calculate the separation
+
+    Return
+    ------
+    u : float or array
+        Separation of lens and source (normalized to Einstein radius)
+    """
+    tau = (t - t0) / tE
+    u = np.sqrt(u0 ** 2 + tau ** 2)
+    return u
+
+
+def get_t_from_u(u0, t0, tE, u):
+    """
+    Given the time and separation at closest approach of lens and source
+    and the Einstein radius, calculate the time as a function of separation.
+
+    NOTE 1: You need to be consistent with your units for t0, tE, and t,
+    i.e. pick whatever you want (days, years, etc.) but be self consistent.
+
+    NOTE 2: There is a positive and negative solution for t.
+    We return the positive solution.
+
+    Parameters
+    ----------
+    u0 : float or array
+        Minimum separation of lens and source (normalized to Einstein radius)
+
+    t0 : float or array
+        Time of minimum separation of lens and source
+
+    tE : float or array
+        Einstein crossing time of microlensing event
+
+    u : float or array
+        Separation of lens and source (normalized to Einstein radius)
+
+    Return
+    ------
+    t : float or array
+        Time corresponding to the separation u
+    """
+    t = tE * np.sqrt(u ** 2 - u0 ** 2) + t0
+    return t
+
+
+def calc_new_position(l0, b0, mu_lcosb, mu_b, t):
+    """
+    Given an initial position and proper motions in l and b,
+    calculate the new position at some later time.
+
+    Parameters
+    ----------
+    l0 : float or array
+        Initial longitude, in DEGREES
+
+    b0 : float or array
+        Initial latitude, in DEGREES
+
+    mu_lcosb : float or array
+        Longitudinal proper motion l * cos(b), in MAS/YEAR
+
+    mu_b : float or array
+        Latitudinal roper motion, in MAS/YEAR
+
+    t : float or array
+        Time, in DAYS
+
+    Return
+    ------
+    l : float or array
+        Latitude, in DEGREES
+
+    b : float or array
+        Longitude, in DEGREES
+    """
+
+    cos_b0 = np.cos(np.radians(b0))
+
+    l = l0 + t * mu_lcosb * masyr_to_degday / cos_b0
+    b = b0 + t * mu_b * masyr_to_degday
+
+    return l, b
+
+
+def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
+    """
+    Calculate the centroid (astrometric) shift
+    for a luminous lens and neighbors
+
+    Parameters
+    ----------
+    glat_x : float or array
+        Longitude of x (L = lens, S = source, N = neighbor centroid)
+
+    glon_x : float or array
+        Latitude of x (L = lens, S = source, N = neighbor centroid)
+
+    f_x : float or array
+        Flux of x (L = lens, S = source, N = all neighbors)
+
+    u : float or array
+        Dimensionless separation
+
+    Return
+    ------
+    delta_c_obs : float or array
+        Magnitude of observed astrometric shift, in mas
+    """
+    ##########
+    # Calculating the centroid shift in the frame of the lens
+    ##########
+
+    t1a1_t2a2 = (u ** 2 + 3) / (u * np.sqrt(u ** 2 + 4))
+    a1_a2 = calc_magnification(u)
+
+    glat_c_lensed = (t1a1_t2a2 * f_S * glat_S + glat_N * f_N) / (
+            a1_a2 * f_S + f_L + f_N)
+    glon_c_lensed = (t1a1_t2a2 * f_S * glon_S + glon_N * f_N) / (
+            a1_a2 * f_S + f_L + f_N)
+
+    glat_c_unlensed = (glat_S * f_S + glat_N * f_N) / (f_S + f_L + f_N)
+    glon_c_unlensed = (glon_S * f_S + glon_N * f_N) / (f_S + f_L + f_N)
+
+    glat_delta_c = glat_c_lensed - glat_c_unlensed
+    glon_delta_c = glon_c_lensed - glon_c_unlensed
+
+    delta_c_obs = np.sqrt(glat_delta_c ** 2 + glon_delta_c ** 2 * np.cos(
+        np.radians(glat_S)) ** 2)
+
+    # Convert from degrees to mas
+    delta_c_obs *= 3.6 * 10 ** 6
+
+    return delta_c_obs
+
+
+def calc_f(lambda_eff):
+    """
+    Calculate that coefficient f that multiples E(B-V) to get the
+    extinction in magnitudes
+    """
+    B = get_Alambda_AKs('Damineli16', 0.445)
+    V = get_Alambda_AKs('Damineli16', 0.551)
+    L = get_Alambda_AKs('Damineli16', lambda_eff)
+
+    f = L * (B - V) ** -1
+
+    return f
+
+
 def generate_all_isochrones(iso_dir, include_ztf=True):
     """
     Generates all solar metallicity isochrones needed for PopSyCLE simulations
@@ -215,3 +508,6 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
                                         filters=my_filt_list,
                                         iso_dir=iso_dir,
                                         recomp=True)
+       
+            
+    

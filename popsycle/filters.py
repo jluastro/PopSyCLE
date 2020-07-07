@@ -328,7 +328,7 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
 
     filter_name : str
         The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
+        microlensing events. Must be either 'g' or 'r' or 'i'.
 
     Output
     ------
@@ -340,9 +340,11 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
         ztf_mag_AB = ztf_mag_vega - 0.07
     elif filter_name == 'r':
         ztf_mag_AB = ztf_mag_vega + 0.19
+    elif filter_name == 'i':
+        ztf_mag_AB = ztf_mag_vega + 0.43
     else:
-        print('filter_name must be either g or r')
-        ztf_mag_AB = None
+        raise Exception('filter_name must be either g or r or i')
+
     return ztf_mag_AB
 
 
@@ -360,7 +362,7 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
 
     filter_name : str
         The name of the filter in which to calculate all the
-        microlensing events. Must be either 'g' or 'r'.
+        microlensing events. Must be either 'g' or 'r' or 'i'.
 
     Output
     ------
@@ -372,7 +374,9 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
         ztf_mag_vega = ztf_mag_AB + 0.07
     elif filter_name == 'r':
         ztf_mag_vega = ztf_mag_AB - 0.19
+    elif filter_name == 'i':
+        ztf_mag_vega = ztf_mag_AB - 0.43
     else:
-        print('filter_name must be either g or r')
-        ztf_mag_vega = None
+        raise Exception('filter_name must be either g or r or i')
+
     return ztf_mag_vega

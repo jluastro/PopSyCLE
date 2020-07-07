@@ -8,12 +8,10 @@ Including:
 - calc_events
 - refine_events
 """
-
 import numpy as np
 import h5py
 import math
 from astropy import units
-from popsycle.filters import transform_ubv_to_ztf
 from scipy.stats import maxwell
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
@@ -27,7 +25,6 @@ from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time
 import datetime
-from popsycle import ebf
 import gc
 import subprocess
 import os
@@ -36,6 +33,10 @@ import itertools
 from multiprocessing import Pool
 import inspect
 import numpy.lib.recfunctions as rfn
+import copy
+from distutils import spawn
+from popsycle import ebf
+from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
 
 
@@ -81,13 +82,13 @@ filt_dict['ztf_i'] = {'Damineli16': 1.553}
 ##########
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
-photometric_system_dict['ztf'] = ['g', 'r']
+photometric_system_dict['ztf'] = ['g', 'r', 'i']
 
 ##########
 # List of all supported photometric systems and filters with PyPopStar labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
-                 'ukirt,H', 'ukirt,K', 'ukirt,J', 'ztf,g', 'ztf,r']
+                 'ukirt,H', 'ukirt,K', 'ukirt,J']
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -129,7 +130,7 @@ def write_galaxia_params(output_root,
 
     Outputs
     -------
-    galaxia_params.<output_root>.txt : text file
+    <output_root>_galaxia_params.txt : text file
         A text file with the parameters that Galaxia requires to run.
     """
 
@@ -161,7 +162,7 @@ def write_galaxia_params(output_root,
         "photoError 0"
     ]
 
-    galaxia_param_fname = 'galaxia_params.%s.txt' % output_root
+    galaxia_param_fname = '%s_galaxia_params.txt' % output_root
 
     print('** Generating %s **' % galaxia_param_fname)
 
@@ -171,7 +172,92 @@ def write_galaxia_params(output_root,
             print('-- %s' % param)
 
 
+def _check_run_galaxia(output_root, longitude, latitude, area,
+                       galaxia_galaxy_model_filename, seed):
+    """
+    Check that the inputs to run_galaxia are valid
+
+    Parameters
+    ----------
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    longitude : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+
+    latitude : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+
+    area : float
+        Area of the sky that will be generated, in square degrees
+
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+
+    seed : int
+         Seed Galaxia will use to generate objects. If not set, script will
+         generate a seed from the current time. Setting this seed guarantees
+         identical results.
+    """
+
+    if not isinstance(output_root, str):
+        raise Exception('output_root (%s) must be a string.' % str(output_root))
+
+    if not isinstance(longitude, int):
+        if not isinstance(longitude, float):
+            raise Exception('longitude (%s) must be an integer or a float.' % str(longitude))
+
+    if not isinstance(latitude, int):
+        if not isinstance(latitude, float):
+            raise Exception('latitude (%s) must be an integer or a float.' % str(latitude))
+
+    if not isinstance(area, int):
+        if not isinstance(area, float):
+            raise Exception('area (%s) must be an integer or a float.' % str(area))
+
+    # Check that galaxia is in the executable PATH
+    if spawn.find_executable('galaxia') is None:
+        raise Exception('galaxia is not an executable currently in $PATH')
+
+    # Confrim that galaxia is the PopSyCLE compliant version
+    stdout, _ = utils.execute('galaxia --version')
+    galaxia_version = stdout.replace('\n', '').split()[1]
+    if galaxia_version != '0.7.2.1':
+        raise Exception('galaxia must be version 0.7.2.1 installed from https://github.com/jluastro/galaxia')
+
+    # Check the galaxia_galaxy_model_filename for correct type and existence
+    if not isinstance(galaxia_galaxy_model_filename, str):
+        raise Exception('galaxia_galaxy_model_filename (%s) must be a string.' % str(galaxia_galaxy_model_filename))
+
+    if not os.path.exists(galaxia_galaxy_model_filename):
+        raise Exception('galaxia_galaxy_model_filename (%s) does not exist' % galaxia_galaxy_model_filename)
+
+    # Check that GalaxiaData is a valid galaxia folder
+    GalaxiaData = None
+    for line in open(galaxia_galaxy_model_filename, 'r'):
+        if 'GalaxiaData' in line:
+            GalaxiaData = line.replace('\n','').split()[1]
+            break
+
+    if GalaxiaData is None:
+        raise Exception('GalaxiaData missing from '
+                        'galaxia_galaxy_model_filename (%s)' % galaxia_galaxy_model_filename)
+
+    if not os.path.exists(GalaxiaData):
+        raise Exception('GalaxiaData (%s) in galaxia_galaxy_model_filename '
+                        '(%s) does not exist' % (GalaxiaData, galaxia_galaxy_model_filename))
+
+    if seed is not None:
+        if not isinstance(seed, int):
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
+
+
 def run_galaxia(output_root, longitude, latitude, area,
+                galaxia_galaxy_model_filename,
                 seed=None):
     """
     Given an object root, sky location and area, creates the parameter
@@ -196,6 +282,9 @@ def run_galaxia(output_root, longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
+    galaxia_galaxy_model_filename : str
+        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+
     Optional Parameters
     -------------------
     seed : int
@@ -203,6 +292,10 @@ def run_galaxia(output_root, longitude, latitude, area,
          generate a seed from the current time. Setting this seed guarantees
          identical results.
     """
+
+    # Error handling/complaining if input types are not right.
+    _check_run_galaxia(output_root, longitude, latitude, area,
+                       galaxia_galaxy_model_filename, seed)
 
     # Writes out galaxia params to disk
     write_galaxia_params(output_root=output_root,
@@ -212,10 +305,163 @@ def run_galaxia(output_root, longitude, latitude, area,
                          seed=seed)
 
     # Execute Galaxia
-    cmd = 'galaxia -r galaxia_params.%s.txt' % output_root
-    print('** Executing Galaxia with galaxia_params.%s.txt **' % output_root)
-    _ = utils.execute(cmd)
-    print('** Galaxia complete **')
+    cmd = 'galaxia -r %s_galaxia_params.txt %s' % (output_root, galaxia_galaxy_model_filename)
+    print('** Executing Galaxia with %s_galaxia_params.txt '
+          'and %s **' % (output_root, galaxia_galaxy_model_filename))
+    t0 = time.time()
+    stdout, stderr = utils.execute(cmd)
+    print('** STDOUT **')
+    print(stdout)
+    print('** STDERR **')
+    print(stderr)
+    t1 = time.time()
+    print('Galaxia complete')
+    print('galaxia runtime : {0:f} s'.format(t1 - t0))
+
+    ##########
+    # Make log file
+    ##########
+
+    stdout, _ = utils.execute('which galaxia')
+    galaxia_path = stdout.replace('\n', '')
+
+    now = datetime.datetime.now()
+    popsycle_path = os.path.dirname(inspect.getfile(run_galaxia))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'longitude , ' + str(longitude) + '\n'
+    line2 = 'latitude , ' + str(latitude) + '\n'
+    line3 = 'area , ' + str(area) + '\n'
+    line3b = 'galaxia_galaxy_model_filename , ' + galaxia_galaxy_model_filename + '\n'
+    line4 = 'seed , ' + str(seed) + '\n'
+
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line11 = galaxia_path + ' : galaxia path' + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+
+    line17 = 'FILES CREATED' + '\n'
+    line18 = output_root + '.ebf : ebf file' + '\n'
+
+    with open(output_root + '_galaxia.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line3b, line4,
+                        empty_line, line8, dash_line, line9, line10, line11,
+                        empty_line, line12, dash_line, line13,
+                        empty_line, line17, dash_line, line18])
+
+
+def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
+                           bin_edges_number,
+                           BH_kick_speed_mean, NS_kick_speed_mean,
+                           additional_photometric_systems,
+                           overwrite, seed):
+    """
+    Checks that the inputs of perform_pop_syn are valid
+
+    Parameters
+    ----------
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+
+    output_root : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    iso_dir : filepath
+        Where are the isochrones stored (for PopStar)
+
+    bin_edges_number : int
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
+
+    BH_kick_speed_mean : float
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
+
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        Default None.
+
+    """
+
+    if not isinstance(ebf_file, str):
+        raise Exception('ebf_file (%s) must be a string.' % str(ebf_file))
+
+    if ebf_file[-4:] != '.ebf':
+        raise Exception('ebf_file (%s) must be an ebf file.' % str(ebf_file))
+
+    if not isinstance(output_root, str):
+        raise Exception('output_root (%s) must be a string.' % str(output_root))
+
+    if not isinstance(iso_dir, str):
+        raise Exception('iso_dir (%s) must be a string.' % str(iso_dir))
+
+    if not os.path.exists(iso_dir):
+        raise Exception('iso_dir (%s) must exist' % str(iso_dir))
+
+    if bin_edges_number is not None:
+        if not isinstance(bin_edges_number, int):
+            raise Exception('bin_edges_number (%s) must be None or an integer.' % str(bin_edges_number))
+
+    if not isinstance(BH_kick_speed_mean, int):
+        if not isinstance(BH_kick_speed_mean, float):
+            raise Exception('BH_kick_speed_mean (%s) must be an integer or a float.' % str(BH_kick_speed_mean))
+
+    if not isinstance(NS_kick_speed_mean, int):
+        if not isinstance(NS_kick_speed_mean, float):
+            raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
+
+    if not isinstance(overwrite, bool):
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if seed is not None:
+        if not isinstance(seed, int):
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
+
+    if additional_photometric_systems is not None:
+        if not isinstance(additional_photometric_systems, list):
+            raise Exception('additional_photometric_systems (%s) must '
+                            'either None or a list of strings.' % str(additional_photometric_systems))
+
+        for photometric_system in additional_photometric_systems:
+            if photometric_system not in photometric_system_dict:
+                exception_str = 'photometric_system must be a key in ' \
+                                'photometric_system_dict. \n' \
+                                'Acceptable values are : '
+                for photometric_system in photometric_system_dict:
+                    exception_str += '%s, ' % photometric_system
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
@@ -246,8 +492,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     Optional Parameters
     -------------------
     bin_edges_number : int
-         Number of edges for the bins (bins = bin_edges_number - 1)
-         Total number of bins is (bin_edges_number - 1)**2
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
@@ -286,10 +536,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         A fits file that shows the correspondence between dataset name,
         latitude, longitude, and number of objects in that bin.
     """
-    ##########
-    # Error handling: check whether files exist and
-    # whether input types are correct.
-    ##########
+    # Check whether files exist
 
     if not overwrite:
         # Check if HDF5 file exists already. If it does, throw an error message
@@ -306,41 +553,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 'or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    if ebf_file[-4:] != '.ebf':
-        raise Exception('ebf_file must be an ebf file.')
-
-    if type(output_root) != str:
-        raise Exception('output_root must be a string.')
-
-    if bin_edges_number is not None:
-        if type(bin_edges_number) != int:
-            raise Exception('bin_edges_number must be an integer.')
-
-    if type(BH_kick_speed_mean) != int:
-        if type(BH_kick_speed_mean) != float:
-            raise Exception('BH_kick_speed_mean must be an integer or a float.')
-
-    if type(NS_kick_speed_mean) != int:
-        if type(NS_kick_speed_mean) != float:
-            raise Exception('NS_kick_speed_mean must be an integer or a float.')
-
-    if type(iso_dir) != str:
-        raise Exception('iso_dir must be a string.')
-
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
-
-    if additional_photometric_systems is not None:
-        if type(additional_photometric_systems) != list:
-            raise Exception('additional_photometric_systems must either '
-                            'None or a List (of strings).')
-
-        for photometric_system in additional_photometric_systems:
-            if photometric_system not in photometric_system_dict:
-                raise Exception('strings in additional_photometric_systems '
-                                'must be a valid option '
-                                'in the photometric_system_dict.')
+    _check_perform_pop_syn(ebf_file, output_root, iso_dir,
+                           bin_edges_number,
+                           BH_kick_speed_mean, NS_kick_speed_mean,
+                           additional_photometric_systems,
+                           overwrite, seed)
 
     ##########
     # Start of code
@@ -386,12 +603,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Define bin_edges_number, if not given in input.
     if bin_edges_number is None:
-        # st the widths are 1/2 arcmin
+        # set the widths to 1/2 arcmin
         bin_edges_number = int(60 * 2 * radius) + 1
 
-    # Make sure we have enough bin edges (minimum is 3)
-    if bin_edges_number < 2:
-        bin_edges_number = 3
+    # Make sure we have enough bin edges (min is 3)
+    bin_edges_number = max(bin_edges_number, 3)
+    # Make sure we have don't have too many bin edges (max is 40)
+    bin_edges_number = min(bin_edges_number, 40)
+    
     lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
                                 bin_edges_number)
     long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
@@ -400,12 +619,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     wrap_id = np.where(long_bin_edges > 180)[0]
     long_bin_edges[wrap_id] -= 360
 
+
     ##########
     # Create h5py file to store lat/long binned output
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
-    dataset = h5file.create_dataset('lat_bin_edges', data=lat_bin_edges)
-    dataset = h5file.create_dataset('long_bin_edges', data=long_bin_edges)
+    h5file['lat_bin_edges'] = lat_bin_edges
+    h5file['long_bin_edges'] = long_bin_edges
+    if 'galaxyModelFile' in ebf_log:
+        h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
     h5file.close()
 
     ##########
@@ -475,6 +697,29 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             num_stars_in_bin = 2e6
             num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
+            # Create a KDTree from randomly selected stars in the
+            # pop_id / age_bin used for calculating extinction to luminous
+            # white dwarfs. Because the same KDTree is used for each sub-bin,
+            # two compact objects randomly selected to have nearly identical
+            # positions would have identical extinctions. This low
+            # probability event is a reasonable trade-off for the reduced
+            # compute time gained by only constructing the KDTree once.
+            kdt_star_p = None
+            exbv_arr4kdt = None
+            if len_adx > 0:
+                num_kdtree_samples = int(min(len_adx, 2e6))
+                kdt_idx = np.random.choice(np.arange(len_adx),
+                                           size=num_kdtree_samples,
+                                           replace=False)
+                bin_idx = popid_idx[age_idx[kdt_idx]]
+                star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
+                star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
+                star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
+                star_xyz = np.array([star_px, star_py, star_pz]).T
+                kdt_star_p = cKDTree(star_xyz)
+                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+                del bin_idx, star_px, star_py, star_pz
+
             ##########
             # Loop through bins of 2 million stars at a time.
             ##########
@@ -540,12 +785,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         ubv_r = star_dict['ubv_R']
                         ubv_i = star_dict['ubv_I']
 
-                    ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
-                    ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
-                    ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
-                    star_dict['ztf_g'] = ztf_g
-                    star_dict['ztf_r'] = ztf_r
-                    star_dict['ztf_i'] = ztf_i
+                        ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
+                        ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
+                        ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
+                        star_dict['ztf_g'] = ztf_g
+                        star_dict['ztf_r'] = ztf_r
+                        star_dict['ztf_i'] = ztf_i
+
+                        del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
 
                 ##########
                 # Add spherical velocities vr, mu_b, mu_lcosb
@@ -577,6 +824,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                 comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
                                                      mass_in_bin, stars_in_bin, next_id,
+                                                     kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
@@ -597,10 +845,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # Garbage collect in order to save space.
                 ##########
                 del star_dict
-                gc.collect()
+            del kdt_star_p, exbv_arr4kdt
+            gc.collect()
 
     t1 = time.time()
-    print('Total run time is {0:f} s'.format(t1 - t0))
+    print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.
@@ -608,7 +857,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     binned_counter = 0
     hf = h5py.File(output_root + '.h5', 'r')
     for key in hf:
-        if 'bin_edges' not in key:
+        if 'bin_edges' not in key and 'galaxyModel' not in key:
             binned_counter += len(hf[key])
 
     ##########
@@ -620,10 +869,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -636,28 +885,29 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
+    line7 = 'seed , ' + str(seed) + '\n'
 
-    line7 = 'VERSION INFORMATION' + '\n'
-    line8 = str(now) + ' : creation date' + '\n'
-    line9 = popstar_hash + ' : PopStar commit' + '\n'
-    line10 = microlens_hash + ' : microlens commit' + '\n'
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popstar_hash + ' : PopStar commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
-    line11 = 'OTHER INFORMATION' + '\n'
-    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line13 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line14 = str(comp_counter) + ' : total compact objects made' + '\n'
-    line15 = str(binned_counter) + ' : total things binned' + '\n'
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(n_stars) + ' : total stars from Galaxia' + '\n'
+    line15 = str(comp_counter) + ' : total compact objects made' + '\n'
+    line16 = str(binned_counter) + ' : total things binned' + '\n'
 
-    line16 = 'FILES CREATED' + '\n'
-    line17 = output_root + '.h5 : HDF5 file' + '\n'
-    line18 = output_root + '_label.fits : label file' + '\n'
+    line17 = 'FILES CREATED' + '\n'
+    line18 = output_root + '.h5 : HDF5 file' + '\n'
+    line19 = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
-                        line6, empty_line, line7, dash_line, line8, line9,
-                        line10, empty_line, line11, dash_line, line12, line13,
-                        line14, line15, empty_line, line16, dash_line, line17,
-                        line18])
+                        line6, line7, empty_line, line8, dash_line, line9,
+                        line10, line11, empty_line, line12, dash_line, line13,
+                        line14, line15, line16, empty_line, line17, dash_line,
+                        line18, line19])
 
     ##########
     # Informative print statements.
@@ -806,7 +1056,9 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
+def _make_comp_dict(iso_dir, log_age, currentClusterMass,
+                    star_dict, next_id,
+                    kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
                     seed=None):
@@ -827,8 +1079,16 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     star_dict : dictionary
         The number of entries for each key is the number of stars.
 
-    next_id : The next unique ID number (int) that will be assigned to
-              the new compact objects created.
+    next_id : int
+        The next unique ID number (int) that will be assigned to
+        the new compact objects created.
+
+    kdt_star_p : scipy cKDTree
+        KDTree constructed from the positions of randomly selected stars
+        that all share the same popid and similar log_age.
+
+    exbv_arr4kdt : numpy
+        Array of galactic extinctions for the stars in kdt_star_p
 
     Optional Parameters
     -------------------
@@ -864,6 +1124,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
     """
     comp_dict = None
 
+    # Add additional filters to isochrones if additional_photometric_systems
+    # contains photometric systems
+    my_filt_list = copy.deepcopy(all_filt_list)
+    if additional_photometric_systems is not None:
+        if 'ztf' in additional_photometric_systems:
+            my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
@@ -887,17 +1154,17 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
         # Using MIST models to get white dwarfs
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
-                                         filters=all_filt_list,
+                                         filters=my_filt_list,
                                          iso_dir=iso_dir)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        filt_list = ['m_%s' % f.replace(',', '_') for f in all_filt_list]
-        if set(filt_list) != set(my_iso_filters):
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
-                                             filters=all_filt_list,
+                                             filters=my_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True)
 
@@ -1055,17 +1322,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass, star_dict, next_id,
             lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
             if len(lum_WD_idx) > 0:
-                star_xyz = np.array([star_dict['px'],
-                                     star_dict['py'],
-                                     star_dict['pz']]).T
+                # The extinction to the luminous white dwarfs is calculated
+                # by finding the nearest star in the pop_id / age_bin KDTree
+                # to the compact object and copying that star's extinction.
                 comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
                                      comp_dict['py'][lum_WD_idx],
                                      comp_dict['pz'][lum_WD_idx]]).T
-
-                kdt = cKDTree(star_xyz)
-                dist, indices = kdt.query(comp_xyz)
-
-                comp_dict['exbv'][lum_WD_idx] = star_dict['exbv'][indices.T]
+                dist, indices = kdt_star_p.query(comp_xyz)
+                comp_dict['exbv'][lum_WD_idx] = exbv_arr4kdt[indices.T]
 
                 comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
                 comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
@@ -1221,10 +1485,85 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 ########### Candidate event calculation and associated functions ###########
 ############################################################################
 
+def _check_calc_events(hdf5_file, output_root2,
+                       radius_cut, obs_time, n_obs, theta_frac,
+                       blend_rad, n_proc, overwrite):
+    """
+    Checks that the inputs of calc_events are valid
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Name of the HDF5 file.
+
+    output_root2 : str
+        The name for the h5 file
+
+    radius_cut : float
+        Initial radius cut, in ARCSECONDS.
+
+    obs_time : float
+        Survey duration, in DAYS.
+
+    n_obs : int
+        Number of observations.
+
+    theta_frac : float
+        Another cut, in multiples of Einstein radii.
+
+    blend_rad : float
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
+
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+    """
+
+    if not isinstance(hdf5_file, str):
+        raise Exception('hdf5_file (%s) must be a string.' % str(hdf5_file))
+
+    if hdf5_file[-3:] != '.h5':
+        raise Exception('hdf5_file (%s) must be an h5 file.' % str(hdf5_file))
+
+    if not isinstance(output_root2, str):
+        raise Exception('output_root2 (%s) must be a string.' % str(output_root2))
+
+    if not isinstance(radius_cut, int):
+        if not isinstance(radius_cut, float):
+            raise Exception('radius_cut (%s) must be an integer or a float.' % str(radius_cut))
+
+    if not isinstance(obs_time, int):
+        if not isinstance(obs_time, float):
+            raise Exception('obs_time (%s) must be an integer or a float.' % str(obs_time))
+
+    if not isinstance(blend_rad, int):
+        if not isinstance(blend_rad, float):
+            raise Exception('blend_rad (%s) must be an integer or a float.' % str(blend_rad))
+
+    if not isinstance(n_obs, int):
+        raise Exception('n_obs (%s) must be an integer.' % str(n_obs))
+
+    if not isinstance(n_proc, int):
+        raise Exception('n_proc (%s) must be an integer.' % str(n_proc))
+
+    if not isinstance(overwrite, bool):
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if not isinstance(theta_frac, int):
+        if not isinstance(theta_frac, float):
+            raise Exception('theta_frac (%s) must be an integer or a float.' % str(theta_frac))
+
+
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
-                seed=None, overwrite=False):
+                overwrite=False):
     """
     Calculate microlensing events
 
@@ -1233,13 +1572,16 @@ def calc_events(hdf5_file, output_root2,
     hdf5_file : str
         Name of the HDF5 file.
 
+    output_root2 : str
+        The name for the h5 file
+
     radius_cut : float
         Initial radius cut, in ARCSECONDS.
 
     obs_time : float
         Survey duration, in DAYS.
 
-    n_obs : float
+    n_obs : int
         Number of observations.
 
     theta_frac : float
@@ -1254,15 +1596,6 @@ def calc_events(hdf5_file, output_root2,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
-
-    additional_photometric_systems : list of strs
-        The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
-
-    seed : int
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
-        Default None.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -1296,34 +1629,13 @@ def calc_events(hdf5_file, output_root2,
                 'file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    if type(output_root2) != str:
-        raise Exception('output_root2 must be a string.')
-
-    if type(radius_cut) != int:
-        if type(radius_cut) != float:
-            raise Exception('radius_cut must be an integer or a float.')
-
-    if type(obs_time) != int:
-        if type(obs_time) != float:
-            raise Exception('obs_time must be an integer or a float.')
-
-    if type(n_obs) != int:
-        raise Exception('n_obs must be an integer.')
-
-    if type(theta_frac) != int:
-        if type(theta_frac) != float:
-            raise Exception('theta_frac must be an integer or a float.')
-
-    if seed is not None:
-        if type(seed) != int:
-            raise Exception('seed must be an integer.')
+    _check_calc_events(hdf5_file, output_root2,
+                       radius_cut, obs_time, n_obs, theta_frac,
+                       blend_rad, n_proc, overwrite)
 
     ##########
     # Start of code
     #########
-
-    # Set random seed
-    np.random.seed(seed)
 
     t0 = time.time()
 
@@ -1387,29 +1699,30 @@ def calc_events(hdf5_file, output_root2,
             if results[ii][1] is not None:
                 results_bl.append(results[ii][1])
 
-    if len(results_ev) == 0:
-        print('No events!')
-        return
-    else:
+    if len(results_ev) > 0:
         events_tmp = np.concatenate(results_ev, axis=0)
         if len(results_bl) == 0:
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
 
-    # Convert the events numpy recarray into an
-    # Astropy Table for easier consumption.
-    events_tmp = unique_events(events_tmp)
-    events_final = Table(events_tmp)
+        # Convert the events numpy recarray into an
+        # Astropy Table for easier consumption.
+        events_tmp = unique_events(events_tmp)
+        events_final = Table(events_tmp)
+        N_events = len(events_final)
+        print('Candidate events detected: ', N_events)
 
-    if len(results_bl) != 0:
-        blends_tmp = unique_blends(blends_tmp)
-    blends_final = Table(blends_tmp)
+        if len(results_bl) != 0:
+            blends_tmp = unique_blends(blends_tmp)
+        blends_final = Table(blends_tmp)
 
-    # Save out file
-    events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
-    blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
-
+        # Save out file
+        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+    else:
+        N_events = 0
+        print('No events!')
     t1 = time.time()
 
     ##########
@@ -1417,9 +1730,9 @@ def calc_events(hdf5_file, output_root2,
     ##########
     now = datetime.datetime.now()
     radius_cut = radius_cut / 1000.0  # back to arcsec
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                            cwd=popsycle_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
@@ -1431,25 +1744,32 @@ def calc_events(hdf5_file, output_root2,
     line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
     line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
     line8 = 'n_proc , ' + str(n_proc) + '\n'
+
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
-    line11 = microlens_hash + ' : microlens commit' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line12 = 'OTHER INFORMATION' + '\n'
     line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(N_events) + ' : total number of events' + '\n'
 
-    line14 = 'FILES CREATED' + '\n'
-    line15 = output_root2 + '_events.fits : events file' + '\n'
-    line16 = output_root2 + '_blends.fits : blends file' + '\n'
+    if N_events > 0:
+        line15 = 'FILES CREATED' + '\n'
+        line16 = output_root2 + '_events.fits : events file' + '\n'
+        line17 = output_root2 + '_blends.fits : blends file' + '\n'
+    else:
+        line15 = 'NO FILES CREATED' + '\n'
+        line16 = '\n'
+        line17 = '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
                         line4, line5, line6, line7, line8, empty_line,
                         line9, dash_line, line10, line11, empty_line,
-                        line12, dash_line, line13, empty_line, line14,
-                        dash_line, line15, line16])
+                        line12, dash_line, line13, line14, empty_line, line15,
+                        dash_line, line16, line17])
 
-    print('Total runtime: {0:f} s'.format(t1 - t0))
+    print('calc_events runtime : {0:f} s'.format(t1 - t0))
 
     return
 
@@ -1735,7 +2055,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         event_lbt = rfn.append_fields(event_lbt, 'theta_E',
                                       theta_E, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 'u0',
-                                      u, usemask=False)
+                                      u.value, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 'mu_rel',
                                       mu_rel, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 't0',
@@ -2095,6 +2415,83 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
+def _check_refine_events(input_root, filter_name,
+                         photometric_system, red_law, overwrite,
+                         output_file):
+    """
+    Checks that the inputs of refine_events are valid
+
+    Parameters
+    ----------
+    input_root : str
+        The root path and name of the *_events.fits and *_blends.fits.
+        Don't include those suffixes yet.
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+
+    red_law : str
+        The name of the reddening law to use from PopStar.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    """
+
+    if not isinstance(input_root, str):
+        raise Exception('input_root (%s) must be a string.' % str(input_root))
+
+    if not isinstance(filter_name, str):
+        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
+
+    if not isinstance(photometric_system, str):
+        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+
+    if not isinstance(red_law, str):
+        raise Exception('red_law (%s) must be a string.' % str(red_law))
+
+    if not isinstance(output_file, str):
+        raise Exception('output_file (%s) must be a string.' % str(output_file))
+
+    if not isinstance(overwrite, bool):
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    # Check to see that the filter name, photometric system, red_law are valid
+    if photometric_system not in photometric_system_dict:
+        exception_str = 'photometric_system must be a key in ' \
+                        'photometric_system_dict. \n' \
+                        'Acceptable values are : '
+        for photometric_system in photometric_system_dict:
+            exception_str += '%s, ' % photometric_system
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+    if filter_name not in photometric_system_dict[photometric_system]:
+        exception_str = 'filter_name must be a value in ' \
+                        'photometric_system_dict[%s]. \n' \
+                        'Acceptable values are : ' % photometric_system
+        for filter_name in photometric_system_dict[photometric_system]:
+            exception_str += '%s, ' % filter_name
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+    key = photometric_system + '_' + filter_name
+    if red_law not in filt_dict[key]:
+        exception_str = 'red_law must be a value in ' \
+                        'filt_dict[%s]. \n' \
+                        'Acceptable values are : ' % key
+        for red_law in filt_dict[key]:
+            exception_str += '%s, ' % red_law
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
                   output_file='default'):
@@ -2127,63 +2524,29 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         function if output files are already on disk.
         Default is False.
 
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be:
+            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+
     Output:
     ----------
     A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits that contains all the
-    same objects, only now with lots of extra
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+    that contains all the same objects, only now with lots of extra
     columns of data.
 
     """
-    ##########
-    # Error handling: check whether files exist and
-    # whether input types are correct.
-    ##########
-
-    # Error handling/complaining if input types are not right.
-    if type(input_root) != str:
-        raise Exception('input_root must be a string.')
-
-    if type(filter_name) != str:
-        raise Exception('filter_name must be a string.')
-
-    if type(red_law) != str:
-        raise Exception('red_law must be a string.')
-
-    if type(output_file) != str:
-        raise Exception('output_file must be a string.')
-
-    # Check to see that the filter name, photometric system, red_law are valid
-    if photometric_system not in photometric_system_dict:
-        exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. ' \
-                        'Acceptable values are : '
-        for photometric_system in photometric_system_dict:
-            exception_str += '%s, ' % photometric_system
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
-
-    if filter_name not in photometric_system_dict[photometric_system]:
-        exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. ' \
-                        'Acceptable values are : ' % photometric_system
-        for filter_name in photometric_system_dict[photometric_system]:
-            exception_str += '%s, ' % filter_name
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
-
-    key = photometric_system + '_' + filter_name
-    if red_law not in filt_dict[key]:
-        raise Exception('%s not in filt_dict[%s]' % (red_law, key))
-
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.
-    # Error handling.
     if not overwrite and os.path.isfile(output_file):
         raise Exception('That refined_events.fits file name is taken! '
                         'Either delete the .fits file, or pick a new name.')
 
-    t_0 = time.time()
+    # Error handling/complaining if input types are not right.
+    _check_refine_events(input_root, filter_name,
+                         photometric_system, red_law,
+                         overwrite, output_file)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
@@ -2191,9 +2554,21 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                                                                            filter_name,
                                                                            red_law)
 
+    t_0 = time.time()
+
     event_fits_file = input_root + '_events.fits'
     blend_fits_file = input_root + '_blends.fits'
-    log_file = input_root + '_calc_events.log'
+    galaxia_params_file = input_root + '_galaxia_params.txt'
+    calc_events_log_file = input_root + '_calc_events.log'
+    perform_pop_syn_log_file = input_root + '_perform_pop_syn.log'
+
+    for filename in [event_fits_file,
+                     blend_fits_file,
+                     galaxia_params_file,
+                     calc_events_log_file,
+                     perform_pop_syn_log_file]:
+        if not os.path.exists(filename):
+            raise Exception(f'{filename} cannot be found.')
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
@@ -2205,47 +2580,73 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Only keep events with luminous sources
     event_tab = event_tab[~np.isnan(event_tab[photometric_system + '_' + filter_name + '_S'])]
 
-    with open(log_file) as my_file:
+    # Grab the obs_time from the calc_events log
+    with open(calc_events_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
             if 'obs_time' in line:
                 obs_time = line.split(',')[1]
-                obs_time = int(obs_time)
+                obs_time = float(obs_time)
+                break
+
+    # Grab the random seed from the galaxia param file
+    with open(galaxia_params_file, 'r') as my_file:
+        for num, line in enumerate(my_file):
+            if 'seed' in line:
+                gal_seed = line.split(' ')[1].replace('\n', '')
+                gal_seed = int(gal_seed)
+                break
+
+    # Grab the random seed from the perform_pop_syn log
+    with open(perform_pop_syn_log_file, 'r') as my_file:
+        for num, line in enumerate(my_file):
+            if 'seed' in line:
+                pps_seed = line.split(',')[1].replace('\n', '')
+                try:
+                    pps_seed = int(pps_seed)
+                except:
+                    pps_seed = np.nan
                 break
 
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
-    print('Original candidate events: ', len(event_tab))
+    N_events_original = len(event_tab)
+    print('Original candidate events: ', N_events_original)
     u0, t0 = calc_closest_approach(event_tab, obs_time)
-    print('Candidate events in survey window: ', len(event_tab))
+    N_events_survey = len(event_tab)
+    print('Candidate events in survey window: ', N_events_survey)
     event_tab['t0'] = t0  # days
     event_tab['u0'] = u0
     if len(event_tab) == 0:
         print('No events!')
-        return
+        output_file = 'NO FILE CREATED'
+    else:
+        ##########
+        # Calculate apparent magnitudes
+        ##########
 
-    ##########
-    # Calculate apparent magnitudes
-    ##########
+        # Einstein crossing time
+        # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
+        t_E = event_tab['theta_E'] / event_tab['mu_rel']  # yr
+        t_E *= 365.25  # days
+        event_tab['t_E'] = t_E  # days
 
-    # Einstein crossing time
-    # THIS HAS TO GO BEFORE _CALC_OBSERVABLES
-    t_E = event_tab['theta_E'] / event_tab['mu_rel']  # yr
-    t_E *= 365.25  # days
-    event_tab['t_E'] = t_E  # days
+        # Add stuff to event_tab... shouldn't have any direct outputs
+        _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
 
-    # Add stuff to event_tab... shouldn't have any direct outputs
-    _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
+        # Relative parallax
+        pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
+        event_tab['pi_rel'] = pi_rel  # mas
 
-    # Relative parallax
-    pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
-    event_tab['pi_rel'] = pi_rel  # mas
+        # Microlensing parallax
+        pi_E = pi_rel / event_tab['theta_E']
+        event_tab['pi_E'] = pi_E  # dim'less
 
-    # Microlensing parallax
-    pi_E = pi_rel / event_tab['theta_E']
-    event_tab['pi_E'] = pi_E  # dim'less
+        # Add random seeds as columns
+        event_tab['pps_seed'] = np.ones(len(event_tab)) * pps_seed
+        event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
-    event_tab.write(output_file, overwrite=overwrite)
+        event_tab.write(output_file, overwrite=overwrite)
 
     t_1 = time.time()
 
@@ -2253,10 +2654,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Make log file
     ##########
     now = datetime.datetime.now()
-    microlens_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
     popstar_path = os.path.dirname(inspect.getfile(imf))
-    microlens_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=microlens_path).decode('ascii').strip()
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
     popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
     dash_line = '-----------------------------' + '\n'
@@ -2270,21 +2671,23 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line4 = 'VERSION INFORMATION' + '\n'
     line5 = str(now) + ' : creation date' + '\n'
     line6 = popstar_hash + ' : PopStar commit' + '\n'
-    line7 = microlens_hash + ' : microlens commit' + '\n'
+    line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(t_1 - t_0) + ' : total runtime (s)' + '\n'
+    line10 = str(N_events_original) + ' : original candidate events (dark sources removed)' + '\n'
+    line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
-    line10 = 'FILES CREATED' + '\n'
-    line11 = output_file + ' : refined events'
+    line12 = 'FILES CREATED' + '\n'
+    line13 = output_file + ' : refined events'
 
     with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, empty_line,
-                        line10, dash_line, line11])
+                        line8, dash_line, line9, line10, line11, empty_line,
+                        line12, dash_line, line13])
 
-    print('Total runtime: {0:f} s'.format(t_1 - t_0))
+    print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return
 
 
@@ -2523,6 +2926,65 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     return
 
 
+def combine_refined_events(refined_events_filenames, overwrite=False,
+                           output_file='default'):
+    """
+    Creates a combined refined_events out of multiple refined_events files
+
+    Parameters
+    ----------
+    refined_events_filenames : list of strs
+        Filenames of refined_events tables to be combined
+
+    Optional Parameters
+    -------------------
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be generated from the first
+        filename in refined_events_filenames following:
+            combined_refined_events_<photometric_system>_<filt>_<red_law>.fits
+    """
+    # Check to see that all refined_events tables are unique
+    if len(refined_events_filenames) != len(set(refined_events_filenames)):
+        raise Exception('Duplicate filename found in '
+                        'refined_events_filenames. Exiting...')
+
+    # Loop over filenames, checking that each one exists
+    print('Creating combined refined_events')
+    refined_events_arr = []
+    for filename in refined_events_filenames:
+        if not os.path.exists(filename):
+            raise Exception(f'{filename} cannot be found. Skipping...')
+        print(f'-- Loading {filename}')
+        refined_events = Table.read(filename)
+        refined_events['original_filename'] = filename
+        refined_events_arr.append(refined_events)
+
+    # Combine astropy tables
+    combined_refined_events = vstack(refined_events_arr)
+
+    # Create an output_filename following the first filename
+    if output_file == 'default':
+        base = refined_events_filenames[0]
+        output_file = 'combined_'
+        output_file += '_'.join(base.split('_')[-5:])
+
+    # Overwrite any exiting file with the same name
+    if overwrite and os.path.exists(output_file):
+        os.remove(output_file)
+
+    # Save combined table to disk
+    print(f'Saving to {output_file}')
+    Table(combined_refined_events).write(output_file)
+
+    return output_file
+
 ##################################################################
 ############ Reading/writing and format functions  ###############
 ##################################################################
@@ -2553,13 +3015,10 @@ def make_ebf_log(ebf_table):
 
     ebf_log = {}
     for ii in range(len(log_list)):
-        if len(log_list[ii]) == 0:
+        if ii <= 1 or ii >= len(log_list) - 2:
             continue
 
-        if log_list[ii].startswith(b'#'):
-            continue
-
-        log_list_entry = log_list[ii].split()
+        log_list_entry = log_list[ii].replace(b'# ',b'').split()
 
         ebf_log[log_list_entry[0].decode('utf-8')] = log_list_entry[1].decode(
             'utf-8')
@@ -3151,5 +3610,3 @@ def calc_f(lambda_eff):
     f = L * (B - V) ** -1
 
     return f
-
-

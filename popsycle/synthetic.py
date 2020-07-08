@@ -19,8 +19,10 @@ from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import Angle  # Angles
 from astropy.table import Table
 from astropy.table import vstack
-from popstar.imf import imf
-from popstar import synthetic, evolution, reddening, ifmr
+# from popstar.imf import imf
+# from popstar import synthetic, evolution, reddening, ifmr
+from spisea.imf import imf
+from spisea import synthetic, evolution, reddening, ifmr
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time

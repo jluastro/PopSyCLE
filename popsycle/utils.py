@@ -484,7 +484,8 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
         in the generated isochrones. Default is True.
     """
     from popsycle.synthetic import all_filt_list
-    from popstar import evolution, synthetic
+#     from popstar import evolution, synthetic 
+    from spisea import evolution, synthetic
     my_filt_list = all_filt_list
     # Add ztf filters to generated isochrones
     if include_ztf:

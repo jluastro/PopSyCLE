@@ -444,7 +444,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if not os.path.exists(iso_dir):
         raise Exception('iso_dir (%s) must exist' % str(iso_dir))
 
-    if not isinstance(IFMR_object):
+    if not isinstance(IFMR_object, str):
         raise Exception('IFMR_object (%s) must be a string.' % str(IFMR_object))
 
     if IFMR_object not in IFMR_dict:

@@ -757,8 +757,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 if len_adx > 0:
                     num_kdtree_samples = int(min(len_adx, num_stars_in_bin))
                     kdt_idx = np.random.choice(np.arange(len_adx),
-                                           size=num_kdtree_samples,
-                                           replace=False)
+                                               size=num_kdtree_samples,
+                                               replace=False)
                     bin_idx = popid_idx[age_idx[feh_idx[kdt_idx]]]
                     star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
                     star_py = ebf.read_ind(ebf_file, '/py', bin_idx)

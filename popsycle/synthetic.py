@@ -723,9 +723,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             
             if IFMR_object == 'Raithel17':
                 #only run at solar metallicity for Raithel17
-                feh_bins = [-99,99]
-
-            if IFMR_object == 'Spera15':
+                feh_bins = [-99, 99]
+                feh_vals = [0.0]
+            elif IFMR_object == 'Spera15':
                 #break into 3 hardcoded metallicity bins for Spera15
                 feh_bins = [-99, -1.279, -0.500, 99]
                 feh_vals = [-1.39, -0.89, 0.00]
@@ -759,7 +759,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     kdt_idx = np.random.choice(np.arange(len_adx),
                                            size=num_kdtree_samples,
                                            replace=False)
-                    bin_idx = popid_idx[feh_idx[kdt_idx]]
+                    bin_idx = popid_idx[age_idx[feh_idx[kdt_idx]]]
                     star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
                     star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
                     star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)

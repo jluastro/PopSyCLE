@@ -6,8 +6,8 @@ Functions (and their associated functions) for additional photometric systems.
 import inspect
 import os
 import numpy as np
-from popstar import evolution, atmospheres, reddening, ifmr, synthetic
-from popstar.imf import multiplicity, imf
+from spisea import evolution, atmospheres, reddening, ifmr, synthetic
+from spisea.imf import multiplicity, imf
 from scipy.interpolate import griddata
 from scipy.spatial.ckdtree import cKDTree
 

@@ -1268,14 +1268,15 @@ def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
             comp_dict['zams_mass'] = comp_table['mass'].data
 
             ##########
-            # Assign spherical positions and velocities to all compact objects.
+            # Assign spherical positions, velocities, and metallicity to all compact objects.
             ##########
-            # Create velocities and positions using Kernel Density Estimation
+            # Create velocities, positions and metallicity using Kernel Density Estimation
             # Galactic position (r, l, b)
             # and heliocentric velocity (vx, vy, vz)
+            # and metallicity (feh)
             kde_in_data = np.array([star_dict['rad'], star_dict['glat'],
                                     star_dict['glon'], star_dict['vx'],
-                                    star_dict['vy'], star_dict['vz']]).T
+                                    star_dict['vy'], star_dict['vz'], star_dict['feh']]).T
             # .T because kde.fit needs the rows/columns this way.
             kde = neighbors.KernelDensity(bandwidth=0.0001)
             kde.fit(kde_in_data)
@@ -1288,6 +1289,7 @@ def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
             comp_dict['vx'] = kde_out_data[:, 3]
             comp_dict['vy'] = kde_out_data[:, 4]
             comp_dict['vz'] = kde_out_data[:, 5]
+            comp_dict['feh'] = kde_out_data[:, 6]
 
             ##########
             # Assign x, y, z position.
@@ -1361,16 +1363,20 @@ def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
             comp_dict['ubv_B'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_V'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_H'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['feh'] = np.full(len(comp_dict['vx']), np.nan)
 
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
                     comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
                     comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
                     comp_dict['ztf_i'] = np.full(len(comp_dict['vx']), np.nan)
+
+            #########
+            # Initialize values for compact object teff, specific gravity and bolometic luminosity
+            # All of the values are np.nan
+            #########
+            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS

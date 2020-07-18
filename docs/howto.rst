@@ -48,6 +48,8 @@ How to read HDF5 files
 Within the HDF5 file are datasets that store the information. 
 It is kind of like a dictionary in python-- the dataset can be manipulated just like a numpy array.
 
+CHECK: Sam/Michael is this how it works for HDF5 still?
+
 First, go to the directory containing the HDF5 file you want to open. Next, start ipython. Then type the following::
 
     import h5py
@@ -108,6 +110,8 @@ To view the header information/metadata, type ``tab.meta``.
 
 The data output contained in the HDF5 datasets are a combination of outputs that come directly from Galaxia, and outputs we ourselves have calculated or defined.
 
+CHECK: PHOTOMETRIC SYSTEM KEYS... CAPTIAL OR LOWERCASE? (Michael?)
+
 +----------+----------------------------------------------+--------------+
 |Tag name  |Brief Description                             |Units         |
 +==========+==============================================+==============+
@@ -166,4 +170,80 @@ The data output contained in the HDF5 datasets are a combination of outputs that
 |feh       |Metallicity                                   |[Fe/H]        | 
 +----------+----------------------------------------------+--------------+
 
-CHECK: PHOTOMETRIC SYSTEM KEYS... CAPTIAL OR LOWERCASE? (Michael?)
+
+\subsubsection{Event candidates table (Astropy FITS table)}
+
+The event candidates table is very similar to the HDF5 file created by perform_pop_syn.
+The main difference is there is a lot less output, so instead of writing it into an HDF5 file, we use an Astropy table.
+Additionally, many of the tag names have a parenthetical (_L, _S) after them.
+This is to indicate that there is one tag for the lens (L) and one for the source (S), since for a given event, 
+you need to have both a lens and a source, and each of them has a mass, velocity, position, etc.
+For example, zams_mass_L is the ZAMS mass of the lens, and age_S is the log(age/yr) of the source. 
+
++--------------------+----------------------------------------------+--------------+
+|Tag name            |Brief Description                             |Units         |
++====================+==============================================+==============+
+|zams_mass (_L, _S)  |ZAMS mass                                     |Msun          |
++--------------------+----------------------------------------------+--------------+
+|rem_id (_L, _S)     |Integer indicating the remnant object type    |N/A           |
+|                    |(more details in tag description)             |              |
++--------------------+----------------------------------------------+--------------+
+|obj_id (_L, _S)     |Object ID-- unique integer to identify        |N/A           |
+|                    |star/compact object                           |              |
++--------------------+----------------------------------------------+--------------+
+|mass (_L, _S)       |Current mass                                  |Msun          |
++--------------------+----------------------------------------------+--------------+
+|px (_L, _S)         |Heliocentric x position                       |kpc           |
++--------------------+----------------------------------------------+--------------+
+|py (_L, _S)         |Heliocentric y position                       |kpc           | 
++--------------------+----------------------------------------------+--------------+
+|pz (_L, _S)         |Heliocentric z position                       |kpc           |
++--------------------+----------------------------------------------+--------------+
+|vx (_L, _S)         |Heliocentric x velocity                       |km/s          |
++--------------------+----------------------------------------------+--------------+
+|vy (_L, _S)         |Heliocentric y velocity                       |km/s          |
++--------------------+----------------------------------------------+--------------+
+|vz (_L, _S)         |Heliocentric z velocity                       |km/s          |
++--------------------+----------------------------------------------+--------------+
+|rad (_L, _S)        |Galactic radial distance                      |kpc           |
++--------------------+----------------------------------------------+--------------+
+|glat (_L, _S)       |Galactic latitude                             |deg           |
++--------------------+----------------------------------------------+--------------+
+|glon (_L, _S)       |Galactic longitude                            |deg           |
++--------------------+----------------------------------------------+--------------+
+|vr (_L, _S)         |Galactic radial velocity                      |km/s          |
++--------------------+----------------------------------------------+--------------+
+|mu_b (_L, _S)       |Galactic proper motion, b component           |mas/yr        |
++--------------------+----------------------------------------------+--------------+
+|mu_lcosb (_L, _S)   |Galactic proper motion, l component           |mas/yr        |
++--------------------+----------------------------------------------+--------------+
+|age (_L, _S)        |Age                                           |log(age/yr)   | 
++--------------------+----------------------------------------------+--------------+
+|popid (_L, _S)      |Population ID-- integer indicating the        |N/A           |
+|                    |population type ranging from 0 to 9           |              |
++--------------------+----------------------------------------------+--------------+
+|ubv_x (_L, _S)      |UBV photometric system,                       |mag           |
+|                    |x = {U, B, V, R, I, J, H, K}                  |              |
+|                    |absolute magnitude                            |              |
++--------------------+----------------------------------------------+--------------+
+|exbv (_L, _S)       |Extinction E(B-V) at the location of star     |mag           |
+|                    |given by 3-D Schlegel extinction maps         |              |
++--------------------+----------------------------------------------+--------------+
+|teff (_L, _S)       |Effective temperature                         |log(T/Kelvin) | 
++--------------------+----------------------------------------------+--------------+
+|grav (_L, _S)       |Surface gravity                               |log(gravity)  | 
++--------------------+----------------------------------------------+--------------+
+|mbol (_L, _S)       |Bolometric magnitude                          |log(L/Lsun)   | 
++--------------------+----------------------------------------------+--------------+
+|feh (_L, _S)        |Metallicity                                   |[Fe/H]        | 
++--------------------+----------------------------------------------+--------------+
+|theta_E             |(Angular) Einstein radius                     |mas           |
++--------------------+----------------------------------------------+--------------+
+|mu_rel              |Relative source-lens proper motion            |mas/yr        |
++--------------------+----------------------------------------------+--------------+
+|u0                  |Minimum source-lens separation during the     |dim'less      |
+|                    |survey, normalized by theta_E                 |              | 
++--------------------+----------------------------------------------+--------------+
+|t0                  |Time at which the minimum source-lens         |days          |
+|                    |separation occurs                             |              | 
++--------------------+----------------------------------------------+--------------+

@@ -58,8 +58,8 @@ _Mclust_v_age_func = None
 # Dictionary for SPISEA IFMR objects
 ##########
 IFMR_dict = {}
-IFMR_dict['Raithel17'] = ifmr.IFMR_Raithel17
-IFMR_dict['Spera15'] = ifmr.IFMR_Spera15
+IFMR_dict['Raithel17'] = ifmr.IFMR_Raithel17()
+IFMR_dict['Spera15'] = ifmr.IFMR_Spera15()
 ##########
 
 ##########
@@ -449,9 +449,10 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         raise Exception('IFMR (%s) must be a string.' % str(IFMR))
 
     if IFMR not in IFMR_dict:
-        exception_str = 'IFMR must be a key in ' \
+        exception_str = '(%s) is not a valid IFMR. ' \
+                        'IFMR must be a key in ' \
                         'IFMR_dict. \n' \
-                        'Acceptable values are the strings : '
+                        'Acceptable values are the strings : ' %str(IFMR)
         for IFMR in IFMR_dict:
             exception_str += '%s, ' % IFMR
         exception_str = exception_str[:-2]

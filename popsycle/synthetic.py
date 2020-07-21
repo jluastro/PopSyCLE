@@ -709,18 +709,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             kdt_star_p = None
             exbv_arr4kdt = None
             if len_adx > 0:
-                num_kdtree_samples = int(min(len_adx, 2e6))
-                kdt_idx = np.random.choice(np.arange(len_adx),
-                                           size=num_kdtree_samples,
-                                           replace=False)
-                bin_idx = popid_idx[age_idx[kdt_idx]]
                 star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
                 star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
                 star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
                 star_xyz = np.array([star_px, star_py, star_pz]).T
                 kdt_star_p = cKDTree(star_xyz)
-                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-                del bin_idx, star_px, star_py, star_pz
+                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel',
+                                            popid_idx[age_idx])
+                del star_px, star_py, star_pz, star_xyz
 
             ##########
             # Loop through bins of 2 million stars at a time.

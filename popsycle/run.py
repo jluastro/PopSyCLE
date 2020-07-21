@@ -241,9 +241,13 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
 
     NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     photometric_system : str
         The name of the photometric system in which the filter exists.

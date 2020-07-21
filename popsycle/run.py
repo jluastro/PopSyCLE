@@ -197,7 +197,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   n_obs=101, theta_frac=2, blend_rad=0.75,
                                   isochrones_dir='/Users/myself/popsycle_isochrones',
-                                  IFMR_object='Raithel17',
+                                  IFMR='Raithel17',
                                   galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
@@ -229,8 +229,9 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     isochrones_dir : str
         Directory for PyPopStar isochrones
 
-    IFMR_object : string
-        The name of the IFMR object from SPISEA
+    IFMR : string
+        The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
+        in SPISEA.
         'Raithel17' = IFMR_Raithel17
         'Spera15' = IFMR_Spera15
 
@@ -288,7 +289,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'theta_frac': theta_frac,
               'blend_rad': blend_rad,
               'isochrones_dir': os.path.abspath(isochrones_dir),
-              'IFMR_object' : IFMR_object,
+              'IFMR' : IFMR,
               'galaxia_galaxy_model_filename': os.path.abspath(galaxia_galaxy_model_filename),
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
@@ -580,7 +581,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         _check_perform_pop_syn(ebf_file='test.ebf',
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
-                               IFMR_object=popsycle_config['IFMR_object'],
+                               IFMR=popsycle_config['IFMR'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
@@ -888,7 +889,7 @@ def run(passed_args=None):
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
                                output_root=args.output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
-                               IFMR_object=popsycle_config['IFMR_object'],
+                               IFMR=popsycle_config['IFMR'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
@@ -944,7 +945,7 @@ def run(passed_args=None):
             ebf_file=filename_dict['ebf_filename'],
             output_root=args.output_root,
             iso_dir=popsycle_config['isochrones_dir'],
-            IFMR_object=popsycle_config['IFMR_object'],
+            IFMR=popsycle_config['IFMR'],
             bin_edges_number=popsycle_config['bin_edges_number'],
             BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],

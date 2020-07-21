@@ -180,7 +180,7 @@ def generate_isochrones(iso_dir, logAge_min=5.01, logAge_max=10.291,
     Parameters
     ----------
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     logAge_min : float
         Minimum log10(age) of generated isochrones

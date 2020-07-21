@@ -1135,10 +1135,11 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
         'Spera15' = IFMR_Spera15
 
     log_age : float
-        log(age/yr) of the cluster you want to make
+        log(age/yr) of the cluster you want to make, rounds to nearest 0.1
 
     feh : float
-        metallicity [Fe/H] of the cluster you want to make
+        metallicity [Fe/H] of the cluster you want to make, rounds to nearest 0.5 for atmospheres. 
+        the IFMR object will run at exactly the specified value 
 
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
@@ -1385,6 +1386,11 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
             comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
+
+            #########
+            # Assign feh values to the SPISEA compact objects, drawing randomly from the feh of the Galaxia stars
+            #########
+            comp_dict['feh'] = np.random.choice(star_dict['feh'], size=len(comp_dict['vx']), replace=False)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS

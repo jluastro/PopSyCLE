@@ -227,7 +227,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         Units are in ARCSECONDS.
 
     isochrones_dir : str
-        Directory for PyPopStar isochrones
+        Directory for SPISEA isochrones
 
     IFMR : string
         The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
@@ -261,7 +261,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         in the global filt_dict parameter at the top of this module.
 
     red_law : str
-        The name of the reddening law to use from PopStar.
+        The name of the reddening law to use from SPISEA.
 
     Optional Parameters
     -------------------
@@ -481,7 +481,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     seed : int
         If non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     overwrite : bool
@@ -815,7 +815,7 @@ def run(passed_args=None):
     optional.add_argument('--seed', type=int,
                           help='Set a seed for all PopSyCLE functions with '
                                'randomness, which are running Galaxia and '
-                               'PyPopStar. Setting this flag guarantees '
+                               'SPISEA. Setting this flag guarantees '
                                'identical output and is useful for debugging.',
                           default=None)
     optional.add_argument('--overwrite',

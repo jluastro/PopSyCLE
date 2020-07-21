@@ -80,9 +80,6 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     # Define total cluster mass
     mass = 10 ** 5.
 
-    # Make ifmr
-    my_ifmr = ifmr.IFMR_Raithel17()
-
     ubv_b = np.array([])
     ubv_v = np.array([])
     ubv_r = np.array([])
@@ -114,7 +111,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                              recomp=True)
         # Make cluster object
         cluster = synthetic.ResolvedCluster(my_iso, my_imf, mass,
-                                            ifmr=my_ifmr)
+                                            ifmr=None)
         clust = cluster.star_systems
         cond = ~np.isnan(clust['m_ubv_V'])
         clust = clust[cond]

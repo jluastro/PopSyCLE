@@ -1138,7 +1138,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
         log(age/yr) of the cluster you want to make, rounds to nearest 0.1
 
     feh : float
-        metallicity [Fe/H] of the cluster you want to make, rounds to nearest 0.5 for atmospheres. 
+        metallicity [Fe/H] of the cluster you want to make, rounds to nearest 0.5 for atmospheres and stuff. 
         the IFMR object will run at exactly the specified value 
 
     currentClusterMass : float

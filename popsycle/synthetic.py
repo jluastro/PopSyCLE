@@ -93,7 +93,7 @@ photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r', 'i']
 
 ##########
-# List of all supported photometric systems and filters with PyPopStar labels
+# List of all supported photometric systems and filters with SPISEA labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
                  'ukirt,H', 'ukirt,K', 'ukirt,J']
@@ -388,7 +388,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
            '../back/to/some/path/myout'
 
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     IFMR : string
         The name of the IFMR object from SPISEA. For more information on these IFMRs see ifmr.py
@@ -416,7 +416,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
@@ -425,7 +425,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     """
@@ -516,7 +516,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
            '../back/to/some/path/myout'
 
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     IFMR : string
         The name of the IFMR object from SPISEA. For additional information on these objects see ifmr.py
@@ -546,7 +546,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
@@ -555,7 +555,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     Outputs
@@ -670,7 +670,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Reassign ages for stars that are less than logage 6
     # or greater than logage 10.01, since those are the limits of
-    # PopStar evolution. Justification: in writeup/paper.
+    # SPISEA evolution. Justification: in writeup/paper.
     ##########
     young_id = np.where(age_array <= 5.01)[0]
     age_array[young_id] = 5.0101
@@ -947,7 +947,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
-    line11 = popstar_hash + ' : PopStar commit' + '\n'
+    line11 = popstar_hash + ' : SPISEA commit' + '\n'
     line12 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line13 = 'OTHER INFORMATION' + '\n'
@@ -987,7 +987,7 @@ def calc_current_initial_ratio(iso_dir,
                                out_file='current_initial_stellar_mass_ratio.txt',
                                seed=None):
     """
-    Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the
+    Makes 10**7 M_sun clusters in SPISEA at various ages, to calculate the
     ratio of current to initial cluster mass. The range of ages goes
     from 6 to 10.089 log(age/yr). Creates a text file, the first column is
     the ages, and second column is the ratio.
@@ -1005,7 +1005,7 @@ def calc_current_initial_ratio(iso_dir,
     -------------------
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     Output
@@ -1014,7 +1014,7 @@ def calc_current_initial_ratio(iso_dir,
          File of the initial-final cluster mass.
 
     """
-    # Set up the input information for PopStar to make a cluster.
+    # Set up the input information for SPISEA to make a cluster.
     # age in log(age/yr)
     logage_vec = np.concatenate((np.arange(5.01, 10.01 + 0.005, 0.2),
                                  np.array([10.04, 10.14])))
@@ -1083,13 +1083,13 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
         current-initial cluster mass ratio.
 
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     Optional Parameters
     -------------------
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     Return
@@ -1126,7 +1126,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
     Parameters
     ----------
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     IFMR : string
         The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py 
@@ -1171,11 +1171,11 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     seed : int
          Seed used to sample the kde tree. If set to any number,
-         PyPopStar will also be forced to use 42 as a
+         SPISEA will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
          Default is None.
 
@@ -1211,7 +1211,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
     initialClusterMass = currentClusterMass / ratio
 
     ##########
-    # Create the PopStar table (stars and compact objects).
+    # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
     if initialClusterMass > 100:
@@ -1247,7 +1247,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
                                             seed=seed)
         output = cluster.star_systems
 
-        # Create the PopStar table with just compact objects
+        # Create the SPISEA table with just compact objects
 
         # The compact IDs are:
         # 101: WD, 102: NS, 103: BH
@@ -1492,7 +1492,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     Output
     ------
@@ -2509,7 +2509,7 @@ def _check_refine_events(input_root, filter_name,
         The name of the photometric system in which the filter exists.
 
     red_law : str
-        The name of the reddening law to use from PopStar.
+        The name of the reddening law to use from SPISEA.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
@@ -2588,7 +2588,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         The name of the photometric system in which the filter exists.
 
     red_law : str
-        The name of the reddening law to use from PopStar.
+        The name of the reddening law to use from SPISEA.
 
     Optional Parameters
     -------------------
@@ -2743,7 +2743,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line4 = 'VERSION INFORMATION' + '\n'
     line5 = str(now) + ' : creation date' + '\n'
-    line6 = popstar_hash + ' : PopStar commit' + '\n'
+    line6 = popstar_hash + ' : SPISEA commit' + '\n'
     line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line8 = 'OTHER INFORMATION' + '\n'
@@ -3647,8 +3647,8 @@ def calc_ext(E, f):
 
 def get_Alambda_AKs(red_law_name, lambda_eff):
     """
-    Get Alambda/AKs. NOTE: this doesn't work for every law in PopStar!
-    Naming convention is not consistent. Change PopStar or add if statements?
+    Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
+    Naming convention is not consistent. Change SPISEA or add if statements?
 
     Parameters
     ----------

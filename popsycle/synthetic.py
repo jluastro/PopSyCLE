@@ -367,7 +367,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
-                           IFMR_object,
+                           IFMR,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
@@ -390,8 +390,9 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
-    IFMR_object : string
-        The name of the IFMR object from SPISEA
+    IFMR : string
+        The name of the IFMR object from SPISEA. For more information on these IFMRs see ifmr.py
+        in SPISEA. 
         'Raithel17' = IFMR_Raithel17
         'Spera15' = IFMR_Spera15
 
@@ -444,11 +445,17 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if not os.path.exists(iso_dir):
         raise Exception('iso_dir (%s) must exist' % str(iso_dir))
 
-    if not isinstance(IFMR_object, str):
-        raise Exception('IFMR_object (%s) must be a string.' % str(IFMR_object))
+    if not isinstance(IFMR, str):
+        raise Exception('IFMR (%s) must be a string.' % str(IFMR))
 
-    if IFMR_object not in IFMR_dict:
-        raise Exception('IFMR_object (%s) must be one of the IFMR objects in SPISEA.' % str(IFMR_object))
+    if IFMR not in IFMR_dict:
+        exception_str = 'IFMR must be a key in ' \
+                        'IFMR_dict. \n' \
+                        'Acceptable values are : '
+        for IFMR in IFMR_dict:
+            exception_str += '%s, ' % IFMR
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
 
     if bin_edges_number is not None:
         if not isinstance(bin_edges_number, int):
@@ -486,7 +493,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
-                    IFMR_object,
+                    IFMR,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
@@ -511,8 +518,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
-    IFMR_object : string
-        The name of the IFMR object from SPISEA
+    IFMR : string
+        The name of the IFMR object from SPISEA. For additional information on these objects see ifmr.py
+        in SPISEA. 
         'Raithel17' = IFMR_Raithel17
         'Spera15' = IFMR_Spera15
 
@@ -581,7 +589,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Error handling/complaining if input types are not right.
     _check_perform_pop_syn(ebf_file, output_root, iso_dir,
-                           IFMR_object,
+                           IFMR,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
@@ -721,12 +729,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                (age_array[popid_idx] < logt_bins[aa + 1]))[0]
             
             
-            if IFMR_object == 'Raithel17':
-                #only run at solar metallicity for Raithel17
+            if IFMR == 'Raithel17':
+                # Only run at solar metallicity for Raithel17
                 feh_bins = [-99, 99]
                 feh_vals = [0.0]
-            elif IFMR_object == 'Spera15':
-                #break into 3 hardcoded metallicity bins for Spera15
+                
+            elif IFMR == 'Spera15':
+                # Break into 3 hardcoded metallicity bins for Spera15
                 feh_bins = [-99, -1.279, -0.500, 99]
                 feh_vals = [-1.39, -0.89, 0.00]
 
@@ -870,7 +879,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     for key, val in star_dict.items():
                         stars_in_bin[key] = val
 
-                    comp_dict, next_id = _make_comp_dict(iso_dir, IFMR_object, age_of_bin, metallicity_of_bin,
+                    comp_dict, next_id = _make_comp_dict(iso_dir, IFMR, age_of_bin, metallicity_of_bin,
                                                      mass_in_bin, stars_in_bin, next_id,
                                                      kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
@@ -933,7 +942,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
-    line7 = 'IFMR_object , ' + IFMR_object + '\n'
+    line7 = 'IFMR , ' + IFMR + '\n'
     line8 = 'seed , ' + str(seed) + '\n'
 
     line9 = 'VERSION INFORMATION' + '\n'
@@ -1105,7 +1114,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
+def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
                     star_dict, next_id,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
@@ -1119,8 +1128,9 @@ def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
-    IFMR_object : string
-        The name of the IFMR object from SPISEA
+    IFMR : string
+        The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py 
+        in SPISEA. 
         'Raithel17' = IFMR_Raithel17
         'Spera15' = IFMR_Spera15
 
@@ -1192,7 +1202,7 @@ def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
     powers = np.array([-1.3, -2.3])
-    my_ifmr = IFMR_dict[IFMR_object]
+    my_ifmr = IFMR_dict[IFMR]
     ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file=ratio_file,
@@ -1350,7 +1360,7 @@ def _make_comp_dict(iso_dir, IFMR_object, log_age, feh, currentClusterMass,
             ##########
             # Initialize values for compact object photometry.
             # All of the values are np.nan
-            # These are all the outputs from the IFMR of Raithel and Kalirai.
+            # These are all the outputs from the IFMR object in SPISEA.
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_I'] = np.full(len(comp_dict['vx']), np.nan)

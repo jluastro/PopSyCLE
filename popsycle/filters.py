@@ -81,7 +81,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     mass = 10 ** 5.
 
     # Make ifmr
-    my_ifmr = ifmr.IFMR()
+    my_ifmr = ifmr.IFMR_Raithel17()
 
     ubv_b = np.array([])
     ubv_v = np.array([])

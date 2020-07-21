@@ -391,7 +391,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         Where are the isochrones stored (for SPISEA)
 
     IFMR : string
-        The name of the IFMR object from SPISEA. For more information on these IFMRs see ifmr.py
+        The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
         in SPISEA. 
         'Raithel17' = IFMR_Raithel17
         'Spera15' = IFMR_Spera15
@@ -451,7 +451,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if IFMR not in IFMR_dict:
         exception_str = 'IFMR must be a key in ' \
                         'IFMR_dict. \n' \
-                        'Acceptable values are : '
+                        'Acceptable values are the strings : '
         for IFMR in IFMR_dict:
             exception_str += '%s, ' % IFMR
         exception_str = exception_str[:-2]

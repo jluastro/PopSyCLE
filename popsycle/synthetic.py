@@ -1059,14 +1059,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    seed=None):
+                    seed=None,multiplicity=None):
     """
     Perform population synthesis.
 
     Parameters
     ----------
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     log_age : float
         log(age/yr) of the cluster you want to make
@@ -1109,6 +1109,10 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
          PyPopStar will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
          Default is None.
+         
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
 
     Returns
     -------
@@ -1173,7 +1177,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         # MAKE cluster
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             initialClusterMass, ifmr=my_ifmr,
-                                            seed=seed)
+                                            seed=seed,multiplicity=multiplicity)
         output = cluster.star_systems
 
         # Create the PopStar table with just compact objects
@@ -1187,6 +1191,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                               (output['phase'] == 102) |
                               (output['phase'] == 103))[0]
         comp_table = output[compact_ID]
+        print(comp_table)
 
         # Removes unused columns to conserve memory.
         keep_columns = ['mass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
@@ -1196,6 +1201,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             if 'ztf' in additional_photometric_systems:
                 keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
         comp_table.keep_columns(keep_columns)
+        print(comp_table)
 
         # Fill out the rest of comp_dict
         if len(comp_table['mass']) > 0:

@@ -565,6 +565,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Start of code
     #########
 
+    print("TESSSST")
     # Set random seed
     np.random.seed(seed)
 

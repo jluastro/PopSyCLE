@@ -565,7 +565,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Start of code
     #########
 
-    print("TESSSST")
     # Set random seed
     np.random.seed(seed)
 
@@ -917,6 +916,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         print('********************************************')
 
     print('******************** INFO **********************')
+    print('TESSST')
     print('Total number of stars from Galaxia: ' + str(n_stars))
     print('Total number of compact objects made: ' + str(comp_counter))
     print('Total number of things binned: ' + str(binned_counter))

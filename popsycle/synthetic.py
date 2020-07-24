@@ -746,8 +746,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 metallicity_of_bin = feh_vals[bb]
 
                 # Fetch the stars in this metallicity bin
-                feh_idx = np.where((metallicity_array[age_idx] >= feh_bins[bb]) &
-                                   (metallicity_array[age_idx] < feh_bins[bb + 1]))[0]
+                feh_idx = np.where((metallicity_array[popid_idx[age_idx]] >= feh_bins[bb]) &
+                                   (metallicity_array[popid_idx[age_idx]] < feh_bins[bb + 1]))[0]
                 len_adx = len(feh_idx)
 
                 # Figure out how many bins we will need.

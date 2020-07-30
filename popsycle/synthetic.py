@@ -669,8 +669,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     h5file.close()
 
     ##########
-    # Reassign ages for stars that are less than logage 6
-    # or greater than logage 10.01, since those are the limits of
+    # Reassign ages for stars that are less than logage 5.01 
+    # or greater than logage 10.14, since those are the limits of
     # SPISEA evolution. Justification: in writeup/paper.
     ##########
     young_id = np.where(age_array <= 5.01)[0]
@@ -770,7 +770,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                size=num_kdtree_samples,
                                                replace=False)
                     bin_idx = popid_idx[age_idx[feh_idx[kdt_idx]]]
-                    star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
+                    star_px = ebf.read_ind(ebf_file, '/px', bin_idx) 
                     star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
                     star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
                     star_xyz = np.array([star_px, star_py, star_pz]).T
@@ -943,7 +943,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
-    line7 = 'IFMR , ' + IFMR + '\n'
+    line7 = 'IFMR , ' + str(IFMR) + '\n'
     line8 = 'seed , ' + str(seed) + '\n'
 
     line9 = 'VERSION INFORMATION' + '\n'
@@ -1136,11 +1136,11 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
         'Spera15' = IFMR_Spera15
 
     log_age : float
-        log(age/yr) of the cluster you want to make, rounds to nearest 0.1
+        log(age/yr) of the cluster you want to make, rounds to nearest 0.01
 
     feh : float
         metallicity [Fe/H] of the cluster you want to make, rounds to nearest 0.5 for atmospheres and stuff. 
-        the IFMR object will run at exactly the specified value 
+        The IFMR object will run at exactly the specified value 
 
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
@@ -1391,7 +1391,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
             #########
             # Assign feh values to the SPISEA compact objects, drawing randomly from the feh of the Galaxia stars
             #########
-            comp_dict['feh'] = np.random.choice(star_dict['feh'], size=len(comp_dict['vx']), replace=False)
+            comp_dict['feh'] = np.random.choice(star_dict['feh'], size=len(comp_dict['vx']), replace=True)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS

@@ -23,6 +23,7 @@ from astropy.table import vstack
 # from popstar import synthetic, evolution, reddening, ifmr
 from spisea.imf import imf
 from spisea import synthetic, evolution, reddening, ifmr
+#from spisea import evolution, reddening, ifmr
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time
@@ -40,6 +41,11 @@ from distutils import spawn
 from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
+
+#import sys
+#sys.path.insert(1, '/u/abrams/code/multiplicity/PyPopStar')
+#from spisea import synthetic
+
 
 
 ##########
@@ -470,7 +476,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    overwrite=False, seed=None):
+                    overwrite=False, seed=None, multiplicity=None):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -524,6 +530,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
+        
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
 
     Outputs
     -------
@@ -709,15 +720,19 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             kdt_star_p = None
             exbv_arr4kdt = None
             if len_adx > 0:
+                num_kdtree_samples = int(min(len_adx, 2e6))
+                kdt_idx = np.random.choice(np.arange(len_adx),
+                                           size=num_kdtree_samples,
+                                           replace=False)
+                bin_idx = popid_idx[age_idx[kdt_idx]]
                 star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
                 star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
                 star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
                 star_xyz = np.array([star_px, star_py, star_pz]).T
                 kdt_star_p = cKDTree(star_xyz)
-                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel',
-                                            popid_idx[age_idx])
-                del star_px, star_py, star_pz, star_xyz
-
+                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+                del bin_idx, star_px, star_py, star_pz
+                
             ##########
             # Loop through bins of 2 million stars at a time.
             ##########
@@ -727,6 +742,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 n_stop = int((nn + 1) * num_stars_in_bin)
 
                 bin_idx = popid_idx[age_idx[n_start:n_stop]]
+                
 
                 ##########
                 # Fill up star_dict
@@ -734,6 +750,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict = {}
                 star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
                 star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
+                star_dict['systemMass'] = star_dict['mass']
                 star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
                 star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
                 star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
@@ -750,6 +767,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
                 star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
                 star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
+                star_dict['isMultiple'] = np.zeros(len(bin_idx))
                 star_dict['rem_id'] = np.zeros(len(bin_idx))
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
                 n_binned_stars += len(bin_idx)
@@ -810,7 +828,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['vr'] = utils.add_precision64(vr, -4)
                 star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
                 star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
-
+                
+                
+                            
+                
                 ##########
                 # Perform population synthesis.
                 ##########
@@ -819,15 +840,33 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 stars_in_bin = {}
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
+                    
+                cluster_tmp = _make_cluster(iso_dir=iso_dir, log_age=age_of_bin, currentClusterMass=mass_in_bin, multiplicity=multiplicity, seed=seed, additional_photometric_systems=additional_photometric_systems)
 
-                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
-                                                     mass_in_bin, stars_in_bin, next_id,
+                comp_dict, next_id = _make_comp_dict(#iso_dir, 
+                                                     age_of_bin,
+                                                     #mass_in_bin,
+                                                     cluster_tmp,
+                                                     stars_in_bin, next_id,
                                                      kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
-                                                     seed=seed)
-
+                                                     seed=seed)#, multiplicity=multiplicity)
+                
+                #########
+                # If there are multiples add them in
+                #########
+                if multiplicity != None:
+                    if cluster_tmp:
+                        companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster_tmp)
+                        if companions_table:
+                            for ii in companions_table:
+                                star_dict['systemMass'][ii['system_idx']] += ii['mass']
+                            star_dict['isMultiple'] = cluster_tmp.star_systems['isMultiple']
+                        del cluster_tmp
+                             
+                
                 ##########
                 #  Bin in l, b all stars and compact objects.
                 ##########
@@ -916,7 +955,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         print('********************************************')
 
     print('******************** INFO **********************')
-    print('TESSST')
     print('Total number of stars from Galaxia: ' + str(n_stars))
     print('Total number of compact objects made: ' + str(comp_counter))
     print('Total number of things binned: ' + str(binned_counter))
@@ -1055,12 +1093,14 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, log_age, currentClusterMass,
+def _make_comp_dict(#iso_dir, 
+                    log_age, #currentClusterMass,
+                    cluster,
                     star_dict, next_id,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    seed=None,multiplicity=None):
+                    seed=None):#,multiplicity=None):
     """
     Perform population synthesis.
 
@@ -1107,13 +1147,14 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
     seed : int
          Seed used to sample the kde tree. If set to any number,
-         PyPopStar will also be forced to use 42 as a
+         SPISEA will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
          Default is None.
          
     multiplicity: object
         If a resovled multiplicity object is specified, 
         the table will be generated with resolved multiples.
+        Default is None.
 
     Returns
     -------
@@ -1127,7 +1168,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     """
     comp_dict = None
 
-    # Add additional filters to isochrones if additional_photometric_systems
+    """# Add additional filters to isochrones if additional_photometric_systems
     # contains photometric systems
     my_filt_list = copy.deepcopy(all_filt_list)
     if additional_photometric_systems is not None:
@@ -1147,7 +1188,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     initialClusterMass = currentClusterMass / ratio
 
     ##########
-    # Create the PopStar table (stars and compact objects).
+    # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
     if initialClusterMass > 100:
@@ -1173,12 +1214,13 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!
-        trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers)
+        trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers,multiplicity=multiplicity)
 
         # MAKE cluster
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             initialClusterMass, ifmr=my_ifmr,
-                                            seed=seed,multiplicity=multiplicity)
+                                            seed=seed)"""
+    if cluster:
         output = cluster.star_systems
 
         # Create the PopStar table with just compact objects
@@ -1192,17 +1234,15 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                               (output['phase'] == 102) |
                               (output['phase'] == 103))[0]
         comp_table = output[compact_ID]
-        print(comp_table)
 
         # Removes unused columns to conserve memory.
-        keep_columns = ['mass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
+        keep_columns = ['mass', 'isMultiple','systemMass','phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
                         'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
                         'm_ukirt_J', 'm_ukirt_K']
         if additional_photometric_systems is not None:
             if 'ztf' in additional_photometric_systems:
                 keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
         comp_table.keep_columns(keep_columns)
-        print(comp_table)
 
         # Fill out the rest of comp_dict
         if len(comp_table['mass']) > 0:
@@ -1212,6 +1252,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             comp_dict['mass'] = comp_table['mass_current'].data
             comp_dict['rem_id'] = comp_table['phase'].data
             comp_dict['zams_mass'] = comp_table['mass'].data
+            comp_dict['isMultiple'] = comp_table['isMultiple'].data
+            #makes sure the system mass is the companions + compact object mass instead of companions + initial primary mass
+            comp_dict['systemMass'] = comp_table['systemMass'].data - comp_dict['zams_mass'] + comp_dict['mass']
 
             ##########
             # Assign spherical positions and velocities to all compact objects.
@@ -1484,6 +1527,128 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
             hf.close()
 
     return
+
+def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity, seed=None, additional_photometric_systems=None):
+    cluster = None
+    
+    # Add additional filters to isochrones if additional_photometric_systems
+    # contains photometric systems
+    my_filt_list = copy.deepcopy(all_filt_list)
+    if additional_photometric_systems is not None:
+        if 'ztf' in additional_photometric_systems:
+            my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+
+    # Calculate the initial cluster mass
+    # changed from 0.08 to 0.1 at start because MIST can't handle.
+    massLimits = np.array([0.1, 0.5, 120])
+    powers = np.array([-1.3, -2.3])
+    my_ifmr = ifmr.IFMR()
+    ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
+    ratio = current_initial_ratio(logage=log_age,
+                                  ratio_file=ratio_file,
+                                  iso_dir=iso_dir,
+                                  seed=seed)
+    initialClusterMass = currentClusterMass / ratio
+    
+    
+
+    ##########
+    # Create the SPISEA table (stars and compact objects).
+    #    - it is only sensible to do this for a decent sized cluster.
+    ##########
+    if initialClusterMass > 100:
+        # MAKE isochrone
+        # -- arbitrarily chose AKs = 0, distance = 10 pc
+        # (irrelevant, photometry not used)
+        # Using MIST models to get white dwarfs
+        my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                         evo_model=evolution.MISTv1(),
+                                         filters=my_filt_list,
+                                         iso_dir=iso_dir)
+
+        # Check that the isochrone has all of the filters in filt_list
+        # If not, force recreating the isochrone with recomp=True
+        my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
+            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                             evo_model=evolution.MISTv1(),
+                                             filters=my_filt_list,
+                                             iso_dir=iso_dir,
+                                             recomp=True)
+
+        # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
+        # DON'T MOVE IT OUT!
+        trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers,multiplicity=multiplicity)
+
+        # MAKE cluster
+        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
+                                            initialClusterMass, ifmr=my_ifmr,
+                                            seed=seed)
+    return cluster
+        #output = cluster.star_systems 
+
+def _add_multiples(star_masses, cluster):
+    
+    cluster_ss = cluster.star_systems
+    
+    outputaroo = None
+        
+    star_mass_indicies = zip(star_masses, list(range(len(star_masses))))
+    star_mass_sort_wIndicies = sorted(star_mass_indicies, key = lambda x: x[0])
+    star_mass_sort = [i[0] for i in star_mass_sort_wIndicies]
+        
+    too_big = 0
+    overlaps = 0
+    old_closest_index = []
+    for ii in range(len(cluster_ss)):
+        if cluster_ss[ii]['isMultiple'] == True:                
+            companion_indicies = np.where(cluster.companions['system_idx'] == ii)[0]
+            
+            # Remove systems with compact primaries
+            if cluster_ss[ii]['phase'] > 100:
+                cluster.companions.remove_rows(companion_indicies)
+                continue
+                
+            closest_index = np.searchsorted(star_mass_sort, cluster_ss[ii]['mass'], side = 'left')
+            if closest_index <= len(star_mass_sort) - 2:
+                if np.abs(star_mass_sort[closest_index] - cluster_ss[ii]['mass']) > np.abs(star_mass_sort[closest_index + 1] - cluster_ss[ii]['mass']):
+                    closest_index += 1
+                    
+            # Drops systems that are too massive
+            if closest_index >= len(star_mass_sort) - 1:
+                too_big += 1
+                cluster.companions.remove_rows(companion_indicies)
+                continue 
+                
+            # Finds second closest objects for those that would have overlapped and drops if also occupied    
+            if closest_index in old_closest_index:
+                second_closest = np.argmin([np.abs(star_mass_sort[closest_index - 1] - cluster_ss[ii]['mass']), np.abs(star_mass_sort[closest_index + 1]- cluster_ss[ii]['mass'])])
+                if second_closest == 0:
+                    closest_index -= 1
+                else:
+                    closest_index += 1
+                if closest_index in old_closest_index:
+                    overlaps += 1
+                    cluster.companions.remove_rows(companion_indicies)
+                    continue
+            old_closest_index.append(closest_index)
+            
+            # Points companions to nearest-in-mass Galaxia primary to SPISEA primary
+            for jj in companion_indicies:
+                cluster.companions[jj]['system_idx'] = star_mass_sort_wIndicies[closest_index][1]
+                
+            
+            
+    
+    outputaroo = cluster.companions
+    if outputaroo == None:
+        return None
+        
+    print(len(outputaroo), too_big, too_big/len(outputaroo))
+    print(len(outputaroo), overlaps, overlaps/len(outputaroo))
+    
+    return outputaroo
 
 
 ############################################################################
@@ -1837,8 +2002,10 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                                                                             radius_cut)
 
         # Calculate einstein radius and lens-source separation
-        theta_E = einstein_radius(bigpatch['mass'][lens_id],
+        theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                   r_t[lens_id], r_t[sorc_id])  # mas
+        #theta_E = einstein_radius(bigpatch['mass'][lens_id],
+         #                         r_t[lens_id], r_t[sorc_id])  # mas
         u = sep[event_id1] / theta_E
 
         # Trim down to those microlensing events that really get close enough
@@ -2930,6 +3097,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 
 
 
+
 ##################################################################
 ############ Reading/writing and format functions  ###############
 ##################################################################
@@ -3306,8 +3474,8 @@ def calc_ext(E, f):
 
 def get_Alambda_AKs(red_law_name, lambda_eff):
     """
-    Get Alambda/AKs. NOTE: this doesn't work for every law in PopStar!
-    Naming convention is not consistent. Change PopStar or add if statements?
+    Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
+    Naming convention is not consistent. Change SPISEA or add if statements?
 
     Parameters
     ----------
@@ -3328,6 +3496,7 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Alambda_AKs = red_law_method(lambda_eff, 1)
 
     return Alambda_AKs
+
 
 
 

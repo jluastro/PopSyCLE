@@ -1631,7 +1631,7 @@ def _add_multiples(star_masses, cluster):
     if modified_companions == None:
         return None
         
-    print("Total companions, too big, too big fraction:" len(modified_companions), too_big, too_big/len(modified_companions))
+    print("Total companions, too big, too big fraction:", len(modified_companions), too_big, too_big/len(modified_companions))
     
     return modified_companions
 

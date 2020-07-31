@@ -1093,14 +1093,13 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(#iso_dir, 
-                    log_age, #currentClusterMass,
+def _make_comp_dict(log_age,
                     cluster,
                     star_dict, next_id,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    seed=None):#,multiplicity=None):
+                    seed=None):
     """
     Perform population synthesis.
 
@@ -1168,58 +1167,6 @@ def _make_comp_dict(#iso_dir,
     """
     comp_dict = None
 
-    """# Add additional filters to isochrones if additional_photometric_systems
-    # contains photometric systems
-    my_filt_list = copy.deepcopy(all_filt_list)
-    if additional_photometric_systems is not None:
-        if 'ztf' in additional_photometric_systems:
-            my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
-
-    # Calculate the initial cluster mass
-    # changed from 0.08 to 0.1 at start because MIST can't handle.
-    massLimits = np.array([0.1, 0.5, 120])
-    powers = np.array([-1.3, -2.3])
-    my_ifmr = ifmr.IFMR()
-    ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
-    ratio = current_initial_ratio(logage=log_age,
-                                  ratio_file=ratio_file,
-                                  iso_dir=iso_dir,
-                                  seed=seed)
-    initialClusterMass = currentClusterMass / ratio
-
-    ##########
-    # Create the SPISEA table (stars and compact objects).
-    #    - it is only sensible to do this for a decent sized cluster.
-    ##########
-    if initialClusterMass > 100:
-        # MAKE isochrone
-        # -- arbitrarily chose AKs = 0, distance = 10 pc
-        # (irrelevant, photometry not used)
-        # Using MIST models to get white dwarfs
-        my_iso = synthetic.IsochronePhot(log_age, 0, 10,
-                                         evo_model=evolution.MISTv1(),
-                                         filters=my_filt_list,
-                                         iso_dir=iso_dir)
-
-        # Check that the isochrone has all of the filters in filt_list
-        # If not, force recreating the isochrone with recomp=True
-        my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
-        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
-            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
-                                             evo_model=evolution.MISTv1(),
-                                             filters=my_filt_list,
-                                             iso_dir=iso_dir,
-                                             recomp=True)
-
-        # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
-        # DON'T MOVE IT OUT!
-        trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers,multiplicity=multiplicity)
-
-        # MAKE cluster
-        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
-                                            initialClusterMass, ifmr=my_ifmr,
-                                            seed=seed)"""
     if cluster:
         output = cluster.star_systems
 
@@ -1528,7 +1475,44 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
     return
 
-def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity, seed=None, additional_photometric_systems=None):
+def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, seed=None, additional_photometric_systems=None):
+    """
+    Creates SPISEA ResolvedCluster() object.
+
+    Parameters
+    ----------
+    iso_dir : filepath
+        Where are the isochrones stored (for SPISEA)
+
+    log_age : float
+        log(age/yr) of the cluster you want to make
+
+    currentClusterMass : float
+        Mass of the cluster you want to make (M_sun)
+
+    Optional Parameters
+    -------------------
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+
+    seed : int
+         Seed used to sample the kde tree. If set to any number,
+         SPISEA will also be forced to use 42 as a
+         random seed for calls to ResolvedCluster.
+         Default is None.
+         
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+
+    Returns
+    -------
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    """
     cluster = None
     
     # Add additional filters to isochrones if additional_photometric_systems
@@ -1556,7 +1540,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity, seed=None,
     # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
-    if initialClusterMass > 100:
+    if initialClusterMass > 500:
         # MAKE isochrone
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
@@ -1585,24 +1569,37 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity, seed=None,
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             initialClusterMass, ifmr=my_ifmr,
                                             seed=seed)
-    return cluster
-        #output = cluster.star_systems 
+    return cluster 
 
 def _add_multiples(star_masses, cluster):
+    """
+    Modifies companion table of cluster object to point to Galaxia stars.
+    Effectively adds multiple systems with stellar primaries.
+
+    Parameters
+    ----------
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    Returns
+    -------
+    modified_companions : astropy table
+        cluster companion table modified to point at Galaxia stars.
+        Deleted companions of compact objects and with primary masses too large.
+
+    """
     
     cluster_ss = cluster.star_systems
     
-    outputaroo = None
+    modified_companions = None
         
     star_mass_indicies = zip(star_masses, list(range(len(star_masses))))
     star_mass_sort_wIndicies = sorted(star_mass_indicies, key = lambda x: x[0])
     star_mass_sort = [i[0] for i in star_mass_sort_wIndicies]
         
     too_big = 0
-    overlaps = 0
-    old_closest_index = []
     for ii in range(len(cluster_ss)):
-        if cluster_ss[ii]['isMultiple'] == True:                
+        if cluster_ss[ii]['isMultiple'] == True:     
             companion_indicies = np.where(cluster.companions['system_idx'] == ii)[0]
             
             # Remove systems with compact primaries
@@ -1620,35 +1617,23 @@ def _add_multiples(star_masses, cluster):
                 too_big += 1
                 cluster.companions.remove_rows(companion_indicies)
                 continue 
-                
-            # Finds second closest objects for those that would have overlapped and drops if also occupied    
-            if closest_index in old_closest_index:
-                second_closest = np.argmin([np.abs(star_mass_sort[closest_index - 1] - cluster_ss[ii]['mass']), np.abs(star_mass_sort[closest_index + 1]- cluster_ss[ii]['mass'])])
-                if second_closest == 0:
-                    closest_index -= 1
-                else:
-                    closest_index += 1
-                if closest_index in old_closest_index:
-                    overlaps += 1
-                    cluster.companions.remove_rows(companion_indicies)
-                    continue
-            old_closest_index.append(closest_index)
-            
+                          
             # Points companions to nearest-in-mass Galaxia primary to SPISEA primary
             for jj in companion_indicies:
                 cluster.companions[jj]['system_idx'] = star_mass_sort_wIndicies[closest_index][1]
-                
-            
+              
+            # Deletes closest Galaxia star so there's no overlap between the SPISEA ones
+            star_mass_sort.pop(closest_index)
+            star_mass_sort_wIndicies.pop(closest_index)
             
     
-    outputaroo = cluster.companions
-    if outputaroo == None:
+    modified_companions = cluster.companions
+    if modified_companions == None:
         return None
         
-    print(len(outputaroo), too_big, too_big/len(outputaroo))
-    print(len(outputaroo), overlaps, overlaps/len(outputaroo))
+    print("Total companions, too big, too big fraction:" len(modified_companions), too_big, too_big/len(modified_companions))
     
-    return outputaroo
+    return modified_companions
 
 
 ############################################################################

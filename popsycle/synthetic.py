@@ -642,6 +642,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     if 'galaxyModelFile' in ebf_log:
         h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
     h5file.close()
+    
+    # Make one for companions if multiplicity
+    if multiplicity != None:
+        h5file_comp = h5py.File(output_root + '_companions' + '.h5', 'w')
+        h5file_comp['lat_bin_edges'] = lat_bin_edges
+        h5file_comp['long_bin_edges'] = long_bin_edges
+        if 'galaxyModelFile' in ebf_log:
+            h5file_comp['galaxyModelFile'] = ebf_log['galaxyModelFile']
+        h5file_comp.close()
 
     ##########
     # Reassign ages for stars that are less than logage 6
@@ -843,16 +852,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     
                 cluster_tmp = _make_cluster(iso_dir=iso_dir, log_age=age_of_bin, currentClusterMass=mass_in_bin, multiplicity=multiplicity, seed=seed, additional_photometric_systems=additional_photometric_systems)
 
-                comp_dict, next_id = _make_comp_dict(#iso_dir, 
-                                                     age_of_bin,
-                                                     #mass_in_bin,
+                comp_dict, next_id = _make_comp_dict(age_of_bin,
                                                      cluster_tmp,
                                                      stars_in_bin, next_id,
                                                      kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
-                                                     seed=seed)#, multiplicity=multiplicity)
+                                                     seed=seed)
                 
                 #########
                 # If there are multiples add them in
@@ -864,6 +871,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             for ii in companions_table:
                                 star_dict['systemMass'][ii['system_idx']] += ii['mass']
                             star_dict['isMultiple'] = cluster_tmp.star_systems['isMultiple']
+                            
+                            # Bin in l, b all companions
+                            if comp_dict is not None:
+                                _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                     comp_dict, output_root + '_companions', 
+                                     companion_obj_arr = companions_table) 
+                            _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                     stars_in_bin, output_root + '_companions', 
+                                     companion_obj_arr = companions_table) 
+                            
                         del cluster_tmp
                              
                 
@@ -877,6 +894,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                              stars_in_bin,
                              output_root)
+                    
                 ##########
                 # Done with galaxia output in dictionary t and ebf_log.
                 # Garbage collect in order to save space.
@@ -1387,7 +1405,7 @@ def _generate_comp_dtype(obj_arr):
     return comp_dtype
 
 
-def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
+def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_obj_arr = None):
     """
     Given stars and compact objects, sort them into latitude and
     longitude bins. Save each latitude and longitude bin, and the edges that
@@ -1415,7 +1433,12 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
         Galaxia / PyPopStar's ubv photometry and appended to the output files.
-
+    
+    companion_obj_arr : astropy table
+        Companion table from the ResolvedCluster object. 
+        To be used if creating a companion hdf5 file.
+        Default None.
+        
     Output
     ------
     output_root.h5 : hdf5 file
@@ -1423,8 +1446,11 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
     """
-    # Create compound datatype from obj_arr
-    comp_dtype = _generate_comp_dtype(obj_arr)
+    if companion_obj_arr == None:
+        # Create compound datatype from obj_arr
+        comp_dtype = _generate_comp_dtype(obj_arr)
+    else:
+        comp_dtype = np.dtype(companion_obj_arr)
 
     ##########
     # Loop through the latitude and longitude bins.
@@ -1448,7 +1474,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
                 dataset = hf[dset_name]
 
             ##########
-            # Binning the stars and/or compact objects
+            # Binning the stars and/or compact objects or companions
             ##########
             if obj_arr is not None:
                 id_lb = np.where((obj_arr['glat'] >= lat_bin_edges[bb]) &
@@ -1458,16 +1484,27 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
                 if len(id_lb) == 0:
                     continue
-
+                
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=comp_dtype)
-                for colname in obj_arr:
-                    save_data[colname] = obj_arr[colname][id_lb]
+                if companion_obj_arr == None:
+                    for colname in obj_arr:
+                        save_data[colname] = obj_arr[colname][id_lb]
+                # If making a companion hd5f file, finds corresponding companions and save them
+                else:
+                    companion_id_lb = [np.where(companion_obj_arr['system_idx'] == ii)[0] for ii in id_lb]
+                    companion_id_lb = list(np.concatenate(companion_id_lb).ravel()) # Simplifies datastructure
+                    if len(companion_id_lb) == 0:
+                        continue
+                    save_data = np.array(companion_obj_arr[companion_id_lb])
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[0]
-                new_size = old_size + len(id_lb)
+                if companion_obj_arr == None:
+                    new_size = old_size + len(id_lb)                
+                else:
+                    new_size = old_size + len(companion_id_lb)                     
                 dataset.resize((new_size, ))
                 dataset[old_size:new_size] = save_data
 
@@ -1588,7 +1625,6 @@ def _add_multiples(star_masses, cluster):
         Deleted companions of compact objects and with primary masses too large.
 
     """
-    
     cluster_ss = cluster.star_systems
     
     modified_companions = None
@@ -1634,6 +1670,10 @@ def _add_multiples(star_masses, cluster):
     print("Total companions, too big, too big fraction:", len(modified_companions), too_big, too_big/len(modified_companions))
     
     return modified_companions
+
+
+    
+    
 
 
 ############################################################################

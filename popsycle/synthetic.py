@@ -651,7 +651,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         if 'galaxyModelFile' in ebf_log:
             h5file_comp['galaxyModelFile'] = ebf_log['galaxyModelFile']
         h5file_comp.close()
-
+        
     ##########
     # Reassign ages for stars that are less than logage 6
     # or greater than logage 10.01, since those are the limits of
@@ -1645,6 +1645,7 @@ def _add_multiples(star_masses, cluster):
                 
             closest_index = np.searchsorted(star_mass_sort, cluster_ss[ii]['mass'], side = 'left')
             if closest_index <= len(star_mass_sort) - 2:
+                # Defaults to object on left, so checks if right is closer
                 if np.abs(star_mass_sort[closest_index] - cluster_ss[ii]['mass']) > np.abs(star_mass_sort[closest_index + 1] - cluster_ss[ii]['mass']):
                     closest_index += 1
                     
@@ -1671,9 +1672,6 @@ def _add_multiples(star_masses, cluster):
     
     return modified_companions
 
-
-    
-    
 
 
 ############################################################################

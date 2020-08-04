@@ -675,8 +675,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     young_id = np.where(age_array <= 5.01)[0]
     age_array[young_id] = 5.0101
-    old_id = np.where(age_array >= 10.14)[0]
-    age_array[old_id] = 10.1399
+    old_id = np.where(age_array >= 10.01)[0]
+    age_array[old_id] = 10.099
 
     # Initialize a running counter for the "unique ID".
     next_id = n_stars  # for compact objects...

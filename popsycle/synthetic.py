@@ -676,7 +676,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     young_id = np.where(age_array <= 5.01)[0]
     age_array[young_id] = 5.0101
     old_id = np.where(age_array >= 10.01)[0]
-    age_array[old_id] = 10.099
+    age_array[old_id] = 10.0099
 
     # Initialize a running counter for the "unique ID".
     next_id = n_stars  # for compact objects...
@@ -737,8 +737,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 
             elif IFMR == 'Spera15':
                 # Break into 3 hardcoded metallicity bins for Spera15
-                feh_bins = [-99, -1.279, -0.500, 99]
-                feh_vals = [-1.39, -0.89, 0.00]
+                feh_bins = [-99, -1.279, -0.500, 0.00, 99]
+                feh_vals = [-1.39, -0.89, -0.25, 0.30]
 
             for bb in range(len(feh_bins) - 1):
                 print('Starting metallicity bin ', feh_vals[bb])

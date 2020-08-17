@@ -618,6 +618,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Just some counting/error checking things
     n_stars = len(popid_array)  # How many stars from Galaxia
     comp_counter = 0  # Number of compact objects made
+    unmade_cluster_counter = 0 #Number of clusters that are too small and get skipped over
 
     # Convert log to useful dictionary.
     ebf_log = make_ebf_log(t)
@@ -880,8 +881,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     for key, val in star_dict.items():
                         stars_in_bin[key] = val
 
-                    comp_dict, next_id = _make_comp_dict(iso_dir, IFMR, age_of_bin, metallicity_of_bin,
-                                                     mass_in_bin, stars_in_bin, next_id,
+                    comp_dict, next_id, unmade_cluster_counter = _make_comp_dict(iso_dir, IFMR, age_of_bin, metallicity_of_bin,
+                                                     mass_in_bin, stars_in_bin, next_id, unmade_cluster_counter,
                                                      kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
@@ -956,17 +957,18 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line15 = str(n_stars) + ' : total stars from Galaxia' + '\n'
     line16 = str(comp_counter) + ' : total compact objects made' + '\n'
     line17 = str(binned_counter) + ' : total things binned' + '\n'
+    line18 = str(unmade_cluster_counter) + ' : # of unmade clusters (< 100 M_sun)' + '\n'
 
-    line18 = 'FILES CREATED' + '\n'
-    line19 = output_root + '.h5 : HDF5 file' + '\n'
-    line20 = output_root + '_label.fits : label file' + '\n'
+    line19 = 'FILES CREATED' + '\n'
+    line20 = output_root + '.h5 : HDF5 file' + '\n'
+    line21 = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
                         line6, line7, line8, empty_line, line9, dash_line,
                         line10, line11, line12, empty_line,line13, dash_line,
-                        line14, line15, line16, line17, empty_line, line18, dash_line,
-                        line19, line20])
+                        line14, line15, line16, line17, line18, empty_line, line19, dash_line,
+                        line20, line21])
 
     ##########
     # Informative print statements.
@@ -1116,7 +1118,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
 
 
 def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
-                    star_dict, next_id,
+                    star_dict, next_id, unmade_cluster_counter,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
@@ -1152,6 +1154,9 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
     next_id : int
         The next unique ID number (int) that will be assigned to
         the new compact objects created.
+
+    unmade_cluster_counter: int
+        The current number of unmade clusters (<= 100 M_sun)
 
     kdt_star_p : scipy cKDTree
         KDTree constructed from the positions of randomly selected stars
@@ -1191,6 +1196,9 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
 
+    unmade_cluster_counter : int
+        Updated number of unmade clusters (<= 100 M_sun)
+
     """
     comp_dict = None
 
@@ -1217,7 +1225,9 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
     # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
-    if initialClusterMass > 100:
+    if initialClusterMass <= 100:
+        unmade_cluster_counter = unmade_cluster_counter + 1
+    elif initialClusterMass > 100:
         # MAKE isochrone
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
@@ -1439,7 +1449,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
     else:
         comp_dict = None
 
-    return comp_dict, next_id
+    return comp_dict, next_id, unmade_cluster_counter
 
 
 def _generate_comp_dtype(obj_arr):

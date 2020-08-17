@@ -1922,6 +1922,7 @@ def calc_events(hdf5_file, output_root2,
 
     results_ev = []
     results_bl = []
+    results_cp = []
 
     for ii in range(len(results)):
         if results[ii] is not None:
@@ -1929,6 +1930,8 @@ def calc_events(hdf5_file, output_root2,
                 results_ev.append(results[ii][0])
             if results[ii][1] is not None:
                 results_bl.append(results[ii][1])
+            #if results[ii][2] is not None:
+             #   results_cp.append(results[ii][2])
 
     if len(results_ev) > 0:
         events_tmp = np.concatenate(results_ev, axis=0)
@@ -1936,6 +1939,10 @@ def calc_events(hdf5_file, output_root2,
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
+        if len(results_cp) == 0:
+            companions_tmp = np.array([])
+        else:
+            companions_tmp = np.concatenate(results_cp, axis=0)
 
         # Convert the events numpy recarray into an
         # Astropy Table for easier consumption.
@@ -1947,10 +1954,15 @@ def calc_events(hdf5_file, output_root2,
         if len(results_bl) != 0:
             blends_tmp = unique_blends(blends_tmp)
         blends_final = Table(blends_tmp)
+        
+        #if len(results_cp) != 0:
+         #   companions_tmp = unique_companions(companions_tmp, events_tmp)
 
         # Save out file
         events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
         blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+        #if hdf5_file_comp != None:
+         #   companions_final.write(output_root2 + '_companions.fits', overwrite=overwrite)
     else:
         N_events = 0
         print('No events!')
@@ -1975,30 +1987,35 @@ def calc_events(hdf5_file, output_root2,
     line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
     line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
     line8 = 'n_proc , ' + str(n_proc) + '\n'
+    line9 = 'hdf5_file_comp , ' + hdf5_file_comp + '\n'
 
-    line9 = 'VERSION INFORMATION' + '\n'
-    line10 = str(now) + ' : creation date' + '\n'
-    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line10 = 'VERSION INFORMATION' + '\n'
+    line11 = str(now) + ' : creation date' + '\n'
+    line12 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
-    line12 = 'OTHER INFORMATION' + '\n'
-    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line14 = str(N_events) + ' : total number of events' + '\n'
+    line13 = 'OTHER INFORMATION' + '\n'
+    line14 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line15 = str(N_events) + ' : total number of events' + '\n'
 
     if N_events > 0:
-        line15 = 'FILES CREATED' + '\n'
-        line16 = output_root2 + '_events.fits : events file' + '\n'
-        line17 = output_root2 + '_blends.fits : blends file' + '\n'
+        line16 = 'FILES CREATED' + '\n'
+        line17 = output_root2 + '_events.fits : events file' + '\n'
+        line18 = output_root2 + '_blends.fits : blends file' + '\n'
+        line19 = '\n'
+        if hdf5_file_comp != None:
+            line19 = output_root2 + '_companions.fits : companion file' + '\n'
     else:
-        line15 = 'NO FILES CREATED' + '\n'
-        line16 = '\n'
+        line16 = 'NO FILES CREATED' + '\n'
         line17 = '\n'
+        line18 = '\n'
+        line19 = '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
                         line4, line5, line6, line7, line8, empty_line,
                         line9, dash_line, line10, line11, empty_line,
                         line12, dash_line, line13, line14, empty_line, line15,
-                        dash_line, line16, line17])
+                        dash_line, line16, line17, line18, line19])
 
     print('calc_events runtime : {0:f} s'.format(t1 - t0))
 
@@ -2032,9 +2049,10 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     # These will be the events we consider as candidate microlensing events.
     ####################
 
-    # Initialize events_llbb and blends_llbb.
+    # Initialize events_llbb and blends_llbb and companions.
     events_llbb = None
     blends_llbb = None
+    companion_table = None
 
     ll = llbb[0]
     bb = llbb[1]
@@ -2112,8 +2130,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                 blends_llbb = unique_blends(blends_llbb)
 
         # END of time loop
-
-    return events_llbb, blends_llbb
+        
+    return events_llbb, blends_llbb#, companion_table
 
 
 def _calc_event_cands_radius(bigpatch, timei, radius_cut):
@@ -2273,8 +2291,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
             companion_id = [np.where(bigpatch_comp['system_idx'] == ii)[0] for ii in bigpatch['obj_id'][lens_id][adx][unique_indices]]
             companion_id = list(np.concatenate(companion_id).ravel()) # Simplifies datastructure
             companion_table = bigpatch_comp[companion_id]
-            #for ii in range(len(companion_table['system_idx'])):
-             #   companion_table['system_idx'][ii] = np.where(companion_table['system_idx'][ii] == lens_id[adx][unique_indices])[0]
 
         mu_b_rel = sorc_table['mu_b'] - lens_table['mu_b']  # mas/yr
         mu_lcosb_rel = sorc_table['mu_lcosb'] - lens_table['mu_lcosb']  # mas/yr
@@ -2283,6 +2299,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         
         # Calculates phi (angle between binary axis and proper motion)
         if bigpatch_comp != None and len(companion_table) > 0:
+            companion_table = _add_multiples_parameters(companion_table, lens_table)
             companion_table = _calculate_phi(companion_table, lens_table, mu_b_rel, mu_lcosb_rel, timei)
 
         # This is all the events for this l, b, time
@@ -2311,6 +2328,9 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                                       mu_rel, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 't0',
                                       t_event, usemask=False)
+        #if bigpatch_comp != None:
+         #   return event_lbt, companion_table
+        
         return event_lbt
 
     else:
@@ -2652,6 +2672,116 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
 
     return
+
+def _calculate_phi(companion_table, lens_table, mu_b_rel, mu_lcosb_rel, timei):
+    """
+    Calculates and adds angle between the proper motion and the binary axis (phi)
+    to companions array.
+    
+    Parameters
+    ----------
+    companion_table : array
+        Array from bigpatch_comp which is from the companion hdf5 file.
+        
+    lens_table : array
+        Array from bigpatch which is from the stars hdf5 file.
+        
+    mu_b_rel : array or array-like
+        Relative source-lens proper motion in b direction
+    
+    mu_lcosb_rel : array or array-like
+        Relative source-lens proper motion in l direction
+    
+    timei: float
+        Time of event
+
+    Returns
+    -------
+    companion_tmp : astropy table
+        Companions array modified to include phi.
+    
+    
+    """
+    companion_tmp = copy.deepcopy(companion_table)
+    
+    phi_col = np.zeros(len(companion_tmp))
+    companion_tmp = rfn.append_fields(companion_tmp, 'phi', phi_col, usemask = False)
+    
+    for ii in range(len(companion_tmp)):
+        lens_obs_id = np.where(lens_table['obj_id'] == companion_tmp['system_idx'][ii])[0]
+        
+        # First calculate binary axis
+        orb = orbits.Orbit()
+        orb.w = companion_tmp['omega'][ii] # [degrees]
+        orb.o = companion_tmp['Omega'][ii] # [degrees]
+        orb.i = companion_tmp['i'][ii] # [degrees]
+        orb.e = companion_tmp['e'][ii] # float between 0 and 1
+        orb.p = companion_tmp['P'][ii] #a_to_P(lens_table['mass'][lens_obs_id], 10**companion_tmp['log_a'][ii]) # [years]
+        orb.t0 = 0 # [years] This is initial
+        
+        # Position of the companion when primary at origin
+        (r, v, a) = orb.kep2xyz(np.array([timei]), lens_table['mass'][lens_obs_id])
+        
+        rad_comp, b_comp, l_comp = heliocentric_to_galactic(r[0][0],r[0][1],r[0][2])
+    
+        # Binary axis pointing towards primary star (with primary at origin)
+        #binary_rad = lens_table['rad'][companion_table['system_idx']] - rad_comp
+        #binary_b = lens_table['glat'][lens_obs_id] - b_comp
+        #binary_l = lens_table['glon'][lens_obs_id] - l_comp
+        binary_b = - b_comp
+        binary_l = - l_comp
+    
+        dot_product = mu_b_rel[lens_obs_id]*binary_b + mu_lcosb_rel[lens_obs_id]*binary_l
+        length_binary = np.sqrt(binary_b**2 + binary_l**2)
+        length_mu = np.sqrt(mu_b_rel[lens_obs_id]**2 + mu_lcosb_rel[lens_obs_id]**2)
+        phi = (np.arccos(dot_product/(length_mu*length_binary))*u.radian).to("degree").value
+    
+        companion_tmp['phi'][ii] = phi
+        
+    return companion_tmp
+
+def _add_multiples_parameters(companion_table, lens_table):
+    """
+    Adds mass ratio, separation in mas between primary and companion,
+    and period in years to companions array.
+
+    Parameters
+    ----------
+    companion_table : array
+        Array from bigpatch_comp which is from the companion hdf5 file.
+        
+    lens_table : array
+        Array from bigpatch which is from the stars hdf5 file.
+
+    Returns
+    -------
+    companion_tmp : astropy table
+        Companions array modified to include new parameters.
+
+    """
+    companion_tmp = copy.deepcopy(companion_table)
+    
+    lens_obs_id = []
+    for ii in companion_tmp:
+        lens_obs_id.append(np.where(lens_table['obj_id'] == ii)[0])
+    
+    lens_obs_id = [np.where(ii == companion_tmp['system_idx'])[0] for ii in lens_table['obj_id']]
+    lens_obs_id = list(np.concatenate(lens_obs_id).ravel())
+    
+    zeros = np.zeros(len(companion_tmp))
+    companion_tmp = rfn.append_fields(companion_tmp, 'q', zeros, usemask = False) #mass ratio
+    companion_tmp = rfn.append_fields(companion_tmp, 'sep', zeros, usemask = False) #separation in mas
+    companion_tmp = rfn.append_fields(companion_tmp, 'P', zeros, usemask = False) #period
+
+    companion_tmp['q'] = companion_tmp['mass']/lens_table['mass'][lens_obs_id]
+
+    
+    a_kpc = (10**companion_tmp['log_a']*u.AU).to('kpc').value
+    companion_tmp['sep'] = (np.arcsin(a_kpc/lens_table['rad'][lens_obs_id])*u.radian).to('mas').value
+    
+    companion_tmp['P'] = a_to_P(lens_table['mass'][lens_obs_id], 10** companion_tmp['log_a'])
+    
+    return companion_tmp
 
 
 ############################################################################
@@ -3174,91 +3304,6 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 
     return
 
-def _calculate_phi(companion_table, lens_table, mu_b_rel, mu_lcosb_rel, timei):
-    companion_tmp = copy.deepcopy(companion_table)
-    
-    phi_col = np.zeros(len(companion_tmp))
-    companion_tmp = rfn.append_fields(companion_tmp, 'phi', phi_col, usemask = False)
-    
-    for ii in range(len(companion_tmp)):
-        lens_obs_id = np.where(lens_table['obj_id'] == companion_tmp['system_idx'][ii])[0]
-        
-        # First calculate binary axis
-        orb = orbits.Orbit()
-        orb.w = companion_tmp['omega'][ii] # [degrees]
-        orb.o = companion_tmp['Omega'][ii] # [degrees]
-        orb.i = companion_tmp['i'][ii] # [degrees]
-        orb.e = companion_tmp['e'][ii] # float between 0 and 1
-        orb.p = a_to_P(lens_table['mass'][lens_obs_id], 10**companion_tmp['log_a'][ii]) # [years]
-        orb.t0 = 0 # [years] This is initial
-        
-        # Position of the companion when primary at origin
-        (r, v, a) = orb.kep2xyz(np.array([timei]), lens_table['mass'][lens_obs_id])
-        
-        rad_comp, b_comp, l_comp = heliocentric_to_galactic(r[0][0],r[0][1],r[0][2])
-    
-        # Binary axis pointing towards primary star (with primary at origin)
-        #binary_rad = lens_table['rad'][companion_table['system_idx']] - rad_comp
-        #binary_b = lens_table['glat'][lens_obs_id] - b_comp
-        #binary_l = lens_table['glon'][lens_obs_id] - l_comp
-        binary_b = - b_comp
-        binary_l = - l_comp
-    
-        dot_product = mu_b_rel[lens_obs_id]*binary_b + mu_lcosb_rel[lens_obs_id]*binary_l
-        length_binary = np.sqrt(binary_b**2 + binary_l**2)
-        length_mu = np.sqrt(mu_b_rel[lens_obs_id]**2 + mu_lcosb_rel[lens_obs_id]**2)
-        phi = (np.arccos(dot_product/(length_mu*length_binary))*u.radian).to("degree").value
-    
-        companion_tmp['phi'][ii] = phi
-        
-    return companion_tmp
-
-def _add_multiples_parameters(companion_table, lens_table):
-    """
-    Adds mass ratio, separation in mas between primary and companion,
-    angle between the proper motion and the binary axis (phi), and period in years
-    to companions table.
-
-    Parameters
-    ----------
-    star_masses : list
-        Galaxia star mass column form the star_dict.
-        
-    star_distances : list
-        Galaxia star rad column form the star_dict.
-    
-    companions : astropy table
-        Companions table from the ResolvedCluster() object.
-
-    Returns
-    -------
-    modified_companions : astropy table
-        Companions table modified to include new parameters
-
-    """
-    companions_tmp = copy.deepcopy(companion_table)
-    
-    for ii in companions_tmp:
-        lens_obs_id = np.where(lens)
-    
-    lens_obs_id = [np.where(ii == companion_tmp['system_idx'])[0] for ii in lens_table['obj_id']]
-    lens_obs_id = list(np.concatenate(lens_obs_id).ravel())
-    
-    zeros = np.zeros(len(companion_tmp))
-    companions_tmp = rfn.append_fields(companions_tmp, 'q', zeros, usemask = False) #mass ratio
-    companions_tmp = rfn.append_fields(companions_tmp, 'sep', zeros, usemask = False) #separation in mas
-    companions_tmp = rfn.append_fields(companions_tmp, 'P', zeros, usemask = False) #period
-    
-    #companions_tmp['q'] = companions_tmp['mass']/star_masses[modified_companions['system_idx']]
-    companions_tmp['q'] = companions_tmp['mass']/lens_table['mass'][lens_obs_id]
-
-    
-    a_kpc = (10**modified_companions['log_a']*u.AU).to('kpc').value
-    modified_companions['sep'] = (np.arcsin(a_kpc/star_distances[modified_companions['system_idx']])*u.radian).to('mas').value
-    
-    modified_companions['P'] = a_to_P(star_masses[modified_companions['system_idx']], 10**modified_companions['log_a'])
-    
-    return modified_companions
 
 
 

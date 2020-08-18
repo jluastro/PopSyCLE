@@ -45,8 +45,6 @@ import astropy.constants as c
 from astropy.io import fits
 
 import sys
-#sys.path.insert(1, '/u/abrams/code/multiplicity/PyPopStar')
-#from spisea import synthetic
 
 #for now orbits.py is is https://github.com/nsabrams/Microlensing_Multiple_Systems
 #clone that repo and change the following path to where the repo is located
@@ -2652,7 +2650,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
 
 def _check_refine_events(input_root, filter_name,
                          photometric_system, red_law, overwrite,
-                         output_file):
+                         output_file, hdf5_file_comp):
     """
     Checks that the inputs of refine_events are valid
 
@@ -2677,6 +2675,10 @@ def _check_refine_events(input_root, filter_name,
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
+        
+    hdf5_file_comp: str
+        String of hdf5 file of companion events created in perform_pop_syn().
+        Default is None.
     """
 
     if not isinstance(input_root, str):
@@ -2696,6 +2698,10 @@ def _check_refine_events(input_root, filter_name,
 
     if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+        
+    if not isinstance(hdf5_file_comp, str):
+        if not isinstance(hdf5_file_comp, type(None)):
+            raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -2729,7 +2735,7 @@ def _check_refine_events(input_root, filter_name,
 
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
-                  output_file='default', hdf5_file = None, hdf5_file_comp=None):
+                  output_file='default', hdf5_file_comp=None):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -2763,6 +2769,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         The name of the final refined_events file.
         If set to 'default', the format will be:
             <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+            
+    hdf5_file_comp: str
+        String of hdf5 file of companion events created in perform_pop_syn().
+        Default is None.
 
     Output:
     ----------
@@ -2781,7 +2791,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Error handling/complaining if input types are not right.
     _check_refine_events(input_root, filter_name,
                          photometric_system, red_law,
-                         overwrite, output_file)
+                         overwrite, output_file, hdf5_file_comp)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
@@ -2807,7 +2817,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
-    
+        
+    # Fetches companions
     if hdf5_file_comp != None: 
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         hf_columns = np.hstack(hf_comp)[(np.hstack(hf_comp) != 'galaxyModelFile') & (np.hstack(hf_comp) != 'lat_bin_edges') & (np.hstack(hf_comp) != 'long_bin_edges')]
@@ -2892,21 +2903,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     t_1 = time.time()
     
-    # Only keeps companions whose primaries were kept and adds parameters
+    # If Multiples
     if hdf5_file_comp != None:
+        # Only keeps companions whose primaries were kept
         companion_id = [np.where(bigpatch_comp['system_idx'] == ii)[0] for ii in event_tab['obj_id_L']]
         companion_id = list(np.concatenate(companion_id).ravel()) # Simplifies datastructure
         companion_table = bigpatch_comp[companion_id]
         
+        # Adds parameters
         companion_table = _add_multiples_parameters(companion_table, event_tab)
         companion_table = _calculate_phi(companion_table, event_tab)
         
         companion_table = Table(companion_table)
-        #hdu = fits.PrimaryHDU(companion_table)
-        #hdulist = fits.HDUList([hdu])
-        #hdulist.writeto(input_root + "_companions_refined_events.fits", overwrite=overwrite)
-        companion_table.write(input_root + "_companions_refined_events.fits", overwrite=overwrite)
-        #np.save(input_root + "companions_refined_events.fits", companion_table)
+        
+        companion_table.write(output_file[:-5] + "_companions_refined_events.fits", overwrite=overwrite)
 
     ##########
     # Make log file
@@ -2938,12 +2948,16 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line12 = 'FILES CREATED' + '\n'
     line13 = output_file + ' : refined events'
+    line14 = '\n' #By default no companion file created
+    
+    if hdf5_file_comp != None:
+        line14 = output_file[:-5] + "_companions_refined_events.fits" + ' : companions refined events'
 
     with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, line10, line11, empty_line,
-                        line12, dash_line, line13])
+                        line12, dash_line, line13, line14])
 
     print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return

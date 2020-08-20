@@ -1605,7 +1605,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, seed=
     # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
-    if initialClusterMass > 500:
+    if initialClusterMass > 100:
         # MAKE isochrone
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
@@ -2818,13 +2818,6 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
         
-    # Fetches companions
-    if hdf5_file_comp != None: 
-        hf_comp = h5py.File(hdf5_file_comp, 'r')
-        hf_columns = np.hstack(hf_comp)[(np.hstack(hf_comp) != 'galaxyModelFile') & (np.hstack(hf_comp) != 'lat_bin_edges') & (np.hstack(hf_comp) != 'long_bin_edges')]
-        hf_parts = [hf_comp[ii] for ii in hf_columns]
-        bigpatch_comp = np.hstack((hf_parts))
-        hf_comp.close()
 
     # If photometric fields contain -99, convert to nan
     _convert_photometric_99_to_nan(event_tab, photometric_system)
@@ -2905,14 +2898,75 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     
     # If Multiples
     if hdf5_file_comp != None:
+        hf_comp = h5py.File(hdf5_file_comp, 'r')
+        companion_table = []
+        for ii in np.hstack((hf_comp)):
+            if ii != 'galaxyModelFile' and ii != 'lat_bin_edges' and ii != 'long_bin_edges':
+                if type(companion_table) != np.ndarray:
+                    companion_table = np.array(companion_table, dtype=hf_comp[ii].dtype)
+                    zeros = np.zeros(len(companion_table))
+                    Empty = np.chararray(len(companion_table))
+                    Empty[:] = 'O'
+                    companion_table = rfn.append_fields(companion_table, 'obj_id_L', zeros, usemask = False)
+                    companion_table = rfn.append_fields(companion_table, 'obj_id_S', zeros, usemask = False)
+                    companion_table = rfn.append_fields(companion_table, 'prim_type', Empty.decode("utf-8") , usemask = False, dtypes='<U1')
+            
+                patch_comp = hf_comp[ii]
+        
+                for jj in event_tab:
+                    companion_id_L = np.where(patch_comp['system_idx'] == jj['obj_id_L'])[0]
+                    companion_id_S = np.where(patch_comp['system_idx'] == jj['obj_id_S'])[0]
+
+                    patch_comp_L = patch_comp[companion_id_L]
+                    patch_comp_S = patch_comp[companion_id_S]
+            
+                    zeros_L = np.zeros(len(patch_comp_L))
+                    L = np.chararray(len(patch_comp_L))
+                    L[:] = 'L'
+                    patch_comp_L = rfn.append_fields(patch_comp_L, 'obj_id_L', zeros_L, usemask = False)
+                    patch_comp_L = rfn.append_fields(patch_comp_L, 'obj_id_S', zeros_L, usemask = False)
+                    patch_comp_L = rfn.append_fields(patch_comp_L, 'prim_type', L.decode("utf-8") , usemask = False, dtypes='<U1')
+            
+                    zeros_S = np.zeros(len(patch_comp_S))
+                    S = np.chararray(len(patch_comp_S))
+                    S[:] = 'S'
+                    patch_comp_S = rfn.append_fields(patch_comp_S, 'obj_id_L', zeros_S, usemask = False)
+                    patch_comp_S = rfn.append_fields(patch_comp_S, 'obj_id_S', zeros_S, usemask = False)
+                    patch_comp_S = rfn.append_fields(patch_comp_S, 'prim_type', S.decode("utf-8") , usemask = False, dtypes='<U1')
+            
+                    patch_comp_L['obj_id_L'] = jj['obj_id_L']
+                    patch_comp_L['obj_id_S'] = jj['obj_id_S']
+            
+                    patch_comp_S['obj_id_L'] = jj['obj_id_L']
+                    patch_comp_S['obj_id_S'] = jj['obj_id_S']
+
+                    companion_table = np.append(companion_table, patch_comp_L)
+                    companion_table = np.append(companion_table, patch_comp_S)
+            
+                del(patch_comp)
+        hf_comp.close()
+    
+    #if hdf5_file_comp != None:
         # Only keeps companions whose primaries were kept
-        companion_id = [np.where(bigpatch_comp['system_idx'] == ii)[0] for ii in event_tab['obj_id_L']]
-        companion_id = list(np.concatenate(companion_id).ravel()) # Simplifies datastructure
-        companion_table = bigpatch_comp[companion_id]
+        #companion_id_L = [np.where(bigpatch_comp['system_idx'] == ii)[0] for ii in event_tab['obj_id_L']]
+        #companion_id_L = list(np.concatenate(companion_id_L).ravel()) # Simplifies datastructure
+        #companion_table_L = bigpatch_comp[companion_id_L]
+        
+        #companion_id_S = [np.where(bigpatch_comp['system_idx'] == ii)[0] for ii in event_tab['obj_id_S']]
+        #companion_id_S = list(np.concatenate(companion_id_S).ravel()) # Simplifies datastructure
+        #companion_table_S = bigpatch_comp[companion_id_S]
+        
+        #print(companion_id_L, companion_id_S)
         
         # Adds parameters
         companion_table = _add_multiples_parameters(companion_table, event_tab)
         companion_table = _calculate_phi(companion_table, event_tab)
+        
+        #companion_table_S = _add_multiples_parameters(companion_table_S, event_tab, primary_type='source')
+        #companion_table_S = _calculate_phi(companion_table_S, event_tab, primary_type='source')
+        
+        
+        #companion_table = np.concatenate((companion_table_L, companion_table_S), axis =0)
         
         companion_table = Table(companion_table)
         
@@ -3198,28 +3252,20 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 def _calculate_phi(companion_table, event_table):
     """
     Calculates and adds angle between the proper motion and the binary axis (phi)
-    to companions array.
+    to companions array. Binary parameters established in a galactic spherical coordinate systems.
+    Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
     
     Parameters
     ----------
     companion_table : array
         Array from bigpatch_comp which is from the companion hdf5 file.
         
-    lens_table : array
-        Array from bigpatch which is from the stars hdf5 file.
-        
-    mu_b_rel : array or array-like
-        Relative source-lens proper motion in b direction
-    
-    mu_lcosb_rel : array or array-like
-        Relative source-lens proper motion in l direction
-    
-    timei: float
-        Time of event
+    event_table : astropy table
+        Astropy table with refined events
 
     Returns
     -------
-    companion_tmp : astropy table
+    companion_tmp : array
         Companions array modified to include phi.
     
     
@@ -3230,7 +3276,11 @@ def _calculate_phi(companion_table, event_table):
     companion_tmp = rfn.append_fields(companion_tmp, 'phi', phi_col, usemask = False)
     
     for ii in range(len(companion_tmp)):
-        lens_obj_id = np.where(event_table['obj_id_L'] == companion_tmp['system_idx'][ii])[0]
+        if primary_type == 'lens':
+            prim_obj_id = np.where(event_table['obj_id_L'] == companion_tmp['system_idx'][ii])[0]
+        else:
+            prim_obj_id = np.where(event_table['obj_id_S'] == companion_tmp['system_idx'][ii])[0]
+        
         
         # First calculate binary axis
         orb = orbits.Orbit()
@@ -3239,26 +3289,35 @@ def _calculate_phi(companion_table, event_table):
         orb.i = companion_tmp['i'][ii] # [degrees]
         orb.e = companion_tmp['e'][ii] # float between 0 and 1
         orb.p = companion_tmp['P'][ii] # [years]
-        orb.t0 = 0 # [years] This is initial
+        orb.t0 = np.random.rand()*companion_tmp['P'][ii] + event_table['t0'][prim_obj_id] # [years] This is initial
         
         # Position of the companion when primary at origin
-        (r, v, a) = orb.kep2xyz(np.array([event_table['t0'][lens_obj_id]]), event_table['mass_L'][lens_obj_id])
-        
-        rad_comp, b_comp, l_comp = heliocentric_to_galactic(r[0][0],r[0][1],r[0][2])
+        # r[0] is galactic east
+        # r[1] is galactic north
+        # r[2] is line of sight away from the sun
+        # Assumes the primary is at the origin (0,0)
+        if primary_type == 'lens': #change mass stuff
+            (r, v, a) = orb.kep2xyz(np.array([event_table['t0'][prim_obj_id]]), event_table['mass_L'][prim_obj_id])
+        else:
+            (r, v, a) = orb.kep2xyz(np.array([event_table['t0'][prim_obj_id]]), event_table['mass_S'][prim_obj_id])
+        # r from AU to kpc -note
+        # using rad go to angle (this will be (delta_l)cosb and delta_b)
+        #rad_comp, b_comp, l_comp = heliocentric_to_galactic(r[0][0],r[0][1],r[0][2])
+    
     
         # Binary axis pointing towards primary star (with primary at origin)
         #binary_rad = lens_table['rad'][companion_table['system_idx']] - rad_comp
         #binary_b = lens_table['glat'][lens_obs_id] - b_comp
         #binary_l = lens_table['glon'][lens_obs_id] - l_comp
-        binary_b = - b_comp
-        binary_l = - l_comp
+        #binary_b = - b_comp
+        #binary_l = - l_comp
     
         mu_b_rel = event_table['mu_b_S'] - event_table['mu_b_L']  # mas/yr
         mu_lcosb_rel = event_table['mu_lcosb_S'] - event_table['mu_lcosb_L']  # mas/yr
         
-        dot_product = mu_b_rel[lens_obj_id]*binary_b + mu_lcosb_rel[lens_obj_id]*binary_l
+        dot_product = mu_b_rel[prim_obj_id]*binary_b + mu_lcosb_rel[prim_obj_id]*binary_l
         length_binary = np.sqrt(binary_b**2 + binary_l**2)
-        length_mu = np.sqrt(mu_b_rel[lens_obj_id]**2 + mu_lcosb_rel[lens_obj_id]**2)
+        length_mu = np.sqrt(mu_b_rel[prim_obj_id]**2 + mu_lcosb_rel[prim_obj_id]**2)
         phi = (np.arccos(dot_product/(length_mu*length_binary))*u.radian).to("degree").value
     
         companion_tmp['phi'][ii] = phi
@@ -3275,35 +3334,39 @@ def _add_multiples_parameters(companion_table, event_table):
     companion_table : array
         Array from bigpatch_comp which is from the companion hdf5 file.
         
-    lens_table : array
-        Array from bigpatch which is from the stars hdf5 file.
+    event_table : astropy table
+        Astropy table with refined events
 
     Returns
     -------
-    companion_tmp : astropy table
+    companion_tmp : array
         Companions array modified to include new parameters.
 
     """
     companion_tmp = copy.deepcopy(companion_table)
     
-    lens_obj_id = []
+    event_id = []
     for ii in companion_tmp:
-        lens_obj_id.append(np.where(event_table['obj_id_L'] == ii['system_idx'])[0])
+        event_id.append(np.where(np.logical_and((event_table['obj_id_L'] == ii['obj_id_L']), (event_table['obj_id_S'] == ii['obj_id_S'])))[0])
+            
+    if len(event_id) == 0:
+        return companion_tmp
 
-    lens_obj_id = list(np.concatenate(lens_obj_id).ravel())
+    event_id = list(np.concatenate(event_id).ravel())
     
     zeros = np.zeros(len(companion_tmp))
     companion_tmp = rfn.append_fields(companion_tmp, 'q', zeros, usemask = False) #mass ratio
     companion_tmp = rfn.append_fields(companion_tmp, 'sep', zeros, usemask = False) #separation in mas
     companion_tmp = rfn.append_fields(companion_tmp, 'P', zeros, usemask = False) #period
 
-    companion_tmp['q'] = companion_tmp['mass']/event_table['mass_L'][lens_obj_id]
-
+    a_kpc = ((10**companion_tmp['log_a'])*u.AU).to('kpc').value
     
-    a_kpc = (10**companion_tmp['log_a']*u.AU).to('kpc').value
-    companion_tmp['sep'] = (np.arcsin(a_kpc/event_table['rad_L'][lens_obj_id])*u.radian).to('mas').value
+    for ii in range(len(companion_tmp)):
+        companion_tmp[ii]['q'] =  companion_tmp[ii]['mass']/event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]]
     
-    companion_tmp['P'] = a_to_P(event_table['mass_L'][lens_obj_id], 10** companion_tmp['log_a'])
+        companion_tmp[ii]['sep'] = (np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*u.radian).to('mas').value
+    
+        companion_tmp[ii]['P'] = a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
     
     return companion_tmp
 

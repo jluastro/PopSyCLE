@@ -58,7 +58,7 @@ _Mclust_v_age_func = None
 # Dictionary for SPISEA IFMR objects
 ##########
 IFMR_dict = {}
-IFMR_dict['Raithel17'] = ifmr.IFMR_Raithel17()
+IFMR_dict['Raithel18'] = ifmr.IFMR_Raithel18()
 IFMR_dict['Spera15'] = ifmr.IFMR_Spera15()
 ##########
 
@@ -393,7 +393,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     IFMR : string
         The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
         in SPISEA. 
-        'Raithel17' = IFMR_Raithel17
+        'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
 
     bin_edges_number : int
@@ -522,7 +522,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     IFMR : string
         The name of the IFMR object from SPISEA. For additional information on these objects see ifmr.py
         in SPISEA. 
-        'Raithel17' = IFMR_Raithel17
+        'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
 
     Optional Parameters
@@ -731,8 +731,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                (age_array[popid_idx] < logt_bins[aa + 1]))[0]
             
             
-            if IFMR == 'Raithel17':
-                # Only run at solar metallicity for Raithel17
+            if IFMR == 'Raithel18':
+                # Only run at solar metallicity for Raithel18
                 feh_bins = [-99, 99]
                 feh_vals = [0.0]
                 
@@ -1134,7 +1134,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
     IFMR : string
         The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py 
         in SPISEA. 
-        'Raithel17' = IFMR_Raithel17
+        'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
 
     log_age : float

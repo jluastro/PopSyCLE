@@ -197,7 +197,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   n_obs=101, theta_frac=2, blend_rad=0.75,
                                   isochrones_dir='/Users/myself/popsycle_isochrones',
-                                  IFMR='Raithel17',
+                                  IFMR='Raithel18',
                                   galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
@@ -232,7 +232,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     IFMR : string
         The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
         in SPISEA.
-        'Raithel17' = IFMR_Raithel17
+        'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
 
     galaxia_galaxy_model_filename : str

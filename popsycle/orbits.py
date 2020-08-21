@@ -83,7 +83,7 @@ class Orbit(object):
         
         cos_om = np.cos(w)
         sin_om = np.sin(w)
-        
+
         self.conA = axis * (cos_om * cos_bigOm  - sin_om * sin_bigOm * cos_i)
         self.conB = axis * (cos_om * sin_bigOm  + sin_om * cos_bigOm * cos_i)
         self.conC = axis * (sin_om * sin_i)
@@ -95,7 +95,6 @@ class Orbit(object):
         r = np.zeros((epoch_num, 3), dtype='float64')
         v = np.zeros((epoch_num, 3), dtype='float64')
         a = np.zeros((epoch_num, 3), dtype='float64')
-
 
         r[:,0] = (self.conB * X) + (self.conG * Y)
         r[:,1] = (self.conA * X) + (self.conF * Y)

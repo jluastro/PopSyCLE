@@ -43,8 +43,8 @@ from popsycle import utils
 import astropy.units as u
 import astropy.constants as c
 from astropy.io import fits
+from spisea.imf.multiplicity import MultiplicityResolvedDK
 from popsycle import orbits
-
 
 
 
@@ -370,7 +370,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           overwrite, seed):
+                           overwrite, seed, multiplicity):
     """
     Checks that the inputs of perform_pop_syn are valid
 
@@ -456,6 +456,10 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if seed is not None:
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
+    
+    if multiplicity is not None:
+        if not isinstance(multiplicity, MultiplicityResolvedDK):
+            raise Exception('multiplicity (%s) must be None or a subclass of MultiplicityResolvedDK.' % str(seed))
 
     if additional_photometric_systems is not None:
         if not isinstance(additional_photometric_systems, list):
@@ -571,7 +575,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           overwrite, seed)
+                           overwrite, seed, multiplicity)
 
     ##########
     # Start of code

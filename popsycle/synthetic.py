@@ -43,13 +43,8 @@ from popsycle import utils
 import astropy.units as u
 import astropy.constants as c
 from astropy.io import fits
+from popsycle import orbits
 
-import sys
-
-#for now orbits.py is is https://github.com/nsabrams/Microlensing_Multiple_Systems
-#clone that repo and change the following path to where the repo is located
-sys.path.insert(1, '/u/abrams/code/multiplicity/PopSyCLE/popsycle')
-import orbits
 
 
 
@@ -2952,21 +2947,26 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     companion_table = np.append(companion_table, patch_comp_L)
                     companion_table = np.append(companion_table, patch_comp_S)
                     
-                    companion_table['i'].description('w/rt galactic galactic north')
-                    companion_table['Omega'].description('w/rt galactic galactic north')
-                    companion_table['omega'].description('w/rt galactic galactic north')
-                    
                 # deletes patch so memory not overwhelmed
                 del patch_comp
         hf_comp.close()
         
-        # Adds parameters
-        companion_table = _add_multiples_parameters(companion_table, event_tab)
-        companion_table = _calculate_phi(companion_table, event_tab)
         
-        companion_table = Table(companion_table)
+        if len(companion_table) > 0:
+            
+            # Adds parameters
+            companion_table = _add_multiples_parameters(companion_table, event_tab)
+            companion_table = _calculate_phi(companion_table, event_tab)
         
-        companion_table.write(output_file[:-5] + "_companions.fits", overwrite=overwrite)
+            companion_table = Table(companion_table)
+            
+            # Adds metadata
+            companion_table['i'].description = 'w/rt galactic galactic north'
+            companion_table['Omega'].description = 'w/rt galactic galactic north'
+            companion_table['omega'].description = 'w/rt galactic galactic north'
+        
+            # Writes fits file
+            companion_table.write(output_file[:-5] + "_companions.fits", overwrite=overwrite)
 
     ##########
     # Make log file
@@ -3001,7 +3001,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line14 = '\n' #By default no companion file created
     
     if hdf5_file_comp != None:
-        line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
+        if len(companion_table) > 0:
+            line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
 
     with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
@@ -3367,7 +3368,7 @@ def _add_multiples_parameters(companion_table, event_table):
     
         companion_tmp[ii]['sep'] = (np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*u.radian).to('mas').value
     
-        companion_tmp[ii]['P'] = a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
+        companion_tmp[ii]['P'] = orbits.a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
     
     return companion_tmp
 
@@ -3770,28 +3771,6 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Alambda_AKs = red_law_method(lambda_eff, 1)
 
     return Alambda_AKs
-
-def a_to_P(mass, a):
-    """
-    Goes from semimajor axis in AU to period in years
-    
-    Parameters
-    ---------- 
-    mass: float or array-like
-        Primary object mass in Msun.
-    
-    a: float or array-like
-        Semimajor axis in AU.
-        
-    Returns
-    ---------- 
-    period: float or array-like
-        Orbital period in years.
-    """
-    
-    G_units = c.G.to("AU3/(M_sun*year2)").value
-    period = (a**3*4*(np.pi**2)/G_units/mass)**(1/2)
-    return period
 
 
 

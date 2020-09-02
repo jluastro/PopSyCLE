@@ -984,13 +984,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line17 = 'FILES CREATED' + '\n'
     line18 = output_root + '.h5 : HDF5 file' + '\n'
     line19 = output_root + '_label.fits : label file' + '\n'
+    line20 = '\n'
+    if multiplicity != None:
+        line20 = output_root + '_companions.h5 : HDF5 file' + '\n'
+
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
                         line6, line7, empty_line, line8, dash_line, line9,
                         line10, line11, empty_line, line12, dash_line, line13,
                         line14, line15, line16, empty_line, line17, dash_line,
-                        line18, line19])
+                        line18, line19, line20])
 
     ##########
     # Informative print statements.

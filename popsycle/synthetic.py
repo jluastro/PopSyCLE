@@ -781,7 +781,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
                 star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
                 star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
-                star_dict['isMultiple'] = np.zeros(len(bin_idx))
+                star_dict['isMultiple'] = np.zeros(len(bin_idx), dtype=int)
                 star_dict['rem_id'] = np.zeros(len(bin_idx))
                 star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
                 n_binned_stars += len(bin_idx)
@@ -855,7 +855,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 for key, val in star_dict.items():
                     stars_in_bin[key] = val
                     
-                cluster_tmp = _make_cluster(iso_dir=iso_dir, log_age=age_of_bin, currentClusterMass=mass_in_bin, multiplicity=multiplicity, seed=seed, additional_photometric_systems=additional_photometric_systems)
+                cluster_tmp = _make_cluster(iso_dir=iso_dir, log_age=age_of_bin, currentClusterMass=mass_in_bin,
+                                                multiplicity=multiplicity, seed=seed,
+                                                additional_photometric_systems=additional_photometric_systems)
 
                 comp_dict, next_id = _make_comp_dict(age_of_bin,
                                                      cluster_tmp,
@@ -874,23 +876,48 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         
                         # Makes a separate companion table with primaries as compact objects
                         if comp_dict != None and cluster_tmp.companions:
-                            compact_primary_ids = np.where(cluster_tmp.star_systems['phase'] > 100)[0]
-                            compact_companion_ids = [np.where(cluster_tmp.companions['system_idx'] == ii)[0] for ii in compact_primary_ids]
-                            compact_companion_ids = list(np.concatenate(compact_companion_ids).ravel())
-                            compact_companions = cluster_tmp.companions[compact_companion_ids]
+                            # compact_primary_ids = np.where(cluster_tmp.star_systems['phase'] > 100)[0]
+
+                            # compact_companion_ids = [np.where(cluster_tmp.companions['system_idx'] == ii)[0] for ii in compact_primary_ids]
+                            # compact_companion_ids = list(np.concatenate(compact_companion_ids).ravel())
+                            # compact_companions = cluster_tmp.companions[compact_companion_ids]
+
+                            # new version
+                            # Build a list of systems for every companion (will be repeat systems). Shape = N_companions
+                            # We will call this the "dup_sys" table for duplicate systems (duplicated x N_companions)
+                            clust_dup_sys = cluster_tmp.star_systems[cluster_tmp.companions['system_idx']]
+                            # Filter the dup_sys table to just those with CO primaries.
+                            co_idx_in_dup_sys_table = np.where(clust_dup_sys['phase'] > 100)[0]
+                            compact_companions = cluster_tmp.companions[co_idx_in_dup_sys_table]
+
+                            # Make a new comp_dict table that still preserves N_companions.
+                            co_idx_in_sys_table = np.where(cluster_tmp.star_systems['phase'] > 100)[0]
+                            comp_dict_tmp = cluster_tmp.star_systems[co_idx_in_sys_table]
+
+                            # Repeat the indices into comp_dict times the number of companions
+                            co_idx = np.arange(0, len(comp_dict_tmp))
+                            co_idx_for_dup_sys_table = np.repeat(co_idx, comp_dict_tmp['N_companions'])
+
+                            assert len(compact_companions) == len(co_idx_for_dup_sys_table)
+
+                            # Reset the companion system_idx to be the correct obj_id
+                            compact_companions['system_idx'] = comp_dict[co_idx_for_dup_sys_table]['obj_id']
                             
-                            # Switch companion table to point to obj_id instead of idx
-                            for ii in range(len(compact_companions)):
-                                compact_primary_id = compact_companions['system_idx'][ii]
-                                new_primary_pos = np.where(compact_primary_ids == compact_primary_id)[0]
-                                compact_companions['system_idx'][ii] = comp_dict['obj_id'][new_primary_pos]
+                            # # Switch companion table to point to obj_id instead of idx
+                            # for ii in range(len(compact_companions)):
+                            #     compact_primary_id = compact_companions['system_idx'][ii]
+                            #     new_primary_pos = np.where(compact_primary_ids == compact_primary_id)[0]
+                            #     compact_companions['system_idx'][ii] = comp_dict['obj_id'][new_primary_pos]
                             
                         
                         companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster_tmp)
                         if companions_table:
-                            for ii in companions_table:
-                                star_dict['systemMass'][ii['system_idx']] += ii['mass']
-                                star_dict['isMultiple'][ii['system_idx']] = 1.0                            
+                            star_dict[companions_table['system_idx']]['systemMass'] += companions_table['mass']
+                            star_dict[companions_table['system_idx']]['isMultiple'] = 1
+                            # CLEANUP
+                            # for ii in companions_table:
+                            #     star_dict['systemMass'][ii['system_idx']] += ii['mass']
+                            #     star_dict['isMultiple'][ii['system_idx']] = 1.0                            
                             
                             # Switch companion table to point to obj_id instead of idx
                             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]

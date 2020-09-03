@@ -19,8 +19,6 @@ from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import Angle  # Angles
 from astropy.table import Table
 from astropy.table import vstack
-# from popstar.imf import imf
-# from popstar import synthetic, evolution, reddening, ifmr
 from spisea.imf import imf
 from spisea import synthetic, evolution, reddening, ifmr
 from scipy.interpolate import interp1d
@@ -57,6 +55,14 @@ au_to_kpc = 4.848 * 10 ** -9
 _Mclust_v_age_func = None
 
 ##########
+# Dictionary for SPISEA IFMR objects
+##########
+IFMR_dict = {}
+IFMR_dict['Raithel18'] = ifmr.IFMR_Raithel18()
+IFMR_dict['Spera15'] = ifmr.IFMR_Spera15()
+##########
+
+##########
 # Dictionary for extinction law coefficients f_i, as a function of filter
 # Damineli values from photometric bands (nm):
 # B = 445, V = 551, I = 806, J = 1220, H = 1630, K = 2190, U = 365, R = 658
@@ -87,7 +93,7 @@ photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r', 'i']
 
 ##########
-# List of all supported photometric systems and filters with PyPopStar labels
+# List of all supported photometric systems and filters with SPISEA labels
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
                  'ukirt,H', 'ukirt,K', 'ukirt,J']
@@ -285,7 +291,8 @@ def run_galaxia(output_root, longitude, latitude, area,
         Area of the sky that will be generated, in square degrees
 
     galaxia_galaxy_model_filename : str
-        Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
+        Name of the galaxia galaxy model parameter file,
+        as outlined at https://github.com/jluastro/galaxia
 
     Optional Parameters
     -------------------
@@ -360,6 +367,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 
 
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
+                           IFMR,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
@@ -380,7 +388,13 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
            '../back/to/some/path/myout'
 
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
+
+    IFMR : string
+        The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
+        in SPISEA. 
+        'Raithel18' = IFMR_Raithel18
+        'Spera15' = IFMR_Spera15
 
     bin_edges_number : int
         Number of edges for the bins
@@ -402,7 +416,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
@@ -411,7 +425,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     """
@@ -430,6 +444,19 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
     if not os.path.exists(iso_dir):
         raise Exception('iso_dir (%s) must exist' % str(iso_dir))
+
+    if not isinstance(IFMR, str):
+        raise Exception('IFMR (%s) must be a string.' % str(IFMR))
+
+    if IFMR not in IFMR_dict:
+        exception_str = '(%s) is not a valid IFMR. ' \
+                        'IFMR must be a key in ' \
+                        'IFMR_dict. \n' \
+                        'Acceptable values are the strings : ' %str(IFMR)
+        for IFMR in IFMR_dict:
+            exception_str += '%s, ' % IFMR
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
 
     if bin_edges_number is not None:
         if not isinstance(bin_edges_number, int):
@@ -467,6 +494,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 
 
 def perform_pop_syn(ebf_file, output_root, iso_dir,
+                    IFMR,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
@@ -489,7 +517,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
            '../back/to/some/path/myout'
 
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
+
+    IFMR : string
+        The name of the IFMR object from SPISEA. For additional information on these objects see ifmr.py
+        in SPISEA. 
+        'Raithel18' = IFMR_Raithel18
+        'Spera15' = IFMR_Spera15
 
     Optional Parameters
     -------------------
@@ -513,7 +547,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
@@ -522,7 +556,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     Outputs
@@ -556,6 +590,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Error handling/complaining if input types are not right.
     _check_perform_pop_syn(ebf_file, output_root, iso_dir,
+                           IFMR,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
@@ -573,15 +608,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     #########
     # Read in only what you need
     # Control yourself... take only what you need from it
-    # i.e. the log file, popid, and age
+    # i.e. the log file, popid, metallicity, and age
     ########
     t = ebf.read_ind(ebf_file, '/log', 0)
     popid_array = ebf.read(ebf_file, '/popid')
+    metallicity_array = ebf.read(ebf_file, '/feh')
     age_array = ebf.read(ebf_file, '/age')
 
     # Just some counting/error checking things
     n_stars = len(popid_array)  # How many stars from Galaxia
     comp_counter = 0  # Number of compact objects made
+    unmade_cluster_counter = 0 #Number of clusters that are too small and get skipped over
 
     # Convert log to useful dictionary.
     ebf_log = make_ebf_log(t)
@@ -633,9 +670,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     h5file.close()
 
     ##########
-    # Reassign ages for stars that are less than logage 6
-    # or greater than logage 10.01, since those are the limits of
-    # PopStar evolution. Justification: in writeup/paper.
+    # Reassign ages for stars that are less than logage 5.01 
+    # or greater than logage 10.14, since those are the limits of
+    # SPISEA evolution. Justification: in writeup/paper.
     ##########
     young_id = np.where(age_array <= 5.01)[0]
     age_array[young_id] = 5.0101
@@ -692,163 +729,183 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             # Fetch the stars in this age bin.
             age_idx = np.where((age_array[popid_idx] >= logt_bins[aa]) &
                                (age_array[popid_idx] < logt_bins[aa + 1]))[0]
-            len_adx = len(age_idx)
+            
+            
+            if IFMR == 'Raithel18':
+                # Only run at solar metallicity for Raithel18
+                feh_bins = [-99, 99]
+                feh_vals = [0.0]
+                
+            elif IFMR == 'Spera15':
+                # Break into 4 hardcoded metallicity bins for Spera15
+                feh_bins = [-99, -1.279, -0.500, 0.00, 99]
+                feh_vals = [-1.39, -0.89, -0.25, 0.30]
 
-            # Figure out how many bins we will need.
-            #   -- breaking up into managable chunks of 2 million stars each.
-            num_stars_in_bin = 2e6
-            num_bins = int(math.ceil(len_adx / num_stars_in_bin))
+            for bb in range(len(feh_bins) - 1):
+                print('Starting metallicity bin ', feh_vals[bb])
+                # Value of the metallicity bin
+                metallicity_of_bin = feh_vals[bb]
 
-            # Create a KDTree from randomly selected stars in the
-            # pop_id / age_bin used for calculating extinction to luminous
-            # white dwarfs. Because the same KDTree is used for each sub-bin,
-            # two compact objects randomly selected to have nearly identical
-            # positions would have identical extinctions. This low
-            # probability event is a reasonable trade-off for the reduced
-            # compute time gained by only constructing the KDTree once.
-            kdt_star_p = None
-            exbv_arr4kdt = None
-            if len_adx > 0:
-                num_kdtree_samples = int(min(len_adx, 2e6))
-                kdt_idx = np.random.choice(np.arange(len_adx),
-                                           size=num_kdtree_samples,
-                                           replace=False)
-                bin_idx = popid_idx[age_idx[kdt_idx]]
-                star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
-                star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
-                star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
-                star_xyz = np.array([star_px, star_py, star_pz]).T
-                kdt_star_p = cKDTree(star_xyz)
-                exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-                del bin_idx, star_px, star_py, star_pz
+                # Fetch the stars in this metallicity bin
+                feh_idx = np.where((metallicity_array[popid_idx[age_idx]] >= feh_bins[bb]) &
+                                   (metallicity_array[popid_idx[age_idx]] < feh_bins[bb + 1]))[0]
+                len_adx = len(feh_idx)
 
-            ##########
-            # Loop through bins of 2 million stars at a time.
-            ##########
-            for nn in range(num_bins):
-                print('Starting sub-bin ', nn)
-                n_start = int(nn * num_stars_in_bin)
-                n_stop = int((nn + 1) * num_stars_in_bin)
+                # Figure out how many bins we will need.
+                #   -- breaking up into managable chunks of 2 million stars each.
+                num_stars_in_bin = 2e6
+                num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
-                bin_idx = popid_idx[age_idx[n_start:n_stop]]
-
-                ##########
-                # Fill up star_dict
-                ##########
-                star_dict = {}
-                star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
-                star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
-                star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
-                star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
-                star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
-                star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
-                star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
-                star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
-                star_dict['age'] = age_array[bin_idx]
-                star_dict['popid'] = popid_array[bin_idx]
-                star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-                star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
-                star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
-                star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
-                star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
-                star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
-                star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
-                star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
-                star_dict['rem_id'] = np.zeros(len(bin_idx))
-                star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
-                n_binned_stars += len(bin_idx)
+                # Create a KDTree from randomly selected stars in the
+                # pop_id / age_bin used for calculating extinction to luminous
+                # white dwarfs. Because the same KDTree is used for each sub-bin,
+                # two compact objects randomly selected to have nearly identical
+                # positions would have identical extinctions. This low
+                # probability event is a reasonable trade-off for the reduced
+                # compute time gained by only constructing the KDTree once.
+                kdt_star_p = None
+                exbv_arr4kdt = None
+                if len_adx > 0:
+                    num_kdtree_samples = int(min(len_adx, num_stars_in_bin))
+                    kdt_idx = np.random.choice(np.arange(len_adx),
+                                               size=num_kdtree_samples,
+                                               replace=False)
+                    bin_idx = popid_idx[age_idx[feh_idx[kdt_idx]]]
+                    star_px = ebf.read_ind(ebf_file, '/px', bin_idx) 
+                    star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
+                    star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
+                    star_xyz = np.array([star_px, star_py, star_pz]).T
+                    kdt_star_p = cKDTree(star_xyz)
+                    exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+                    del bin_idx, star_px, star_py, star_pz
 
                 ##########
-                # Angle wrapping for longitude
+                # Loop through bins of 2 million stars at a time.
                 ##########
-                wrap_idx = np.where(star_dict['glon'] > 180)[0]
-                star_dict['glon'][wrap_idx] -= 360
+                for nn in range(num_bins):
+                    print('Starting sub-bin ', nn)
+                    n_start = int(nn * num_stars_in_bin)
+                    n_stop = int((nn + 1) * num_stars_in_bin)
 
-                ##########
-                # Add UBV magnitudes
-                ##########
-                star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
-                star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
-                star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
-                star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
-                star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
-                star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
-                star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
-                star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
+                    bin_idx = popid_idx[age_idx[feh_idx[n_start:n_stop]]]
 
-                ##########
-                # Add ztf magnitudes
-                ##########
-                if additional_photometric_systems is not None:
-                    if 'ztf' in additional_photometric_systems:
-                        # Pull out ubv magnitudes needed for photometric conversions
-                        ubv_b = star_dict['ubv_B']
-                        ubv_v = star_dict['ubv_V']
-                        ubv_r = star_dict['ubv_R']
-                        ubv_i = star_dict['ubv_I']
+                    ##########
+                    # Fill up star_dict
+                    ##########
+                    star_dict = {}
+                    star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
+                    star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
+                    star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
+                    star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
+                    star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
+                    star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
+                    star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
+                    star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
+                    star_dict['age'] = age_array[bin_idx]
+                    star_dict['popid'] = popid_array[bin_idx]
+                    star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+                    star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
+                    star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
+                    star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+                    star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+                    star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+                    star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
+                    star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
+                    star_dict['rem_id'] = np.zeros(len(bin_idx))
+                    star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
+                    n_binned_stars += len(bin_idx)
 
-                        ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
-                        ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
-                        ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
-                        star_dict['ztf_g'] = ztf_g
-                        star_dict['ztf_r'] = ztf_r
-                        star_dict['ztf_i'] = ztf_i
+                    ##########
+                    # Angle wrapping for longitude
+                    ##########
+                    wrap_idx = np.where(star_dict['glon'] > 180)[0]
+                    star_dict['glon'][wrap_idx] -= 360
 
-                        del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
+                    ##########
+                    # Add UBV magnitudes
+                    ##########
+                    star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
+                    star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
+                    star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
+                    star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
+                    star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
+                    star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
+                    star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
+                    star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
 
-                ##########
-                # Add spherical velocities vr, mu_b, mu_lcosb
-                ##########
-                vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
+                    ##########
+                    # Add ztf magnitudes
+                    ##########
+                    if additional_photometric_systems is not None:
+                        if 'ztf' in additional_photometric_systems:
+                            # Pull out ubv magnitudes needed for photometric conversions
+                            ubv_b = star_dict['ubv_B']
+                            ubv_v = star_dict['ubv_V']
+                            ubv_r = star_dict['ubv_R']
+                            ubv_i = star_dict['ubv_I']
+
+                            ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
+                            ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
+                            ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
+                            star_dict['ztf_g'] = ztf_g
+                            star_dict['ztf_r'] = ztf_r
+                            star_dict['ztf_i'] = ztf_i
+
+                            del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
+
+                    ##########
+                    # Add spherical velocities vr, mu_b, mu_lcosb
+                    ##########
+                    vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
                                                      star_dict['vy'],
                                                      star_dict['vz'],
                                                      star_dict['rad'],
                                                      star_dict['glat'],
                                                      star_dict['glon'])
-                #########
-                # Add precision to r, b, l, vr, mu_b, mu_lcosb
-                #########
-                star_dict['rad'] = utils.add_precision64(star_dict['rad'], -4)
-                star_dict['glat'] = utils.add_precision64(star_dict['glat'], -4)
-                star_dict['glon'] = utils.add_precision64(star_dict['glon'], -4)
-                star_dict['vr'] = utils.add_precision64(vr, -4)
-                star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
-                star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
+                    #########
+                    # Add precision to r, b, l, vr, mu_b, mu_lcosb
+                    #########
+                    star_dict['rad'] = utils.add_precision64(star_dict['rad'], -4)
+                    star_dict['glat'] = utils.add_precision64(star_dict['glat'], -4)
+                    star_dict['glon'] = utils.add_precision64(star_dict['glon'], -4)
+                    star_dict['vr'] = utils.add_precision64(vr, -4)
+                    star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
+                    star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
 
-                ##########
-                # Perform population synthesis.
-                ##########
-                mass_in_bin = np.sum(star_dict['zams_mass'])
+                    ##########
+                    # Perform population synthesis.
+                    ##########
+                    mass_in_bin = np.sum(star_dict['zams_mass'])
 
-                stars_in_bin = {}
-                for key, val in star_dict.items():
-                    stars_in_bin[key] = val
+                    stars_in_bin = {}
+                    for key, val in star_dict.items():
+                        stars_in_bin[key] = val
 
-                comp_dict, next_id = _make_comp_dict(iso_dir, age_of_bin,
-                                                     mass_in_bin, stars_in_bin, next_id,
+                    comp_dict, next_id, unmade_cluster_counter = _make_comp_dict(iso_dir, IFMR, age_of_bin, metallicity_of_bin,
+                                                     mass_in_bin, stars_in_bin, next_id, unmade_cluster_counter,
                                                      kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
                                                      additional_photometric_systems=additional_photometric_systems,
                                                      seed=seed)
 
-                ##########
-                #  Bin in l, b all stars and compact objects.
-                ##########
-                if comp_dict is not None:
-                    comp_counter += len(comp_dict['mass'])
-                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                    ##########
+                    #  Bin in l, b all stars and compact objects.
+                    ##########
+                    if comp_dict is not None:
+                        comp_counter += len(comp_dict['mass'])
+                        _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                                  comp_dict, output_root)
-                _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                              stars_in_bin,
                              output_root)
-                ##########
-                # Done with galaxia output in dictionary t and ebf_log.
-                # Garbage collect in order to save space.
-                ##########
-                del star_dict
-            del kdt_star_p, exbv_arr4kdt
-            gc.collect()
+                    ##########
+                    # Done with galaxia output in dictionary t and ebf_log.
+                    # Garbage collect in order to save space.
+                    ##########
+                    del star_dict
+                del kdt_star_p, exbv_arr4kdt
+                gc.collect()
 
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
@@ -887,29 +944,31 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
-    line7 = 'seed , ' + str(seed) + '\n'
+    line7 = 'IFMR , ' + str(IFMR) + '\n'
+    line8 = 'seed , ' + str(seed) + '\n'
 
-    line8 = 'VERSION INFORMATION' + '\n'
-    line9 = str(now) + ' : creation date' + '\n'
-    line10 = popstar_hash + ' : PopStar commit' + '\n'
-    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line9 = 'VERSION INFORMATION' + '\n'
+    line10 = str(now) + ' : creation date' + '\n'
+    line11 = popstar_hash + ' : SPISEA commit' + '\n'
+    line12 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
-    line12 = 'OTHER INFORMATION' + '\n'
-    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line14 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line15 = str(comp_counter) + ' : total compact objects made' + '\n'
-    line16 = str(binned_counter) + ' : total things binned' + '\n'
+    line13 = 'OTHER INFORMATION' + '\n'
+    line14 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line15 = str(n_stars) + ' : total stars from Galaxia' + '\n'
+    line16 = str(comp_counter) + ' : total compact objects made' + '\n'
+    line17 = str(binned_counter) + ' : total things binned' + '\n'
+    line18 = str(unmade_cluster_counter) + ' : # of unmade clusters (< 100 M_sun)' + '\n'
 
-    line17 = 'FILES CREATED' + '\n'
-    line18 = output_root + '.h5 : HDF5 file' + '\n'
-    line19 = output_root + '_label.fits : label file' + '\n'
+    line19 = 'FILES CREATED' + '\n'
+    line20 = output_root + '.h5 : HDF5 file' + '\n'
+    line21 = output_root + '_label.fits : label file' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
-                        line6, line7, empty_line, line8, dash_line, line9,
-                        line10, line11, empty_line, line12, dash_line, line13,
-                        line14, line15, line16, empty_line, line17, dash_line,
-                        line18, line19])
+                        line6, line7, line8, empty_line, line9, dash_line,
+                        line10, line11, line12, empty_line,line13, dash_line,
+                        line14, line15, line16, line17, line18, empty_line, line19, dash_line,
+                        line20, line21])
 
     ##########
     # Informative print statements.
@@ -931,7 +990,7 @@ def calc_current_initial_ratio(iso_dir,
                                out_file='current_initial_stellar_mass_ratio.txt',
                                seed=None):
     """
-    Makes 10**7 M_sun clusters in PopStar at various ages, to calculate the
+    Makes 10**7 M_sun clusters in SPISEA at various ages, to calculate the
     ratio of current to initial cluster mass. The range of ages goes
     from 6 to 10.089 log(age/yr). Creates a text file, the first column is
     the ages, and second column is the ratio.
@@ -949,7 +1008,7 @@ def calc_current_initial_ratio(iso_dir,
     -------------------
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     Output
@@ -958,7 +1017,7 @@ def calc_current_initial_ratio(iso_dir,
          File of the initial-final cluster mass.
 
     """
-    # Set up the input information for PopStar to make a cluster.
+    # Set up the input information for SPISEA to make a cluster.
     # age in log(age/yr)
     logage_vec = np.concatenate((np.arange(5.01, 10.01 + 0.005, 0.2),
                                  np.array([10.04, 10.14])))
@@ -1027,13 +1086,13 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
         current-initial cluster mass ratio.
 
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     Optional Parameters
     -------------------
     seed : int
         If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
     Return
@@ -1058,8 +1117,8 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     return _Mclust_v_age_func(logage)
 
 
-def _make_comp_dict(iso_dir, log_age, currentClusterMass,
-                    star_dict, next_id,
+def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
+                    star_dict, next_id, unmade_cluster_counter,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
@@ -1070,10 +1129,21 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     Parameters
     ----------
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
+
+    IFMR : string
+        The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py 
+        in SPISEA. 
+        'Raithel18' = IFMR_Raithel18
+        'Spera15' = IFMR_Spera15
 
     log_age : float
-        log(age/yr) of the cluster you want to make
+        log(age/yr) of the cluster you want to make, rounds to nearest 0.01
+
+    feh : float
+        metallicity [Fe/H] of the cluster you want to make, rounds to nearest value in this list for MIST.
+        [-4.0, -3.5, -3.0, -2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.50, -0.25, 0, 0.25, 0.5]
+        The IFMR object will run at exactly the specified value.
 
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
@@ -1084,6 +1154,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     next_id : int
         The next unique ID number (int) that will be assigned to
         the new compact objects created.
+
+    unmade_cluster_counter: int
+        The current number of unmade clusters (<= 100 M_sun)
 
     kdt_star_p : scipy cKDTree
         KDTree constructed from the positions of randomly selected stars
@@ -1106,11 +1179,11 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     seed : int
          Seed used to sample the kde tree. If set to any number,
-         PyPopStar will also be forced to use 42 as a
+         SPISEA will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
          Default is None.
 
@@ -1122,6 +1195,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     next_id : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
+
+    unmade_cluster_counter : int
+        Updated number of unmade clusters (<= 100 M_sun)
 
     """
     comp_dict = None
@@ -1137,7 +1213,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
     powers = np.array([-1.3, -2.3])
-    my_ifmr = ifmr.IFMR()
+    my_ifmr = IFMR_dict[IFMR]
     ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file=ratio_file,
@@ -1146,10 +1222,12 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     initialClusterMass = currentClusterMass / ratio
 
     ##########
-    # Create the PopStar table (stars and compact objects).
+    # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
-    if initialClusterMass > 100:
+    if initialClusterMass <= 100:
+        unmade_cluster_counter = unmade_cluster_counter + 1
+    elif initialClusterMass > 100:
         # MAKE isochrone
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
@@ -1157,7 +1235,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
-                                         iso_dir=iso_dir)
+                                         iso_dir=iso_dir,
+                                         metallicity=feh)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
@@ -1168,7 +1247,8 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                                              evo_model=evolution.MISTv1(),
                                              filters=my_filt_list,
                                              iso_dir=iso_dir,
-                                             recomp=True)
+                                             recomp=True,
+                                             metallicity=feh)
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!
@@ -1180,7 +1260,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
                                             seed=seed)
         output = cluster.star_systems
 
-        # Create the PopStar table with just compact objects
+        # Create the SPISEA table with just compact objects
 
         # The compact IDs are:
         # 101: WD, 102: NS, 103: BH
@@ -1211,9 +1291,9 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             comp_dict['zams_mass'] = comp_table['mass'].data
 
             ##########
-            # Assign spherical positions and velocities to all compact objects.
+            # Assign spherical positions, and velocities to all compact objects.
             ##########
-            # Create velocities and positions using Kernel Density Estimation
+            # Create velocities, and positions using Kernel Density Estimation
             # Galactic position (r, l, b)
             # and heliocentric velocity (vx, vy, vz)
             kde_in_data = np.array([star_dict['rad'], star_dict['glat'],
@@ -1293,7 +1373,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             ##########
             # Initialize values for compact object photometry.
             # All of the values are np.nan
-            # These are all the outputs from the IFMR of Raithel and Kalirai.
+            # These are all the outputs from the IFMR object in SPISEA.
             ##########
             comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_I'] = np.full(len(comp_dict['vx']), np.nan)
@@ -1304,16 +1384,25 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
             comp_dict['ubv_B'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_V'] = np.full(len(comp_dict['vx']), np.nan)
             comp_dict['ubv_H'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['feh'] = np.full(len(comp_dict['vx']), np.nan)
 
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
                     comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
                     comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
                     comp_dict['ztf_i'] = np.full(len(comp_dict['vx']), np.nan)
+
+            #########
+            # Initialize values for compact object teff, specific gravity and bolometic luminosity
+            # All of the values are np.nan
+            #########
+            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
+            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
+
+            #########
+            # Assign feh values to the SPISEA compact objects, drawing randomly from the feh of the Galaxia stars
+            #########
+            comp_dict['feh'] = np.random.choice(star_dict['feh'], size=len(comp_dict['vx']), replace=True)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
@@ -1360,7 +1449,7 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     else:
         comp_dict = None
 
-    return comp_dict, next_id
+    return comp_dict, next_id, unmade_cluster_counter
 
 
 def _generate_comp_dtype(obj_arr):
@@ -1421,7 +1510,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
-        Galaxia / PyPopStar's ubv photometry and appended to the output files.
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
 
     Output
     ------
@@ -2672,7 +2761,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line4 = 'VERSION INFORMATION' + '\n'
     line5 = str(now) + ' : creation date' + '\n'
-    line6 = popstar_hash + ' : PopStar commit' + '\n'
+    line6 = popstar_hash + ' : SPISEA commit' + '\n'
     line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
     line8 = 'OTHER INFORMATION' + '\n'
@@ -3303,8 +3392,8 @@ def calc_ext(E, f):
 
 def get_Alambda_AKs(red_law_name, lambda_eff):
     """
-    Get Alambda/AKs. NOTE: this doesn't work for every law in PopStar!
-    Naming convention is not consistent. Change PopStar or add if statements?
+    Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
+    Naming convention is not consistent. Change SPISEA or add if statements?
 
     Parameters
     ----------

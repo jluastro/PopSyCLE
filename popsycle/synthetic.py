@@ -737,9 +737,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 feh_vals = [0.0]
                 
             elif IFMR == 'Spera15':
-                # Break into 3 hardcoded metallicity bins for Spera15
-                feh_bins = [-99, -1.279, -0.500, 99]
-                feh_vals = [-1.39, -0.89, 0.00]
+                # Break into 4 hardcoded metallicity bins for Spera15
+                feh_bins = [-99, -1.279, -0.500, 0.00, 99]
+                feh_vals = [-1.39, -0.89, -0.25, 0.30]
 
             for bb in range(len(feh_bins) - 1):
                 print('Starting metallicity bin ', feh_vals[bb])

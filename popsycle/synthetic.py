@@ -871,25 +871,19 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 #########
                 # If there are multiples add them in
                 #########
+                
                 if multiplicity != None:
                     if cluster_tmp:
-                        
                         # Makes a separate companion table with primaries as compact objects
+                        # Points the system_idx to obj_id instead of idx
                         if comp_dict != None and cluster_tmp.companions:
-                            # compact_primary_ids = np.where(cluster_tmp.star_systems['phase'] > 100)[0]
-
-                            # compact_companion_ids = [np.where(cluster_tmp.companions['system_idx'] == ii)[0] for ii in compact_primary_ids]
-                            # compact_companion_ids = list(np.concatenate(compact_companion_ids).ravel())
-                            # compact_companions = cluster_tmp.companions[compact_companion_ids]
-
-                            # new version
                             # Build a list of systems for every companion (will be repeat systems). Shape = N_companions
                             # We will call this the "dup_sys" table for duplicate systems (duplicated x N_companions)
                             clust_dup_sys = cluster_tmp.star_systems[cluster_tmp.companions['system_idx']]
                             # Filter the dup_sys table to just those with CO primaries.
                             co_idx_in_dup_sys_table = np.where(clust_dup_sys['phase'] > 100)[0]
                             compact_companions = cluster_tmp.companions[co_idx_in_dup_sys_table]
-
+                            
                             # Make a new comp_dict table that still preserves N_companions.
                             co_idx_in_sys_table = np.where(cluster_tmp.star_systems['phase'] > 100)[0]
                             comp_dict_tmp = cluster_tmp.star_systems[co_idx_in_sys_table]
@@ -898,26 +892,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             co_idx = np.arange(0, len(comp_dict_tmp))
                             co_idx_for_dup_sys_table = np.repeat(co_idx, comp_dict_tmp['N_companions'])
 
-                            assert len(compact_companions) == len(co_idx_for_dup_sys_table)
-
                             # Reset the companion system_idx to be the correct obj_id
-                            compact_companions['system_idx'] = comp_dict[co_idx_for_dup_sys_table]['obj_id']
-                            
-                            # # Switch companion table to point to obj_id instead of idx
-                            # for ii in range(len(compact_companions)):
-                            #     compact_primary_id = compact_companions['system_idx'][ii]
-                            #     new_primary_pos = np.where(compact_primary_ids == compact_primary_id)[0]
-                            #     compact_companions['system_idx'][ii] = comp_dict['obj_id'][new_primary_pos]
+                            compact_companions['system_idx'] = comp_dict['obj_id'][co_idx_for_dup_sys_table]
                             
                         
                         companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster_tmp)
                         if companions_table:
-                            star_dict[companions_table['system_idx']]['systemMass'] += companions_table['mass']
-                            star_dict[companions_table['system_idx']]['isMultiple'] = 1
-                            # CLEANUP
-                            # for ii in companions_table:
-                            #     star_dict['systemMass'][ii['system_idx']] += ii['mass']
-                            #     star_dict['isMultiple'][ii['system_idx']] = 1.0                            
+                            star_dict['systemMass'][companions_table['system_idx']] += companions_table['mass']
+                            star_dict['isMultiple'][companions_table['system_idx']] = 1
                             
                             # Switch companion table to point to obj_id instead of idx
                             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
@@ -935,10 +917,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                      stars_in_bin, output_root + '_companions', 
                                      companion_obj_arr = companions_table)
                             
-                            
+                              
                 del cluster_tmp
-                             
-                
                 ##########
                 #  Bin in l, b all stars and compact objects.
                 ##########
@@ -1246,7 +1226,7 @@ def _make_comp_dict(log_age,
 
     if cluster:
         output = cluster.star_systems
-
+        
         # Create the PopStar table with just compact objects
 
         # The compact IDs are:
@@ -2925,7 +2905,6 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
         event_tab.write(output_file, overwrite=overwrite)
 
-    t_1 = time.time()
     
     # If Multiples
     if hdf5_file_comp != None:
@@ -3002,6 +2981,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         
             # Writes fits file
             companion_table.write(output_file[:-5] + "_companions.fits", overwrite=overwrite)
+            
+    t_1 = time.time()
 
     ##########
     # Make log file
@@ -3400,8 +3381,9 @@ def _add_multiples_parameters(companion_table, event_table):
     
     for ii in range(len(companion_tmp)):
         companion_tmp[ii]['q'] =  companion_tmp[ii]['mass']/event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]]
-    
-        companion_tmp[ii]['sep'] = (np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*u.radian).to('mas').value
+        
+        # abs(acos(i))
+        companion_tmp[ii]['sep'] = np.abs(np.cos(companion_tmp[ii]['i']))*(np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*u.radian).to('mas').value
     
         companion_tmp[ii]['P'] = orbits.a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
     

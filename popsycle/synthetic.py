@@ -733,11 +733,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             
             if IFMR == 'Raithel18':
                 # Only run at solar metallicity for Raithel18
+                # -99 to 99 will capture all possible values of metallicity, but the Galaxia range is closer to -2 to 2
                 feh_bins = [-99, 99]
                 feh_vals = [0.0]
                 
             elif IFMR == 'Spera15':
                 # Break into 4 hardcoded metallicity bins for Spera15
+                # By starting at -99 and ending at 99 we will capture all possible metallicty values, but the true distribution is much narrower
                 feh_bins = [-99, -1.279, -0.500, 0.00, 99]
                 feh_vals = [-1.39, -0.89, -0.25, 0.30]
 
@@ -757,7 +759,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
                 # Create a KDTree from randomly selected stars in the
-                # pop_id / age_bin used for calculating extinction to luminous
+                # pop_id / age_bin / feh_bin used for calculating extinction to luminous
                 # white dwarfs. Because the same KDTree is used for each sub-bin,
                 # two compact objects randomly selected to have nearly identical
                 # positions would have identical extinctions. This low
@@ -1291,7 +1293,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
             comp_dict['zams_mass'] = comp_table['mass'].data
 
             ##########
-            # Assign spherical positions, and velocities to all compact objects.
+            # Assign spherical positions and velocities to all compact objects.
             ##########
             # Create velocities, and positions using Kernel Density Estimation
             # Galactic position (r, l, b)
@@ -1392,7 +1394,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
                     comp_dict['ztf_i'] = np.full(len(comp_dict['vx']), np.nan)
 
             #########
-            # Initialize values for compact object teff, specific gravity and bolometic luminosity
+            # Initialize values for compact object teff, specific gravity and bolometric luminosity
             # All of the values are np.nan
             #########
             comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)

@@ -40,11 +40,12 @@ from distutils import spawn
 from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
-import astropy.units as u
-import astropy.constants as c
+import astropy.units as unit
+import astropy.constants as const
 from astropy.io import fits
 from spisea.imf.multiplicity import MultiplicityResolvedDK
 from popsycle import orbits
+import pandas as pd
 
 
 
@@ -1799,7 +1800,7 @@ def _check_calc_events(hdf5_file, output_root2,
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
-                overwrite=False):
+                overwrite=False, hdf5_file_comp = None):
     """
     Calculate microlensing events
 
@@ -1908,6 +1909,10 @@ def calc_events(hdf5_file, output_root2,
 
     inputs = zip(llbb, hd, ot, no, rc, tf, br)
     
+    if hdf5_file_comp != None:
+        hdc = itertools.repeat(hdf5_file_comp, reps)
+        inputs = zip(llbb, hd, ot, no, rc, tf, br, hdc)
+    
     ##########
     # Loop through galactic latitude and longitude bins. For each bin vertex,
     # take the nearest 4 bin samples and calculate microlensing events.
@@ -2014,7 +2019,7 @@ def calc_events(hdf5_file, output_root2,
 
 
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
-                          theta_frac, blend_rad):
+                          theta_frac, blend_rad, hdf5_file_comp = None):
     """
     Parameters
     ----------
@@ -2056,6 +2061,49 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     hf = h5py.File(hdf5_file, 'r')
     bigpatch = np.hstack((hf[name00], hf[name01], hf[name10], hf[name11]))
     hf.close()
+
+    # Adds separation in mas between primary and furthest companion if there are companions
+    if hdf5_file_comp != None:
+        hfc = h5py.File(hdf5_file_comp, 'r')
+        bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
+        hfc.close()
+        
+        if len(bigpatch_comp) > 0:
+            bigpatch_comp = rfn.append_fields(bigpatch_comp, 'sep', np.zeros(len(bigpatch_comp)), usemask = False) #separation in mas
+        
+            bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
+            bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
+        
+            # Filling in number of companions column to primaries
+            N_companions = ((bigpatch_comp_df.groupby(['system_idx']).count()['mass']).to_frame()).reset_index()
+            N_companions = N_companions.rename(columns={'mass':'N_comp'})
+            # Cross referencing between N_companions from companions table and the primaries
+            N_companions = N_companions.set_index("system_idx")
+            bigpatch_df = bigpatch_df.set_index('obj_id')
+            bigpatch_df = bigpatch_df.join(N_companions)
+            bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
+            bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
+            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
+
+
+            a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
+
+            # abs(acos(i))
+            bigpatch_comp_df['sep'] = np.abs(np.cos(bigpatch_comp['i']))*(np.arcsin(a_kpc/rad)*unit.radian).to('mas').value
+
+            # Find max sep for triples
+            bigpatch_comp_df_max = bigpatch_comp_df.groupby('system_idx').max()['sep'].reset_index()
+
+            # Add separation to bigpatch
+            sep = bigpatch_comp_df_max[['system_idx', 'sep']]
+            # Cross referencing between separation from companions table and the primaries
+            sep = sep.set_index("system_idx")
+            bigpatch_df = bigpatch_df.set_index('obj_id')
+            bigpatch_df = bigpatch_df.join(sep)
+            bigpatch_df['sep'] = bigpatch_df['sep'].fillna(0) # Make nans from lack of companions to zeros
+            bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
+
+            bigpatch = rfn.append_fields(bigpatch, 'sep', bigpatch_df['sep'], usemask = False) 
     
          
     # Skip patches with less than 10 objects
@@ -2073,13 +2121,17 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
-                                  r_t[lens_id], r_t[sorc_id])  # mas
+                                  r_t[lens_id], r_t[sorc_id])  # mas      
         u = sep[event_id1] / theta_E
+        
+        binary_sep = None
+        if 'sep' in bigpatch[0].dtype.names:
+            binary_sep = bigpatch['sep'][event_id1]
 
         # Trim down to those microlensing events that really get close enough
         # to hope that we can detect them. Trim on a Theta_E criteria.
         event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
-                                             lens_id, sorc_id, time_array[i])
+                                             lens_id, sorc_id, time_array[i], binary_sep)
 
         if event_lbt is not None:
             # Concatenate the current event table
@@ -2170,6 +2222,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     # Converts separations to milliarcseconds
     sep = (sep.to(units.mas)) / units.mas
 
+    
     ##########
     # Error checking: calculate how many duplicate (l, b) pairs there are.
     # (This is a problem for nearest neighbors.)
@@ -2211,7 +2264,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
 
 
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
-                             sorc_id, timei):
+                             sorc_id, timei, binary_sep = None):
     """
     Get sources and lenses that pass the radius cut.
 
@@ -2245,8 +2298,17 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         Lenses and sources at a particular time t.
 
     """
-    # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
-    adx = np.where(u < theta_frac)[0]
+    # If there are binaries extend the search radius to theta_frac + separation between primary
+    # and furthest companion.
+    if binary_sep is not None:
+        theta_frac_comp = theta_frac + binary_sep
+        if np.shape(u) != np.shape(theta_frac_comp):
+            print(u, theta_frac_comp)
+        #print(np.shape(u), np.shape(theta_frac_comp), np.shape(theta_frac), np.shape(bigpatch['sep']))
+        adx = np.where(u < theta_frac_comp)[0]
+    else: 
+        # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
+        adx = np.where(u < theta_frac)[0]
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
@@ -3309,9 +3371,9 @@ def _calculate_phi(companion_table, event_table):
 
         (r, v, a) = orb.kep2xyz(np.array([event_table['t0'][event_id]]))
 
-        r_kpc = [(ii*u.AU).to('kpc').value for ii in r[0]]
+        r_kpc = [(ii*unit.AU).to('kpc').value for ii in r[0]]
         
-        r_mas = (np.arcsin(r_kpc[0:2]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id])*u.radian).to('mas').value
+        r_mas = (np.arcsin(r_kpc[0:2]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id])*unit.radian).to('mas').value
         
         # Change in b and lcosb from companion pointing to companion
         delta_lcosb = r_mas[0]
@@ -3328,7 +3390,7 @@ def _calculate_phi(companion_table, event_table):
         length_binary = np.sqrt(delta_b**2 + delta_lcosb**2)
         length_mu = np.sqrt(mu_b_rel**2 + mu_lcosb_rel**2)
         
-        phi = (np.arccos(dot/(length_mu*length_binary))*u.radian).to("degree").value
+        phi = (np.arccos(dot/(length_mu*length_binary))*unit.radian).to("degree").value
         sign = np.sign(cross)
         phi *= sign
         
@@ -3377,13 +3439,13 @@ def _add_multiples_parameters(companion_table, event_table):
     companion_tmp = rfn.append_fields(companion_tmp, 'sep', zeros, usemask = False) #separation in mas
     companion_tmp = rfn.append_fields(companion_tmp, 'P', zeros, usemask = False) #period
 
-    a_kpc = ((10**companion_tmp['log_a'])*u.AU).to('kpc').value
+    a_kpc = ((10**companion_tmp['log_a'])*unit.AU).to('kpc').value
     
     for ii in range(len(companion_tmp)):
         companion_tmp[ii]['q'] =  companion_tmp[ii]['mass']/event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]]
         
         # abs(acos(i))
-        companion_tmp[ii]['sep'] = np.abs(np.cos(companion_tmp[ii]['i']))*(np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*u.radian).to('mas').value
+        companion_tmp[ii]['sep'] = np.abs(np.cos(companion_tmp[ii]['i']))*(np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*unit.radian).to('mas').value
     
         companion_tmp[ii]['P'] = orbits.a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
     

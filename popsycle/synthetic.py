@@ -3472,6 +3472,7 @@ def _add_multiples_parameters(companion_table, event_table):
     
     return companion_tmp
 
+
 def refine_binary_events(events, companions, overwrite = False,
                         output_file = 'default', save_phot = False, phot_dir = None):
     start_time = time.time()
@@ -3564,6 +3565,8 @@ def refine_binary_events(events, companions, overwrite = False,
         phot = psbl.get_photometry(dt, amp_arr=amp)
         
         if save_phot == True:
+            if not os.path.exists(phot_dir):
+                os.makedirs(phot_dir)
             foo = Table((dt, phot), names=['time', 'phot'])
             foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
         

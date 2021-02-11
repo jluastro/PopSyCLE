@@ -439,7 +439,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           seed=None, overwrite=False, submitFlag=True,
                           returnJobID=False, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
-                          skip_calc_events=False, skip_refine_events=False):
+                          skip_calc_events=False, skip_refine_events=False,
+                          skip_refine_binary_events=False):
     """
     Generates (and possibly submits) the slurm script that
     executes the PopSyCLE pipeline
@@ -532,6 +533,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     skip_refine_events : bool
         If True, pipeline will not run refine_events.
+        Default is False
+
+    skip_refine_binary_events : bool
+        If True, pipeline will not run refine_binary_events.
         Default is False
 
     Output
@@ -644,7 +649,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Create a slurm jobname base that all stages will be appended to
     if jobname == 'default':
-        jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
+        jobname = 'l%.2f_b%.2f_%s' % (longitude, latitude, output_root)
 
     ## Bring the slurm_config values into the namespace so that down before
     ## the **locals() command can be executed
@@ -753,6 +758,9 @@ exit $exitcode
     if skip_refine_events:
         optional_cmds += '--skip-refine-events '
 
+    if skip_refine_binary_events:
+        optional_cmds += '--skip-refine-binary-events '
+
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())
 
@@ -807,7 +815,8 @@ def run(output_root='root0',
         skip_galaxia=False,
         skip_perform_pop_syn=False,
         skip_calc_events=False,
-        skip_refine_events=False):
+        skip_refine_events=False,
+        skip_refine_binary_events=False):
 
     t0 = time.time()
 
@@ -977,11 +986,11 @@ def run(output_root='root0',
 
     if not skip_refine_events:
         # Remove refine_events output if already exists and overwrite=True
-        filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
-                   'fits'.format(output_root,
-                                 popsycle_config['filter_name'],
-                                 popsycle_config['red_law'])
-        if _check_for_output(filename, overwrite):
+        refined_events_filename = '{0:s}_refined_events_' \
+                                  '{1:s}_{2:s}.fits'.format(output_root,
+                                                            popsycle_config['filter_name'],
+                                                            popsycle_config['red_law'])
+        if _check_for_output(refined_events_filename, overwrite):
             t1 = time.time()
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
@@ -995,6 +1004,15 @@ def run(output_root='root0',
                                 overwrite=overwrite,
                                 output_file='default',
                                 hdf5_comp_file=hdf5_comp_file)
+
+    if multiplicity is not None and not skip_refine_binary_events:
+        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        phot_dir = '%s_bin_phot' % output_root
+        synthetic.refine_binary_events(events=refined_events_filename,
+                                       companions=refined_events_comp_filename,
+                                       overwrite=False,
+                                       output_file='default', save_phot=True,
+                                       phot_dir=phot_dir)
 
     t1 = time.time()
     print('run.py runtime : {0:f} s'.format(t1 - t0))
@@ -1057,6 +1075,9 @@ def main():
     optional.add_argument('--skip-refine-events',
                           help="Skip running refine_events.",
                           action='store_true')
+    optional.add_argument('--skip-refine-binary-events',
+                          help="Skip running refine_binary_events.",
+                          action='store_true')
     args = parser.parse_args()
 
     run(output_root=args.output_root,
@@ -1068,7 +1089,8 @@ def main():
         skip_galaxia=args.skip_galaxia,
         skip_perform_pop_syn=args.skip_perform_pop_syn,
         skip_calc_events=args.skip_calc_events,
-        skip_refine_events=args.skip_refine_events)
+        skip_refine_events=args.skip_refine_events,
+        skip_refine_binary_events=args.skip_refine_binary_events)
 
 
 if __name__ == '__main__':

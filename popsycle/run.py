@@ -984,12 +984,14 @@ def run(output_root='root0',
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(0)
 
+    refined_events_filename = '{0:s}_refined_events_' \
+                              '{1:s}_{2:s}_{3:s}.' \
+                              'fits'.format(output_root,
+                                            popsycle_config['photometric_system'],
+                                            popsycle_config['filter_name'],
+                                            popsycle_config['red_law'])
     if not skip_refine_events:
         # Remove refine_events output if already exists and overwrite=True
-        refined_events_filename = '{0:s}_refined_events_' \
-                                  '{1:s}_{2:s}.fits'.format(output_root,
-                                                            popsycle_config['filter_name'],
-                                                            popsycle_config['red_law'])
         if _check_for_output(refined_events_filename, overwrite):
             t1 = time.time()
             print('run.py runtime : {0:f} s'.format(t1 - t0))

@@ -23,6 +23,7 @@ from astropy.table import vstack
 # from popstar import synthetic, evolution, reddening, ifmr
 from spisea.imf import imf
 from spisea import synthetic, evolution, reddening, ifmr
+from spisea.imf.multiplicity import MultiplicityResolvedDK
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time
@@ -48,8 +49,6 @@ from popsycle import orbits
 import pandas as pd
 from microlens.jlu import model
 from scipy.signal import find_peaks
-
-
 
 
 
@@ -102,6 +101,11 @@ photometric_system_dict['ztf'] = ['g', 'r', 'i']
 ##########
 all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
                  'ukirt,H', 'ukirt,K', 'ukirt,J']
+
+##########
+# List of all supported multiplicity classes
+##########
+multiplicity_list = {'ResolvedDK': MultiplicityResolvedDK}
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############
@@ -463,7 +467,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     
     if multiplicity is not None:
         if not isinstance(multiplicity, MultiplicityResolvedDK):
-            raise Exception('multiplicity (%s) must be None or a subclass of MultiplicityResolvedDK.' % str(seed))
+            raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
 
     if additional_photometric_systems is not None:
         if not isinstance(additional_photometric_systems, list):

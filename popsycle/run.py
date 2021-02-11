@@ -17,6 +17,7 @@ from popsycle.synthetic import _check_run_galaxia
 from popsycle.synthetic import _check_perform_pop_syn
 from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
+from popsycle.synthetic import multiplicity_list
 
 
 def _return_filename_dict(output_root):
@@ -203,6 +204,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   NS_kick_speed_mean=400,
                                   photometric_system='ubv',
                                   filter_name='R', red_law='Damineli16',
+                                  multiplicity=None,
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -260,6 +262,11 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
     red_law : str
         The name of the reddening law to use from PopStar.
 
+    multiplicity: str
+        If a resovled multiplicity object is specified,
+        the table will be generated with resolved multiples.
+        Default is None.
+
     Optional Parameters
     -------------------
     config_filename : str
@@ -280,6 +287,9 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         raise Exception("'galaxia_galaxy_model_filename' must be set by the user. "
                         "The default value is only an example.")
 
+    if multiplicity is not in multiplicity_list:
+        raise Exception('multiplicity must be None or "ResolvedDK"')
+
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
               'n_obs': n_obs,
@@ -292,7 +302,8 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'NS_kick_speed_mean': NS_kick_speed_mean,
               'photometric_system': photometric_system,
               'filter_name': filter_name,
-              'red_law': red_law}
+              'red_law': red_law,
+              'multiplicity': multiplicity}
     generate_config_file(config_filename, config)
 
 
@@ -582,7 +593,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=[popsycle_config['photometric_system']],
                                overwrite=overwrite,
-                               seed=seed)
+                               seed=seed,
+                               multiplicity=popsycle_config['multiplicity'])
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,

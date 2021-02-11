@@ -836,6 +836,14 @@ def run(output_root='root0',
     if popsycle_config['photometric_system'] != 'ubv':
         additional_photometric_systems = [popsycle_config['photometric_system']]
 
+    # Load multiplicity from popsycle_config
+    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
+    # Additional multiplicity classes may require a different method of instantiation
+    # that would require breaking this out into a separate function
+    if multiplicity is not None:
+        # These arguments ensure a maximum of triples
+        multiplicity = multiplicity(CSF_max=2, companion_max=True)
+
     # Check pipeline stages for valid inputs
     if not skip_galaxia:
         _check_run_galaxia(output_root=output_root,
@@ -853,7 +861,8 @@ def run(output_root='root0',
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=additional_photometric_systems,
                                overwrite=overwrite,
-                               seed=seed)
+                               seed=seed,
+                               multiplicity=multiplicity)
     if not skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
                            output_root2=output_root,
@@ -908,7 +917,8 @@ def run(output_root='root0',
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
             additional_photometric_systems=additional_photometric_systems,
             overwrite=overwrite,
-            seed=seed)
+            seed=seed,
+            multiplicity=multiplicity)
 
     if not skip_calc_events:
         # Remove calc_events output if already exists and overwrite=True

@@ -105,7 +105,8 @@ all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
 ##########
 # List of all supported multiplicity classes
 ##########
-multiplicity_list = {'ResolvedDK': MultiplicityResolvedDK}
+multiplicity_list = {'None': None,
+                     'ResolvedDK': MultiplicityResolvedDK}
 
 ###########################################################################
 ############# Population synthesis and associated functions ###############

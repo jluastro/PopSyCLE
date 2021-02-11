@@ -572,6 +572,14 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     popsycle_config_filename = os.path.abspath(popsycle_config_filename)
     popsycle_config = load_config_file(popsycle_config_filename)
 
+    # Load multiplicity from popsycle_config
+    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
+    # Additional multiplicity classes may require a different method of instantiation
+    # that would require breaking this out into a separate function
+    if multiplicity is not None:
+        # These arguments ensure a maximum of triples
+        multiplicity = multiplicity(CSF_max=2, companion_max=True)
+
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
 
@@ -596,7 +604,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                additional_photometric_systems=[popsycle_config['photometric_system']],
                                overwrite=overwrite,
                                seed=seed,
-                               multiplicity=popsycle_config['multiplicity'])
+                               multiplicity=multiplicity)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,

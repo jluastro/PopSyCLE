@@ -287,6 +287,8 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         raise Exception("'galaxia_galaxy_model_filename' must be set by the user. "
                         "The default value is only an example.")
 
+    if multiplicity is None:
+        multiplicity = 'None'
     if multiplicity not in multiplicity_list:
         raise Exception('multiplicity must be None or "ResolvedDK"')
 

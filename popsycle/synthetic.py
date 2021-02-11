@@ -1888,7 +1888,7 @@ def calc_events(hdf5_file, output_root2,
     # Error handling/complaining if input types are not right.
     _check_calc_events(hdf5_file, output_root2,
                        radius_cut, obs_time, n_obs, theta_frac,
-                       blend_rad, n_proc, overwrite)
+                       blend_rad, n_proc, overwrite, hdf5_file_comp)
 
     ##########
     # Start of code

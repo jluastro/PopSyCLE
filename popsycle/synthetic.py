@@ -1611,7 +1611,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, seed=
     # changed from 0.08 to 0.1 at start because MIST can't handle.
     massLimits = np.array([0.1, 0.5, 120])
     powers = np.array([-1.3, -2.3])
-    my_ifmr = ifmr.IFMR()
+    my_ifmr = ifmr.IFMR_Raithel18()
     ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
     ratio = current_initial_ratio(logage=log_age,
                                   ratio_file=ratio_file,

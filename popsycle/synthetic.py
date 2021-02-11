@@ -106,6 +106,7 @@ all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
 # List of all supported multiplicity classes
 ##########
 multiplicity_list = {'None': None,
+                     None: None,
                      'ResolvedDK': MultiplicityResolvedDK}
 
 ###########################################################################

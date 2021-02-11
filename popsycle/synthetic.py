@@ -1732,7 +1732,7 @@ def _add_multiples(star_masses, cluster):
 
 def _check_calc_events(hdf5_file, output_root2,
                        radius_cut, obs_time, n_obs, theta_frac,
-                       blend_rad, n_proc, overwrite):
+                       blend_rad, n_proc, overwrite, hdf5_file_comp):
     """
     Checks that the inputs of calc_events are valid
 
@@ -1768,6 +1768,10 @@ def _check_calc_events(hdf5_file, output_root2,
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
+        
+    hdf5_file_comp: str
+        String of hdf5 file of companion events created in perform_pop_syn().
+        Default is None.
     """
 
     if not isinstance(hdf5_file, str):
@@ -1804,11 +1808,15 @@ def _check_calc_events(hdf5_file, output_root2,
         if not isinstance(theta_frac, float):
             raise Exception('theta_frac (%s) must be an integer or a float.' % str(theta_frac))
 
+    if not isinstance(hdf5_file_comp, str):
+        if not isinstance(hdf5_file_comp, type(None)):
+            raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
+
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
-                overwrite=False, hdf5_file_comp = None):
+                overwrite=False, hdf5_file_comp=None):
     """
     Calculate microlensing events
 
@@ -1846,6 +1854,10 @@ def calc_events(hdf5_file, output_root2,
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
+        
+    hdf5_file_comp: str
+        String of hdf5 file of companion events created in perform_pop_syn().
+        Default is None.
 
 
     Output

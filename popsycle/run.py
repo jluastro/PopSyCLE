@@ -579,6 +579,9 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     if multiplicity is not None:
         # These arguments ensure a maximum of triples
         multiplicity = multiplicity(CSF_max=2, companion_max=True)
+        hdf5_comp_file = '%s_companions.h5' % output_root
+    else:
+        hdf5_comp_file = None
 
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
@@ -614,14 +617,16 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            theta_frac=popsycle_config['theta_frac'],
                            blend_rad=popsycle_config['blend_rad'],
                            n_proc=n_cores_calc_events,
-                           overwrite=overwrite)
+                           overwrite=overwrite,
+                           hdf5_file_comp=hdf5_comp_file)
     if not skip_refine_events:
         _check_refine_events(input_root='test',
                              filter_name=popsycle_config['filter_name'],
                              photometric_system=popsycle_config['photometric_system'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
-                             output_file='default')
+                             output_file='default',
+                             hdf5_file_comp=hdf5_comp_file)
 
 
     # Make a run directory for the PopSyCLE output
@@ -853,6 +858,9 @@ def run(output_root='root0',
     if multiplicity is not None:
         # These arguments ensure a maximum of triples
         multiplicity = multiplicity(CSF_max=2, companion_max=True)
+        hdf5_comp_file = '%s_companions.h5' % output_root
+    else:
+        hdf5_comp_file = None
 
     # Check pipeline stages for valid inputs
     if not skip_galaxia:
@@ -882,14 +890,16 @@ def run(output_root='root0',
                            theta_frac=popsycle_config['theta_frac'],
                            blend_rad=popsycle_config['blend_rad'],
                            n_proc=n_cores_calc_events,
-                           overwrite=overwrite)
+                           overwrite=overwrite,
+                           hdf5_comp_file=hdf5_comp_file)
     if not skip_refine_events:
         _check_refine_events(input_root=output_root,
                              filter_name=popsycle_config['filter_name'],
                              photometric_system=popsycle_config['photometric_system'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
-                             output_file='default')
+                             output_file='default',
+                             hdf5_comp_file=hdf5_comp_file)
 
     if not skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True
@@ -953,7 +963,8 @@ def run(output_root='root0',
                               theta_frac=popsycle_config['theta_frac'],
                               blend_rad=popsycle_config['blend_rad'],
                               n_proc=n_cores_calc_events,
-                              overwrite=overwrite)
+                              overwrite=overwrite,
+                              hdf5_comp_file=hdf5_comp_file)
 
         # Write a fle to disk stating that there are no events if
         # calc_events does not produce an events file
@@ -982,7 +993,8 @@ def run(output_root='root0',
                                 photometric_system=popsycle_config['photometric_system'],
                                 red_law=popsycle_config['red_law'],
                                 overwrite=overwrite,
-                                output_file='default')
+                                output_file='default',
+                                hdf5_comp_file=hdf5_comp_file)
 
     t1 = time.time()
     print('run.py runtime : {0:f} s'.format(t1 - t0))

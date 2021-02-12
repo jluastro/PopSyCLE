@@ -1012,6 +1012,7 @@ def run(output_root='root0',
         phot_dir = '%s_bin_phot' % output_root
         synthetic.refine_binary_events(events=refined_events_filename,
                                        companions=refined_events_comp_filename,
+                                       photometric_system=popsycle_config['photometric_system'],
                                        filter_name=popsycle_config['filter_name'],
                                        overwrite=False,
                                        output_file='default', save_phot=True,

@@ -3475,8 +3475,9 @@ def _add_multiples_parameters(companion_table, event_table):
     return companion_tmp
 
 
-def refine_binary_events(events, companions, filter_name, overwrite = False,
-                        output_file = 'default', save_phot = False, phot_dir = None):
+def refine_binary_events(events, companions, photometric_system, filter_name,
+                         overwrite = False, output_file = 'default',
+                         save_phot = False, phot_dir = None):
     start_time = time.time()
     
     if not overwrite and os.path.isfile(output_file):
@@ -3545,7 +3546,7 @@ def refine_binary_events(events, companions, filter_name, overwrite = False,
         dS = event_table[event_id]['rad_S']*10**3 #Distance to source
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = (S_coords.icrs.pm_dec.value - L_coords.icrs.pm_dec.value) - comp_table[comp_idx]['phi']
-        mag_src = event_table[event_id]['ubv_%s_S' % filter_name]
+        mag_src = event_table[event_id]['%s_%s_S' % (photometric_system, filter_name)]
         b_sff = event_table[event_id]['f_blend_%s' % filter_name]
 
         psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],

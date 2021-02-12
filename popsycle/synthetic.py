@@ -3345,6 +3345,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 
     return
 
+
 def _calculate_phi(companion_table, event_table):
     """
     Calculates and adds angle between the proper motion and the binary axis (phi)
@@ -3425,6 +3426,7 @@ def _calculate_phi(companion_table, event_table):
         
     return companion_tmp
 
+
 def _add_multiples_parameters(companion_table, event_table):
     """
     Adds mass ratio, separation in mas between primary and companion,
@@ -3473,7 +3475,7 @@ def _add_multiples_parameters(companion_table, event_table):
     return companion_tmp
 
 
-def refine_binary_events(events, companions, overwrite = False,
+def refine_binary_events(events, companions, filter_name, overwrite = False,
                         output_file = 'default', save_phot = False, phot_dir = None):
     start_time = time.time()
     
@@ -3543,8 +3545,8 @@ def refine_binary_events(events, companions, overwrite = False,
         dS = event_table[event_id]['rad_S']*10**3 #Distance to source
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = (S_coords.icrs.pm_dec.value - L_coords.icrs.pm_dec.value) - comp_table[comp_idx]['phi']
-        mag_src = event_table[event_id]['ubv_I_S']
-        b_sff = event_table[event_id]['f_blend_I']
+        mag_src = event_table[event_id]['ubv_%s_S' % filter_name]
+        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
 
         psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
                                    beta, muL[0], muL[1], muS[0], muS[1], dL, dS,

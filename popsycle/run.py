@@ -1014,7 +1014,7 @@ def run(output_root='root0',
                                        companions=refined_events_comp_filename,
                                        photometric_system=popsycle_config['photometric_system'],
                                        filter_name=popsycle_config['filter_name'],
-                                       overwrite=False,
+                                       overwrite=overwrite,
                                        output_file='default', save_phot=True,
                                        phot_dir=phot_dir)
 

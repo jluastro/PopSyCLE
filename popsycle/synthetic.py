@@ -2874,6 +2874,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
     that contains all the same objects, only now with lots of extra
     columns of data.
+    
+    If hdf5_file_comp is not None then a file will be created named
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions.fits
+    that contains the same objects as a the companion file with extra columns of data.
 
     """
     # Check if .fits file exists already. If it does, throw an error message
@@ -3475,9 +3479,153 @@ def _add_multiples_parameters(companion_table, event_table):
     return companion_tmp
 
 
+############################################################################
+##### Refined binary event rate calculation and associated functions #######
+############################################################################
+
+
+def _check_refine_binary_events(events, companions, 
+                         photometric_system, filter_name,
+                         overwrite, output_file,
+                         save_phot, phot_dir):
+    """
+    Checks that the inputs of refine_binary_events are valid
+
+    events : str
+        fits file containing the events calculated from refine_events
+    
+    companions : str
+        fits file containing the companions calculated from refine_events
+    
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+    
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be:
+            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+            
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+    
+    phot_dir : str
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+    """
+
+    if not isinstance(events, str):
+        raise Exception('events (%s) must be a string.' % str(events))
+
+    if not isinstance(companions, str):
+        raise Exception('companions (%s) must be a string.' % str(companions))
+    
+    if not isinstance(photometric_system, str):
+        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+    
+    if not isinstance(filter_name, str):
+        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
+
+    if not isinstance(output_file, str):
+        raise Exception('output_file (%s) must be a string.' % str(output_file))
+
+    if not isinstance(overwrite, bool):
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+        
+    if not isinstance(save_phot, bool):
+        raise Exception('save_phot (%s) must be a boolean.' % str(save_phot))
+        
+    if not isinstance(phot_dir, str):
+        if not isinstance(phot_dir, type(None)):
+            raise Exception('phot_dir (%s) must be a string or None.' % str(phot_dir))
+
+    # Check to see that the filter name, photometric system, red_law are valid
+    if photometric_system not in photometric_system_dict:
+        exception_str = 'photometric_system must be a key in ' \
+                        'photometric_system_dict. \n' \
+                        'Acceptable values are : '
+        for photometric_system in photometric_system_dict:
+            exception_str += '%s, ' % photometric_system
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+    if filter_name not in photometric_system_dict[photometric_system]:
+        exception_str = 'filter_name must be a value in ' \
+                        'photometric_system_dict[%s]. \n' \
+                        'Acceptable values are : ' % photometric_system
+        for filter_name in photometric_system_dict[photometric_system]:
+            exception_str += '%s, ' % filter_name
+        exception_str = exception_str[:-2]
+        raise Exception(exception_str)
+
+    key = photometric_system + '_' + filter_name
+
+
 def refine_binary_events(events, companions, photometric_system, filter_name,
                          overwrite = False, output_file = 'default',
                          save_phot = False, phot_dir = None):
+    """
+    Takes the output Astropy table from refine_events (both primaries and companions) and from that
+    calculates the binary light curves.
+
+    Parameters
+    ----------
+    events : str
+        fits file containing the events calculated from refine_events
+    
+    companions : str
+        fits file containing the companions calculated from refine_events
+    
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+    
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    Optional Parameters
+    -------------------
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be:
+            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+            
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+    
+    Output:
+    ----------
+    A file will be created named
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb.fits
+    that contains all the same objects, only now with lots of extra
+    columns of data. (rb stands for refine binaries).
+    
+    A file will be created named
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb_mp.fits
+    that contains the data for each individual peak for events with multiple peaks.
+    (mp stands for multiple peaks).
+
+    """
     start_time = time.time()
     
     if not overwrite and os.path.isfile(output_file):
@@ -3486,6 +3634,12 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     if save_phot == True and phot_dir == None:
         raise Exception('phot_dir is "none". Input a directory to save photometry.')
+        
+    # Error handling/complaining if input types are not right.
+    _check_refine_binary_events(events, companions, 
+                         photometric_system, filter_name,
+                         overwrite, output_file,
+                         save_phot, phot_dir)
         
     
     event_table = Table.read(events)

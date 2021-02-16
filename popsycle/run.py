@@ -632,6 +632,22 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              overwrite=overwrite,
                              output_file='default',
                              hdf5_file_comp=hdf5_file_comp)
+    if not skip_refine_binary_events:
+        refined_events_filename = '{0:s}_refined_events_' \
+                              '{1:s}_{2:s}_{3:s}.' \
+                              'fits'.format(output_root,
+                                            popsycle_config['photometric_system'],
+                                            popsycle_config['filter_name'],
+                                            popsycle_config['red_law'])
+        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        phot_dir = '%s_bin_phot' % output_root
+        _check_refine_binary_events(events=refined_events_filename,
+                                       companions=refined_events_comp_filename,
+                                       photometric_system=popsycle_config['photometric_system'],
+                                       filter_name=popsycle_config['filter_name'],
+                                       overwrite=overwrite,
+                                       output_file='default', save_phot=True,
+                                       phot_dir=phot_dir)
 
 
     # Make a run directory for the PopSyCLE output

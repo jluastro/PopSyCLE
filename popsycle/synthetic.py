@@ -2113,6 +2113,8 @@ def calc_events(hdf5_file, output_root2,
     line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
     line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
     line8 = 'n_proc , ' + str(n_proc) + '\n'
+    if hdf5_file_comp is not None:
+        line8 += 'hdf5_file_comp , %s \n' % hdf5_file_comp
 
     line9 = 'VERSION INFORMATION' + '\n'
     line10 = str(now) + ' : creation date' + '\n'
@@ -2209,7 +2211,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
             bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
             rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
-
 
             a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
 

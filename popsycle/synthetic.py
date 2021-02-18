@@ -1742,78 +1742,81 @@ def _add_multiples_v2(star_masses, cluster):
         Deleted companions of compact objects and with primary masses too large.
 
     """
+    # extract the sorted mass array and sorted indicies
     star_mass_indicies = np.argsort(star_masses)
     star_mass_sort = np.array(star_masses)[star_mass_indicies]
 
+    # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
     cluster_ss['index'] = np.arange(len(cluster_ss))
 
+    # cut down table to only multiples
     cond_multiple = cluster_ss['isMultiple'] == True
     cluster_ss = cluster_ss[cond_multiple]
 
+    # cut down table to only stellar primaries
     cond_phase = cluster_ss['phase'] > 100
-    companion_indicies_arr = []
     for index in cluster_ss['index'][cond_phase]:
         companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
         cluster.companions.remove_rows(companion_indicies)
-        companion_indicies_arr.append((index, companion_indicies))
-
     cluster_ss = cluster_ss[~cond_phase]
 
-    # prepare initial KDTree of Galaxia masses
-    star_mass = np.expand_dims(star_mass_sort, axis=1)
-    mass_tree = cKDTree(star_mass)
-
-    # search the tree with SPISEA masses for the nearest match
-    cluster_search_mass = np.expand_dims(cluster_ss['mass'], axis=1)
-    k = 1
-    _, closest_index_arr = mass_tree.query(cluster_search_mass, k=k)
-    print('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
-
-    # Find the number of matches that are duplicates
-    _, indexes, counts = np.unique(closest_index_arr,
-                                   return_index=True,
-                                   return_counts=True)
-    cond = counts > 1
-    print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
-    nonunique_indexes = indexes[cond]
-
-    # While there are duplicates...
-    while np.sum(cond) > 0:
-        # Increase the search to one neighbor further away and
-        # only search on those masses that were duplicates
-        k += 1
-        _, next_closest_index_arr = mass_tree.query(cluster_search_mass[nonunique_indexes], k=k)
-
-        # Extract the furthest neighbor
-        next_closest_index_arr = [i[-1] for i in next_closest_index_arr]
-
-        # Assign that value to the duplicates in the closest_index_arr
-        closest_index_arr[nonunique_indexes] = next_closest_index_arr
-
-        # Count the number of duplicates that remain
-        _, indexes, counts = np.unique(closest_index_arr,
-                                       return_index=True,
-                                       return_counts=True)
-        cond = counts > 1
-        print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
-        nonunique_indexes = indexes[cond]
-
-    cond_too_massive = closest_index_arr >= len(star_mass_sort) - 1
+    # ALL SPISEA SYSTEMS THAT ARE MORE MASSIVE THAN THE MOST MASSIVE GALAXIA
+    # SYSTEM ARE DROPPED!!!!!!!!! (0-2% of systems)
+    cond_too_massive = cluster_ss['mass'] > np.max(star_mass_sort)
     too_big = np.sum(cond_too_massive)
     for index in cluster_ss['index'][cond_too_massive]:
         companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
         cluster.companions.remove_rows(companion_indicies)
 
-    cluster_ss = cluster_ss[~cond_too_massive]
-    closest_index_arr = closest_index_arr[~cond_too_massive]
+    # prepare KDTree of Galaxia masses for mass matching
+    star_mass_sort_tree = np.expand_dims(star_mass_sort, axis=1)
+    galaxia_mass_tree = cKDTree(star_mass_sort_tree)
 
+    # search the tree with SPISEA masses for their nearest match
+    cluster_search_mass = np.expand_dims(cluster_ss['mass'], axis=1)
+    k = 1
+    _, closest_index_arr = galaxia_mass_tree.query(cluster_search_mass, k=k)
+    print('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
+
+    # find the number of matches that are duplicates
+    _, indexes, counts = np.unique(closest_index_arr,
+                                   return_index=True,
+                                   return_counts=True)
+    cond = counts > 1
+    print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+
+    # grab indicies where the first duplicate is located
+    nonunique_indicies = indexes[cond]
+
+    # while there are duplicates...
+    while np.sum(cond) > 0:
+        # increase the search to one neighbor further away and
+        # only search on those masses that were duplicates
+        k += 1
+        _, next_closest_index_arr = galaxia_mass_tree.query(cluster_search_mass[nonunique_indicies], k=k)
+
+        # extract the neighbor that is furthest away within k-neighbors
+        next_closest_index_arr = [i[-1] for i in next_closest_index_arr]
+
+        # assign that value to the duplicates in the closest_index_arr
+        closest_index_arr[nonunique_indicies] = next_closest_index_arr
+
+        # count the number of duplicates that remain
+        _, indexes, counts = np.unique(closest_index_arr,
+                                       return_index=True,
+                                       return_counts=True)
+        cond = counts > 1
+        print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+        nonunique_indicies = indexes[cond]
+
+    # loop through each of the SPISEA cluster and match them to a galaxia star
     for ii, index in enumerate(cluster_ss['index']):
         closest_index = closest_index_arr[ii]
         star_mass_index = star_mass_indicies[closest_index]
         companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
 
-        # Points companions to nearest-in-mass Galaxia primary to SPISEA primary
+        # points companions to nearest-in-mass Galaxia primary to SPISEA primary
         for jj in companion_indicies:
             cluster.companions[jj]['system_idx'] = star_mass_index
 

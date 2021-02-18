@@ -1779,7 +1779,7 @@ def _add_multiples_v2(star_masses, cluster):
     nonunique_indexes = indexes[cond]
 
     # While there are duplicates...
-    while np.sum(cond) > 1:
+    while np.sum(cond) > 0:
         # Increase the search to one neighbor further away and
         # only search on those masses that were duplicates
         k += 1

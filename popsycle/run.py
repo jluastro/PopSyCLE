@@ -17,6 +17,7 @@ from popsycle.synthetic import _check_run_galaxia
 from popsycle.synthetic import _check_perform_pop_syn
 from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
+from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
 
 
@@ -642,12 +643,12 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
         _check_refine_binary_events(events=refined_events_filename,
-                                       companions=refined_events_comp_filename,
-                                       photometric_system=popsycle_config['photometric_system'],
-                                       filter_name=popsycle_config['filter_name'],
-                                       overwrite=overwrite,
-                                       output_file='default', save_phot=True,
-                                       phot_dir=phot_dir)
+                                    companions=refined_events_comp_filename,
+                                    photometric_system=popsycle_config['photometric_system'],
+                                    filter_name=popsycle_config['filter_name'],
+                                    overwrite=overwrite,
+                                    output_file='default', save_phot=True,
+                                    phot_dir=phot_dir)
 
 
     # Make a run directory for the PopSyCLE output
@@ -1024,6 +1025,14 @@ def run(output_root='root0',
                                 hdf5_file_comp=hdf5_file_comp)
 
     if multiplicity is not None and not skip_refine_binary_events:
+        if not os.path.exists(refined_events_filename):
+            print('Refined events %s missing and therefore '
+                  'cannot run refine_binary_events. Skipping...'
+                  % refined_events_filename)
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+
         refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
         synthetic.refine_binary_events(events=refined_events_filename,

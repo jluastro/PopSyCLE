@@ -900,8 +900,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
                             # Reset the companion system_idx to be the correct obj_id
                             compact_companions['system_idx'] = comp_dict['obj_id'][co_idx_for_dup_sys_table]
-                            
-                        
+
                         companions_table = _add_multiples_v2(star_masses=star_dict['mass'], cluster=cluster_tmp)
                         if companions_table:
                             star_dict['systemMass'][companions_table['system_idx']] += companions_table['mass']
@@ -922,8 +921,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                                      stars_in_bin, output_root + '_companions', 
                                      companion_obj_arr = companions_table)
-                            
-                              
+
                 del cluster_tmp
                 ##########
                 #  Bin in l, b all stars and compact objects.
@@ -1742,10 +1740,6 @@ def _add_multiples_v2(star_masses, cluster):
         Deleted companions of compact objects and with primary masses too large.
 
     """
-    # extract the sorted mass array and sorted indicies
-    star_mass_indicies = np.argsort(star_masses)
-    star_mass_sort = np.array(star_masses)[star_mass_indicies]
-
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
     cluster_ss['index'] = np.arange(len(cluster_ss))
@@ -1763,16 +1757,19 @@ def _add_multiples_v2(star_masses, cluster):
 
     # ALL SPISEA SYSTEMS THAT ARE MORE MASSIVE THAN THE MOST MASSIVE GALAXIA
     # SYSTEM ARE DROPPED!!!!!!!!! (0-2% of systems)
-    cond_too_massive = cluster_ss['mass'] > np.max(star_mass_sort)
+    cond_too_massive = cluster_ss['mass'] > np.max(star_masses)
     too_big = np.sum(cond_too_massive)
     for index in cluster_ss['index'][cond_too_massive]:
         companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
         cluster.companions.remove_rows(companion_indicies)
     cluster_ss = cluster_ss[~cond_too_massive]
 
+    # Place new system_idx into temporary column initiated with NaN
+    cluster.companions['system_idx_tmp'] = np.nan
+
     # prepare KDTree of Galaxia masses for mass matching
-    star_mass_sort_tree = np.expand_dims(star_mass_sort, axis=1)
-    galaxia_mass_tree = cKDTree(star_mass_sort_tree)
+    star_mass_tree = np.expand_dims(star_masses, axis=1)
+    galaxia_mass_tree = cKDTree(star_mass_tree)
 
     # search the tree with SPISEA masses for their nearest match
     cluster_search_mass = np.expand_dims(cluster_ss['mass'], axis=1)
@@ -1817,12 +1814,16 @@ def _add_multiples_v2(star_masses, cluster):
     # loop through each of the SPISEA cluster and match them to a galaxia star
     for ii, index in enumerate(cluster_ss['index']):
         closest_index = closest_index_arr[ii]
-        star_mass_index = star_mass_indicies[closest_index]
         companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
-
         # points companions to nearest-in-mass Galaxia primary to SPISEA primary
         for jj in companion_indicies:
-            cluster.companions[jj]['system_idx'] = star_mass_index
+            cluster.companions[jj]['system_idx_tmp'] = closest_index
+
+    # confirm all compnions were assigned to a popsycle primary
+    assert np.sum(np.isnan(cluster.companions['system_idx_tmp'])) == 0
+    cluster.companions['system_idx'] = cluster.companions['system_idx_tmp']
+    del cluster.companions['system_idx_tmp']
+    del cluster.star_systems['index']
 
     modified_companions = cluster.companions
     if modified_companions is None:

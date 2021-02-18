@@ -851,10 +851,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict['vr'] = utils.add_precision64(vr, -4)
                 star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
                 star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
-                
-                
-                            
-                
+
                 ##########
                 # Perform population synthesis.
                 ##########
@@ -905,7 +902,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             compact_companions['system_idx'] = comp_dict['obj_id'][co_idx_for_dup_sys_table]
                             
                         
-                        companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster_tmp)
+                        companions_table = _add_multiples_v2(star_masses=star_dict['mass'], cluster=cluster_tmp)
                         if companions_table:
                             star_dict['systemMass'][companions_table['system_idx']] += companions_table['mass']
                             star_dict['isMultiple'][companions_table['system_idx']] = 1
@@ -1656,6 +1653,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, seed=
                                             seed=seed)
     return cluster 
 
+
 def _add_multiples(star_masses, cluster):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
@@ -1723,7 +1721,111 @@ def _add_multiples(star_masses, cluster):
     
     return modified_companions
 
- 
+
+def _add_multiples_v2(star_masses, cluster):
+    """
+    Modifies companion table of cluster object to point to Galaxia stars.
+    Effectively adds multiple systems with stellar primaries.
+
+    Parameters
+    ----------
+    star_masses : list
+        Galaxia star mass column form the star_dict.
+
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    Returns
+    -------
+    modified_companions : astropy table
+        cluster companion table modified to point at Galaxia stars.
+        Deleted companions of compact objects and with primary masses too large.
+
+    """
+    star_mass_indicies = np.argsort(star_masses)
+    star_mass_sort = np.array(star_masses)[star_mass_indicies]
+
+    cluster_ss = cluster.star_systems
+    cluster_ss['index'] = np.arange(len(cluster_ss))
+
+    cond_multiple = cluster_ss['isMultiple'] == True
+    cluster_ss = cluster_ss[cond_multiple]
+
+    cond_phase = cluster_ss['phase'] > 100
+    companion_indicies_arr = []
+    for index in cluster_ss['index'][cond_phase]:
+        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
+        cluster.companions.remove_rows(companion_indicies)
+        companion_indicies_arr.append((index, companion_indicies))
+
+    cluster_ss = cluster_ss[~cond_phase]
+
+    # prepare initial KDTree of Galaxia masses
+    star_mass = np.expand_dims(star_mass_sort, axis=1)
+    mass_tree = cKDTree(star_mass)
+
+    # search the tree with SPISEA masses for the nearest match
+    cluster_search_mass = np.expand_dims(cluster_ss['mass'], axis=1)
+    k = 1
+    _, closest_index_arr = mass_tree.query(cluster_search_mass, k=k)
+    print('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
+
+    # Find the number of matches that are duplicates
+    _, indexes, counts = np.unique(closest_index_arr,
+                                   return_index=True,
+                                   return_counts=True)
+    cond = counts > 1
+    print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+    nonunique_indexes = indexes[cond]
+
+    # While there are duplicates...
+    while np.sum(cond) > 1:
+        # Increase the search to one neighbor further away and
+        # only search on those masses that were duplicates
+        k += 1
+        _, next_closest_index_arr = mass_tree.query(cluster_search_mass[nonunique_indexes], k=k)
+
+        # Extract the furthest neighbor
+        next_closest_index_arr = [i[-1] for i in next_closest_index_arr]
+
+        # Assign that value to the duplicates in the closest_index_arr
+        closest_index_arr[nonunique_indexes] = next_closest_index_arr
+
+        # Count the number of duplicates that remain
+        _, indexes, counts = np.unique(closest_index_arr,
+                                       return_index=True,
+                                       return_counts=True)
+        cond = counts > 1
+        print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+        nonunique_indexes = indexes[cond]
+
+    cond_too_massive = closest_index_arr >= len(star_mass_sort) - 1
+    too_big = np.sum(cond_too_massive)
+    for index in cluster_ss['index'][cond_too_massive]:
+        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
+        cluster.companions.remove_rows(companion_indicies)
+
+    cluster_ss = cluster_ss[~cond_too_massive]
+    closest_index_arr = closest_index_arr[~cond_too_massive]
+
+    for ii, index in enumerate(cluster_ss['index']):
+        closest_index = closest_index_arr[ii]
+        star_mass_index = star_mass_indicies[closest_index]
+        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
+
+        # Points companions to nearest-in-mass Galaxia primary to SPISEA primary
+        for jj in companion_indicies:
+            cluster.companions[jj]['system_idx'] = star_mass_index
+
+    modified_companions = cluster.companions
+    if modified_companions is None:
+        return None
+
+    num_companions = len(cluster.companions)
+    print("Total companions, too big, too big fraction:", num_companions,
+          too_big, too_big / num_companions)
+
+    return modified_companions
     
 
 ############################################################################
@@ -3484,10 +3586,10 @@ def _add_multiples_parameters(companion_table, event_table):
 ############################################################################
 
 
-def _check_refine_binary_events(events, companions, 
-                         photometric_system, filter_name,
-                         overwrite, output_file,
-                         save_phot, phot_dir):
+def _check_refine_binary_events(events, companions,
+                                photometric_system, filter_name,
+                                overwrite, output_file,
+                                save_phot, phot_dir):
     """
     Checks that the inputs of refine_binary_events are valid
 
@@ -3565,8 +3667,6 @@ def _check_refine_binary_events(events, companions,
             exception_str += '%s, ' % filter_name
         exception_str = exception_str[:-2]
         raise Exception(exception_str)
-
-    key = photometric_system + '_' + filter_name
 
 
 def refine_binary_events(events, companions, photometric_system, filter_name,
@@ -3870,9 +3970,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                         line8, dash_line, line9, line10, empty_line,
                         line11, dash_line, line12, line13, line14])
 
-    print('refine_events runtime : {0:f} s'.format(end_time - start_time))
-        
-    
+    print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
 

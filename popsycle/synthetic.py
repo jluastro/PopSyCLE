@@ -901,7 +901,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             # Reset the companion system_idx to be the correct obj_id
                             compact_companions['system_idx'] = comp_dict['obj_id'][co_idx_for_dup_sys_table]
 
-                        companions_table = _add_multiples_v2(star_masses=star_dict['mass'], cluster=cluster_tmp)
+                        companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster_tmp)
                         if companions_table:
                             star_dict['systemMass'][companions_table['system_idx']] += companions_table['mass']
                             star_dict['isMultiple'][companions_table['system_idx']] = 1
@@ -1649,78 +1649,10 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, seed=
         cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             initialClusterMass, ifmr=my_ifmr,
                                             seed=seed)
-    return cluster 
+    return cluster
 
 
 def _add_multiples(star_masses, cluster):
-    """
-    Modifies companion table of cluster object to point to Galaxia stars.
-    Effectively adds multiple systems with stellar primaries.
-
-    Parameters
-    ----------
-    star_masses : list
-        Galaxia star mass column form the star_dict.
-    
-    cluster : object
-        Resolved cluster object from SPISEA.
-
-    Returns
-    -------
-    modified_companions : astropy table
-        cluster companion table modified to point at Galaxia stars.
-        Deleted companions of compact objects and with primary masses too large.
-
-    """
-    cluster_ss = cluster.star_systems
-    
-    modified_companions = None
-        
-    star_mass_indicies = zip(star_masses, list(range(len(star_masses))))
-    star_mass_sort_wIndicies = sorted(star_mass_indicies, key = lambda x: x[0])
-    star_mass_sort = [i[0] for i in star_mass_sort_wIndicies]
-        
-    too_big = 0
-    for ii in range(len(cluster_ss)):
-        if cluster_ss[ii]['isMultiple'] == True:     
-            companion_indicies = np.where(cluster.companions['system_idx'] == ii)[0]
-            
-            # Remove systems with compact primaries
-            if cluster_ss[ii]['phase'] > 100:
-                cluster.companions.remove_rows(companion_indicies)
-                continue
-                
-            closest_index = np.searchsorted(star_mass_sort, cluster_ss[ii]['mass'], side = 'left')
-            if closest_index <= len(star_mass_sort) - 2:
-                # Defaults to object on left, so checks if right is closer
-                if np.abs(star_mass_sort[closest_index] - cluster_ss[ii]['mass']) > np.abs(star_mass_sort[closest_index + 1] - cluster_ss[ii]['mass']):
-                    closest_index += 1
-                    
-            # ALL SPISEA SYSTEMS THAT ARE MORE MASSIVE THAN THE MOST MASSIVE GALAXIA
-            # SYSTEM ARE DROPPED!!!!!!!!! (0-2% of systems)
-            if closest_index >= len(star_mass_sort) - 1:
-                too_big += 1
-                cluster.companions.remove_rows(companion_indicies)
-                continue 
-                          
-            # Points companions to nearest-in-mass Galaxia primary to SPISEA primary
-            for jj in companion_indicies:
-                cluster.companions[jj]['system_idx'] = star_mass_sort_wIndicies[closest_index][1]
-              
-            # Deletes closest Galaxia star so there's no overlap between the SPISEA ones
-            star_mass_sort.pop(closest_index)
-            star_mass_sort_wIndicies.pop(closest_index)
-            
-    modified_companions = cluster.companions
-    if modified_companions == None:
-        return None
-      
-    print("Total companions, too big, too big fraction:", len(modified_companions), too_big, too_big/len(modified_companions))
-    
-    return modified_companions
-
-
-def _add_multiples_v2(star_masses, cluster):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.

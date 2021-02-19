@@ -1753,6 +1753,7 @@ def _add_multiples(star_masses, cluster):
 
     # confirm all compnions were assigned to a popsycle primary
     assert np.sum(np.isnan(cluster.companions['system_idx_tmp'])) == 0
+    assert len(set(cluster.companions['system_idx_tmp'])) == len(cluster_search_mass)
     cluster.companions['system_idx'] = cluster.companions['system_idx_tmp']
     del cluster.companions['system_idx_tmp']
     del cluster.star_systems['index']

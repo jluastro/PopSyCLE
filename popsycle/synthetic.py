@@ -2686,7 +2686,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Grab the obs_time from the calc_events log
     with open(calc_events_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'obs_time' in line:
+            if 'obs_time' in line.split(',')[0]:
                 obs_time = line.split(',')[1]
                 obs_time = float(obs_time)
                 break
@@ -2694,15 +2694,15 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Grab the random seed from the galaxia param file
     with open(galaxia_params_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'seed' in line:
-                gal_seed = line.split(' ')[1].replace('\n', '')
+            if 'seed' in line.split()[0]:
+                gal_seed = line.split()[1].replace('\n', '')
                 gal_seed = int(gal_seed)
                 break
 
     # Grab the random seed from the perform_pop_syn log
     with open(perform_pop_syn_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'seed' in line:
+            if 'seed' in line.split(',')[0]:
                 pps_seed = line.split(',')[1].replace('\n', '')
                 try:
                     pps_seed = int(pps_seed)

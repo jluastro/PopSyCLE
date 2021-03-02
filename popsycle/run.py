@@ -813,7 +813,9 @@ def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'tx
     -------
     None
     """
-    print('Executing "tar_run_results" in CURRENT directory...')
+    extensions = ' '.join(extension_list)
+    print(f'Executing "tar_run_results" in CURRENT directory '
+          f'for extensions: {extensions}...')
     folders = glob.glob('*')
     folders.sort()
     print('-- %i folders gathered' % len(folders))

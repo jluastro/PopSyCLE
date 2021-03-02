@@ -3057,6 +3057,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     companion_table = rfn.append_fields(companion_table, 'prim_type', Empty.decode("utf-8") , usemask = False, dtypes='<U1')
             
                 patch_comp = hf_comp[ii]
+                if len(patch_comp) > 0:
+                    continue
         
                 for event in event_tab:
                     # Fetches companions of lenses and sources respectively

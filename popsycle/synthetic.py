@@ -3809,7 +3809,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                 split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
                 start_idx = end_idx
         split_data.append([dt[start_idx:], phot[start_idx:]])
-        split_data = np.array(split_data, type='object')
+        split_data = np.array(split_data, dtype='object')
         
         highest_peak = np.argmin(phot[peaks])
         

@@ -870,19 +870,25 @@ def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'tx
         if include_bin_phot:
             fis += glob.glob(f'{folder}/*bin_phot*/*')
 
+    tar_files_fname = 'tar_files.txt'
+    with open(tar_files_fname, 'w') as f:
+        for fi in fis:
+            fi.write('%s\n' % fi)
+
     print('-- %i files gathered' % len(fis))
-    fis_str = ' '.join(fis)
     if output_prefix is not None:
         output_fname = f'{output_prefix}_runs.tar'
     else:
         output_fname = 'runs.tar'
-    cmd = f'tar -cvf {output_fname} {fis_str}'
+    cmd = f'tar -cvf {output_fname} -T {tar_files_fname}'
     print('-- executing tarball creation')
     stdout, stderr = utils.execute(cmd)
     print('-- STDOUT --')
     print(stdout)
     print('-- STDERR --')
     print(stderr)
+
+    os.remove(tar_files_fname)
 
 
 def run(output_root='root0',

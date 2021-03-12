@@ -873,7 +873,7 @@ def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'tx
     tar_files_fname = 'tar_files.txt'
     with open(tar_files_fname, 'w') as f:
         for fi in fis:
-            fi.write('%s\n' % fi)
+            f.write('%s\n' % fi)
 
     print('-- %i files gathered' % len(fis))
     if output_prefix is not None:

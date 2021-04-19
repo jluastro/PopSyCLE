@@ -1,4 +1,4 @@
- PopSyCLE
+PopSyCLE
 --------
 
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat

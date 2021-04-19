@@ -2971,7 +2971,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Grab the obs_time from the calc_events log
     with open(calc_events_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'obs_time' in line:
+            if 'obs_time' in line.split(',')[0]:
                 obs_time = line.split(',')[1]
                 obs_time = float(obs_time)
                 break
@@ -2987,7 +2987,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Grab the random seed from the perform_pop_syn log
     with open(perform_pop_syn_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'seed' in line.split(',')[0]:
+            if 'seed ' == line.split(',')[0]:
                 pps_seed = line.split(',')[1].replace('\n', '')
                 try:
                     pps_seed = int(pps_seed)
@@ -3057,6 +3057,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     companion_table = rfn.append_fields(companion_table, 'prim_type', Empty.decode("utf-8") , usemask = False, dtypes='<U1')
             
                 patch_comp = hf_comp[ii]
+                if len(patch_comp) == 0:
+                    continue
         
                 for event in event_tab:
                     # Fetches companions of lenses and sources respectively
@@ -3805,7 +3807,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                 split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
                 start_idx = end_idx
         split_data.append([dt[start_idx:], phot[start_idx:]])
-        split_data = np.array(split_data)
+        split_data = np.array(split_data, dtype='object')
         
         highest_peak = np.argmin(phot[peaks])
         

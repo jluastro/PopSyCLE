@@ -2979,7 +2979,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Grab the random seed from the galaxia param file
     with open(galaxia_params_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'seed' in line:
+            if 'seed' == line.split(' ')[0]:
                 gal_seed = line.split(' ')[1].replace('\n', '')
                 gal_seed = int(gal_seed)
                 break
@@ -2987,7 +2987,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Grab the random seed from the perform_pop_syn log
     with open(perform_pop_syn_log_file, 'r') as my_file:
         for num, line in enumerate(my_file):
-            if 'seed' in line:
+            if 'seed' in line.split(',')[0]:
                 pps_seed = line.split(',')[1].replace('\n', '')
                 try:
                     pps_seed = int(pps_seed)
@@ -3755,11 +3755,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         # Calculate the photometry 
         duration=1000 # days
         time_steps=5000
-        tmin = psbl.t0 - ((duration / 2.0) * psbl.tE)
-        tmax = psbl.t0 + ((duration / 2.0) * psbl.tE)
+        tmin = psbl.t0 - (duration / 2.0)
+        tmax = psbl.t0 + (duration / 2.0)
         dt = np.linspace(tmin, tmax, time_steps)
         
-
         img, amp = psbl.get_all_arrays(dt)
         phot = psbl.get_photometry(dt, amp_arr=amp)
         
@@ -3780,7 +3779,6 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                 
         if len(peaks) == 0:            
             continue
-        
         
         comp_table[comp_idx]['n_peaks'] = len(peaks)
         comp_table[comp_idx]['primary_t'] = dt[peaks][np.argmin(phot[peaks])]

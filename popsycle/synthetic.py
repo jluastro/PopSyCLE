@@ -3228,6 +3228,9 @@ def calc_closest_approach(event_tab, survey_duration):
 def calc_distance(event_tab, time):
     """
     Calculate the separation of two different objects at some given time.
+    With sign convention from Gould 2004:
+        u0 > 0 then the source is to the east of the lens
+        u0 < 0 then the source is to the west of the lens
 
     Parameters
     ----------
@@ -3254,8 +3257,18 @@ def calc_distance(event_tab, time):
 
     sep = (c_L.separation(c_S)).mas
     u = sep / event_tab['theta_E']
+     
+    # Comment on sign conventions:
+    # if u0_E > 0 then the source is to the East of the lens
+    # if u0_E < 0 then the source is to the West of the lens
+    # We adopt the following sign convention (same as Gould:2004):
+    #    u0_amp > 0 means u0_E > 0
+    #    u0_amp < 0 means u0_E < 0
+    # Note that we assume beta = u0_amp (with same signs).
 
-    return u
+    sign = np.sign(c_S.icrs.ra - c_L.icrs.ra)
+    
+    return sign*u
 
 
 def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system='ubv'):

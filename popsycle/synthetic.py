@@ -60,6 +60,7 @@ _Mclust_v_age_func = None
 IFMR_dict = {}
 IFMR_dict['Raithel18'] = ifmr.IFMR_Raithel18()
 IFMR_dict['Spera15'] = ifmr.IFMR_Spera15()
+IFMR_dict['SukhboldN20'] = ifmr.IFMR_N20_Sukhbold()
 ##########
 
 ##########
@@ -395,6 +396,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         in SPISEA. 
         'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
 
     bin_edges_number : int
         Number of edges for the bins
@@ -524,6 +526,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         in SPISEA. 
         'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
 
     Optional Parameters
     -------------------
@@ -738,8 +741,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 feh_bins = [-99, 99]
                 feh_vals = [0.0]
                 
-            elif IFMR == 'Spera15':
-                # Break into 4 hardcoded metallicity bins for Spera15
+            elif IFMR == 'Spera15' or 'SukhboldN20':
+                # Break into 4 hardcoded metallicity bins for Spera15 and SukhboldN20
                 # By starting at -99 and ending at 99 we will capture all possible metallicty values, but the true distribution is much narrower
                 feh_bins = [-99, -1.279, -0.500, 0.00, 99]
                 feh_vals = [-1.39, -0.89, -0.25, 0.30]
@@ -1141,6 +1144,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
         in SPISEA. 
         'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
 
     log_age : float
         log(age/yr) of the cluster you want to make, rounds to nearest 0.01

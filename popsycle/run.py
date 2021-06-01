@@ -235,6 +235,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         in SPISEA.
         'Raithel18' = IFMR_Raithel18
         'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
 
     galaxia_galaxy_model_filename : str
         Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia

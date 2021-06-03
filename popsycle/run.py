@@ -424,7 +424,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           n_cores_calc_events,
                           walltime, jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
-                          returnJobID=False, dependencyJobID=None,
+                          returnJobID=True, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False):
     """
@@ -495,7 +495,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         function will return the SLURM job id after script submission.
         If False or submitFlag is False,
         function will return None.
-        Default is False
+        Default is True
 
     dependencyJobID : int
         If non-None and submitFlag is True, submitted job will only run
@@ -763,12 +763,13 @@ exit $exitcode
         print('')
         os.chdir(cwd)
 
-        try:
-            slurm_jobid = int(stdout.replace('\n','').split('job')[1])
-        except Exception as e:
-            slurm_jobid = None
+        if returnJobID:
+            try:
+                slurm_jobid = int(stdout.replace('\n','').split('job')[1])
+            except Exception as e:
+                slurm_jobid = None
 
-    return slurm_jobid
+            return slurm_jobid
 
 
 def run(output_root='root0',

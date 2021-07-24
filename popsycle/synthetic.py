@@ -3103,7 +3103,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
             
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
-            companion_table = _calculate_phi(companion_table, event_tab)
+            companion_table = _calculate_binary_angles(companion_table, event_tab)
         
             companion_table = Table(companion_table)
             
@@ -3398,7 +3398,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     event_tab[photometric_system + '_' + filter_name + '_app_LSN'] = app_LSN
 
     # Bump amplitude (in magnitudes)
-    delta_m = calc_bump_amp(event_tab['u0'], flux_S, flux_L, flux_N)
+    delta_m = calc_bump_amp(np.abs(event_tab['u0']), flux_S, flux_L, flux_N)
     event_tab['delta_m_' + filter_name] = delta_m
 
     # Calculate the blend fraction
@@ -3409,10 +3409,13 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     return
 
 
-def _calculate_phi(companion_table, event_table):
+def _calculate_binary_angles(companion_table, event_table):
     """
-    Calculates and adds angle between the proper motion and the binary axis (phi)
-    to companions array. Binary parameters established in a galactic spherical coordinate systems.
+    Calculates and adds the following angles to the companion array:
+    - alpha: angle between North and binary axis (East of North)
+    - phi_pi_E: angle between North and proper motion vector (East of North)
+    - phi: angle between the proper motion and the binary axis
+    Binary parameters established in a galactic spherical coordinate systems.
     Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
     
     Parameters
@@ -3426,15 +3429,19 @@ def _calculate_phi(companion_table, event_table):
     Returns
     -------
     companion_tmp : array
-        Companions array modified to include phi.
+        Companions array modified to include alpha, phi_pi_E, phi.
     
     
     """
     companion_tmp = copy.deepcopy(companion_table)
     
     zeros = np.zeros(len(companion_tmp))
+    companion_tmp = rfn.append_fields(companion_tmp, 'alpha', zeros, usemask = False)
+    companion_tmp = rfn.append_fields(companion_tmp, 'phi_pi_E', zeros, usemask = False)
     companion_tmp = rfn.append_fields(companion_tmp, 'phi', zeros, usemask = False)
         
+    delta_mu_racosdec = []
+    delta_mu_dec = []
     for ii in range(len(companion_tmp)):
         event_id = (np.where(np.logical_and((event_table['obj_id_L'] == companion_tmp[ii]['obj_id_L']), (event_table['obj_id_S'] == companion_tmp[ii]['obj_id_S'])))[0])
         
@@ -3460,31 +3467,80 @@ def _calculate_phi(companion_table, event_table):
         
         r_mas = (np.arcsin(r_kpc[0:2]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id])*unit.radian).to('mas').value
         
-        # Change in b and lcosb from companion pointing to companion
-        delta_lcosb = r_mas[0]
-        delta_b = r_mas[1]
+        # Change in b and lcosb from companion to the primary pointing to companion (assuming primary at 0,0)
+        deltaz_lcosb = r_mas[0]
+        deltaz_b = r_mas[1]
+        deltaz_l = deltaz_lcosb/np.cos(deltaz_b) #Need to find the spherical l instead of projected for SkyCoord
+        
+        #b and l of primary
+        z1_b = event_table['glat_L'][event_id]*unit.degree
+        z1_l = event_table['glon_L'][event_id]*unit.degree
+        
+        #add positions of the primary to the deltas to find b and l of companion
+        z2_b = deltaz_b*unit.mas + z1_b.to('mas')
+        z2_l = deltaz_l*unit.mas + z1_l.to('mas')
+        
+        #b and l of source
+        source_b = event_table['glat_S'][event_id]*unit.degree
+        source_l = event_table['glon_S'][event_id]*unit.degree
+        
+        #SkyCoord objects for the primary, companion, and source
+        coord_object_z1 = SkyCoord(l = z1_l, b = z1_b, pm_l_cosb = event_table['mu_lcosb_L'][event_id]*unit.mas/unit.year, pm_b = event_table['mu_b_L'][event_id]*unit.mas/unit.year, frame ='galactic')
+        
+        coord_object_z2 = SkyCoord(l = z2_l, b = z2_b, pm_l_cosb = event_table['mu_lcosb_L'][event_id]*unit.mas/unit.year, pm_b = event_table['mu_b_L'][event_id]*unit.mas/unit.year, frame ='galactic')
+        
+        coord_object_source = SkyCoord(l = source_l, b = source_b, pm_l_cosb = event_table['mu_lcosb_S'][event_id]*unit.mas/unit.year, pm_b = event_table['mu_b_S'][event_id]*unit.mas/unit.year, frame ='galactic')
+        
+        #ra and dec of primary, find racosdec to find projected coords
+        z1_ra = coord_object_z1.icrs.ra.value
+        z1_dec = coord_object_z1.icrs.dec.value
+        z1_racosdec = z1_ra*np.cos(z1_dec)
+        
+        #ra and dec of companion, find racosdec to find projected coords
+        z2_ra = coord_object_z2.icrs.ra.value
+        z2_dec = coord_object_z2.icrs.dec.value
+        z2_racosdec = z2_ra*np.cos(z2_dec)
+        
+        #Find change in dec and racosdec companion - primary (so vector is pointed at companion)
+        deltaz_dec = z2_dec - z1_dec
+        deltaz_racosdec = z2_racosdec - z1_racosdec
+        
+        #Proper motions of the primary, comanion, and source in racosdec and dec
+        mu_racosdec_z1 = coord_object_z1.icrs.pm_ra_cosdec.value
+        mu_dec_z1 = coord_object_z1.icrs.pm_dec.value
+        
+        mu_racosdec_z2 = coord_object_z2.icrs.pm_ra_cosdec.value
+        mu_dec_z2 = coord_object_z2.icrs.pm_dec.value
+        
+        mu_racosdec_source = coord_object_source.icrs.pm_ra_cosdec.value
+        mu_dec_source = coord_object_source.icrs.pm_dec.value
+        
+        #Relative proper motion between the primary and companion
+        delta_mu_racosdec.append(np.abs(mu_racosdec_z1 - mu_racosdec_z2))
+        delta_mu_dec.append(np.abs(mu_dec_z1 - mu_dec_z2))
+        
+        if np.abs(mu_racosdec_z1 - mu_racosdec_z2) > 0.01 or np.abs(mu_dec_z1 - mu_dec_z2) > 0.01:
+            print('***************** WARNING ******************')
+            print('Discrepancy between companion and primary proper motion components > 0.01 mas/year')
+            print('********************************************')
+            print('mu_racosdec_z1', mu_racosdec_z1)
+            print('mu_racosdec_z2', mu_racosdec_z2)
+            print('mu_dec_z1', mu_dec_z1)
+            print('mu_dec_z2', mu_dec_z2)
 
-        mu_b_rel = list(event_table['mu_b_S'][event_id] - event_table['mu_b_L'][event_id])[0]  # mas/yr
-        mu_lcosb_rel = list(event_table['mu_lcosb_S'][event_id] - event_table['mu_lcosb_L'][event_id])[0]  # mas/yr
-        origin = [0], [0]
+        #Relative proper motion between source and primary
+        mu_racosdec_rel = mu_racosdec_source - mu_racosdec_z1
+        mu_dec_rel = mu_dec_source - mu_dec_z1
         
+        # Since deltaz is pointed toward the companion, subtract 180 degrees mod 360 to find alpha
+        alpha = (np.rad2deg(np.arctan2(deltaz_racosdec,deltaz_dec)) - 180) % 360
         
-        dot = mu_b_rel*delta_b + mu_lcosb_rel*delta_lcosb
-        cross = mu_b_rel*delta_lcosb - delta_b*mu_lcosb_rel
+        phi_pi_E = np.rad2deg(np.arctan2(mu_racosdec_rel,mu_dec_rel))
         
-        length_binary = np.sqrt(delta_b**2 + delta_lcosb**2)
-        length_mu = np.sqrt(mu_b_rel**2 + mu_lcosb_rel**2)
-        
-        phi = (np.arccos(dot/(length_mu*length_binary))*unit.radian).to("degree").value
-        sign = np.sign(cross)
-        phi *= sign
-        
-        if phi < 0:
-            phi += 360
-        
-        # Switch binary axis pointing to primary
-        phi += 180 
+        phi = phi_pi_E - alpha
     
+        companion_tmp['alpha'][ii] = alpha
+        companion_tmp['phi_pi_E'][ii] = phi_pi_E
         companion_tmp['phi'][ii] = phi
         
     return companion_tmp
@@ -3756,7 +3812,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
         dS = event_table[event_id]['rad_S']*10**3 #Distance to source
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
-        alpha = (S_coords.icrs.pm_dec.value - L_coords.icrs.pm_dec.value) - comp_table[comp_idx]['phi']
+        alpha = comp_table[comp_idx]['alpha']
         mag_src = event_table[event_id]['%s_%s_S' % (photometric_system, filter_name)]
         b_sff = event_table[event_id]['f_blend_%s' % filter_name]
 
@@ -3783,6 +3839,8 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
             foo = Table((dt, phot), names=['time', 'phot'])
             foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
         
+        #because this is magnitudes max(phot) is baseline and min(phot) is peak
+        #baseline 2000tE away get_photometry
         comp_table[comp_idx]['bin_delta_m'] = max(phot) - min(phot)
         tenp = np.where(phot < (max(phot) - 0.1*comp_table[comp_idx]['bin_delta_m']))[0]
         if len(tenp) == 0:

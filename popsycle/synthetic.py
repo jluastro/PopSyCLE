@@ -773,7 +773,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 star_dict = {}
                 star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
                 star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
-                star_dict['systemMass'] = star_dict['mass']
+                star_dict['systemMass'] = copy.deepcopy(star_dict['mass'])
                 star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
                 star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
                 star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
@@ -941,6 +941,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 del star_dict
             del kdt_star_p, exbv_arr4kdt
             gc.collect()
+            
 
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))

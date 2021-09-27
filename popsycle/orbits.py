@@ -325,8 +325,9 @@ def add_mult_positions(companions, ss_pos, logAge):
         orb.e = i['e'] #between 0 and 1
         orb.p = a_to_P(ss_pos[i['system_idx']]['mass'],10**i['log_a']) #year
         orb.t0 = (10**logAge)*np.random.rand() #year
+        orb.mass = ss_pos[i['system_idx']]['mass']
         
-        (r, v, a) = orb.kep2xyz(np.array([10**logAge]),mass=ss_pos[i['system_idx']]['mass'])
+        (r, v, a) = orb.kep2xyz(np.array([10**logAge]))
                
         x = r[0][0]
         y = r[0][1]

@@ -1349,8 +1349,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
             NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
             NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
-                #NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
-                NS_kick_speed = NS_kick_speed_mean #FIXME TEMP THING FOR PAPER
+                NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
                 comp_dict['vx'][NS_idx] += NS_kick[0]
                 comp_dict['vy'][NS_idx] += NS_kick[1]
@@ -1359,8 +1358,7 @@ def _make_comp_dict(iso_dir, IFMR, log_age, feh, currentClusterMass,
             BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
             BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
-                #BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
-                BH_kick_speed = BH_kick_speed_mean
+                BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
                 comp_dict['vx'][BH_idx] += BH_kick[0]
                 comp_dict['vy'][BH_idx] += BH_kick[1]

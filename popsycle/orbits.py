@@ -129,7 +129,7 @@ class Orbit(object):
         # set default values
 
         if (ecc < 0. or ecc >= 1.):
-            print('Eccentricity must be 0<= ecc. < 1')
+            raise Exception('Eccentricity must be >= 0 and < 1')
             
         #
         # Range reduction of m to -pi < m <= pi
@@ -290,7 +290,7 @@ def add_positions(ss):
     
     return ss_temp
 
-def add_mult_positions(companions, ss_pos, logAge):
+def add_mult_positions(companions, ss_pos, logAge, add_velocities = False):
     """
     Adds x and y positions of multiple companions by transforming keplerian parameters to xyz in AU
     using code origially from gcworks and random initial times. Then adding them to the random posiiton of the primary object.
@@ -316,6 +316,10 @@ def add_mult_positions(companions, ss_pos, logAge):
     
     companions_temp.add_column( Column(np.zeros(len(companions_temp), dtype=float), name='x', description='AU') )
     companions_temp.add_column( Column(np.zeros(len(companions_temp), dtype=float), name='y', description='AU') )
+    
+    if add_velocities == True:
+        companions_temp.add_column( Column(np.zeros(len(companions_temp), dtype=float), name='v_x', description='AU/yr') )
+        companions_temp.add_column( Column(np.zeros(len(companions_temp), dtype=float), name='v_y', description='AU/yr') )
         
     orb = Orbit()
     for i in companions_temp:
@@ -335,6 +339,10 @@ def add_mult_positions(companions, ss_pos, logAge):
         #putting positions relative to primary object
         i['x'] = ss_pos[i['system_idx']]['x'] + x #AU
         i['y'] = ss_pos[i['system_idx']]['y'] + y #AU
+        
+        if add_velocities == True:
+            i['v_x'] = v[0][0] #AU/yr
+            i['v_y'] = v[0][1] #AU/yr
     
     
     return companions_temp

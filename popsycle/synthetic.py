@@ -49,6 +49,7 @@ from popsycle import orbits
 import pandas as pd
 from microlens.jlu import model
 from scipy.signal import find_peaks
+import pdb
 
 
 
@@ -1986,12 +1987,13 @@ def calc_events(hdf5_file, output_root2,
     ##########
     # Should I use starmap_async?
     results = pool.starmap(_calc_event_time_loop, inputs)
-
+    #pdb.set_trace()
     pool.close()
     pool.join()
 
     # Remove all the None values
     # (occurs for patches with less than 10 objects)
+    #results = [i for i in results.get() if i is not None]
     results = [i for i in results if i is not None]
 
     results_ev = []
@@ -2010,7 +2012,7 @@ def calc_events(hdf5_file, output_root2,
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
-
+        #pdb.set_trace()
         # Convert the events numpy recarray into an
         # Astropy Table for easier consumption.
         events_tmp = unique_events(events_tmp)
@@ -2136,20 +2138,30 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         
         if len(bigpatch_comp) > 0:
             bigpatch_comp = rfn.append_fields(bigpatch_comp, 'sep', np.zeros(len(bigpatch_comp)), usemask = False) #separation in mas
-        
+            print("hi1")
+            print(np.max(bigpatch['obj_id']))
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
+            print('hi2')
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
-        
+            print('hi3')
             # Filling in number of companions column to primaries
             N_companions = ((bigpatch_comp_df.groupby(['system_idx']).count()['mass']).to_frame()).reset_index()
+            print('hi4')
             N_companions = N_companions.rename(columns={'mass':'N_comp'})
             # Cross referencing between N_companions from companions table and the primaries
+            print('hi5')
             N_companions = N_companions.set_index("system_idx")
+            print('hi6')
             bigpatch_df = bigpatch_df.set_index('obj_id')
+            print('hi7')
             bigpatch_df = bigpatch_df.join(N_companions)
+            print('hi8')
             bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
+            print('hi9')
             bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
+            print('hi10')
             rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
+            print('hi11')
 
             a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
 
@@ -2158,18 +2170,24 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
             # Find max sep for triples
             bigpatch_comp_df_max = bigpatch_comp_df.groupby('system_idx').max()['sep'].reset_index()
-
+            print('hi12')
             # Add separation to bigpatch
             sep = bigpatch_comp_df_max[['system_idx', 'sep']]
             # Cross referencing between separation from companions table and the primaries
             sep = sep.set_index("system_idx")
+            print('hi13')
             bigpatch_df = bigpatch_df.set_index('obj_id')
+            print('hi14')
             bigpatch_df = bigpatch_df.join(sep)
+            print('hi15')
             bigpatch_df['sep'] = bigpatch_df['sep'].fillna(0) # Make nans from lack of companions to zeros
+            print('hi16')
             bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
-
+            print('hi17')
             bigpatch = rfn.append_fields(bigpatch, 'sep', bigpatch_df['sep'], usemask = False) 
-    
+            print('hi18')
+            del bigpatch_df
+            del bigpatch_comp_df
          
     # Skip patches with less than 10 objects
     if len(bigpatch) < 10:
@@ -3039,13 +3057,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     
     # If Multiples
+    start_time_test = time.time()
+    top_loop_time = time.time()
+    inner_loop_time = time.time()
     if hdf5_file_comp != None:
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         companion_table = []
         # Loops through the non-metadata parts of hf_comp square by square
         # so the memory isn't overwhelmed
         for ii in np.hstack((hf_comp)):
+            #print('top loop', top_loop_time - time.time())
+            #top_loop_time = time.time()
             if ii != 'galaxyModelFile' and ii != 'lat_bin_edges' and ii != 'long_bin_edges':
+                
+                print('On square {}'.format(ii))
                 
                 # Makes companion table if not already made
                 if type(companion_table) != np.ndarray:
@@ -3062,9 +3087,12 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     continue
         
                 for event in event_tab:
+                    #print('inner loop', inner_loop_time - time.time())
+                    #inner_loop_time = time.time()
                     # Fetches companions of lenses and sources respectively
                     companion_id_L = np.where(patch_comp['system_idx'] == event['obj_id_L'])[0]
                     companion_id_S = np.where(patch_comp['system_idx'] == event['obj_id_S'])[0]
+                    print('indices', inner_loop_time - time.time())
 
                     patch_comp_L = patch_comp[companion_id_L]
                     patch_comp_S = patch_comp[companion_id_S]
@@ -3098,6 +3126,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 # deletes patch so memory not overwhelmed
                 del patch_comp
         hf_comp.close()
+        print(time.time() - start_time_test)
+        
         
         
         if len(companion_table) > 0:
@@ -3443,8 +3473,12 @@ def _calculate_binary_angles(companion_table, event_table):
         
     delta_mu_racosdec = []
     delta_mu_dec = []
+    start_time_bin_angles = time.time()
+    loop_time_bin = time.time()
     for ii in range(len(companion_tmp)):
         event_id = (np.where(np.logical_and((event_table['obj_id_L'] == companion_tmp[ii]['obj_id_L']), (event_table['obj_id_S'] == companion_tmp[ii]['obj_id_S'])))[0])
+        print('binary angles loop time', loop_time_bin - time.time())
+        loop_time_bin = time.time()
         
         # First calculate binary axis
         orb = orbits.Orbit()
@@ -3543,6 +3577,7 @@ def _calculate_binary_angles(companion_table, event_table):
         companion_tmp['alpha'][ii] = alpha
         companion_tmp['phi_pi_E'][ii] = phi_pi_E
         companion_tmp['phi'][ii] = phi
+    print('full bin angles loop', start_time_bin_angles - time.time())
         
     return companion_tmp
 
@@ -3569,9 +3604,12 @@ def _add_multiples_parameters(companion_table, event_table):
     companion_tmp = copy.deepcopy(companion_table)
     
     event_id = []
+    start_time_here = time.time()
+    
     for ii in companion_tmp:
         event_id.append(np.where(np.logical_and((event_table['obj_id_L'] == ii['obj_id_L']), (event_table['obj_id_S'] == ii['obj_id_S'])))[0])
-            
+    print('add mult loop', start_time_here - time.time())
+    
     if len(event_id) == 0:
         return companion_tmp
 
@@ -3584,6 +3622,7 @@ def _add_multiples_parameters(companion_table, event_table):
 
     a_kpc = ((10**companion_tmp['log_a'])*unit.AU).to('kpc').value
     
+    start_time_here = time.time()
     for ii in range(len(companion_tmp)):
         companion_tmp[ii]['q'] =  companion_tmp[ii]['mass']/event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]]
         
@@ -3591,7 +3630,7 @@ def _add_multiples_parameters(companion_table, event_table):
         companion_tmp[ii]['sep'] = np.abs(np.cos(companion_tmp[ii]['i']))*(np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*unit.radian).to('mas').value
     
         companion_tmp[ii]['P'] = orbits.a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
-    
+    print('add second loop', start_time_here - time.time())
     return companion_tmp
 
 

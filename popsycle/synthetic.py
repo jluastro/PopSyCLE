@@ -3056,75 +3056,80 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab.write(output_file, overwrite=overwrite)
 
     
+    
+    
     # If Multiples
     start_time_test = time.time()
-    top_loop_time = time.time()
-    inner_loop_time = time.time()
     if hdf5_file_comp != None:
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         companion_table = []
+        
+        #sets up event table to be indexed
+        event_table = event_tab.to_pandas()
+        event_tab_L = copy.deepcopy(event_table)
+        event_tab_S = copy.deepcopy(event_table)
+        event_tab_L = event_tab_L.set_index('obj_id_L')
+        event_tab_S = event_tab_S.set_index('obj_id_S')
         # Loops through the non-metadata parts of hf_comp square by square
         # so the memory isn't overwhelmed
         for ii in np.hstack((hf_comp)):
-            #print('top loop', top_loop_time - time.time())
-            #top_loop_time = time.time()
             if ii != 'galaxyModelFile' and ii != 'lat_bin_edges' and ii != 'long_bin_edges':
                 
                 print('On square {}'.format(ii))
                 
-                # Makes companion table if not already made
-                if type(companion_table) != np.ndarray:
-                    companion_table = np.array(companion_table, dtype=hf_comp[ii].dtype)
-                    zeros = np.zeros(len(companion_table))
-                    Empty = np.chararray(len(companion_table))
-                    Empty[:] = 'O'
-                    companion_table = rfn.append_fields(companion_table, 'obj_id_L', zeros, usemask = False)
-                    companion_table = rfn.append_fields(companion_table, 'obj_id_S', zeros, usemask = False)
-                    companion_table = rfn.append_fields(companion_table, 'prim_type', Empty.decode("utf-8") , usemask = False, dtypes='<U1')
-            
-                patch_comp = hf_comp[ii]
+                patch_comp = np.hstack((hf_comp[ii],))
                 if len(patch_comp) == 0:
                     continue
-        
-                for event in event_tab:
-                    #print('inner loop', inner_loop_time - time.time())
-                    #inner_loop_time = time.time()
-                    # Fetches companions of lenses and sources respectively
-                    companion_id_L = np.where(patch_comp['system_idx'] == event['obj_id_L'])[0]
-                    companion_id_S = np.where(patch_comp['system_idx'] == event['obj_id_S'])[0]
-                    print('indices', inner_loop_time - time.time())
-
-                    patch_comp_L = patch_comp[companion_id_L]
-                    patch_comp_S = patch_comp[companion_id_S]
-            
-                    # Adds lens id and source id for the event and identifies
-                    # which system the companion is part of
-                    zeros_L = np.zeros(len(patch_comp_L))
-                    L = np.chararray(len(patch_comp_L))
-                    L[:] = 'L'
-                    patch_comp_L = rfn.append_fields(patch_comp_L, 'obj_id_L', zeros_L, usemask = False)
-                    patch_comp_L = rfn.append_fields(patch_comp_L, 'obj_id_S', zeros_L, usemask = False)
-                    patch_comp_L = rfn.append_fields(patch_comp_L, 'prim_type', L.decode("utf-8") , usemask = False, dtypes='<U1')
-            
-                    zeros_S = np.zeros(len(patch_comp_S))
-                    S = np.chararray(len(patch_comp_S))
-                    S[:] = 'S'
-                    patch_comp_S = rfn.append_fields(patch_comp_S, 'obj_id_L', zeros_S, usemask = False)
-                    patch_comp_S = rfn.append_fields(patch_comp_S, 'obj_id_S', zeros_S, usemask = False)
-                    patch_comp_S = rfn.append_fields(patch_comp_S, 'prim_type', S.decode("utf-8") , usemask = False, dtypes='<U1')
-            
-                    patch_comp_L['obj_id_L'] = event['obj_id_L']
-                    patch_comp_L['obj_id_S'] = event['obj_id_S']
-            
-                    patch_comp_S['obj_id_L'] = event['obj_id_L']
-                    patch_comp_S['obj_id_S'] = event['obj_id_S']
                     
-                    # Appends them to companion table
-                    companion_table = np.append(companion_table, patch_comp_L)
-                    companion_table = np.append(companion_table, patch_comp_S)
+                patch_comp_df = pd.DataFrame(data = patch_comp, columns = np.dtype(patch_comp[0]).names)
+                
+                #set the table to be indexed on system_idx
+                #so that they can be joined based on those indices
+                #event tables set to be indexed on obj_id_L, and obj_id_S above loop
+                patch_comp_df = patch_comp_df.set_index('system_idx')
+                
+                patch_comp_df_columns = ['system_idx'] + list(patch_comp_df.columns) + ['obj_id_L', 'obj_id_S', 'prim_type']
+                
+                # only keeps columns where system is associated with a lens or source respectively
+                patch_comp_L = patch_comp_df.join(event_tab_L, lsuffix='_comp', rsuffix='_prim', how='inner')
+                patch_comp_S = patch_comp_df.join(event_tab_S, lsuffix='_comp', rsuffix='_prim', how='inner')
+                
+                patch_comp_L['prim_type'] = "L"
+                patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
+                patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
+                patch_comp_L['system_idx'] = patch_comp_L.index
+                patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
+                
+                patch_comp_S['prim_type'] = "S"
+                patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
+                patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
+                patch_comp_S['system_idx'] = patch_comp_S.index
+                patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
+                
+                #For first time companion table is being created
+                if len(companion_table) == 0:
+                    if len(patch_comp_L) > 0:
+                        companion_table = patch_comp_L
+                        if len(patch_comp_S) > 0:
+                            companion_table = companion_table.append(patch_comp_S)
+                        continue
+                    elif len(patch_comp_S) > 0:
+                        companion_table = patch_comp_S
+                        continue
+                        
+                
+                # Appends them to companion table
+                # if-statement necessary because dtype of prim_type column doesn't change
+                # if the table is empty
+                if len(patch_comp_L) > 0:
+                    companion_table = companion_table.append(patch_comp_L)
+                if len(patch_comp_S) > 0:
+                    companion_table = companion_table.append(patch_comp_S)
+                
                     
                 # deletes patch so memory not overwhelmed
                 del patch_comp
+                del patch_comp_df
         hf_comp.close()
         print(time.time() - start_time_test)
         
@@ -3135,8 +3140,10 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
             companion_table = _calculate_binary_angles(companion_table, event_tab)
-        
-            companion_table = Table(companion_table)
+            #pdb.set_trace()
+            #companion_table = Table(companion_table)
+            companion_table = Table.from_pandas(companion_table).filled(np.nan)
+            #pdb.set_trace()
             
             # Adds metadata
             companion_table['i'].description = 'w/rt galactic galactic north'
@@ -3451,56 +3458,62 @@ def _calculate_binary_angles(companion_table, event_table):
     
     Parameters
     ----------
-    companion_table : array
-        Array from bigpatch_comp which is from the companion hdf5 file.
+    companion_table : pandas table
+        Pandas table from companion events which were matched from the events table.
         
     event_table : astropy table
         Astropy table with refined events
 
     Returns
     -------
-    companion_tmp : array
-        Companions array modified to include alpha, phi_pi_E, phi.
+    companion_tmp_df : pandas table
+        Companions table modified to include alpha, phi_pi_E, phi.
     
     
     """
-    companion_tmp = copy.deepcopy(companion_table)
+    companion_tmp_df = copy.deepcopy(companion_table)
     
-    zeros = np.zeros(len(companion_tmp))
-    companion_tmp = rfn.append_fields(companion_tmp, 'alpha', zeros, usemask = False)
-    companion_tmp = rfn.append_fields(companion_tmp, 'phi_pi_E', zeros, usemask = False)
-    companion_tmp = rfn.append_fields(companion_tmp, 'phi', zeros, usemask = False)
+    event_table_df = event_table.to_pandas()
+    
+    #indexes on both obj_id_L and obj_id_S at once
+    companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
+    event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
+    companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
+    
+    del event_table_df
         
-    delta_mu_racosdec = []
-    delta_mu_dec = []
+    alphas = []
+    phi_pi_Es = []
+    phis = []
+    
+    #delta_mu_racosdec = []
+    #delta_mu_dec = []
     start_time_bin_angles = time.time()
     loop_time_bin = time.time()
-    for ii in range(len(companion_tmp)):
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == companion_tmp[ii]['obj_id_L']), (event_table['obj_id_S'] == companion_tmp[ii]['obj_id_S'])))[0])
-        print('binary angles loop time', loop_time_bin - time.time())
+    for index, row in companion_tmp_df_joined.iterrows():
         loop_time_bin = time.time()
         
         # First calculate binary axis
         orb = orbits.Orbit()
-        orb.w = companion_tmp['omega'][ii] # [degrees]
-        orb.o = companion_tmp['Omega'][ii] # [degrees]
-        orb.i = companion_tmp['i'][ii] # [degrees]
-        orb.e = companion_tmp['e'][ii] # float between 0 and 1
-        orb.p = companion_tmp['P'][ii] # [years]
-        orb.t0 = np.random.rand()*companion_tmp['P'][ii] + event_table['t0'][event_id] # [years] This is initial
-        orb.mass = event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id] # [Msun]
-
+        orb.w = row['omega'] # [degrees]
+        orb.o = row['Omega'] # [degrees]
+        orb.i = row['i'] # [degrees]
+        orb.e = row['e'] # float between 0 and 1
+        orb.p = row['P'] # [years]
+        orb.t0 = np.random.rand()*row['P'] + row['t0'] # [years] This is initial
+        orb.mass = row['mass_{}'.format(row['prim_type'])] # [Msun]
+        
         # Position of the companion when primary at origin
         # r[0][0] is galactic east
         # r[0][1] is galactic north
         # r[0][2] is line of sight away from the sun
         # Assumes the primary is at the origin (0,0)
-
-        (r, v, a) = orb.kep2xyz(np.array([event_table['t0'][event_id]]))
-
-        r_kpc = [(ii*unit.AU).to('kpc').value for ii in r[0]]
         
-        r_mas = (np.arcsin(r_kpc[0:2]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id])*unit.radian).to('mas').value
+        (r, v, a) = orb.kep2xyz(np.array([row['t0']]))
+
+        r_kpc = np.array([(ii*unit.AU).to('kpc').value for ii in r[0]])
+        
+        r_mas = (np.arcsin(r_kpc[0:2]/row['rad_{}'.format(row['prim_type'])])*unit.radian).to('mas').value
         
         # Change in b and lcosb from companion to the primary pointing to companion (assuming primary at 0,0)
         deltaz_lcosb = r_mas[0]
@@ -3508,24 +3521,24 @@ def _calculate_binary_angles(companion_table, event_table):
         deltaz_l = deltaz_lcosb/np.cos(deltaz_b) #Need to find the spherical l instead of projected for SkyCoord
         
         #b and l of primary
-        z1_b = event_table['glat_L'][event_id]*unit.degree
-        z1_l = event_table['glon_L'][event_id]*unit.degree
+        z1_b = row['glat_L']*unit.degree
+        z1_l = row['glon_L']*unit.degree
         
         #add positions of the primary to the deltas to find b and l of companion
         z2_b = deltaz_b*unit.mas + z1_b.to('mas')
         z2_l = deltaz_l*unit.mas + z1_l.to('mas')
         
         #b and l of source
-        source_b = event_table['glat_S'][event_id]*unit.degree
-        source_l = event_table['glon_S'][event_id]*unit.degree
+        source_b = row['glat_S']*unit.degree
+        source_l = row['glon_S']*unit.degree
         
         #SkyCoord objects for the primary, companion, and source
-        coord_object_z1 = SkyCoord(l = z1_l, b = z1_b, pm_l_cosb = event_table['mu_lcosb_L'][event_id]*unit.mas/unit.year, pm_b = event_table['mu_b_L'][event_id]*unit.mas/unit.year, frame ='galactic')
+        coord_object_z1 = SkyCoord(l = z1_l, b = z1_b, pm_l_cosb = row['mu_lcosb_L']*unit.mas/unit.year, pm_b = row['mu_b_L']*unit.mas/unit.year, frame ='galactic')
         
-        coord_object_z2 = SkyCoord(l = z2_l, b = z2_b, pm_l_cosb = event_table['mu_lcosb_L'][event_id]*unit.mas/unit.year, pm_b = event_table['mu_b_L'][event_id]*unit.mas/unit.year, frame ='galactic')
+        coord_object_z2 = SkyCoord(l = z2_l, b = z2_b, pm_l_cosb = row['mu_lcosb_L']*unit.mas/unit.year, pm_b = row['mu_b_L']*unit.mas/unit.year, frame ='galactic')
         
-        coord_object_source = SkyCoord(l = source_l, b = source_b, pm_l_cosb = event_table['mu_lcosb_S'][event_id]*unit.mas/unit.year, pm_b = event_table['mu_b_S'][event_id]*unit.mas/unit.year, frame ='galactic')
-        
+        coord_object_source = SkyCoord(l = source_l, b = source_b, pm_l_cosb = row['mu_lcosb_S']*unit.mas/unit.year, pm_b = row['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+
         #ra and dec of primary, find racosdec to find projected coords
         z1_ra = coord_object_z1.icrs.ra.value
         z1_dec = coord_object_z1.icrs.dec.value
@@ -3551,8 +3564,8 @@ def _calculate_binary_angles(companion_table, event_table):
         mu_dec_source = coord_object_source.icrs.pm_dec.value
         
         #Relative proper motion between the primary and companion
-        delta_mu_racosdec.append(np.abs(mu_racosdec_z1 - mu_racosdec_z2))
-        delta_mu_dec.append(np.abs(mu_dec_z1 - mu_dec_z2))
+        #delta_mu_racosdec.append(np.abs(mu_racosdec_z1 - mu_racosdec_z2))
+        #delta_mu_dec.append(np.abs(mu_dec_z1 - mu_dec_z2))
         
         if np.abs(mu_racosdec_z1 - mu_racosdec_z2) > 0.01 or np.abs(mu_dec_z1 - mu_dec_z2) > 0.01:
             print('***************** WARNING ******************')
@@ -3573,13 +3586,20 @@ def _calculate_binary_angles(companion_table, event_table):
         phi_pi_E = np.rad2deg(np.arctan2(mu_racosdec_rel,mu_dec_rel))
         
         phi = phi_pi_E - alpha
-    
-        companion_tmp['alpha'][ii] = alpha
-        companion_tmp['phi_pi_E'][ii] = phi_pi_E
-        companion_tmp['phi'][ii] = phi
-    print('full bin angles loop', start_time_bin_angles - time.time())
         
-    return companion_tmp
+        alphas.append(alpha)
+        phi_pi_Es.append(phi_pi_E)
+        phis.append(phi)
+    
+    companion_tmp_df_joined['alpha'] = alphas
+    companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
+    companion_tmp_df_joined['phi'] = phis
+    
+    companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi']]
+    print('full bin angles loop', start_time_bin_angles - time.time())
+    
+    del companion_tmp_df_joined
+    return companion_tmp_df
 
 
 def _add_multiples_parameters(companion_table, event_table):
@@ -3589,49 +3609,42 @@ def _add_multiples_parameters(companion_table, event_table):
 
     Parameters
     ----------
-    companion_table : array
-        Array from bigpatch_comp which is from the companion hdf5 file.
+    companion_table : pandas table
+        Pandas table from companion events which were matched from the events table.
         
     event_table : astropy table
         Astropy table with refined events
 
     Returns
     -------
-    companion_tmp : array
-        Companions array modified to include new parameters.
+    companion_tmp_df : pandas table
+        Companions table modified to include new parameters (q, sep, and P).
 
     """
-    companion_tmp = copy.deepcopy(companion_table)
+    companion_tmp_df = copy.deepcopy(companion_table)
     
-    event_id = []
-    start_time_here = time.time()
+    event_table_df = event_table.to_pandas()
     
-    for ii in companion_tmp:
-        event_id.append(np.where(np.logical_and((event_table['obj_id_L'] == ii['obj_id_L']), (event_table['obj_id_S'] == ii['obj_id_S'])))[0])
-    print('add mult loop', start_time_here - time.time())
-    
-    if len(event_id) == 0:
-        return companion_tmp
+    #indexes on both obj_id_L and obj_id_S at once
+    companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
+    event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
+    companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
 
-    event_id = list(np.concatenate(event_id).ravel())
+    del event_table_df
     
-    zeros = np.zeros(len(companion_tmp))
-    companion_tmp = rfn.append_fields(companion_tmp, 'q', zeros, usemask = False) #mass ratio
-    companion_tmp = rfn.append_fields(companion_tmp, 'sep', zeros, usemask = False) #separation in mas
-    companion_tmp = rfn.append_fields(companion_tmp, 'P', zeros, usemask = False) #period
-
-    a_kpc = ((10**companion_tmp['log_a'])*unit.AU).to('kpc').value
+    a_kpc = (np.array(10**companion_tmp_df_joined['log_a'])*unit.AU).to('kpc').value
+    event_prim_masses = np.diagonal(companion_tmp_df_joined['mass_' + companion_tmp_df_joined['prim_type']])
+    event_prim_distances = np.diagonal(companion_tmp_df_joined['rad_' + companion_tmp_df_joined['prim_type']])
     
-    start_time_here = time.time()
-    for ii in range(len(companion_tmp)):
-        companion_tmp[ii]['q'] =  companion_tmp[ii]['mass']/event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]]
-        
-        # abs(acos(i))
-        companion_tmp[ii]['sep'] = np.abs(np.cos(companion_tmp[ii]['i']))*(np.arcsin(a_kpc[ii]/event_table['rad_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]])*unit.radian).to('mas').value
+    companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass']/event_prim_masses #mass ratio
+    #abs(acos(i))
+    companion_tmp_df_joined['sep'] = np.abs(np.cos(list(companion_tmp_df_joined['i'])))*(np.arcsin(a_kpc/event_prim_distances)*unit.radian).to('mas').value #separation in mas
+    companion_tmp_df_joined['P'] = orbits.a_to_P(event_prim_masses, 10**companion_tmp_df_joined['log_a']) #period
     
-        companion_tmp[ii]['P'] = orbits.a_to_P(event_table['mass_{}'.format(companion_tmp[ii]['prim_type'])][event_id[ii]], 10** companion_tmp[ii]['log_a'])
-    print('add second loop', start_time_here - time.time())
-    return companion_tmp
+    companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['q', 'sep', 'P']]
+    
+    del companion_tmp_df_joined
+    return companion_tmp_df
 
 
 ############################################################################
@@ -3853,7 +3866,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         dS = event_table[event_id]['rad_S']*10**3 #Distance to source
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = comp_table[comp_idx]['alpha']
-        mag_src = event_table[event_id]['%s_%s_S' % (photometric_system, filter_name)]
+        mag_src = event_table[event_id]['%s_%s_S_app' % (photometric_system, filter_name)]
         b_sff = event_table[event_id]['f_blend_%s' % filter_name]
 
         psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],

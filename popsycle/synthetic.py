@@ -2138,30 +2138,19 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         
         if len(bigpatch_comp) > 0:
             bigpatch_comp = rfn.append_fields(bigpatch_comp, 'sep', np.zeros(len(bigpatch_comp)), usemask = False) #separation in mas
-            print("hi1")
-            print(np.max(bigpatch['obj_id']))
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
-            print('hi2')
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
-            print('hi3')
+
             # Filling in number of companions column to primaries
             N_companions = ((bigpatch_comp_df.groupby(['system_idx']).count()['mass']).to_frame()).reset_index()
-            print('hi4')
             N_companions = N_companions.rename(columns={'mass':'N_comp'})
             # Cross referencing between N_companions from companions table and the primaries
-            print('hi5')
             N_companions = N_companions.set_index("system_idx")
-            print('hi6')
             bigpatch_df = bigpatch_df.set_index('obj_id')
-            print('hi7')
             bigpatch_df = bigpatch_df.join(N_companions)
-            print('hi8')
             bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
-            print('hi9')
             bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
-            print('hi10')
             rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
-            print('hi11')
 
             a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
 
@@ -2170,22 +2159,18 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
 
             # Find max sep for triples
             bigpatch_comp_df_max = bigpatch_comp_df.groupby('system_idx').max()['sep'].reset_index()
-            print('hi12')
+
             # Add separation to bigpatch
             sep = bigpatch_comp_df_max[['system_idx', 'sep']]
             # Cross referencing between separation from companions table and the primaries
             sep = sep.set_index("system_idx")
-            print('hi13')
             bigpatch_df = bigpatch_df.set_index('obj_id')
-            print('hi14')
             bigpatch_df = bigpatch_df.join(sep)
-            print('hi15')
             bigpatch_df['sep'] = bigpatch_df['sep'].fillna(0) # Make nans from lack of companions to zeros
-            print('hi16')
+            
             bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
-            print('hi17')
             bigpatch = rfn.append_fields(bigpatch, 'sep', bigpatch_df['sep'], usemask = False) 
-            print('hi18')
+            
             del bigpatch_df
             del bigpatch_comp_df
          
@@ -3866,7 +3851,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         dS = event_table[event_id]['rad_S']*10**3 #Distance to source
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = comp_table[comp_idx]['alpha']
-        mag_src = event_table[event_id]['%s_%s_S_app' % (photometric_system, filter_name)]
+        mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
         b_sff = event_table[event_id]['f_blend_%s' % filter_name]
 
         psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],

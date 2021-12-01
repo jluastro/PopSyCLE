@@ -2628,7 +2628,7 @@ def unique_events(event_table):
         # Fetch the duplicates for this event.
         dup_idx = np.where(unique_inverse == dpdx[ii])[0]
         dup_events = event_table[dup_idx]
-        min_idx = np.argmin(dup_events['u0'])
+        min_idx = np.argmin(np.abs(dup_events['u0']))
         new_event_table[dpdx[ii]] = event_table[dup_idx[min_idx]]
 
     return new_event_table
@@ -4282,6 +4282,7 @@ def calc_magnification(u):
     Magnification factor : float or array
 
     """
+    u = np.abs(u)
     return (u ** 2 + 2) / (u * np.sqrt(u ** 2 + 4))
 
 
@@ -4290,6 +4291,7 @@ def calc_delta_c(u, thetaE):
     Calculate the maximum centroid shift for a dark lens,
     no neighbors
     """
+    u = np.abs(u)
     delta_c = u * thetaE / (u ** 2 + 2)
 
     return delta_c
@@ -4318,7 +4320,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     m_bump : float or array
         Bump magnitude
     """
-    A = calc_magnification(u0)
+    A = calc_magnification(np.abs(u0))
     m_bump = 2.5 * np.log10((A * f_S + f_L + f_N) / (f_S + f_L + f_N))
 
     return m_bump

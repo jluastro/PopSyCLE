@@ -1072,6 +1072,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line22 = output_root + '_label.fits : label file' + '\n'
     if multiplicity != None:
         line23 = output_root + '_companions.h5 : HDF5 file' + '\n'
+    else:
+        line23 = 'No companions h5 file as multiplicity = None' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,

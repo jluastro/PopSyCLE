@@ -9,6 +9,8 @@ from multiprocessing import Pool
 import itertools
 import matplotlib.pyplot as plt
 import time
+import filecmp
+import os
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
@@ -54,6 +56,7 @@ def test_calc_blends():
 
     hf = h5py.File(hdf5_file, 'r')
     bigpatch = np.concatenate((hf[name00], hf[name01], hf[name10], hf[name11]), axis=1)
+    #bigpatch = np.hstack((hf[name00], hf[name01], hf[name10], hf[name11]))
     hf.close()
     print(bigpatch.shape)
 
@@ -74,9 +77,19 @@ def test_calc_blends():
     # Trim it down for faster processing.
     # event_lbt_tmp = event_lbt_tmp[0:100]
 
-    # I need to convert this to a list of numpy arrays.
-    event_lbt = np.array([event_lbt_tmp[col].data for col in event_lbt_tmp.colnames])
-    print(type(event_lbt))
+    # Convert this to a list of numpy arrays via pandas.
+    event_lbt_tmp_df = event_lbt_tmp.to_pandas()
+    event_lbt = event_lbt_tmp_df.to_records()
+    
+    #event_lbt_tmp_types = [np.dtype(event_lbt_tmp[col].data[0]) for col in event_lbt_tmp.colnames]
+    #print(list(tuple(zip(event_lbt_tmp.colnames, event_lbt_tmp_types))))
+    #print([event_lbt_tmp[col].data for col in event_lbt_tmp.colnames])
+    #event_lbt = np.array([event_lbt_tmp[col].data for col in event_lbt_tmp.colnames], dtype = list(tuple(zip(event_lbt_tmp.colnames, event_lbt_tmp_types))))
+    #print(event_lbt_tmp['glat_L'])
+    #print(event_lbt['glat_L'])
+
+    #print(type(event_lbt))
+    print(bigpatch[0])
 
     blend_rad = 1.0  # arcseconds
     blend_lbt = synthetic._calc_blends(bigpatch, c, event_lbt, blend_rad)
@@ -107,7 +120,7 @@ def time_calc_event_time_loop():
     plt.show()
 
 
-def test_calc_event_time_loop(n_proc):
+def calc_event_time_loop(n_proc):
     t0 = time.time()
 
     test_data_dir = '/u/casey/scratch/work/microlens/galaxia_test/OGLE672/'
@@ -329,13 +342,13 @@ def test_calc_events():
 
     return
 
-def _test_add_multiples():
+def test_add_multiples():
     """
     Checks that _add_multiples() is making the companions point to the correct Galaxia objects
     and eliminates the correct elements.
     """
     # Fake version of Galaxia star masses
-    star_masses_check = np.linspace(0, 5, 10).tolist()
+    star_masses_check = np.linspace(0, 5, 15).tolist()
     
     class FakeCluster(object):
         """
@@ -364,18 +377,304 @@ def _test_add_multiples():
                              names=['system_idx'])
         
     cluster_check = FakeCluster()
-    
-    companion_check = _add_multiples(star_masses_check, cluster_check)
+        
+    companion_check = synthetic._add_multiples(star_masses_check, cluster_check)
         
     # 1,1,1 should be eliminated because the primary is a WD
     # 9 should be eliminated because it's too big
     # 3, 5,5, and 7 should be pointed to their star_masses counterpart
-    system_idx_correct = [4,6,6,8]
+    system_idx_correct = [5,8,8,11]
     correct_companion_check = Table([system_idx_correct],
                                    names=['system_idx'])
+    
     
     if not np.array_equal(correct_companion_check, companion_check):
         raise Exception("_add_multiples() is behaving unexpectedly")
     
     return
 
+
+def test_all_Srun():
+    """
+    Testing an Srun (singles only)
+    from beginning to end. This will generate all files and 
+    check them against pre-run files.
+    """
+    
+    seed = 1
+    
+    synthetic.write_galaxia_params(output_root = 'test',
+                                   longitude = 1.25,
+                                   latitude = -2.65,
+                                   area = 0.0001,
+                                   seed = seed)
+    
+    #synthetic.run_galaxia(output_root = 'test',
+          #                longitude = 1.25,
+         #                 latitude = -2.65,
+        #                  area = 0.0001,
+       #                   galaxia_galaxy_model_filename= '/g/lu/code/galaxia/docs/galaxyModelParams_PopSyCLEv3.txt',
+      #                    seed = seed)
+    
+    #run_galaxia_result = filecmp.cmp('test_correct.ebf', 'test.ebf', shallow = False) 
+    #assert run_galaxia_result 
+    
+    synthetic.perform_pop_syn(ebf_file = 'test.ebf',
+                              output_root = 'test',
+                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number = None,
+                              BH_kick_speed_mean = 100,
+                              NS_kick_speed_mean = 350,
+                              IFMR = 'Raithel18',
+                              overwrite=True,
+                              seed = seed)
+    
+    perform_pop_syn_result = filecmp.cmp('test_correct.h5', 'test.h5', shallow = False) 
+    assert perform_pop_syn_result 
+    
+    synthetic.calc_events(hdf5_file = 'test.h5',
+                          output_root2 = 'test',
+                          radius_cut = 2,
+                          obs_time = 1000,
+                          n_obs = 11,
+                          theta_frac = 2,
+                          blend_rad = 0.65,
+                          overwrite = True,
+                          n_proc = 1)
+    
+    calc_events_result = filecmp.cmp('test_correct.fits', 'test.fits', shallow = False) 
+    assert calc_events_result 
+    
+    synthetic.refine_events(input_root = 'test',
+                            filter_name = 'I',
+                            photometric_system = 'ubv',
+                            red_law = 'Damineli16',
+                            overwrite = True,
+                            output_file = 'default')
+    
+    refine_events_result = filecmp.cmp('test_correct_refined_events_ubv_I_Damineli16.fits', 'test_refined_events_ubv_I_Damineli16.fits', shallow = False) 
+    assert refine_events_result 
+    
+    os.remove("test_galaxia_params.txt")
+    os.remove("test.ebf")
+    os.remove("test_galaxia.log")
+    os.remove("test.h5")
+    os.remove("test_perform_pop_syn.log")
+    os.remove("test.fits")
+    os.remove("test_blends.fits")
+    os.remove("test_label.fits")
+    os.remove("test_calc_events.log")
+    os.remove("test_refined_events_ubv_I_Damineli16.fits")
+    os.remove("test_refined_events_ubv_I_Damineli16.log")
+    
+    return
+
+def test_all_Mrun():
+    """
+    Testing an Mrun (singles and multiples)
+    from beginning to end. This will generate all files and 
+    check them against pre-run files.
+    """
+    
+    seed = 1
+    
+    synthetic.write_galaxia_params(output_root = 'test_Mrun',
+                                   longitude = 1.25,
+                                   latitude = -2.65,
+                                   area = 0.0001,
+                                   seed = seed)
+    
+    synthetic.run_galaxia(output_root = 'test_Mrun',
+                          longitude = 1.25,
+                          latitude = -2.65,
+                          area = 0.0001,
+                          galaxia_galaxy_model_filename= '/g/lu/code/galaxia/docs/galaxyModelParams_PopSyCLEv3.txt',
+                          seed = seed)
+    
+    run_galaxia_result = filecmp.cmp('test_correct_Mrun.ebf', 'test_Mrun.ebf', shallow = False) 
+    assert run_galaxia_result 
+    
+    
+    synthetic.perform_pop_syn(ebf_file = 'test_Mrun.ebf',
+                              output_root = 'test_Mrun',
+                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number = None,
+                              BH_kick_speed_mean = 100,
+                              NS_kick_speed_mean = 350,
+                              IFMR = 'Raithel18',
+                              multiplicity=multiplicity.MultiplicityResolvedDK(companion_max = True),
+                              overwrite=True,
+                              seed = seed)
+    
+    perform_pop_syn_result = filecmp.cmp('test_correct_Mrun.h5', 'test_Mrun.h5', shallow = False) 
+    assert perform_pop_syn_result 
+    
+    perform_pop_syn_result = filecmp.cmp('test_correct_Mrun_companions.h5', 'test_Mrun_companions.h5', shallow = False) 
+    assert perform_pop_syn_companions_result 
+    
+    
+    synthetic.calc_events(hdf5_file = 'test_Mrun.h5',
+                          output_root2 = 'test_Mrun',
+                          radius_cut = 2,
+                          obs_time = 1000,
+                          n_obs = 11,
+                          theta_frac = 2,
+                          blend_rad = 0.65,
+                          hdf5_file_comp = 'test_Mrun_companions.h5',
+                          overwrite = True,
+                          n_proc = 1)
+    
+    calc_events_result = filecmp.cmp('test_correct_Mrun.fits', 'test_Mrun.fits', shallow = False) 
+    assert calc_events_result 
+    
+    
+    synthetic.refine_events(input_root = 'test_Mrun', 
+                        filter_name = 'I',
+                        photometric_system = 'ubv',
+                        red_law = 'Damineli16', 
+                        hdf5_file_comp = 'test_Mrun_companions.h5',
+                        overwrite = True, 
+                        output_file = 'default')
+    
+    refine_events_result = filecmp.cmp('test_correct_Mrun_refined_events_ubv_I_Damineli16.fits', 
+                                       'test_Mrun_refined_events_ubv_I_Damineli16.fits', shallow = False) 
+    assert refine_events_result 
+    
+    refine_events_companions_result = filecmp.cmp('test_correct_Mrun_refined_events_ubv_I_Damineli16_companions.fits',
+                                              'test_Mrun_refined_events_ubv_I_Damineli16_companions.fits', shallow = False) 
+    assert refine_events_companions_result 
+    
+    synthetic.refine_binary_events('test_Mrun_refined_events_ubv_I_Damineli16.fits', 
+                                   'test_Mrun_refined_events_ubv_I_Damineli16_companions.fits', filter_name = 'I',
+                                   photometric_system = 'ubv', overwrite = True,
+                                   output_file = 'default', save_phot = False)
+    
+    refine_binary_events_result = filecmp.cmp('test_Mrun_correct_refined_events_ubv_I_Damineli16_companions_rb.fits',
+                                          'test_Mrun_refined_events_ubv_I_Damineli16_companions_rb.fits', shallow = False) 
+    assert refine_binary_events_result
+    
+    refine_binary_events_multi_peaks_result = filecmp.cmp('test_Mrun_correct_refined_events_ubv_I_Damineli16_companions_rb_multi_peaks.fits',
+                                                      'test_Mrun_refined_events_ubv_I_Damineli16_companions_rb_multi_peaks.fits', shallow = False) 
+    assert refine_binary_events_multi_peaks_result
+    
+    
+    
+    return
+    
+    
+def generate_Srun_files():
+    """
+    This generates the correct Srun (singles only)
+    files. This should !ONLY! be run if the outputs of the code
+    were expected to change from when they were originally made!!!
+    """
+    
+    seed = 1
+    
+    synthetic.write_galaxia_params(output_root = 'test_correct',
+                                   longitude = 1.25,
+                                   latitude = -2.65,
+                                   area = 0.0001,
+                                   seed = seed)
+    
+    synthetic.run_galaxia(output_root = 'test_correct',
+                          longitude = 1.25,
+                          latitude = -2.65,
+                          area = 0.0001,
+                          galaxia_galaxy_model_filename= '/g/lu/code/galaxia/docs/galaxyModelParams_PopSyCLEv3.txt',
+                          seed = seed)
+    
+    
+    synthetic.perform_pop_syn(ebf_file = 'test_correct.ebf',
+                              output_root = 'test_correct',
+                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number = None, 
+                              BH_kick_speed_mean = 100,
+                              NS_kick_speed_mean = 350,
+                              IFMR = 'Raithel18',
+                              overwrite=False,
+                              seed = seed)
+    
+    
+    synthetic.calc_events(hdf5_file = 'test_correct.h5', 
+                          output_root2 = 'test_correct', 
+                          radius_cut = 2, 
+                          obs_time = 1000, 
+                          n_obs = 11, 
+                          theta_frac = 2, 
+                          blend_rad = 0.65, 
+                          overwrite = False, 
+                          n_proc = 1)
+    
+    
+    synthetic.refine_events(input_root = 'test_correct', 
+                            filter_name = 'I',
+                            photometric_system = 'ubv',
+                            red_law = 'Damineli16', 
+                            overwrite = False, 
+                            output_file = 'default')
+    
+    return
+    
+    
+def generate_Mrun_files():
+    """
+    This generates the correct Mrun (singles and multiples)
+    files. This should !ONLY! be run if the outputs of the code
+    were expected to change from when they were originally made!!!
+    """
+    
+    seed = 1
+    
+    synthetic.write_galaxia_params(output_root = 'test_correct_Mrun',
+                                   longitude = 1.25,
+                                   latitude = -2.65,
+                                   area = 0.0001,
+                                   seed = seed)
+    
+    synthetic.run_galaxia(output_root = 'test_correct_Mrun',
+                          longitude = 1.25,
+                          latitude = -2.65,
+                          area = 0.0001,
+                          galaxia_galaxy_model_filename= '/g/lu/code/galaxia/docs/galaxyModelParams_PopSyCLEv3.txt',
+                          seed = seed)
+    
+    
+    synthetic.perform_pop_syn(ebf_file = 'test_correct_Mrun.ebf',
+                              output_root = 'test_correct_Mrun',
+                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number = None,
+                              BH_kick_speed_mean = 100,
+                              NS_kick_speed_mean = 350,
+                              IFMR = 'Raithel18',
+                              multiplicity=multiplicity.MultiplicityResolvedDK(companion_max = True),
+                              overwrite=False,
+                              seed = seed)
+    
+    
+    synthetic.calc_events(hdf5_file = 'test_correct_Mrun.h5',
+                          output_root2 = 'test_correct_Mrun',
+                          radius_cut = 2,
+                          obs_time = 1000,
+                          n_obs = 11,
+                          theta_frac = 2,
+                          blend_rad = 0.65,
+                          hdf5_file_comp = 'test_correct_Mrun_companions.h5',
+                          overwrite = False,
+                          n_proc = 1)
+    
+    
+    synthetic.refine_events(input_root = 'test_correct_Mrun', 
+                        filter_name = 'I',
+                        photometric_system = 'ubv',
+                        red_law = 'Damineli16', 
+                        hdf5_file_comp = 'test_correct_Mrun_companions.h5',
+                        overwrite = False, 
+                        output_file = 'default')
+    
+    synthetic.refine_binary_events('test_correct_Mrun_refined_events_ubv_I_Damineli16.fits', 
+                                   'test_correct_Mrun_refined_events_ubv_I_Damineli16_companions.fits', filter_name = 'I',
+                                   photometric_system = 'ubv', overwrite = False,
+                                   output_file = 'default', save_phot = False)
+    
+    return

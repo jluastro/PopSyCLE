@@ -7,6 +7,7 @@ Including:
 - perform_pop_syn
 - calc_events
 - refine_events
+- refine_binary_events
 """
 import numpy as np
 import h5py
@@ -42,12 +43,10 @@ from popsycle import utils
 import astropy.units as unit
 import astropy.constants as const
 from astropy.io import fits
-from spisea.imf.multiplicity import MultiplicityResolvedDK
 from popsycle import orbits
 import pandas as pd
 from microlens.jlu import model
 from scipy.signal import find_peaks
-import pdb
 
 
 
@@ -1072,6 +1071,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line22 = output_root + '_label.fits : label file' + '\n'
     if multiplicity != None:
         line23 = output_root + '_companions.h5 : HDF5 file' + '\n'
+    else:
+        line23 = 'No companions h5 file as multiplicity = None' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
@@ -1862,6 +1863,7 @@ def _add_multiples(star_masses, cluster):
     for ii, index in enumerate(cluster_ss['index']):
         closest_index = closest_index_arr[ii]
         companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
+        print(closest_index, companion_indicies)
         # points companions to nearest-in-mass Galaxia primary to SPISEA primary
         for jj in companion_indicies:
             cluster.companions[jj]['system_idx_tmp'] = closest_index
@@ -2100,13 +2102,11 @@ def calc_events(hdf5_file, output_root2,
     ##########
     # Should I use starmap_async?
     results = pool.starmap(_calc_event_time_loop, inputs)
-    #pdb.set_trace()
     pool.close()
     pool.join()
 
     # Remove all the None values
     # (occurs for patches with less than 10 objects)
-    #results = [i for i in results.get() if i is not None]
     results = [i for i in results if i is not None]
 
     results_ev = []
@@ -2125,7 +2125,6 @@ def calc_events(hdf5_file, output_root2,
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
-        #pdb.set_trace()
         # Convert the events numpy recarray into an
         # Astropy Table for easier consumption.
         events_tmp = unique_events(events_tmp)
@@ -3239,10 +3238,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
             companion_table = _calculate_binary_angles(companion_table, event_tab)
-            #pdb.set_trace()
-            #companion_table = Table(companion_table)
             companion_table = Table.from_pandas(companion_table).filled(np.nan)
-            #pdb.set_trace()
             
             # Adds metadata
             companion_table['i'].description = 'w/rt galactic galactic north'

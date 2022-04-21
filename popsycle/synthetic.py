@@ -948,7 +948,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      additional_photometric_systems=additional_photometric_systems,
                                                      seed=seed)
  
-                
+                    
+                    if comp_dict != None:
+                        print('PopSyCLE CO fraction/total > 0.5', len(comp_dict['mass'])/len(np.where(stars_in_bin['zams_mass'] > 0.1)[0]))
                     #########
                     # If there are multiples add them in
                     #########
@@ -1818,11 +1820,10 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
                     # index of companion assocaited with row of primary, so bump it down the length
                     # of the rest of the cluster
                     cluster_addition.companions['system_idx'] += len(cluster.star_systems)
-                    print('cluster length', len(cluster.star_systems))
                     cluster.companions = vstack([cluster.companions, cluster_addition.companions])
                 cluster.star_systems = vstack([cluster.star_systems, cluster_addition.star_systems])
             SPISEA_star_mass = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
-            SPISEA_total_mass = np.sum(cluster.star_systems['mass'])
+            print('CO fraction/total > 0.5', len(cluster.star_systems[cluster.star_systems['phase'] > 100])/len(cluster.star_systems[cluster.star_systems['mass'] > 0.1]))
         
         
         # When it overshoots loop through the stars until we get to the appropriate mass
@@ -1842,12 +1843,16 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
             if SPISEA_star_mass_fix > currentClusterMass:
                 last_index = idx
                 break                
+        #+1 for difference in index definitions
         cluster.star_systems = cluster.star_systems[:last_index + 1]
         if multiplicity is not None:
             last_multiple_idx = np.where(cluster.star_systems['isMultiple'] == 1)[0][-1]
             # take the last matching index so triples aren't separated
             companion_cutoff_index = np.where(cluster.companions['system_idx'] == last_multiple_idx)[0][-1] + 1
             cluster.companions = cluster.companions[:companion_cutoff_index]
+            
+        # Makes sure that primary stellar mass of cluster from SPISEA is approximately the same as that from the galaxia cluster
+        assert np.abs(sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])/currentClusterMass - 1) < 0.01
             
             
     return cluster, unmade_cluster_counter, unmade_cluster_mass

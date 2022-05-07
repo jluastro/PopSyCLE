@@ -58,3 +58,10 @@ distribute-*.tar.gz
 
 # Mac OSX
 .DS_Store
+
+# Test files
+popsycle/tests/*.ebf
+popsycle/tests/*.h5
+popsycle/tests/*.fits
+popsycle/tests/*.log
+popsycle/tests/*.txt

@@ -1,4 +1,5 @@
 from popsycle import synthetic
+from spisea.imf import multiplicity
 from astropy.coordinates import SkyCoord  # High-level coordinates
 import astropy.coordinates as coord
 from astropy.table import Table
@@ -393,8 +394,141 @@ def test_add_multiples():
     
     return
 
+def test_single_CO_frac():
+    
+    test_filepath = os.path.dirname(__file__)
+    seed = 1
+    
+    synthetic.perform_pop_syn(ebf_file = test_filepath + '/' + 'test.ebf',
+                              output_root = test_filepath + '/' + 'test',
+                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number = None,
+                              BH_kick_speed_mean = 100,
+                              NS_kick_speed_mean = 350,
+                              IFMR = 'Raithel18',
+                              overwrite=True,
+                              seed = seed)
+    test_hdf5 = h5py.File(test_filepath + '/' + 'test.h5', 'r')
+    lower_mass_cutoff = 0.1 #Msun
+    CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
+    
+    precalc_CO_frac = 0.0822
+    precalc_CO_number = 2071
+    precalc_total_number = 25184
+    precalc_error = precalc_CO_frac*np.sqrt((np.sqrt(precalc_CO_number)/precalc_CO_number)**2 + (np.sqrt(precalc_total_number)/precalc_total_number)**2)
+    
+    assert(np.abs(CO_frac - precalc_CO_frac) < precalc_error)
+    
+    test_hdf5.close()
+    
+    return
 
-def test_all_Srun():
+def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
+    subfield_list = list(hdf5_file.keys())[1:-2]
+    CO = 0
+    total = 0
+    total_mass = 0
+    for field in subfield_list:
+        array = hdf5_file[field]
+        total_mass += np.sum(array['mass'])
+        CO += len(np.where((array['rem_id'] > 100) & (array['mass'] > lower_mass_cutoff))[0])
+        total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
+        del array
+    print(total_mass)
+    CO_frac = CO/total
+    return  CO_frac
+
+
+def test_multiplicity_frac():
+    
+    test_filepath = os.path.dirname(__file__)
+    seed = 1
+    
+    synthetic.perform_pop_syn(ebf_file = test_filepath + '/' + 'test.ebf',
+                              output_root = test_filepath + '/' + 'test_Mrun',
+                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number = None,
+                              BH_kick_speed_mean = 100,
+                              NS_kick_speed_mean = 350,
+                              IFMR = 'Raithel18',
+                              overwrite=True,
+                              multiplicity=multiplicity.MultiplicityResolvedDK(companion_max = True),
+                              seed = seed)
+    test_hdf5 = h5py.File(test_filepath + '/' + 'test_Mrun.h5', 'r')
+    lower_mass_cutoff = 0.5 #Msun
+    multiplicity_frac = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
+    
+    
+    precalc_mult_frac = 0.4727
+    precalc_mult_number = 2052
+    precalc_total_number = 4341
+    precalc_error = precalc_mult_frac*np.sqrt((np.sqrt(precalc_mult_number)/precalc_mult_number)**2 + (np.sqrt(precalc_total_number)/precalc_total_number)**2)
+    
+    assert(np.abs(multiplicity_frac - precalc_mult_frac) < precalc_error)
+    
+    test_hdf5.close()
+    
+    return
+
+def calc_multiplicity_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
+    subfield_list = list(hdf5_file.keys())[1:-2]
+    multiples = 0
+    total = 0
+    for field in subfield_list:
+        array = hdf5_file[field]
+        multiples += len(np.where((array['isMultiple'] == 1) & (array['mass'] > lower_mass_cutoff))[0])
+        total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
+        del array
+    multiple_frac = multiples/total
+    return  multiple_frac
+
+
+def test_binary_angles():
+    test_filepath = os.path.dirname(__file__)
+    
+    if os.path.exists(test_filepath + '/' + 'test_Mrun_events.fits') == False:
+        synthetic.calc_events(hdf5_file = test_filepath + '/' + 'test_Mrun.h5',
+                              output_root2 = test_filepath + '/' + 'test_Mrun',
+                              radius_cut = 2,
+                              obs_time = 1000,
+                              n_obs = 11,
+                              theta_frac = 2,
+                              blend_rad = 0.65,
+                              hdf5_file_comp = test_filepath + '/' + 'test_Mrun_companions.h5',
+                              overwrite = True,
+                              n_proc = 1)
+        
+    synthetic.refine_events(input_root = test_filepath + '/' + 'test_Mrun', 
+                        filter_name = 'I',
+                        photometric_system = 'ubv',
+                        red_law = 'Damineli16', 
+                        hdf5_file_comp = test_filepath + '/' + 'test_Mrun_companions.h5',
+                        overwrite = True, 
+                        output_file = 'default')
+    
+    
+    #test_event_table = Table.read(test_filepath + '/' + 'test_Mrun' + '_refined_events_ubv_I_Damineli16' + '.fits')
+    test_companions_table = Table.read(test_filepath + '/' + 'test_Mrun' + '_refined_events_ubv_I_Damineli16_companions' + '.fits')
+    
+    alphas = test_companions_table['alpha']
+    phis = test_companions_table['phi']
+    phi_pi_Es = test_companions_table['phi_pi_E']
+    
+    
+    print(np.mean(alphas))
+    print(np.std(alphas))
+    print(min(alphas))
+    print(max(alphas))
+    print(min(phis))
+    print(max(phis))
+    print(min(phi_pi_Es))
+    print(max(phi_pi_Es))
+    
+    return
+
+    
+
+def working_test_all_Srun():
     """
     Testing an Srun (singles only)
     from beginning to end. This will generate all files and 
@@ -469,7 +603,7 @@ def test_all_Srun():
     
     return
 
-def test_all_Mrun():
+def working_test_all_Mrun():
     """
     Testing an Mrun (singles and multiples)
     from beginning to end. This will generate all files and 

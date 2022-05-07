@@ -952,7 +952,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      multiplicity=multiplicity,
                                                      seed=seed)
  
-                
+                    
+                    if comp_dict != None:
+                        print('PopSyCLE CO fraction/total > 0.5', len(comp_dict['mass'])/len(np.where(stars_in_bin['zams_mass'] > 0.1)[0]))
                     #########
                     # If there are multiples make companions table
                     #########
@@ -1819,6 +1821,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
             if SPISEA_persent_day_star_mass_fix > currentClusterMass:
                 last_index = idx
                 break                
+        #+1 for difference in index definitions
         cluster.star_systems = cluster.star_systems[:last_index + 1]
         if multiplicity is not None:
             last_multiple_idx = np.where(cluster.star_systems['isMultiple'] == 1)[0][-1]
@@ -1831,6 +1834,9 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
         if currentClusterMass > 5*10**4:
             SPISEA_persent_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
             assert(np.abs((SPISEA_persent_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
+            
+        # Makes sure that primary stellar mass of cluster from SPISEA is approximately the same as that from the galaxia cluster
+        assert np.abs(sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])/currentClusterMass - 1) < 0.01
             
             
     return cluster, unmade_cluster_counter, unmade_cluster_mass

@@ -965,8 +965,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                                              star_dict=star_dict,
                                                                              comp_dict=comp_dict,
                                                                              t0 = t0)
-                        if companions_table is not None:
-                            print(companions_table['system_idx'])
                         
                         # Save companion table
                         if companions_table != None:
@@ -1834,10 +1832,6 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
         if currentClusterMass > 5*10**4:
             SPISEA_persent_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
             assert(np.abs((SPISEA_persent_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
-            
-        # Makes sure that primary stellar mass of cluster from SPISEA is approximately the same as that from the galaxia cluster
-        assert np.abs(sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])/currentClusterMass - 1) < 0.01
-            
             
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 

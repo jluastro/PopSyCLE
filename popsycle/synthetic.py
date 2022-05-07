@@ -3959,7 +3959,7 @@ def calculate_binary_angles(joined_table):
         # Mod 360 so it'll be in the same range as alpha
         phi_pi_E = np.rad2deg(np.arctan2(mu_racosdec_rel,mu_dec_rel)) % 360
         
-        phi = phi_pi_E - alpha
+        phi = (phi_pi_E - alpha) % 360
         
         alphas.append(alpha)
         phi_pi_Es.append(phi_pi_E)

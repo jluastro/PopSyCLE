@@ -1750,7 +1750,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
     # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
-    if currentClusterMass <= 100:
+    if currentClusterMass <= 80:
         unmade_cluster_counter = 1
         unmade_cluster_mass = currentClusterMass
                     

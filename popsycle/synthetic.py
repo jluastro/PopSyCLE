@@ -2887,6 +2887,14 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     new_blends = old_blends[good_idx]
 
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
+    
+    # Makes simlinks for necessary unchanged files
+    links = ['_galaxia_params.txt', '_perform_pop_syn.log']
+    for link in links:
+        try:
+            os.symlink(input_root + link, output_root + link)
+        except:
+            continue
 
     return
 

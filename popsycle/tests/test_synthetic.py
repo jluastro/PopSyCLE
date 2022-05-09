@@ -427,14 +427,11 @@ def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
     subfield_list = list(hdf5_file.keys())[1:-2]
     CO = 0
     total = 0
-    total_mass = 0
     for field in subfield_list:
         array = hdf5_file[field]
-        total_mass += np.sum(array['mass'])
         CO += len(np.where((array['rem_id'] > 100) & (array['mass'] > lower_mass_cutoff))[0])
         total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
         del array
-    print(total_mass)
     CO_frac = CO/total
     return  CO_frac
 

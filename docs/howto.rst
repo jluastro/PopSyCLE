@@ -1,3 +1,5 @@
+:orphan:
+   
 .. _howto:
 
 ====================
@@ -51,20 +53,20 @@ It is kind of like a dictionary in python-- the dataset can be manipulated just 
 First, go to the directory containing the HDF5 file you want to open. Next, start ipython. Then type the following::
 
     import h5py
-    hf = h5py.File(`filename.h5', `r')
+    hf = h5py.File("filename.h5", "r")
 
 If you want to see the names of all the datasets in an HDF5 file, type the following::
 
-   list(hf.keys())
+    list(hf.keys())
 
 Suppose you want to work with the dataset named ``dname``.
 To access the dataset, type::
 
-   dset = hf[`dname']
+    dset = hf["dname"]
 
 Note that only one person at a time can work on an open HDF5 file. Thus, at the end, you need to close the file::
 
-     hf.close()
+    hf.close()
 
 .. EBF:
 
@@ -77,16 +79,16 @@ First, go to the directory containing the EBF file you want to open.
 Next, start ipython. 
 Then type the following::
 
-     import ebf 
-     ef = ebf.read(`filename.ebf', `/')
+    import ebf 
+    ef = ebf.read("filename.ebf", "/")
 
 If you want to see the names of all the keys in the EBF file, type the following::
 
-   ef.keys()
+    ef.keys()
 
 Suppose you want to work with the key ``xkey``. To access that part of the file, type::
 
-        x = ef[`xkey']
+    x = ef["xkey"]
 
 Now ``x`` is just a numpy array and can manipulated as such.
 
@@ -96,15 +98,16 @@ How to read FITS table files
 ----------------------------
 First, go to the directory containing the fits file you want to open. Next, start ipython, Then type the following::
 
-       from astropy.table import Table
-       tab = Table.read(`table.fits')
+    from astropy.table import Table
+    tab = Table.read("table.fits")
 
 To view the entire table, just type ``tab``. The table works similar to a python dictionary. 
 The column names are the keys of the dictionary, and the dictionary name in this case is ``tab``.
 
 To view the header information/metadata, type ``tab.meta``.
 
-\subsubsection{Stars and compact objects (HDF5)}
+Stars and compact objects (HDF5)
+--------------------------------
 
 The data output contained in the HDF5 datasets are a combination of outputs that come directly from Galaxia, and outputs we ourselves have calculated or defined.
 

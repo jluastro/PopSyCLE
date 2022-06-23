@@ -107,10 +107,10 @@ def write_galaxia_params(output_root,
     ----------
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include
+        ``myout``,
+        ``/some/path/to/myout``,
+        ``../back/to/some/path/myout``.
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -121,9 +121,7 @@ def write_galaxia_params(output_root,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
          identical results.
@@ -268,10 +266,10 @@ def run_galaxia(output_root, longitude, latitude, area,
     ----------
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include
+        ``myout``,
+        ``/some/path/to/myout``,
+        ``../back/to/some/path/myout``.
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -285,9 +283,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     galaxia_galaxy_model_filename : str
         Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
          identical results.
@@ -481,44 +477,42 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include 
+        ``myout``, 
+        ``/some/path/to/myout``
+        ``../back/to/some/path/myout``.
 
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
-    Optional Parameters
-    -------------------
-    bin_edges_number : int
-        Number of edges for the bins
-            bins = bin_edges_number - 1
-        Total number of bins is
-            N_bins = (bin_edges_number - 1)**2
+    bin_edges_number : int, optional
+        Number of edges for the bins such that
+        ``bins = bin_edges_number - 1``.
+        The Total number of bins is
+        ``N_bins = (bin_edges_number - 1)**2``.
         If set to None (default), then number of bins is
-            bin_edges_number = int(60 * 2 * radius) + 1
+        ``bin_edges_number = int(60 * 2 * radius) + 1``
 
-    BH_kick_speed_mean : float
+    BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
+    NS_kick_speed_mean : float, optional
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
         Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
-    seed : int
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
@@ -943,9 +937,7 @@ def calc_current_initial_ratio(iso_dir,
     iso_dir : filepath
         Where you are storing isochrones
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
@@ -1027,9 +1019,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     iso_dir : filepath
         Where are the isochrones stored (for PopStar)
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for PyPopStar and PopSyCLE.
         Default None.
@@ -1090,23 +1080,21 @@ def _make_comp_dict(iso_dir, log_age, currentClusterMass,
     exbv_arr4kdt : numpy
         Array of galactic extinctions for the stars in kdt_star_p
 
-    Optional Parameters
-    -------------------
-    BH_kick_speed_mean : float
+    BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
+    NS_kick_speed_mean : float, optional
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
         Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
-    seed : int
+    seed : int, optional
          Seed used to sample the kde tree. If set to any number,
          PyPopStar will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
@@ -1414,10 +1402,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root):
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
 
-    Optional Parameters
-    -------------------
-
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
         Galaxia / PyPopStar's ubv photometry and appended to the output files.
 
@@ -1591,13 +1576,11 @@ def calc_events(hdf5_file, output_root2,
         Stars within this distance of the lens are said to be blended.
         Units are in ARCSECONDS.
 
-    Optional Parameters
-    -------------------
-    n_proc : int
+    n_proc : int, optional
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
 
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -2217,7 +2200,7 @@ def unique_events(event_table):
     lens separation.
 
     Parameters
-    ---------
+    ----------
     event_table : numpy array 
         A table with all the events. There are equal numbers of columns
         containing info about the source and the lens, and four additional
@@ -2269,7 +2252,7 @@ def unique_blends(blend_table):
     is picked to be the first occurence.
 
     Parameters
-    ---------
+    ----------
     blend_table : blend array 
         A table with all the events. There is 1 column with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
@@ -2503,7 +2486,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     Parameters
     ----------
     input_root : str
-        The root path and name of the *_events.fits and *_blends.fits.
+        The root path and name of the \*_events.fits and \*_blends.fits.
         Don't include those suffixes yet.
 
     filter_name : str
@@ -2517,9 +2500,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     red_law : str
         The name of the reddening law to use from SPISEA.
 
-    Optional Parameters
-    -------------------
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -2527,7 +2508,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     output_file : str
         The name of the final refined_events file.
         If set to 'default', the format will be:
-            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+        <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
 
     Output:
     ----------
@@ -2978,7 +2959,7 @@ def make_label_file(h5file_name, overwrite=False):
         The path and name of the input h5file containing the
         population synthesis results. We will read this in and
         make a new output file entitled:
-        <h5file_name>_label.fits (after removing the *.h5).
+        <h5file_name>_label.fits (after removing the \*.h5).
 
     Return
     ------
@@ -3076,7 +3057,7 @@ def galactic_to_heliocentric(r, b, l):
     Converts from galactic coordinates to heliocentric coordinates.
 
     Parameters
-    ---------
+    ----------
     r, b, l : float or array
         Galactic coordinates r, b and l (in kpc and degrees)
 
@@ -3199,7 +3180,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     Calculate the "bump" amplitude, given the minimum separation and the fluxes
     of the (unmagnified) source, lens, and neighbors.
     The bump amplitude (mags) is:
-    |m_peak - m_base| = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
+    abs(m_peak - m_base) = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
 
     Parameters
     ----------

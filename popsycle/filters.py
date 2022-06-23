@@ -6,8 +6,8 @@ Functions (and their associated functions) for additional photometric systems.
 import inspect
 import os
 import numpy as np
-from popstar import evolution, atmospheres, reddening, ifmr, synthetic
-from popstar.imf import multiplicity, imf
+from spisea import evolution, atmospheres, reddening, ifmr, synthetic
+from spisea.imf import multiplicity, imf
 from scipy.interpolate import griddata
 from scipy.spatial.ckdtree import cKDTree
 
@@ -40,7 +40,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     Parameters
     ----------
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
     filter_name : str
         The name of the filter in which to calculate all the
@@ -80,9 +80,6 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     # Define total cluster mass
     mass = 10 ** 5.
 
-    # Make ifmr
-    my_ifmr = ifmr.IFMR()
-
     ubv_b = np.array([])
     ubv_v = np.array([])
     ubv_r = np.array([])
@@ -114,7 +111,7 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
                                              recomp=True)
         # Make cluster object
         cluster = synthetic.ResolvedCluster(my_iso, my_imf, mass,
-                                            ifmr=my_ifmr)
+                                            ifmr=None)
         clust = cluster.star_systems
         cond = ~np.isnan(clust['m_ubv_V'])
         clust = clust[cond]
@@ -259,24 +256,24 @@ def transform_ubv_to_ztf(filter_name, ubv_B, ubv_V, ubv_R, ubv_I=None):
         If converting to ztf_i, then ubv_I must be provided
 
     ubv_B : array of floats
-        ubv_B photometry of galaxia / PyPopStar sources
+        ubv_B photometry of galaxia / SPISEA sources
 
     ubv_V : array of floats
-        ubv_V photometry of galaxia / PyPopStar sources
+        ubv_V photometry of galaxia / SPISEA sources
 
     ubv_R : array of floats
-        ubv_R photometry of galaxia / PyPopStar sources
+        ubv_R photometry of galaxia / SPISEA sources
 
     Optional Parameters
     -------------------
     ubv_I : array of floats
-        ubv_I photometry of galaxia / PyPopStar sources,
+        ubv_I photometry of galaxia / SPISEA sources,
         required for converting to ztf_i
 
     Output
     ------
     ztf_mag : array of floats
-        ztf photometry of galaxia / PyPopStar sources in `filter_name`
+        ztf photometry of galaxia / SPISEA sources in `filter_name`
 
     """
     # Check for correct filter
@@ -324,7 +321,7 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
     Parameters
     ----------
     ztf_mag_vega : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in vega system
+        ztf photometry of galaxia / SPISEA sources in vega system
 
     filter_name : str
         The name of the filter in which to calculate all the
@@ -333,7 +330,7 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
     Output
     ------
     ztf_mag_AB : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in AB system
+        ztf photometry of galaxia / SPISEA sources in AB system
 
     """
     if filter_name == 'g':
@@ -358,7 +355,7 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
     Parameters
     ----------
     ztf_mag_AB : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in AB system
+        ztf photometry of galaxia / SPISEA sources in AB system
 
     filter_name : str
         The name of the filter in which to calculate all the
@@ -367,7 +364,7 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
     Output
     ------
     ztf_mag_vega : float, array of floats
-        ztf photometry of galaxia / PyPopStar sources in vega system
+        ztf photometry of galaxia / SPISEA sources in vega system
 
     """
     if filter_name == 'g':

@@ -15,7 +15,7 @@ PopSyCLE requires a custom version of galaxia in order to support
 user selected galaxy models. Please follow the installation instructions
 found at our galaxia GitHub repo: https://github.com/jluastro/galaxia.
 
-`PyPopStar <https://pypopstar.readthedocs.io/en/latest/>`_
+`SPISEA <https://spisea.readthedocs.io/en/latest/>`_
 
 
 Installation

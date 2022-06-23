@@ -329,3 +329,53 @@ def test_calc_events():
 
     return
 
+def _test_add_multiples():
+    """
+    Checks that _add_multiples() is making the companions point to the correct Galaxia objects
+    and eliminates the correct elements.
+    """
+    # Fake version of Galaxia star masses
+    star_masses_check = np.linspace(0, 5, 10).tolist()
+    
+    class FakeCluster(object):
+        """
+        Makes a "fake" cluster which is the necessary parts
+        of the star_systems and companions tables
+        """
+        
+        # Makes mass slightly off from the star_masses
+        mass = np.linspace(0.1, 5.1, 10)
+        
+        # All odd indices are Multiple systems
+        isMulti = np.empty((len(mass),))
+        isMulti[::2] = False
+        isMulti[1::2] = True
+        
+        # Makes first two white dwarfs and the rest stars
+        phase = np.empty((len(mass),))
+        phase[0:2] = 101
+        phase[2:] = 1.0
+        
+        star_systems = Table([mass, isMulti, phase],
+                             names=['mass', 'isMultiple', 'phase'])
+                             
+        system_idx = [1,1,1,3,5,5,7,9]
+        companions = Table([system_idx],
+                             names=['system_idx'])
+        
+    cluster_check = FakeCluster()
+    
+    companion_check = _add_multiples(star_masses_check, cluster_check)
+        
+    # 1,1,1 should be eliminated because the primary is a WD
+    # 9 should be eliminated because it's too big
+    # 3, 5,5, and 7 should be pointed to their star_masses counterpart
+    system_idx_correct = [4,6,6,8]
+    correct_companion_check = Table([system_idx_correct],
+                                   names=['system_idx'])
+    
+    if not np.array_equal(correct_companion_check, companion_check):
+        raise Exception("_add_multiples() is behaving unexpectedly")
+    
+    return
+

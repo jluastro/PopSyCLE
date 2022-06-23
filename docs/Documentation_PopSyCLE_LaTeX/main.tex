@@ -13,7 +13,7 @@
 \usepackage{float}
 \usepackage{graphicx}
 \usepackage{wasysym}
-\usepackage{bbold}
+%\usepackage{bbold}
 \usepackage{hyperref}
 \usepackage{enumitem}
 \hypersetup{
@@ -45,7 +45,7 @@
 \section{Installation}
 
 \texttt{PopSyCLE} has several dependencies.
-In addition to installing \texttt{PopSyCLE}, the user will need \texttt{Galaxia}, \texttt{PopStar}, and several Python libraries.
+In addition to installing \texttt{PopSyCLE}, the user will need \texttt{Galaxia}, \texttt{SPISEA}, and several Python libraries.
 
 \subsection{Installing \texttt{Galaxia}}
 
@@ -106,9 +106,9 @@ Then do the following:
 \end{enumerate}
 Now return to step 5 in the installation instruction and proceed as instructed.
 
-\subsection{Installing \texttt{PopStar}}
+\subsection{Installing \texttt{SPISEA}}
 
-\texttt{PopStar} can be installed by cloning the repository from \url{https://github.com/astropy/PopStar}.
+\texttt{SPISEA} can be installed by cloning the repository from \url{https://github.com/astropy/SPISEA}.
 
 \subsection{Installing Python libraries}
 
@@ -154,7 +154,7 @@ First, go to the directory containing the EBF file you want to open.
 Next, start ipython. 
 Then type the following:
 
-\texttt{import ebf}
+\texttt{from popsycle import ebf}
 
 \texttt{ef = ebf.read(`filename.ebf', `/')}.
 

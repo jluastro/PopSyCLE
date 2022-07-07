@@ -442,7 +442,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     BH_kick_scale_NS_frac : None or float
         Fraction of NS kick to be applied to BH, where more massive BHs have smaller kicks.
         That is, the kick applied to the BH is
-            BH kick = (BH mass * NS kick * BH_kick_scale_NS_frac)/(mean NS mass)
+            BH kick = (mean NS mass * NS kick * BH_kick_scale_NS_frac)/BH mass
         where NS kick is randomly drawn from the NS kick distribution.
 
     additional_photometric_systems : list of strs
@@ -1443,7 +1443,7 @@ def _make_comp_dict(log_age,
                     NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                     NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
                     NS_mean_mass = np.average(comp_dict['mass'][NS_idx])
-                    BH_kick = BH_kick_scale_NS_frac * comp_dict['mass'][BH_idx] * NS_kick_speed/NS_mean_mass
+                    BH_kick = BH_kick_scale_NS_frac * NS_kick_speed * NS_mean_mass/comp_dict['mass'][BH_idx] 
                     comp_dict['vx'][NS_idx] += BH_kick[0]
                     comp_dict['vy'][NS_idx] += BH_kick[1]
                     comp_dict['vz'][NS_idx] += BH_kick[2]

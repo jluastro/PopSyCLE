@@ -393,6 +393,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            IFMR,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
+                           BH_kick_scale_NS_frac,
                            additional_photometric_systems,
                            overwrite, seed, multiplicity):
     """
@@ -437,6 +438,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+
+    BH_kick_scale_NS_frac : None or float
+        Fraction of NS kick to be applied to BH, where more massive BHs have smaller kicks.
+        That is, the kick applied to the BH is
+            BH kick = (BH mass * NS kick * BH_kick_scale_NS_frac)/(mean NS mass)
+        where NS kick is randomly drawn from the NS kick distribution.
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
@@ -494,6 +501,11 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         if not isinstance(NS_kick_speed_mean, float):
             raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
 
+    if BH_kick_scale_NS_frac is not None:
+        if not isinstance(NS_kick_speed_mean, int):
+            if not isinstance(NS_kick_speed_mean, float):
+                raise Exception('BH_kick_scale_NS_frac (%s) must be None, integer, or float.' % str(BH_kick_scale_NS_frac))
+
     if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
 
@@ -525,6 +537,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     IFMR,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                    BH_kick_scale_NS_frac=None,
                     additional_photometric_systems=None,
                     overwrite=False, seed=None, multiplicity=None):
     """
@@ -627,8 +640,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            IFMR,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
+                           BH_kick_scale_NS_frac,
                            additional_photometric_systems,
                            overwrite, seed, multiplicity)
+
+    if BH_kick_scale_NS_frac is not None:
+        print('NOTE: BH_kick_scale_NS_frac has been set.')
+        print('This means BH_kick_speed_mean is being ignored and is not used.')
+        print('Is this the behavior you want?')
+        input('If yes, press a key to continue...')
+
 
     ##########
     # Start of code
@@ -948,6 +969,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                      kdt_star_p, exbv_arr4kdt,
                                                      BH_kick_speed_mean=BH_kick_speed_mean,
                                                      NS_kick_speed_mean=NS_kick_speed_mean,
+                                                     BH_kick_scale_NS_frac=BH_kick_scale_NS_frac,
                                                      additional_photometric_systems=additional_photometric_systems,
                                                      multiplicity=multiplicity,
                                                      seed=seed)
@@ -1036,6 +1058,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
+    line5_5 = 'BH_kick_scale_NS_frac , ' + str(BH_kick_scale_NS_frac) + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
     line7 = 'IFMR , ' + str(IFMR) + '\n'
     line8 = 'seed , ' + str(seed) + '\n'
@@ -1056,10 +1079,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line20 = 'FILES CREATED' + '\n'
     line21 = output_root + '.h5 : HDF5 file' + '\n'
     line22 = output_root + '_label.fits : label file' + '\n'
+    
     if multiplicity != None:
         line23 = output_root + '_companions.h5 : HDF5 file' + '\n'
     else:
-        line23 = 'No companions h5 file as multiplicity = None' + '\n'
+        line23 = 'No companions.h5 file as multiplicity = None' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
@@ -1247,6 +1271,7 @@ def _make_comp_dict(log_age,
                     star_dict, next_id,
                     kdt_star_p, exbv_arr4kdt,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                    BH_kick_scale_NS_frac=None,
                     additional_photometric_systems=None,
                     multiplicity=None,
                     seed=None):
@@ -1412,14 +1437,25 @@ def _make_comp_dict(log_age,
                 comp_dict['vy'][NS_idx] += NS_kick[1]
                 comp_dict['vz'][NS_idx] += NS_kick[2]
 
-            BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
-            BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
-            if len(BH_idx) > 0:
-                BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
-                BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
-                comp_dict['vx'][BH_idx] += BH_kick[0]
-                comp_dict['vy'][BH_idx] += BH_kick[1]
-                comp_dict['vz'][BH_idx] += BH_kick[2]
+            if BH_kick_scale_NS_frac is not None:
+                BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
+                if len(BH_idx) > 0:
+                    NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
+                    NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
+                    NS_mean_mass = np.average(comp_dict['mass'][NS_idx])
+                    BH_kick = BH_kick_scale_NS_frac * comp_dict['mass'][BH_idx] * NS_kick_speed/NS_mean_mass
+                    comp_dict['vx'][NS_idx] += BH_kick[0]
+                    comp_dict['vy'][NS_idx] += BH_kick[1]
+                    comp_dict['vz'][NS_idx] += BH_kick[2]
+            else:
+                BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
+                BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
+                if len(BH_idx) > 0:
+                    BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
+                    BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
+                    comp_dict['vx'][BH_idx] += BH_kick[0]
+                    comp_dict['vy'][BH_idx] += BH_kick[1]
+                    comp_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
             comp_dict['rad'] = utils.add_precision64(comp_dict['rad'], -4)

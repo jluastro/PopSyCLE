@@ -648,7 +648,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         print('NOTE: BH_kick_scale_NS_frac has been set.')
         print('This means BH_kick_speed_mean is being ignored and is not used.')
         print('Is this the behavior you want?')
-        input('If yes, press a key to continue...')
+        input('If yes, press Enter to continue...')
 
 
     ##########
@@ -1440,13 +1440,13 @@ def _make_comp_dict(log_age,
             if BH_kick_scale_NS_frac is not None:
                 BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
                 if len(BH_idx) > 0:
-                    NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
-                    NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
+                    NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(BH_idx))
+                    NS_kick = utils.sample_spherical(len(BH_idx), NS_kick_speed)
                     NS_mean_mass = np.average(comp_dict['mass'][NS_idx])
-                    BH_kick = BH_kick_scale_NS_frac * NS_kick_speed * NS_mean_mass/comp_dict['mass'][BH_idx] 
-                    comp_dict['vx'][NS_idx] += BH_kick[0]
-                    comp_dict['vy'][NS_idx] += BH_kick[1]
-                    comp_dict['vz'][NS_idx] += BH_kick[2]
+                    BH_kick = BH_kick_scale_NS_frac * NS_kick * NS_mean_mass/comp_dict['mass'][BH_idx] 
+                    comp_dict['vx'][BH_idx] += BH_kick[0]
+                    comp_dict['vy'][BH_idx] += BH_kick[1]
+                    comp_dict['vz'][BH_idx] += BH_kick[2]
             else:
                 BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
                 BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))

@@ -436,9 +436,11 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
     BH_kick_scale_NS_frac : None or float
-        Fraction of NS kick to be applied to BH, where more massive BHs have smaller kicks.
-        That is, the kick applied to the BH is
-            BH kick = (mean NS mass * NS kick * BH_kick_scale_NS_frac)/BH mass
+        Scale factor applied to BH kick, where we assume the kick is momentum conserving.
+        By momentum conserving, we mean that on average, BH mass * BH kick = NS mass * NS kick,
+        i.e. BHs should ahve smaller kicks than NSs because they are more massive.
+        More clearly, the kick applied to the BH is
+            BH kick = BH_kick_scale_NS_frac * NS kick * mean NS mass/BH mass
         where NS kick is randomly drawn from the NS kick distribution.
 
     additional_photometric_systems : list of strs
@@ -580,6 +582,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+
+    BH_kick_scale_NS_frac : None or float
+        Scale factor applied to BH kick, where we assume the kick is momentum conserving.
+        By momentum conserving, we mean that on average, BH mass * BH kick = NS mass * NS kick,
+        i.e. BHs should ahve smaller kicks than NSs because they are more massive.
+        More clearly, the kick applied to the BH is
+            BH kick = BH_kick_scale_NS_frac * NS kick * mean NS mass/BH mass
+        where NS kick is randomly drawn from the NS kick distribution.
 
     additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
@@ -1311,6 +1321,14 @@ def _make_comp_dict(log_age,
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+
+    BH_kick_scale_NS_frac : None or float
+        Scale factor applied to BH kick, where we assume the kick is momentum conserving.
+        By momentum conserving, we mean that on average, BH mass * BH kick = NS mass * NS kick,
+        i.e. BHs should ahve smaller kicks than NSs because they are more massive.
+        More clearly, the kick applied to the BH is
+            BH kick = BH_kick_scale_NS_frac * NS kick * mean NS mass/BH mass
+        where NS kick is randomly drawn from the NS kick distribution.
 
     additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from

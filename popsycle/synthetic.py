@@ -3375,10 +3375,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         
         #sets up event table to be indexed
         event_table = event_tab.to_pandas()
-        event_tab_L = copy.deepcopy(event_table)
-        event_tab_S = copy.deepcopy(event_table)
-        event_tab_L = event_tab_L.set_index('obj_id_L')
-        event_tab_S = event_tab_S.set_index('obj_id_S')
+        event_tab_L = copy.deepcopy(event_table).set_index('obj_id_L')
+        event_tab_S = copy.deepcopy(event_table).set_index('obj_id_S')
         # Loops through the non-metadata parts of hf_comp square by square
         # so the memory isn't overwhelmed
         for ii in np.hstack((hf_comp)):
@@ -3392,6 +3390,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     
                 patch_comp_df = pd.DataFrame(data = patch_comp, columns = np.dtype(patch_comp[0]).names)
                 
+                # deletes patch so memory not overwhelmed
+                del patch_comp
+                
                 #set the table to be indexed on system_idx
                 #so that they can be joined based on those indices
                 #event tables set to be indexed on obj_id_L, and obj_id_S above loop
@@ -3402,6 +3403,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 # only keeps columns where system is associated with a lens or source respectively
                 patch_comp_L = patch_comp_df.join(event_tab_L, lsuffix='_comp', rsuffix='_prim', how='inner')
                 patch_comp_S = patch_comp_df.join(event_tab_S, lsuffix='_comp', rsuffix='_prim', how='inner')
+                
+                # deletes patch so memory not overwhelmed
+                del patch_comp_df
                 
                 # FIX ME: Memory could potentially be cleaned up here.
                 # Reset index adds obj_id_L back as its own column
@@ -3439,16 +3443,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         companion_table = companion_table.append(patch_comp_S)
                  
                 # deletes patch so memory not overwhelmed
-                del patch_comp
-                del patch_comp_df
+                del patch_comp_L
+                del patch_comp_S
         hf_comp.close()
-        
+        print('memory test 1')
         
         
         if len(companion_table) > 0:
             
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
+            print('memory test 2')
             companion_table = _add_binary_angles(companion_table, event_tab)
             companion_table = Table.from_pandas(companion_table).filled(np.nan)
             
@@ -3745,6 +3750,9 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # Bump amplitude (in magnitudes)
     delta_m = calc_bump_amp(np.abs(event_tab['u0']), flux_S, flux_L, flux_N)
     event_tab['delta_m_' + filter_name] = delta_m
+    
+    #import pdb
+    #pdb.set_trace()
 
     # Calculate the blend fraction
     # (commonly used in microlensing): f_source / f_total
@@ -3781,6 +3789,7 @@ def _add_binary_angles(companion_table, event_table):
     
     """
     companion_tmp_df = copy.deepcopy(companion_table)
+    print('memory test 3')
     
     event_table_df = event_table.to_pandas()
     
@@ -3789,10 +3798,14 @@ def _add_binary_angles(companion_table, event_table):
     event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
     
+    print('memory test 4')
+    
     del event_table_df
     
     start_time_bin_angles = time.time()    
     alphas, phi_pi_Es, phis = calculate_binary_angles(companion_tmp_df_joined)
+    
+    print('memory test 5')
     
     companion_tmp_df_joined['alpha'] = alphas
     companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
@@ -3988,7 +4001,11 @@ def _add_multiples_parameters(companion_table, event_table):
     """
     companion_tmp_df = copy.deepcopy(companion_table)
     
+    print('memory test 1.1')
+    
     event_table_df = event_table.to_pandas()
+    
+    print('memory test 1.2')
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
@@ -3996,6 +4013,7 @@ def _add_multiples_parameters(companion_table, event_table):
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
 
     del event_table_df
+    print('memory test 1.3')
     
     a_kpc = (np.array(10**companion_tmp_df_joined['log_a'])*unit.AU).to('kpc').value
     
@@ -4003,22 +4021,70 @@ def _add_multiples_parameters(companion_table, event_table):
     # columns that are associated with the prim types
     # then take the diagonal to get the mass (or systemMass or rad) associated with the
     # appropriate prim_type. The off-diagonal elements may not be associated with the right primary
-    event_prim_masses = np.diagonal(companion_tmp_df_joined['mass_' + companion_tmp_df_joined['prim_type']])
-    event_system_masses = np.diagonal(companion_tmp_df_joined['systemMass_' + companion_tmp_df_joined['prim_type']])
-    event_prim_distances = np.diagonal(companion_tmp_df_joined['rad_' + companion_tmp_df_joined['prim_type']])
+    #event_prim_masses = np.diagonal(companion_tmp_df_joined['mass_' + companion_tmp_df_joined['prim_type']])
+    #print('memory test 1.31')
+    #event_system_masses = np.diagonal(companion_tmp_df_joined['systemMass_' + companion_tmp_df_joined['prim_type']])
+    #print('memory test 1.32')
+    #event_prim_distances = np.diagonal(companion_tmp_df_joined['rad_' + companion_tmp_df_joined['prim_type']])
+    
+    event_prim_masses = np.zeros(len(companion_tmp_df_joined))
+    event_system_masses = np.zeros(len(companion_tmp_df_joined))
+    event_prim_distances = np.zeros(len(companion_tmp_df_joined))
+    counter = np.arange(len(companion_tmp_df_joined))
+    for row, count in zip(companion_tmp_df_joined.iterrows(), counter):
+        # indexing row[1] is because row[0] is the row's index
+        prim_type = row[1]['prim_type']
+        
+        # this is activated only for testing, since prim_type is saved
+        # as a byte in the final fits file
+        if type(prim_type) == bytes:
+            prim_type = prim_type.decode("utf-8") 
+            
+        event_prim_masses[count] = row[1]['mass_' + prim_type]
+        event_system_masses[count] = row[1]['systemMass_' + prim_type]
+        event_prim_distances[count] = row[1]['rad_' + prim_type]
+    
+    """event_prim_masses_L = companion_tmp_df_joined['mass_L'][np.where(companion_tmp_df_joined['prim_type'] == 'L')[0]]
+    event_prim_masses_S = companion_tmp_df_joined['mass_S'][np.where(companion_tmp_df_joined['prim_type'] == 'S')[0]]
+    event_prim_masses = pd.concat([event_prim_masses_L, event_prim_masses_S]).sort_index()
+    del event_prim_masses_L
+    del event_prim_masses_S
+    
+    print('memory test 1.31')
+    
+    event_system_masses_L = companion_tmp_df_joined['systemMass_L'][np.where(companion_tmp_df_joined['prim_type'] == 'L')[0]]
+    event_system_masses_S = companion_tmp_df_joined['systemMass_S'][np.where(companion_tmp_df_joined['prim_type'] == 'S')[0]]
+    event_system_masses = pd.concat([event_system_masses_L, event_system_masses_S]).sort_index()
+    del event_system_masses_L
+    del event_system_masses_S
+    
+    print('memory test 1.32')
+    
+    event_prim_distances_L = companion_tmp_df_joined['rad_L'][np.where(companion_tmp_df_joined['prim_type'] == 'L')[0]]
+    event_prim_distances_S = companion_tmp_df_joined['rad_S'][np.where(companion_tmp_df_joined['prim_type'] == 'S')[0]]
+    event_prim_distances = pd.concat([event_prim_distances_L, event_prim_distances_S]).sort_index()
+    del event_prim_distances_L
+    del event_prim_distances_S
+    """
+    
+    print('memory test 1.4')
     
     companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass']/event_prim_masses #mass ratio
+    print('memory test 1.5')
     #abs(acos(i))
     abs_cos_i = np.abs(np.cos(list(companion_tmp_df_joined['i'])))
+    print('memory test 1.6')
     a_mas = (np.arcsin(a_kpc/event_prim_distances)*unit.radian).to('mas').value
+    print('memory test 1.7')
     companion_tmp_df_joined['sep'] = abs_cos_i*a_mas #separation in mas
+    print('memory test 1.8')
     companion_tmp_df_joined['P'] = orbits.a_to_P(event_system_masses, 10**companion_tmp_df_joined['log_a']) #period
-    
+    print('memory test 1.9')
     # reset index adds obj_id_L and obj_id_S back as their own columns
     # doing list(cluster.companions.columns) + those other names means that it only takes columns 
     # that were in cluster.companions and obj_id_L, obj_id_S, q,...
     companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['q', 'sep', 'P']]
-    
+    print('memory test 1.91')
     del companion_tmp_df_joined
     return companion_tmp_df
 

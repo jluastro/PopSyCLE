@@ -395,7 +395,10 @@ def test_add_multiples():
     return
 
 def test_single_CO_frac():
-    
+    """
+    Checks that the CO fraction of objects greater than 0.1 Msun
+    is about 8.2%
+    """
     test_filepath = os.path.dirname(__file__)
     seed = 1
     
@@ -436,8 +439,11 @@ def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
     return  CO_frac
 
 
-def test_multiplicity_frac():
-    
+def test_multiplicity_properties():
+    """
+    Checks that the multiplicity fraction of objects > 0.5 Msun is about 47%
+    and that the minimum semimajor axis is greater than 10^-2
+    """
     test_filepath = os.path.dirname(__file__)
     seed = 1
     
@@ -465,6 +471,14 @@ def test_multiplicity_frac():
     
     test_hdf5.close()
     
+    
+    test_hdf5_comp = h5py.File(test_filepath + '/' + 'test_Mrun_companions.h5', 'r')
+    min_log_semimajor_axis = calc_min_semimajor_axis(test_hdf5_comp)
+    
+    min_log_semimajor_axis_imposed = -2
+    
+    assert(min_log_semimajor_axis_imposed < min_log_semimajor_axis)
+    
     return
 
 def calc_multiplicity_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
@@ -478,6 +492,22 @@ def calc_multiplicity_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
         del array
     multiple_frac = multiples/total
     return  multiple_frac
+
+def calc_min_semimajor_axis(hdf5_file):
+    subfield_list = list(hdf5_file.keys())[1:-2]
+    min_semimajor_axis = np.nan
+    for field in subfield_list:
+        array = hdf5_file[field]
+        array_min_semimajor_axis = min(array['log_a'])
+        if np.isnan(min_semimajor_axis):
+            min_semimajor_axis = array_min_semimajor_axis
+        elif array_min_semimajor_axis < min_semimajor_axis:
+            min_semimajor_axis = array_min_semimajor_axis
+            
+        del array
+    
+    return  min_semimajor_axis
+
 
 
 def test_binary_angles():
@@ -504,7 +534,6 @@ def test_binary_angles():
                         output_file = 'default')
     
     
-    #test_event_table = Table.read(test_filepath + '/' + 'test_Mrun' + '_refined_events_ubv_I_Damineli16' + '.fits')
     test_companions_table = Table.read(test_filepath + '/' + 'test_Mrun' + '_refined_events_ubv_I_Damineli16_companions' + '.fits')
     
     alphas = test_companions_table['alpha']
@@ -512,14 +541,12 @@ def test_binary_angles():
     phi_pi_Es = test_companions_table['phi_pi_E']
     
     
-    print(np.mean(alphas))
-    print(np.std(alphas))
-    print(min(alphas))
-    print(max(alphas))
-    print(min(phis))
-    print(max(phis))
-    print(min(phi_pi_Es))
-    print(max(phi_pi_Es))
+    assert(min(alphas) >= 0)
+    assert(max(alphas) <= 360)
+    assert(min(phis) >= 0)
+    assert(max(phis) <= 360)
+    assert(min(phi_pi_Es) >= 0)
+    assert(max(phi_pi_Es) <= 360)
     
     return
 

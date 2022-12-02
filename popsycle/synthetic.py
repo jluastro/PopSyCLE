@@ -3202,7 +3202,7 @@ def _check_refine_events(input_root, filter_name,
 
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
-                  output_file='default', hdf5_file_comp=None):
+                  output_file='default', hdf5_file_comp=None, legacy = False):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -3240,6 +3240,11 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     hdf5_file_comp: str
         String of hdf5 file of companion events created in perform_pop_syn().
         Default is None.
+    
+    legacy : bool
+        For running on files created before ~2020 when the filter system was changed
+        to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
+        Default is False.
 
     Output:
     ----------
@@ -3288,6 +3293,15 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
+    
+    # In legacy files set filters to upper case (i.e. ubv_r to ubv_R)
+    if legacy == True:
+        lowercase_ubv_filter_list = ['u', 'b', 'v', 'r', 'i', 'j', 'k', 'h']
+        for ubv_filter in lowercase_ubv_filter_list:
+            event_tab.rename_column('ubv_{}_S'.format(ubv_filter), 'ubv_{}_S'.format(ubv_filter.upper()))
+            event_tab.rename_column('ubv_{}_L'.format(ubv_filter), 'ubv_{}_L'.format(ubv_filter.upper()))
+            blend_tab.rename_column('ubv_{}_N'.format(ubv_filter), 'ubv_{}_N'.format(ubv_filter.upper()))
+            
         
 
     # If photometric fields contain -99, convert to nan
@@ -3324,6 +3338,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 except:
                     pps_seed = np.nan
                 break
+    
+    # Sets random seed to nan for legacy files unless
+    #  some value was set manually
+    if legacy == True:
+        try:
+            gal_seed
+        except NameError:
+            gal_seed = np.nan
+        
+        try:
+            pps_seed
+        except NameError:
+            pps_seed = np.nan
+            
 
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table!
@@ -3365,6 +3393,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+    
+    
 
     
     
@@ -4481,6 +4511,298 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
+
+def refine_bspl_events(events, companions, photometric_system, filter_name,
+                         overwrite = False, output_file = 'default',
+                         save_phot = False, phot_dir = None):
+    """
+    Takes the output Astropy table from refine_events or later (both primaries and companions) and from that
+    calculates the binary source point lens lightcurves
+
+    Parameters
+    ----------
+    events : str
+        fits file containing the events calculated from refine_events (or later)
+    
+    companions : str
+        fits file containing the companions calculated from refine_events (or later)
+    
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+    
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    Optional Parameters
+    -------------------
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+
+    output_file : str
+        The name of the final refined_events file.
+        If set to 'default', the format will be:
+            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+            
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+    
+    Output:
+    ----------
+    A file will be created named
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb.fits
+    that contains all the same objects, only now with lots of extra
+    columns of data. (rb stands for refine binaries).
+    
+    A file will be created named
+    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb_mp.fits
+    that contains the data for each individual peak for events with multiple peaks.
+    (mp stands for multiple peaks).
+
+    """
+    start_time = time.time()
+    
+    if not overwrite and os.path.isfile(output_file):
+        raise Exception('That refined_events.fits file name is taken! '
+                        'Either delete the .fits file, or pick a new name.')
+
+    if save_phot == True and phot_dir == None:
+        raise Exception('phot_dir is "none". Input a directory to save photometry.')
+        
+    # Error handling/complaining if input types are not right.
+    # Note this is the same as refine_binary_events since the inputs are the same types
+    _check_refine_binary_events(events, companions, 
+                         photometric_system, filter_name,
+                         overwrite, output_file,
+                         save_phot, phot_dir)
+        
+    
+    event_table = Table.read(events)
+    comp_table = Table.read(companions)
+    
+    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='n_peaks_S') )
+    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='bin_delta_m_S') )
+    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='primary_t_S') )
+    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='avg_t_S') )
+    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='std_t_S') )
+    
+    
+    comp_table['bin_delta_m_S'][:] = np.nan
+    comp_table['primary_t_S'][:] = np.nan
+    comp_table['avg_t_S'][:] = np.nan
+    comp_table['std_t_S'][:] = np.nan
+    
+    # This table is for events with more than one peak to characterize those peaks
+    # comp_id is position of companion in companion table for reference
+    # obj_id_L, obj_id_S, and n_peaks are the same as in the companion table, just for reference
+    # t is time of peak
+    # delta m is the change in magnitude between the peak and baseline
+    # ratio is the magnitude ratio between min peak/max peak
+    mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'delta_m', 'ratio'))
+
+    S_idxs = np.where(comp_table['prim_type'] == "S")[0]
+    
+    red_law = 'Damineli16'
+    
+    for comp_idx in S_idxs:
+        name = "{}".format(comp_idx)
+        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == comp_table[comp_idx]['obj_id_L']), (event_table['obj_id_S'] == comp_table[comp_idx]['obj_id_S'])))[0])
+        
+        # For if you input a cut down event table but a not cut down companion table
+        # so there are companions associated with cut out events
+        if len(event_id) == 0:
+            continue
+        else:
+            event_id = event_id[0]
+        
+        #Skip binary source binary lens events
+        if event_table[event_id]['isMultiple_L'] == True:
+            continue
+            
+        L_coords = SkyCoord(l = event_table[event_id]['glat_L']*unit.degree, b = event_table[event_id]['glon_L']*unit.degree, 
+                                pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
+                                pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
+        S_coords = SkyCoord(l = event_table[event_id]['glat_S']*unit.degree, b = event_table[event_id]['glon_S']*unit.degree, 
+                                pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
+                                  pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+
+        f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+        abs_mag_sec = comp_table[comp_idx]['m_%s_%s' % (photometric_system, filter_name)]
+        
+        ##########
+        # Calculate binary model and photometry
+        ##########
+        mL = event_table[event_id]['mass_L'] # msun (Lens mass)
+        t0 = event_table[event_id]['t0'] # mjd
+        beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
+        dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
+        dL_dS = dL/(event_table[event_id]['rad_S']*10**3) #Distance to lens/Distance to source
+        xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
+        muL_E = L_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
+        muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
+        muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
+        muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
+        sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
+        alpha = comp_table[comp_idx]['alpha']
+        mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
+        mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
+        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
+        raL = L_coords.icrs.ra.value # Lens R.A.
+        decL = L_coords.icrs.dec.value # Lens dec
+        
+        
+
+        bspl = model.BSPL_PhotAstrom_Par_Param1(mL, t0, beta, dL, dL_dS, 
+                                   xS0[0], xS0[1], muL_E, muL_N, muS_E, muS_N,
+                                   sep, alpha, [mag_src_pri], [mag_src_sec], [b_sff],
+                                   raL=raL, decL=decL)
+        
+        
+
+        # Calculate the photometry 
+        duration=1000 # days
+        time_steps=5000
+        tmin = bspl.t0 - (duration / 2.0)
+        tmax = bspl.t0 + (duration / 2.0)
+        dt = np.linspace(tmin, tmax, time_steps)
+        
+        phot = bspl.get_photometry(dt)
+        
+        if save_phot == True:
+            if not os.path.exists(phot_dir):
+                os.makedirs(phot_dir)
+            foo = Table((dt, phot), names=['time', 'phot'])
+            foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
+        
+        #because this is magnitudes max(phot) is baseline and min(phot) is peak
+        #baseline 2000tE away get_photometry
+        comp_table[comp_idx]['bin_delta_m_S'] = max(phot) - min(phot)
+        
+        # Find peaks
+        peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+                
+        if len(peaks) == 0:            
+            continue
+        
+        comp_table[comp_idx]['n_peaks_S'] = len(peaks)
+        comp_table[comp_idx]['primary_t_S'] = dt[peaks][np.argmin(phot[peaks])]
+        comp_table[comp_idx]['avg_t_S'] = np.average(dt[peaks])
+        comp_table[comp_idx]['std_t_S'] = np.std(dt[peaks])
+        
+        # Split up peaks by minima between peaks
+        # Note since it's magnitudes all the np.min and such are maxima
+        split_data = []
+        start_idx = 0
+        if len(peaks) > 1:
+            for i in range(len(peaks) - 1):
+                min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
+                end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
+                split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
+                start_idx = end_idx
+        split_data.append([dt[start_idx:], phot[start_idx:]])
+        split_data = np.array(split_data, dtype='object')
+        
+        highest_peak = np.argmin(phot[peaks])
+        
+        if len(split_data[highest_peak][1]) == 0:
+            continue
+        
+        
+        # For events with more than one peak, add them to the multi peak table
+        if len(peaks) > 1:
+            n_peaks = len(peaks)
+            obj_id_L = comp_table[comp_idx]['obj_id_L']
+            obj_id_S = comp_table[comp_idx]['obj_id_S']
+            for i in range(len(peaks)):
+                t = dt[peaks[i]]
+                delta_m = max(phot) - phot[peaks[i]]
+                ratio = np.min(phot[peaks])/phot[peaks[i]]
+                
+                # Don't log primary peak
+                if ratio == 1:
+                    continue
+                
+                if len(split_data[i][1]) == 0:
+                    tE = np.nan
+                    mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, delta_m, ratio])
+                    continue
+                    
+                
+                mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, delta_m, ratio])
+            
+        
+    # Writes fits file
+    if output_file == 'default':
+        comp_table.write(companions[:-5] + "_rb_S.fits", overwrite=overwrite)
+        mult_peaks.write(companions[:-5] + "_rb_S_multi_peaks.fits", overwrite=overwrite)
+    else:
+        comp_table.write(output_file + ".fits", overwrite=overwrite)
+        mult_peaks.write(output_file + "_multi_peaks.fits", overwrite=overwrite)
+        
+        
+        
+    ##########
+    # Make log file
+    ##########
+    now = datetime.datetime.now()
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popstar_path = os.path.dirname(inspect.getfile(imf))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                             cwd=popsycle_path).decode('ascii').strip()
+    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                           cwd=popstar_path).decode('ascii').strip()
+    
+    end_time = time.time()
+    
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'event_file : ' + events + '\n'
+    line2 = 'companion_file : ' + companions + '\n'
+    line3 = 'save_phot : ' + str(save_phot) + '\n'
+
+    line4 = 'VERSION INFORMATION' + '\n'
+    line5 = str(now) + ' : creation date' + '\n'
+    line6 = popstar_hash + ' : SPISEA commit' + '\n'
+    line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+
+    line8 = 'OTHER INFORMATION' + '\n'
+    line9 = str(end_time - start_time) + ' : total runtime (s)' + '\n'
+    line10 = str(len(S_idxs)) + ' : number of simulated lightcurves' + '\n'
+
+    line11 = 'FILES CREATED' + '\n'
+    if output_file == 'default':
+        line12 = companions[:-5] + "_rb_S.fits" + ' : binary refined events' + '\n'
+        line13 = companions[:-5] + "_rb_S_multi_peaks.fits" + ' : multiple peak events table' + '\n'
+        log_name = companions[:-5] + "_rb_S.log"
+    else:
+        line12 = output_file + ".fits" + ' : refined events' + '\n'
+        line13 = output_file + "_multi_peaks.fits" + ' : multiple peak events table' + '\n'
+        log_name = output_file + '.log'
+     
+    line14 = '\n'
+    if save_phot == True:
+        line14 = phot_dir + ' : directiory of photometry'
+       
+    
+    with open(log_name, 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, empty_line,
+                        line4, dash_line, line5, line6, line7, empty_line,
+                        line8, dash_line, line9, line10, empty_line,
+                        line11, dash_line, line12, line13, line14])
+
+    print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
+    return
 
 
 ##################################################################

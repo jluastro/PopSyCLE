@@ -992,7 +992,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                                              t0 = t0)
                         
                         # Save companion table
-                        if companions_table != None:
+                        if companions_table is not None:
                             # Save and bin in l, b all companions
                             # Or just save if binning = False
                             if binning == True:
@@ -1059,7 +1059,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Make label file containing information about l,b bins
     ##########
-    make_label_file(output_root, overwrite=overwrite)
+    if binning == True:
+        make_label_file(output_root, overwrite=overwrite)
+    else:
+        make_label_file_no_bins(output_root, overwrite=overwrite)
 
     ##########
     # Make log file
@@ -1641,7 +1644,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
     """
-    if companion_obj_arr == None:
+    if companion_obj_arr is None:
         # Create compound datatype from obj_arr
         comp_dtype = _generate_comp_dtype(obj_arr)
     else:
@@ -1683,7 +1686,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=comp_dtype)
-                if companion_obj_arr == None:
+                if companion_obj_arr is None:
                     for colname in obj_arr:
                         save_data[colname] = obj_arr[colname][id_lb]
                 # If making a companion hd5f file, finds corresponding companions and save them
@@ -1696,7 +1699,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[0]
-                if companion_obj_arr == None:
+                if companion_obj_arr is None:
                     new_size = old_size + len(id_lb)                
                 else:
                     new_size = old_size + len(companion_id_lb)                     
@@ -1741,7 +1744,7 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
     """
-    if companion_obj_arr == None:
+    if companion_obj_arr is None:
         # Create compound datatype from obj_arr
         comp_dtype = _generate_comp_dtype(obj_arr)
     else:
@@ -1770,20 +1773,20 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
     ##########
     if obj_arr is not None:
         # Loop over the obj_arr and add all columns into save_data
-        save_data = np.empty(len(obj_arr), dtype=comp_dtype)
-        if companion_obj_arr == None:
+        save_data = np.empty(len(obj_arr['mass']), dtype=comp_dtype)
+        if companion_obj_arr is None:
             for colname in obj_arr:
                 save_data[colname] = obj_arr[colname]
         # If making a companion hd5f file, finds corresponding companions and save them
         else:
-            save_data = np.array(companion_obj_arr)
+            save_data = np.array(companion_obj_arr['system_idx'])
         
         # Resize the dataset and add data.
         old_size = dataset.shape[0]
-        if companion_obj_arr == None:
-            new_size = old_size + len(obj_arr)                
+        if companion_obj_arr is None:
+            new_size = old_size + len(obj_arr['mass'])                
         else:
-            new_size = old_size + len(companion_obj_arr)                     
+            new_size = old_size + len(companion_obj_arr['system_idx'])                     
         dataset.resize((new_size, ))
         dataset[old_size:new_size] = save_data
 
@@ -5051,6 +5054,64 @@ def make_label_file(h5file_name, overwrite=False):
     label_file['long_end'].format = '08.3f'
     label_file['lat_start'].format = '07.3f'
     label_file['lat_end'].format = '07.3f'
+
+    now = datetime.datetime.now()
+    label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
+
+    label_file.write(h5file_name + '_label.fits', overwrite=overwrite)
+
+    return
+
+def make_label_file_no_bins(h5file_name, overwrite=False):
+    """
+    Given an output root for an .h5 file, creates a table of
+    dataset name and number of objects.
+    Writes out the Astropy table as a .fits file.
+    Used when binning = False (when simulating full sky)
+
+    Parameters
+    ----------
+    h5file_name : string
+        The path and name of the input h5file containing the
+        population synthesis results. We will read this in and
+        make a new output file entitled:
+        <h5file_name>_label.fits (after removing the *.h5).
+
+    Return
+    ------
+    label_file : Astropy table
+        Table containing the dataset name, and corresponding l, b, and number of objects.
+
+    """
+    data_dict = {'file_name': [], 'objects': [],
+                 'N_stars': [], 'N_WD': [], 'N_NS': [], 'N_BH': []}
+
+    hf = h5py.File(h5file_name + '.h5', 'r')
+
+    dataset = hf['objects']
+
+    if len(dataset) == 0:
+        N_stars = 0
+        N_WD = 0
+        N_NS = 0
+        N_BH = 0
+    else:
+        N_stars = np.sum(dataset['rem_id'] == 0)
+        N_WD = np.sum(dataset['rem_id'] == 101)
+        N_NS = np.sum(dataset['rem_id'] == 102)
+        N_BH = np.sum(dataset['rem_id'] == 103)
+
+    data_dict['file_name'].append(dset_name)
+    data_dict['objects'].append(dataset.shape[0])
+    data_dict['N_stars'].append(N_stars)
+    data_dict['N_WD'].append(N_WD)
+    data_dict['N_NS'].append(N_NS)
+    data_dict['N_BH'].append(N_BH)
+
+    hf.close()
+
+    label_file = Table(data_dict, names=('file_name', 'objects',
+                                         'N_stars', 'N_WD', 'N_NS', 'N_BH'))
 
     now = datetime.datetime.now()
     label_file.meta['label'] = 'label.fits file creation time: ' + str(now)

@@ -394,7 +394,8 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           overwrite, seed, multiplicity):
+                           multiplicity, binning,
+                           overwrite, seed):
     """
     Checks that the inputs of perform_pop_syn are valid
 
@@ -442,6 +443,16 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
+    
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
@@ -494,6 +505,13 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         if not isinstance(NS_kick_speed_mean, float):
             raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
 
+    if multiplicity is not None:
+        if not isinstance(multiplicity, MultiplicityResolvedDK):
+            raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
+    
+    if not isinstance(binning, bool):
+        raise Exception('binning (%s) must be a boolean.' % str(binning))
+    
     if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
 
@@ -501,9 +519,6 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
     
-    if multiplicity is not None:
-        if not isinstance(multiplicity, MultiplicityResolvedDK):
-            raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
 
     if additional_photometric_systems is not None:
         if not isinstance(additional_photometric_systems, list):
@@ -526,7 +541,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    overwrite=False, seed=None, multiplicity=None):
+                    multiplicity=None, binning = True,
+                    overwrite=False, seed=None):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -578,6 +594,16 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
+    
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
@@ -588,11 +614,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
         
-    multiplicity: object
-        If a resovled multiplicity object is specified, 
-        the table will be generated with resolved multiples.
-        Default is None.
-
+    
     Outputs
     -------
     <output_root>.h5 : hdf5 file
@@ -628,7 +650,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           overwrite, seed, multiplicity)
+                           multiplicity, binning,
+                           overwrite, seed)
 
     ##########
     # Start of code
@@ -698,8 +721,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Create h5py file to store lat/long binned output
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
-    h5file['lat_bin_edges'] = lat_bin_edges
-    h5file['long_bin_edges'] = long_bin_edges
+    if binning == True:
+        h5file['lat_bin_edges'] = lat_bin_edges
+        h5file['long_bin_edges'] = long_bin_edges
     if 'galaxyModelFile' in ebf_log:
         h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
     h5file.close()
@@ -707,8 +731,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make one for companions if multiplicity
     if multiplicity != None:
         h5file_comp = h5py.File(output_root + '_companions' + '.h5', 'w')
-        h5file_comp['lat_bin_edges'] = lat_bin_edges
-        h5file_comp['long_bin_edges'] = long_bin_edges
+        if binning == True:
+            h5file_comp['lat_bin_edges'] = lat_bin_edges
+            h5file_comp['long_bin_edges'] = long_bin_edges
         if 'galaxyModelFile' in ebf_log:
             h5file_comp['galaxyModelFile'] = ebf_log['galaxyModelFile']
         h5file_comp.close()
@@ -968,28 +993,47 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         
                         # Save companion table
                         if companions_table != None:
-                            # Bin in l, b all companions
-                            if comp_dict is not None:
+                            # Save and bin in l, b all companions
+                            # Or just save if binning = False
+                            if binning == True:
+                                if comp_dict is not None:
+                                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                         comp_dict, output_root + '_companions', 
+                                         companion_obj_arr = companions_table) 
                                 _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                     comp_dict, output_root + '_companions', 
-                                     companion_obj_arr = companions_table) 
-                            _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                     stars_in_bin, output_root + '_companions', 
-                                     companion_obj_arr = companions_table)
+                                         stars_in_bin, output_root + '_companions', 
+                                         companion_obj_arr = companions_table)
+                            else:
+                                if comp_dict is not None:
+                                    _no_bins_hdf5(comp_dict, output_root + '_companions', 
+                                         companion_obj_arr = companions_table) 
+                                _no_bins_hdf5(stars_in_bin, output_root + '_companions', 
+                                         companion_obj_arr = companions_table)
                     print('test5', time.time() - t0)
                         
 
                     del cluster_tmp
                     ##########
-                    #  Bin in l, b all stars and compact objects.
+                    #  Save and bin in in l, b all stars and compact objects.
+                    #  Or just save if binning = False
                     ##########
-                    if comp_dict is not None:
-                        comp_counter += len(comp_dict['mass'])
+                    if binning == True:
+                        if comp_dict is not None:
+                            comp_counter += len(comp_dict['mass'])
+                            _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                         comp_dict, output_root)
                         _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                     comp_dict, output_root)
-                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                             stars_in_bin,
-                             output_root)
+                                 stars_in_bin,
+                                 output_root)
+                        
+                    else:
+                        if comp_dict is not None:
+                            comp_counter += len(comp_dict['mass'])
+                            _no_bins_hdf5(comp_dict, output_root)
+                        _no_bins_hdf5(stars_in_bin,
+                                 output_root)
+                        
+                    
                     print('test6', time.time() - t0)
                     
                     ##########
@@ -1660,6 +1704,90 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 dataset[old_size:new_size] = save_data
 
             hf.close()
+
+    return
+
+def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
+    """
+    Given stars and compact objects save into a compound type hdf5 file.
+    No bins, only one dataset (used if doing full sky downsampled)
+
+    Parameters
+    ----------
+    obj_arr : array or None
+        Array of stars or compact objects to be binned
+        (either comp_dict or star_dict)
+
+    output_root : str
+        The path and name of the hdf5 file,
+        without suffix (will be saved as output_root.h5)
+
+    Optional Parameters
+    -------------------
+
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+    
+    companion_obj_arr : astropy table
+        Companion table from the ResolvedCluster object. 
+        To be used if creating a companion hdf5 file.
+        Default None.
+        
+    Output
+    ------
+    output_root.h5 : hdf5 file
+        An compoud type hdf5 file with datasets that correspond to the longitude bin edges,
+        latitude bin edges, and the compact objects and stars sorted into
+        those bins.
+    """
+    if companion_obj_arr == None:
+        # Create compound datatype from obj_arr
+        comp_dtype = _generate_comp_dtype(obj_arr)
+    else:
+        comp_dtype = np.dtype(companion_obj_arr)
+
+    ##########
+    # Loop through the latitude and longitude bins.
+    ##########
+    # Open our HDF5 file for reading and appending.
+    # Create as necessary.
+    hf = h5py.File(output_root + '.h5', 'r+')
+    # HDF5 dataset name
+    dset_name = 'objects'
+
+    # Create data set the first time
+    if dset_name not in hf:
+        dataset = hf.create_dataset(dset_name, shape=(0,),
+                                    chunks=(1e4,),
+                                    maxshape=(None,),
+                                    dtype=comp_dtype)
+    else:
+        dataset = hf[dset_name]
+    
+    ##########
+    # Saving the stars and/or compact objects or companions
+    ##########
+    if obj_arr is not None:
+        # Loop over the obj_arr and add all columns into save_data
+        save_data = np.empty(len(obj_arr), dtype=comp_dtype)
+        if companion_obj_arr == None:
+            for colname in obj_arr:
+                save_data[colname] = obj_arr[colname]
+        # If making a companion hd5f file, finds corresponding companions and save them
+        else:
+            save_data = np.array(companion_obj_arr)
+        
+        # Resize the dataset and add data.
+        old_size = dataset.shape[0]
+        if companion_obj_arr == None:
+            new_size = old_size + len(obj_arr)                
+        else:
+            new_size = old_size + len(companion_obj_arr)                     
+        dataset.resize((new_size, ))
+        dataset[old_size:new_size] = save_data
+
+    hf.close()
 
     return
 

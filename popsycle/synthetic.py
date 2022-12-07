@@ -3117,7 +3117,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
 
 def _check_refine_events(input_root, filter_name,
                          photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp):
+                         output_file, hdf5_file_comp, legacy):
     """
     Checks that the inputs of refine_events are valid
 
@@ -3146,6 +3146,11 @@ def _check_refine_events(input_root, filter_name,
     hdf5_file_comp: str
         String of hdf5 file of companion events created in perform_pop_syn().
         Default is None.
+        
+    legacy : bool
+        For running on files created before ~2020 when the filter system was changed
+        to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
+        Default is False.
     """
 
     if not isinstance(input_root, str):
@@ -3169,6 +3174,9 @@ def _check_refine_events(input_root, filter_name,
     if not isinstance(hdf5_file_comp, str):
         if not isinstance(hdf5_file_comp, type(None)):
             raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
+            
+    if not isinstance(legacy, bool):
+        raise Exception('legacy (%s) must be a boolean.' % str(legacy))
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -3267,7 +3275,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Error handling/complaining if input types are not right.
     _check_refine_events(input_root, filter_name,
                          photometric_system, red_law,
-                         overwrite, output_file, hdf5_file_comp)
+                         overwrite, output_file, hdf5_file_comp, legacy)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
@@ -4610,8 +4618,11 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
     mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'delta_m', 'ratio'))
 
     S_idxs = np.where(comp_table['prim_type'] == "S")[0]
-    
+    import pdb
+    pdb.set_trace()
     red_law = 'Damineli16'
+    
+    simulated_lightcurves = 0
     
     for comp_idx in S_idxs:
         name = "{}".format(comp_idx)
@@ -4676,6 +4687,8 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
         dt = np.linspace(tmin, tmax, time_steps)
         
         phot = bspl.get_photometry(dt)
+        
+        simulated_lightcurves += 1
         
         if save_phot == True:
             if not os.path.exists(phot_dir):
@@ -4778,7 +4791,7 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(end_time - start_time) + ' : total runtime (s)' + '\n'
-    line10 = str(len(S_idxs)) + ' : number of simulated lightcurves' + '\n'
+    line10 = str(simulated_lightcurves) + ' : number of simulated lightcurves' + '\n'
 
     line11 = 'FILES CREATED' + '\n'
     if output_file == 'default':

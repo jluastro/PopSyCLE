@@ -1863,7 +1863,7 @@ def _add_multiples(star_masses, cluster):
     cluster.companions['mass_match_diff'] = np.nan
     
     print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
-    closest_index_arr = match_companions(star_masses, cluster_ss['mass'])
+    closest_index_arr = match_companions(star_masses, cluster_ss['mass_current'])
     print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
     
     

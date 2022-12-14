@@ -967,6 +967,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     unmade_cluster_counter += unmade_cluster_counter_tmp
                     unmade_cluster_mass += unmade_cluster_mass_tmp
                     
+                    # rename SPISEA mass column (initial mass) to zams_mass
+                    if cluster_tmp:
+                        cluster_tmp.star_systems.rename_column('mass', 'zams_mass')
+                        if multiplicity is not None:
+                            cluster_tmp.companions.rename_column('mass', 'zams_mass')
+                    
                     comp_dict, next_id = _make_comp_dict(age_of_bin,
                                                      cluster_tmp,
                                                      stars_in_bin, next_id,
@@ -1228,7 +1234,7 @@ def _make_comp_dict(log_age,
         comp_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
-        keep_columns = ['mass', 'isMultiple','systemMass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
+        keep_columns = ['zams_mass', 'isMultiple','systemMass', 'phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
                         'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
                         'm_ukirt_J', 'm_ukirt_K']
         if multiplicity is not None:
@@ -1240,16 +1246,16 @@ def _make_comp_dict(log_age,
         comp_table.keep_columns(keep_columns)
 
         # Fill out the rest of comp_dict
-        if len(comp_table['mass']) > 0:
+        if len(comp_table['zams_mass']) > 0:
 
             # Turn astropy table into dictionary to conserve memory.
             comp_dict = {}
             comp_dict['mass'] = comp_table['mass_current'].data
             comp_dict['rem_id'] = comp_table['phase'].data
-            comp_dict['zams_mass'] = comp_table['mass'].data
+            comp_dict['zams_mass'] = comp_table['zams_mass'].data
             comp_dict['isMultiple'] = comp_table['isMultiple'].data
-            #makes sure the system mass is the companions + compact object mass instead of companions + initial primary mass
-            comp_dict['systemMass'] = comp_table['systemMass'].data - comp_dict['zams_mass'] + comp_dict['mass']
+            #makes sure the system mass is current mass instead of initial mass (since SPISEA defines as initial)
+            comp_dict['systemMass'] = copy.deepcopy(comp_dict['mass'])
             if multiplicity is not None:
                 comp_dict['N_companions'] = comp_table['N_companions'].data
 
@@ -1751,8 +1757,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
         # MAKE cluster in chunks of currentClusterMass to match 
         # the SPISEA primary star matches to the galaxia mass
         cluster = None
-        SPISEA_persent_day_star_mass = 0
-        while SPISEA_persent_day_star_mass < currentClusterMass:
+        SPISEA_present_day_star_mass = 0
+        while SPISEA_present_day_star_mass < currentClusterMass:
             cluster_chunk_mass = currentClusterMass
             if cluster is None:
                 cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
@@ -1768,7 +1774,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
                     cluster_addition.companions['system_idx'] += len(cluster.star_systems)
                     cluster.companions = vstack([cluster.companions, cluster_addition.companions])
                 cluster.star_systems = vstack([cluster.star_systems, cluster_addition.star_systems])
-            SPISEA_persent_day_star_mass = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
+            SPISEA_present_day_star_mass = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
             SPISEA_total_mass = np.sum(cluster.star_systems['mass'])
         
         
@@ -1776,12 +1782,12 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
         # since it's in a random order this should be fine
         # this will keep the compact objects that are interspursed along the way, 
         # but their mass is intentionally not counted since we're matching the star mass
-        SPISEA_persent_day_star_mass_fix = 0
+        SPISEA_present_day_star_mass_fix = 0
         cluster.star_systems['counting_index'] = np.arange(0, len(cluster.star_systems))
         for idx, object_mass, object_phase in cluster.star_systems.iterrows('counting_index', 'mass', 'phase'):
             if object_phase < 100:
-                SPISEA_persent_day_star_mass_fix += object_mass
-            if SPISEA_persent_day_star_mass_fix > currentClusterMass:
+                SPISEA_present_day_star_mass_fix += object_mass
+            if SPISEA_present_day_star_mass_fix > currentClusterMass:
                 last_index = idx
                 break                
         #+1 for difference in index definitions
@@ -1795,8 +1801,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
         # Only check for clusters greater than 5,000 Msun since
         # 1% of cluster mass could be one star for smaller clusters
         if currentClusterMass > 5*10**4:
-            SPISEA_persent_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
-            assert(np.abs((SPISEA_persent_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
+            SPISEA_present_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
+            assert(np.abs((SPISEA_present_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
             
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
@@ -1843,9 +1849,9 @@ def _add_multiples(star_masses, cluster, t0):
 
     # ALL SPISEA SYSTEMS WITH PRIMARIES MORE MASSIVE THAN THE MOST MASSIVE GALAXIA
     # SYSTEM ARE DROPPED!!!!!!!!! (0-2% of systems)
-    companion_tmp_df_joined = companion_tmp_df_joined[companion_tmp_df_joined['mass_prim'] <= np.max(star_masses)]
-    cluster_ss = cluster_ss[cluster_ss['mass'] <= np.max(star_masses)]
-    too_big = np.sum(cluster_ss['mass'] > np.max(star_masses))
+    companion_tmp_df_joined = companion_tmp_df_joined[companion_tmp_df_joined['mass_current_prim'] <= np.max(star_masses)]
+    cluster_ss = cluster_ss[cluster_ss['mass_current'] <= np.max(star_masses)]
+    too_big = np.sum(cluster_ss['mass_current'] > np.max(star_masses))
     
     # defines the companion Table as the new cut down table
     # reset index adds system_idx back as its own column
@@ -1858,7 +1864,7 @@ def _add_multiples(star_masses, cluster, t0):
     cluster.companions['mass_match_diff'] = np.nan
     
     print('test1', time.time() - t0)
-    closest_index_arr = match_companions(star_masses, cluster_ss['mass'])
+    closest_index_arr = match_companions(star_masses, cluster_ss['mass_current'])
     print('test2', time.time() - t0)
     
     
@@ -1869,7 +1875,7 @@ def _add_multiples(star_masses, cluster, t0):
         # points companions to nearest-in-mass Galaxia primary to SPISEA primary
         for jj in companion_indicies:
             cluster.companions[jj]['system_idx_tmp'] = closest_index
-            cluster.companions[jj]['mass_match_diff'] = star_masses[closest_index] - cluster_ss[ii]['mass']
+            cluster.companions[jj]['mass_match_diff'] = star_masses[closest_index] - cluster_ss[ii]['mass_current']
     
     # confirm all compnions were assigned to a popsycle primary
     assert np.sum(np.isnan(cluster.companions['system_idx_tmp'])) == 0
@@ -1965,9 +1971,10 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
         2. Matching SPISEA stellar primaries to galaxia primaries by mass
         and pointing the companion system_idx to the galaxia obj_id
         3. Combining those two tables into companions_table.
+        4. Renames mass (inital mass in SPISEA) to zams_mass
         
     Also modifies the following star_dict columns:
-        1. systemMass = primary mass + companion masses
+        1. systemMass = primary mass + companion masses (current mass)
         2. Sets isMultiple = 1 for all systems with companions
         3. Sets N_companions column based on duplication of system_idx
         in companions table
@@ -2008,7 +2015,8 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
         
         # Makes a separate companion table with primaries as compact objects
         # Points the system_idx to obj_id instead of idx
-        if comp_dict != None and cluster.companions:
+        if comp_dict is not None and cluster.companions:
+            
             # Build a list of systems for every companion (will be repeat systems). Shape = N_companions
             # We will call this the "dup_sys" table for duplicate systems (duplicated x N_companions)
             clust_dup_sys = cluster.star_systems[cluster.companions['system_idx']]
@@ -2026,6 +2034,19 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
 
             # Reset the companion system_idx to be the correct obj_id
             compact_companions['system_idx'] = comp_dict['obj_id'][co_idx_for_dup_sys_table]
+            
+            # sums mass of companions if there are triples
+            grouped_CO_companions = compact_companions.group_by(['system_idx'])
+            CO_companions_system_mass = grouped_CO_companions['mass_current'].groups.aggregate(np.sum)
+            grouped_system_idxs = np.array(grouped_CO_companions.groups.keys['system_idx'])
+            # Returns the intersecting obj_ids/system_idxs, indices in CO_table that correspond with the overlap, 
+            # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
+            CO_idx_w_companions = np.intersect1d(np.array(comp_dict['obj_id']), grouped_system_idxs, return_indices = True)
+            
+            # indexes on grouped_companions.groups.keys since this is one system_idx per system 
+            # (i.e. no duplicated if there are triples)
+            comp_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
+            
             print('test-1', time.time() - t0)
             
             del comp_dict_tmp
@@ -2037,8 +2058,13 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
         companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster, t0 = t0)
         print('test3', time.time() - t0)
         if companions_table:
-            star_dict['systemMass'][companions_table['system_idx']] += companions_table['mass']
-            star_dict['isMultiple'][companions_table['system_idx']] = 1
+            # sums mass of companions if there are triples
+            grouped_companions = companions_table.group_by(['system_idx'])
+            companions_system_mass = grouped_companions['mass_current'].groups.aggregate(np.sum)
+            # indexes on grouped_companions.groups.keys since this is one system_idx per system 
+            # (i.e. no duplicated if there are triples)
+            star_dict['systemMass'][grouped_companions.groups.keys['system_idx']] += companions_system_mass
+            star_dict['isMultiple'][grouped_companions.groups.keys['system_idx']] = 1
 
             # Adds N companions column to star_dict
             # this column already existed in the main cluster
@@ -3753,9 +3779,6 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # Bump amplitude (in magnitudes)
     delta_m = calc_bump_amp(np.abs(event_tab['u0']), flux_S, flux_L, flux_N)
     event_tab['delta_m_' + filter_name] = delta_m
-    
-    #import pdb
-    #pdb.set_trace()
 
     # Calculate the blend fraction
     # (commonly used in microlensing): f_source / f_total
@@ -4020,16 +4043,6 @@ def _add_multiples_parameters(companion_table, event_table):
     
     a_kpc = (np.array(10**companion_tmp_df_joined['log_a'])*unit.AU).to('kpc').value
     
-    # Since prim_type is a column, we get an array of mass (or systemMass or rad)
-    # columns that are associated with the prim types
-    # then take the diagonal to get the mass (or systemMass or rad) associated with the
-    # appropriate prim_type. The off-diagonal elements may not be associated with the right primary
-    #event_prim_masses = np.diagonal(companion_tmp_df_joined['mass_' + companion_tmp_df_joined['prim_type']])
-    #print('memory test 1.31')
-    #event_system_masses = np.diagonal(companion_tmp_df_joined['systemMass_' + companion_tmp_df_joined['prim_type']])
-    #print('memory test 1.32')
-    #event_prim_distances = np.diagonal(companion_tmp_df_joined['rad_' + companion_tmp_df_joined['prim_type']])
-    
     event_prim_masses = np.zeros(len(companion_tmp_df_joined))
     event_system_masses = np.zeros(len(companion_tmp_df_joined))
     event_prim_distances = np.zeros(len(companion_tmp_df_joined))
@@ -4047,32 +4060,9 @@ def _add_multiples_parameters(companion_table, event_table):
         event_system_masses[count] = row[1]['systemMass_' + prim_type]
         event_prim_distances[count] = row[1]['rad_' + prim_type]
     
-    """event_prim_masses_L = companion_tmp_df_joined['mass_L'][np.where(companion_tmp_df_joined['prim_type'] == 'L')[0]]
-    event_prim_masses_S = companion_tmp_df_joined['mass_S'][np.where(companion_tmp_df_joined['prim_type'] == 'S')[0]]
-    event_prim_masses = pd.concat([event_prim_masses_L, event_prim_masses_S]).sort_index()
-    del event_prim_masses_L
-    del event_prim_masses_S
-    
-    print('memory test 1.31')
-    
-    event_system_masses_L = companion_tmp_df_joined['systemMass_L'][np.where(companion_tmp_df_joined['prim_type'] == 'L')[0]]
-    event_system_masses_S = companion_tmp_df_joined['systemMass_S'][np.where(companion_tmp_df_joined['prim_type'] == 'S')[0]]
-    event_system_masses = pd.concat([event_system_masses_L, event_system_masses_S]).sort_index()
-    del event_system_masses_L
-    del event_system_masses_S
-    
-    print('memory test 1.32')
-    
-    event_prim_distances_L = companion_tmp_df_joined['rad_L'][np.where(companion_tmp_df_joined['prim_type'] == 'L')[0]]
-    event_prim_distances_S = companion_tmp_df_joined['rad_S'][np.where(companion_tmp_df_joined['prim_type'] == 'S')[0]]
-    event_prim_distances = pd.concat([event_prim_distances_L, event_prim_distances_S]).sort_index()
-    del event_prim_distances_L
-    del event_prim_distances_S
-    """
-    
     print('memory test 1.4')
     
-    companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass']/event_prim_masses #mass ratio
+    companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass_current']/event_prim_masses #mass ratio
     print('memory test 1.5')
     #abs(acos(i))
     abs_cos_i = np.abs(np.cos(list(companion_tmp_df_joined['i'])))
@@ -4301,7 +4291,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         raL = L_coords.icrs.ra.value # Lens R.A.
         decL = L_coords.icrs.dec.value # Lens dec
         mL1 = event_table[event_id]['mass_L'] # msun (Primary lens mass)
-        mL2 = comp_table[comp_idx]['mass'] # msun (Companion lens mass)
+        mL2 = comp_table[comp_idx]['mass_current'] # msun (Companion lens mass)
         t0 = event_table[event_id]['t0'] # mjd
         xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
         beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
@@ -4935,7 +4925,7 @@ def make_label_file_no_bins(h5file_name, overwrite=False):
         N_NS = np.sum(dataset['rem_id'] == 102)
         N_BH = np.sum(dataset['rem_id'] == 103)
 
-    data_dict['file_name'].append(dset_name)
+    data_dict['file_name'].append('object')
     data_dict['objects'].append(dataset.shape[0])
     data_dict['N_stars'].append(N_stars)
     data_dict['N_WD'].append(N_WD)

@@ -1729,8 +1729,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
-                                         metallicity=feh,
-                                         min_mass = 0.1)
+                                         metallicity=feh)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
@@ -1743,8 +1742,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
                                              filters=my_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True,
-                                             metallicity=feh,
-                                             min_mass = 0.1)
+                                             metallicity=feh)
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!

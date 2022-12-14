@@ -443,8 +443,6 @@ def test_system_mass():
 
                 # Sum up the primary + companion current masses.
                 mass = np.sum(companions['mass_current'])
-                if np.isnan(mass):
-                    continue
                 mass += primary['mass']
 
                 # Sum up the primary + companion zams masses.

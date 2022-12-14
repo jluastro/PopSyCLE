@@ -1704,8 +1704,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
             my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
 
     # Calculate the initial cluster mass
-    # changed from 0.08 to 0.1 at start because MIST can't handle.
-    massLimits = np.array([0.1, 0.5, 120])
+    # changed from 0.08 to 0.11 at start because MIST can't handle.
+    massLimits = np.array([0.11, 0.5, 120])
     powers = np.array([-1.3, -2.3])
     
 
@@ -1729,7 +1729,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
-                                         metallicity=feh)
+                                         metallicity=feh,
+                                         min_mass = 0.1)
 
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
@@ -1742,7 +1743,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
                                              filters=my_filt_list,
                                              iso_dir=iso_dir,
                                              recomp=True,
-                                             metallicity=feh)
+                                             metallicity=feh,
+                                             min_mass = 0.1)
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!

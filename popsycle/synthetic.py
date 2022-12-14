@@ -50,12 +50,6 @@ from scipy.signal import find_peaks
 from collections import Counter
 from operator import itemgetter
 
-#os.chdir('/u/abrams/code/multiplicity/PyPopStar/spisea/')
-#import synthetic
-#os.chdir('/u/abrams/code/multiplicity/testing_popsycle_cluster_matching/')
-#print(synthetic.__file__)
-
-
 ##########
 # Conversions.
 ##########
@@ -159,9 +153,9 @@ def write_galaxia_params(output_root,
          generate a seed from the current time. Setting this seed guarantees
          identical results.
 
-    Outputs
+    Returns
     -------
-    <output_root>_galaxia_params.txt : text file
+    <output_root>_galaxia_params.txt : str
         A text file with the parameters that Galaxia requires to run.
     """
 
@@ -693,29 +687,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ### will be sorted into each of these bins in order to
     # handle large arrays, etc.
     ##########
-    # Extend the edges a bit, that's what the * 1.1 is for
-    # (to potentially catch any edge cases.)
-    # make bins of size ~1/2 arcmin
-    radius = np.sqrt(surveyArea / np.pi)  # degrees
-
-    # Define bin_edges_number, if not given in input.
-    if bin_edges_number is None:
-        # set the widths to 1/2 arcmin
-        bin_edges_number = int(60 * 2 * radius) + 1
-
-    # Make sure we have enough bin edges (min is 3)
-    bin_edges_number = max(bin_edges_number, 3)
-    # Make sure we have don't have too many bin edges (max is 40)
-    bin_edges_number = min(bin_edges_number, 40)
-    
-    lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
-                                bin_edges_number)
-    long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
-                                 bin_edges_number)
-    # Angle wrapping for longitude
-    wrap_id = np.where(long_bin_edges > 180)[0]
-    long_bin_edges[wrap_id] -= 360
-
+    bin_edges_number, lat_bin_edges, long_bin_edges = _get_bin_edges(l, b, surveyArea, bin_edges_number)
 
     ##########
     # Create h5py file to store lat/long binned output
@@ -986,10 +958,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     
                     if comp_dict != None:
                         print('PopSyCLE CO fraction/total > 0.5', len(comp_dict['mass'])/len(np.where(stars_in_bin['zams_mass'] > 0.1)[0]))
+
                     #########
                     # If there are multiples make companions table
                     #########
-
                     if multiplicity != None:
                         
                         star_dict, companions_table = _make_companions_table(cluster=cluster_tmp,
@@ -1136,6 +1108,28 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     return
 
+
+def _get_bin_edges(l, b, surveyArea, bin_edges_number):
+    # Extend the edges a bit, that's what the * 1.1 is for
+    # (to potentially catch any edge cases.)
+    # make bins of size ~1/2 arcmin
+    radius = np.sqrt(surveyArea / np.pi)  # degrees
+    # Define bin_edges_number, if not given in input.
+    if bin_edges_number is None:
+        # set the widths to 1/2 arcmin
+        bin_edges_number = int(60 * 2 * radius) + 1
+    # Make sure we have enough bin edges (min is 3)
+    bin_edges_number = max(bin_edges_number, 3)
+    # Make sure we have don't have too many bin edges (max is 40)
+    bin_edges_number = min(bin_edges_number, 40)
+    lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
+                                bin_edges_number)
+    long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
+                                 bin_edges_number)
+    # Angle wrapping for longitude
+    wrap_id = np.where(long_bin_edges > 180)[0]
+    long_bin_edges[wrap_id] -= 360
+    return bin_edges_number, lat_bin_edges, long_bin_edges
 
 
 def _make_comp_dict(log_age,
@@ -1807,7 +1801,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
 
-def _add_multiples(star_masses, cluster, t0):
+def _add_multiples(star_masses, cluster):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -1829,7 +1823,11 @@ def _add_multiples(star_masses, cluster, t0):
     """
     # FIXME could join table above to improve memory instead of modifying the ss
     # and multiple tables separately
-    
+
+    # Define a timer to keep track of runtimes in this function.
+    t0 = time.time()
+    print(f'\t Timer _add_multiples: start {t0:.5f} sec')
+
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
     cluster_ss['system_idx'] = np.arange(len(cluster_ss))
@@ -1857,15 +1855,16 @@ def _add_multiples(star_masses, cluster, t0):
     # reset index adds system_idx back as its own column
     # doing list(cluster.companions.columns) means that it only takes columns that were in cluster.companions
     # all values that were nan were switched to None in pandas, so .filled(np.nan) switches them back to nan.
+    # FIXME: Need to not modify the cluster.companions table in place since it could effect other routines.
     cluster.companions = Table.from_pandas(companion_tmp_df_joined.reset_index()[list(cluster.companions.columns)]).filled(np.nan)
 
     # Place new system_idx into temporary column initiated with NaN
     cluster.companions['system_idx_tmp'] = np.nan
     cluster.companions['mass_match_diff'] = np.nan
     
-    print('test1', time.time() - t0)
-    closest_index_arr = match_companions(star_masses, cluster_ss['mass_current'])
-    print('test2', time.time() - t0)
+    print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+    closest_index_arr = match_companions(star_masses, cluster_ss['mass'])
+    print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
     
     
     # loop through each of the SPISEA cluster and match them to a galaxia star
@@ -2055,7 +2054,7 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
         # Treats stellar companions and joins stellar and CO companions
         ###########
         # First matches galaxia and SPISEA primaries
-        companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster, t0 = t0)
+        companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster)
         print('test3', time.time() - t0)
         if companions_table:
             # sums mass of companions if there are triples

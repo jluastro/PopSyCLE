@@ -1857,12 +1857,11 @@ def _add_multiples(star_masses, cluster):
     # reset index adds system_idx back as its own column
     # doing list(cluster.companions.columns) means that it only takes columns that were in cluster.companions
     # all values that were nan were switched to None in pandas, so .filled(np.nan) switches them back to nan.
-    # FIXME: Need to not modify the cluster.companions table in place since it could effect other routines.
-    cluster.companions = Table.from_pandas(companion_tmp_df_joined.reset_index()[list(cluster.companions.columns)]).filled(np.nan)
+    modified_companions = Table.from_pandas(companion_tmp_df_joined.reset_index()[list(cluster.companions.columns)]).filled(np.nan)
 
     # Place new system_idx into temporary column initiated with NaN
-    cluster.companions['system_idx_tmp'] = np.nan
-    cluster.companions['mass_match_diff'] = np.nan
+    modified_companions['system_idx_tmp'] = np.nan
+    modified_companions['mass_match_diff'] = np.nan
     
     print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr = match_companions(star_masses, cluster_ss['mass_current'])
@@ -1872,20 +1871,19 @@ def _add_multiples(star_masses, cluster):
     # loop through each of the SPISEA cluster and match them to a galaxia star
     for ii, index in enumerate(cluster_ss['system_idx']):
         closest_index = closest_index_arr[ii]
-        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
+        companion_indicies = np.where(modified_companions['system_idx'] == index)[0]
         # points companions to nearest-in-mass Galaxia primary to SPISEA primary
         for jj in companion_indicies:
-            cluster.companions[jj]['system_idx_tmp'] = closest_index
-            cluster.companions[jj]['mass_match_diff'] = star_masses[closest_index] - cluster_ss[ii]['mass_current']
+            modified_companions[jj]['system_idx_tmp'] = closest_index
+            modified_companions[jj]['mass_match_diff'] = star_masses[closest_index] - cluster_ss[ii]['mass_current']
     
     # confirm all compnions were assigned to a popsycle primary
-    assert np.sum(np.isnan(cluster.companions['system_idx_tmp'])) == 0
-    assert len(set(cluster.companions['system_idx_tmp'])) == len(closest_index_arr)
-    cluster.companions['system_idx'] = cluster.companions['system_idx_tmp'].astype(int)
-    del cluster.companions['system_idx_tmp']
+    assert np.sum(np.isnan(modified_companions['system_idx_tmp'])) == 0
+    assert len(set(modified_companions['system_idx_tmp'])) == len(closest_index_arr)
+    modified_companions['system_idx'] = modified_companions['system_idx_tmp'].astype(int)
+    del modified_companions['system_idx_tmp']
     del cluster.star_systems['system_idx']
 
-    modified_companions = cluster.companions
     if modified_companions is None:
         return None
 

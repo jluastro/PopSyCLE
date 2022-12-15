@@ -940,6 +940,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     unmade_cluster_mass += unmade_cluster_mass_tmp
                     
                     # rename SPISEA mass column (initial mass) to zams_mass
+                    # current mass is mass_current
                     if cluster_tmp:
                         cluster_tmp.star_systems.rename_column('mass', 'zams_mass')
                         if multiplicity is not None:
@@ -968,6 +969,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                                                              star_dict=star_dict,
                                                                              comp_dict=comp_dict,
                                                                              t0 = t0)
+                        
                         
                         # Save companion table
                         if companions_table is not None:
@@ -4572,8 +4574,6 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
     mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'delta_m', 'ratio'))
 
     S_idxs = np.where(comp_table['prim_type'] == "S")[0]
-    import pdb
-    pdb.set_trace()
     red_law = 'Damineli16'
     
     simulated_lightcurves = 0

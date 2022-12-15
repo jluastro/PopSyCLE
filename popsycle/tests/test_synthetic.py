@@ -413,7 +413,7 @@ def test_system_mass():
                               bin_edges_number=None,
                               BH_kick_speed_mean=100,
                               NS_kick_speed_mean=350,
-                              IFMR='Raithel18',
+                              IFMR='SukhboldN20',#'Raithel18',
                               overwrite=True,
                               multiplicity=multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2),
                               seed=seed)
@@ -439,7 +439,7 @@ def test_system_mass():
 
             if primary['isMultiple']:
                 cdx = np.where(tab_comp['system_idx'] == primary['obj_id'])[0]
-                companions = tab_comp[cdx] #nan mass_current sometimes?
+                companions = tab_comp[cdx]
 
                 # Sum up the primary + companion current masses.
                 mass = np.sum(companions['mass_current'])
@@ -450,14 +450,15 @@ def test_system_mass():
                 zmass += primary['zams_mass']
 
                 # While we are here, check the current mass is < the zams mass.
-                assert primary['mass'] <= primary['zams_mass']
-                #for comp in companions:
-                    #FIXME comp['zams_mass'] or comp['mass_current']?
-                    # Compare to comp or primary?
-                    #assert comp['mass'] < primary['zams_mass']
+                # Adding + 10**-4 since at very low masses sometimes isochrone
+                # puts zams_mass < mass
+                assert primary['mass'] <= primary['zams_mass'] + 10**-4
+                for comp in companions:
+                    assert comp['mass_current'] <= comp['zams_mass'] + 10**-4
+                    
+                #FIXME: add a check for companion < primary mass
 
                 # Confirm that the sum of masses equals the system mass.
-                #assert mass == primary['systemMass']
                 assert isclose(mass, primary['systemMass'], abs_tol=1e-5)
 
                 # Confirm that the current system mass is less than the zams system mass.

@@ -1,3 +1,5 @@
+import pytest
+
 from popsycle import synthetic
 from spisea.imf import multiplicity
 from astropy.coordinates import SkyCoord  # High-level coordinates
@@ -18,6 +20,202 @@ from math import isclose
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
 au_to_kpc = 4.848 * 10 ** -9
+
+# Define some fixtures for each stage of synthetic analysis.
+@pytest.fixture
+def srun_galaxia():
+    seed = 1
+
+    output_root = 'data_test/test_Srun'
+
+    test_filepath = os.path.dirname(__file__)
+    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
+
+    synthetic.write_galaxia_params(output_root=output_root,
+                                   longitude=1.25,
+                                   latitude=-2.65,
+                                   area=0.0001,
+                                   seed=seed)
+
+    synthetic.run_galaxia(output_root=output_root,
+                          longitude=1.25,
+                          latitude=-2.65,
+                          area=0.0001,
+                          galaxia_galaxy_model_filename=galaxia_params,
+                          seed=seed)
+
+    return output_root
+
+@pytest.fixture()
+def srun_popsyn(srun_galaxia):
+    seed = 1
+
+    ebf_file = srun_galaxia + '.ebf'
+    output_root = srun_galaxia
+
+
+    synthetic.perform_pop_syn(ebf_file=ebf_file,
+                              output_root=output_root,
+                              iso_dir='/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number=None,
+                              BH_kick_speed_mean=100,
+                              NS_kick_speed_mean=350,
+                              IFMR='Raithel18',
+                              overwrite=True,
+                              seed=seed)
+
+    return output_root
+
+@pytest.fixture()
+def srun_calc_events(srun_popsyn):
+    seed = 1
+
+    hdf5_file = srun_popsyn + '.h5'
+    output_root = srun_popsyn
+
+    synthetic.calc_events(hdf5_file=hdf5_file,
+                          output_root2=output_root,
+                          radius_cut=2,
+                          obs_time=1000,
+                          n_obs=11,
+                          theta_frac=2,
+                          blend_rad=0.65,
+                          overwrite=True,
+                          n_proc=1)
+
+    return output_root
+
+@pytest.fixture()
+def srun_refine_events(srun_calc_events):
+    seed = 1
+
+    input_root = srun_calc_events
+
+    synthetic.refine_events(input_root=input_root,
+                            filter_name='I',
+                            photometric_system='ubv',
+                            red_law='Damineli16',
+                            overwrite=True,
+                            output_file='default')
+
+    output_root = input_root + '_refined_events_ubv_I_Damineli16'
+
+    return output_root
+
+@pytest.fixture
+def mrun_galaxia():
+    seed = 1
+
+    output_root = 'data_test/test_Mrun'
+
+    test_filepath = os.path.dirname(__file__)
+    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
+
+    synthetic.write_galaxia_params(output_root=output_root,
+                                   longitude=1.25,
+                                   latitude=-2.65,
+                                   area=0.0001,
+                                   seed=seed)
+
+    synthetic.run_galaxia(output_root=output_root,
+                          longitude=1.25,
+                          latitude=-2.65,
+                          area=0.0001,
+                          galaxia_galaxy_model_filename=galaxia_params,
+                          seed=seed)
+
+    return output_root
+
+@pytest.fixture()
+def mrun_popsyn(mrun_galaxia):
+    seed = 1
+
+    ebf_file = mrun_galaxia + '.ebf'
+    output_root = mrun_galaxia
+
+    multi_obj = multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2)
+
+    synthetic.perform_pop_syn(ebf_file=ebf_file,
+                              output_root=output_root,
+                              iso_dir='/g/lu/models/PopSyCLE_isochrones',
+                              bin_edges_number=None,
+                              BH_kick_speed_mean=100,
+                              NS_kick_speed_mean=350,
+                              IFMR='Raithel18',
+                              multiplicity=multi_obj,
+                              overwrite=True,
+                              seed=seed)
+
+    return output_root
+
+@pytest.fixture()
+def mrun_calc_events(mrun_popsyn):
+    seed = 1
+
+    hdf5_file = mrun_popsyn + '.h5'
+    hdf5_comp_file = mrun_popsyn + '_companions.h5'
+    output_root = mrun_popsyn
+
+    synthetic.calc_events(hdf5_file=hdf5_file,
+                          output_root2=output_root,
+                          radius_cut=2,
+                          obs_time=1000,
+                          n_obs=11,
+                          theta_frac=2,
+                          blend_rad=0.65,
+                          hdf5_file_comp=hdf5_comp_file,
+                          overwrite=True,
+                          n_proc=1)
+
+    return output_root
+
+@pytest.fixture()
+def mrun_refine_events(mrun_calc_events):
+    input_root = mrun_calc_events
+
+    synthetic.refine_events(input_root=input_root,
+                            filter_name='I',
+                            photometric_system='ubv',
+                            red_law='Damineli16',
+                            hdf5_file_comp=input_root + '_companions.h5',
+                            overwrite=True,
+                            output_file='default')
+
+    output_root = input_root + '_refined_events_ubv_I_Damineli16'
+
+    return output_root
+
+@pytest.fixture()
+def mrun_refine_binary(mrun_refine_events):
+    input_root = mrun_refine_events
+    events_prim_fits = input_root + '.fits'
+    events_comp_fits = input_root + '_companions.fits'
+    synthetic.refine_binary_events(events_prim_fits,
+                                   events_comp_fits,
+                                   filter_name='I',
+                                   photometric_system='ubv', overwrite=True,
+                                   output_file='default', save_phot=False)
+
+    output_root = input_root + '_companions_rb'
+
+    return output_root
+
+def remake_correct_data():
+    import os, glob
+
+    dir_data_test = os.path.dirname(__file__) + 'data_test/'
+    dir_data_corr = os.path.dirname(__file__) + 'data_corr/'
+
+    old_srun_files = glob.glob(dir_data_test + 'test_Srun*')
+    old_mrun_files = glob.glob(dir_data_test + 'test_Mrun*')
+
+    for ff in old_srun_files:
+        os.copyfile(ff, dir_data_corr)
+
+    for ff in old_mrun_files:
+        os.copyfile(ff, dir_data_corr)
+
+    return
 
 
 def test_galactic_to_heliocentric_1():
@@ -41,8 +239,55 @@ def test_galactic_to_heliocentric_3():
     r3, b3, l3 = synthetic.heliocentric_to_galactic(0, 0, 1)
     np.testing.assert_equal([r3, b3, l3], [1, 90, 0])
 
+
+@pytest.mark.xfail
+def test_calc_blends(srun_popsyn, srun_calc_events):
+    hdf5_file = srun_popsyn + '.h5'
+    events_file = srun_calc_events
+
+    test_h5 = h5py.File(hdf5_file, 'r')
+    subfield_list = list(test_h5.keys())[1:-2]
+
+    # just work on the first field.
+    bigpatch1 = hdf5.read_table_hdf5(test_h5[subfield_list[0]])
+    bigpatch2 = hdf5.read_table_hdf5(test_h5[subfield_list[0]])
+    bigpatch3 = hdf5.read_table_hdf5(test_h5[subfield_list[0]])
+    bigpatch4 = hdf5.read_table_hdf5(test_h5[subfield_list[0]])
+    bigpatch = np.concatenate([bigpatch1, bigpatch2, bigpatch3, bigpatch4])
+
+    time = 0.0
+    r_t = bigpatch['rad'] + time * bigpatch['vr'] * kms_to_kpcday  # kpc
+    b_t = bigpatch['glat'] + time * bigpatch['mu_b'] * masyr_to_degday  # deg
+    l_t = bigpatch['glon'] + time * (bigpatch['mu_lcosb'] / np.cos(np.radians(bigpatch['glat']))) * masyr_to_degday  # deg
+
+    ##########
+    # Define coordinates.
+    ##########
+    c = SkyCoord(frame='galactic', l=l_t * units.deg, b=b_t * units.deg)
+    foo = coord.match_coordinates_sky(c, c, nthneighbor=2)
+    print(foo)
+
+    # Load up the events table
+    event_lbt_tmp = Table.read(events_file)
+
+    # Trim it down for faster processing.
+    #event_lbt_tmp = event_lbt_tmp[0:100]
+
+    # Convert this to a list of numpy arrays via pandas.
+    event_lbt_tmp_df = event_lbt_tmp.to_pandas()
+    event_lbt = event_lbt_tmp_df.to_records()
+
+    blend_rad = 20.0  # arcseconds
+    blend_lbt = synthetic._calc_blends(bigpatch, c, event_lbt, blend_rad)
+
+    # Fetch the first lens:
+    lens_obj_id_1 = blend_lbt[0, 0]
+
+    return
+
 # FIXME
-def test_calc_blends():
+@pytest.mark.xfail
+def test_calc_blends_old():
     test_data_dir = '/u/casey/scratch/work/microlens/galaxia_test/OGLE672/'
 
     hdf5_file = test_data_dir + 'OGLE672.h5'
@@ -396,7 +641,7 @@ def test_add_multiples():
     
     return
 
-def test_system_mass():
+def test_system_mass(mrun_popsyn):
     """
     Test whether the system mass (current) is really the sum of the individual component masses.
 
@@ -406,8 +651,10 @@ def test_system_mass():
     test_filepath = os.path.dirname(__file__)
     seed = 1
 
+    galaxia_input = test_filepath + '/' + 'test.ebf'
     output_root = test_filepath + '/' + 'test_system_mass'
-    synthetic.perform_pop_syn(ebf_file=test_filepath + '/' + 'test.ebf',
+
+    synthetic.perform_pop_syn(ebf_file=galaxia_input,
                               output_root=output_root,
                               iso_dir='/g/lu/models/PopSyCLE_isochrones',
                               bin_edges_number=None,
@@ -417,6 +664,7 @@ def test_system_mass():
                               overwrite=True,
                               multiplicity=multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2),
                               seed=seed)
+
     test_h5 = h5py.File(output_root + '.h5', 'r')
     test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
 
@@ -429,6 +677,13 @@ def test_system_mass():
         # Convert to astropy tables for easier work. These are small enough.
         tab_syst = hdf5.read_table_hdf5(test_h5[field])
         tab_comp = hdf5.read_table_hdf5(test_comp_h5[field])
+
+        # Make sure there is a 'mass' and 'zams_mass' column
+        # in both primary and companion tables.
+        assert 'mass' in tab_syst.colnames
+        assert 'mass' in tab_comp.colnames
+        assert 'zams_mass' in tab_syst.colnames
+        assert 'zams_mass' in tab_comp.colnames
 
         # Loop through each object in the systems table and find
         # the associated companions. Do it the slow way to be absolutely sure.

@@ -1371,35 +1371,36 @@ def _make_comp_dict(log_age,
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
-            # For non-dark WDs only (the ones from MIST):
+            # AND COMPACT OBJECTS WITH COMPANIONS (mags in SPISEA are system magnitudes)
+            # For non-dark WDs (the ones from MIST) and compact objects with companions:
             # Approximate extinction from the nearest (in 3-D space) star.
-            # Get WD photometry from MIST models.
+            # Get WD and system photometry from MIST models.
             ##########
-            lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
+            lum_CO_sys_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
 
-            if len(lum_WD_idx) > 0:
-                # The extinction to the luminous white dwarfs is calculated
+            if len(lum_CO_sys_idx) > 0:
+                # The extinction to the luminous white dwarfs/luminous systems is calculated
                 # by finding the nearest star in the pop_id / age_bin KDTree
                 # to the compact object and copying that star's extinction.
-                comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
-                                     comp_dict['py'][lum_WD_idx],
-                                     comp_dict['pz'][lum_WD_idx]]).T
+                comp_xyz = np.array([comp_dict['px'][lum_CO_sys_idx],
+                                     comp_dict['py'][lum_CO_sys_idx],
+                                     comp_dict['pz'][lum_CO_sys_idx]]).T
                 dist, indices = kdt_star_p.query(comp_xyz)
-                comp_dict['exbv'][lum_WD_idx] = exbv_arr4kdt[indices.T]
+                comp_dict['exbv'][lum_CO_sys_idx] = exbv_arr4kdt[indices.T]
 
-                comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
-                comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
-                comp_dict['ubv_J'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
-                comp_dict['ubv_U'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
-                comp_dict['ubv_R'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
-                comp_dict['ubv_B'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
-                comp_dict['ubv_V'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
-                comp_dict['ubv_H'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                comp_dict['ubv_I'][lum_CO_sys_idx] = comp_table['m_ubv_I'][lum_CO_sys_idx].data
+                comp_dict['ubv_K'][lum_CO_sys_idx] = comp_table['m_ukirt_K'][lum_CO_sys_idx].data
+                comp_dict['ubv_J'][lum_CO_sys_idx] = comp_table['m_ukirt_J'][lum_CO_sys_idx].data
+                comp_dict['ubv_U'][lum_CO_sys_idx] = comp_table['m_ubv_U'][lum_CO_sys_idx].data
+                comp_dict['ubv_R'][lum_CO_sys_idx] = comp_table['m_ubv_R'][lum_CO_sys_idx].data
+                comp_dict['ubv_B'][lum_CO_sys_idx] = comp_table['m_ubv_B'][lum_CO_sys_idx].data
+                comp_dict['ubv_V'][lum_CO_sys_idx] = comp_table['m_ubv_V'][lum_CO_sys_idx].data
+                comp_dict['ubv_H'][lum_CO_sys_idx] = comp_table['m_ukirt_H'][lum_CO_sys_idx].data
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
-                        comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_g'][lum_WD_idx].data
-                        comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_r'][lum_WD_idx].data
-                        comp_dict['ztf_i'][lum_WD_idx] = comp_table['m_ztf_i'][lum_WD_idx].data
+                        comp_dict['ztf_g'][lum_CO_sys_idx] = comp_table['m_ztf_g'][lum_CO_sys_idx].data
+                        comp_dict['ztf_r'][lum_CO_sys_idx] = comp_table['m_ztf_r'][lum_CO_sys_idx].data
+                        comp_dict['ztf_i'][lum_CO_sys_idx] = comp_table['m_ztf_i'][lum_CO_sys_idx].data
 
                 # Memory cleaning
                 del comp_table
@@ -1977,6 +1978,7 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
         2. Sets isMultiple = 1 for all systems with companions
         3. Sets N_companions column based on duplication of system_idx
         in companions table
+        4. Changes magnitudes to system magnitudes
 
     Parameters
     ----------
@@ -2060,16 +2062,35 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
             # sums mass of companions if there are triples
             grouped_companions = companions_table.group_by(['system_idx'])
             companions_system_mass = grouped_companions['mass_current'].groups.aggregate(np.sum)
+            group_companions_system_idxs = grouped_companions.groups.keys['system_idx']
             # indexes on grouped_companions.groups.keys since this is one system_idx per system 
             # (i.e. no duplicated if there are triples)
-            star_dict['systemMass'][grouped_companions.groups.keys['system_idx']] += companions_system_mass
-            star_dict['isMultiple'][grouped_companions.groups.keys['system_idx']] = 1
+            star_dict['systemMass'][group_companions_system_idxs] += companions_system_mass
+            star_dict['isMultiple'][group_companions_system_idxs] = 1
 
             # Adds N companions column to star_dict
             # this column already existed in the main cluster
             # but remaking due to indexing changes
             N_comp_dictionary = Counter(companions_table['system_idx'])
             star_dict['N_companions'][companions_table['system_idx']] = itemgetter(*companions_table['system_idx'])(N_comp_dictionary)
+            
+            # Changes luminosities to be system luminosities
+            companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(add_magnitudes)
+            
+            star_dict['ubv_I'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
+            """star_dict['ubv_K'][group_companions_system_idxs] = comp_table['m_ukirt_K'][lum_CO_sys_idx].data
+            star_dict['ubv_J'][group_companions_system_idxs] = comp_table['m_ukirt_J'][lum_CO_sys_idx].data
+            star_dict['ubv_U'][group_companions_system_idxs] = comp_table['m_ubv_U'][lum_CO_sys_idx].data
+            star_dict['ubv_R'][group_companions_system_idxs] = comp_table['m_ubv_R'][lum_CO_sys_idx].data
+            star_dict['ubv_B'][group_companions_system_idxs] = comp_table['m_ubv_B'][lum_CO_sys_idx].data
+            star_dict['ubv_V'][group_companions_system_idxs] = comp_table['m_ubv_V'][lum_CO_sys_idx].data
+            star_dict['ubv_H'][group_companions_system_idxs] = comp_table['m_ukirt_H'][lum_CO_sys_idx].data
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    star_dict['ztf_g'][group_companions_system_idxs] = comp_table['m_ztf_g'][lum_CO_sys_idx].data
+                    star_dict['ztf_r'][group_companions_system_idxs] = comp_table['m_ztf_r'][lum_CO_sys_idx].data
+                    star_dict['ztf_i'][group_companions_system_idxs] = comp_table['m_ztf_i'][lum_CO_sys_idx].data"""
+            
 
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
@@ -5229,5 +5250,9 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
 
     return Alambda_AKs
 
-
+def add_magnitudes(mags):
+    mags = np.array(mags)
+    m_sum = -2.5*np.log10(np.sum(10**(-0.4*mags), axis = 0))
+    
+    return m_sum
 

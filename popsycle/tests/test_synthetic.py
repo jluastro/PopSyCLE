@@ -605,7 +605,7 @@ def test_add_multiples():
         of the star_systems and companions tables
         """
         
-        # Makes mass slightly off from the star_masses
+        # Makes mass slightly off from the star_zams_masses
         mass = np.linspace(0.1, 5.1, 10)
         
         # All odd indices are Multiple systems
@@ -617,15 +617,17 @@ def test_add_multiples():
         phase = np.empty((len(mass),))
         phase[0:2] = 101
         phase[2:] = 1.0
-        
-        star_systems = Table([mass, isMulti, phase],
-                             names=['mass', 'isMultiple', 'phase'])
-                             
+
+        # Set mass and zams_mass equal for this fake cluster.
+        star_systems = Table([mass, mass, isMulti, phase],
+                             names=['mass', 'zams_mass', 'isMultiple', 'phase'])
+
+        # Make companions.
         system_idx = [1,1,1,3,5,5,7,9]
         comp_phase = np.ones((len(system_idx)), dtype=int)
         comp_mass = np.random.rand(len(system_idx)) * mass[system_idx]  # uniform mass ratio.
-        companions = Table([system_idx, comp_phase, comp_mass],
-                             names=['system_idx', 'phase', 'mass'])
+        companions = Table([system_idx, comp_phase, comp_mass, comp_mass],
+                             names=['system_idx', 'phase', 'mass', 'zams_mass'])
         
     cluster_check = FakeCluster()
         
@@ -633,7 +635,7 @@ def test_add_multiples():
         
     # 1,1,1 should be eliminated because the primary is a WD
     # 9 should be eliminated because it's too big
-    # 3, 5, 5, and 7 should be pointed to their star_masses counterpart
+    # 3, 5, 5, and 7 should be pointed to their star_zams_masses counterpart
     system_idx_correct = [5,8,8,11]
 
     if not np.array_equal(system_idx_correct, companion_check['system_idx']):
@@ -651,19 +653,7 @@ def test_system_mass(mrun_popsyn):
     test_filepath = os.path.dirname(__file__)
     seed = 1
 
-    galaxia_input = test_filepath + '/' + 'test.ebf'
-    output_root = test_filepath + '/' + 'test_system_mass'
-
-    synthetic.perform_pop_syn(ebf_file=galaxia_input,
-                              output_root=output_root,
-                              iso_dir='/g/lu/models/PopSyCLE_isochrones',
-                              bin_edges_number=None,
-                              BH_kick_speed_mean=100,
-                              NS_kick_speed_mean=350,
-                              IFMR='SukhboldN20',#'Raithel18',
-                              overwrite=True,
-                              multiplicity=multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2),
-                              seed=seed)
+    output_root = mrun_popsyn
 
     test_h5 = h5py.File(output_root + '.h5', 'r')
     test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
@@ -697,7 +687,7 @@ def test_system_mass(mrun_popsyn):
                 companions = tab_comp[cdx]
 
                 # Sum up the primary + companion current masses.
-                mass = np.sum(companions['mass_current'])
+                mass = np.sum(companions['mass'])
                 mass += primary['mass']
 
                 # Sum up the primary + companion zams masses.
@@ -705,19 +695,23 @@ def test_system_mass(mrun_popsyn):
                 zmass += primary['zams_mass']
 
                 # While we are here, check the current mass is < the zams mass.
-                # Adding + 10**-4 since at very low masses sometimes isochrone
+                # Adding + 10**-2 since at very low masses sometimes isochrone
                 # puts zams_mass < mass
-                assert primary['mass'] <= primary['zams_mass'] + 10**-4
+                mass_epsilon = 1e-2
+                assert primary['mass'] <= primary['zams_mass'] + mass_epsilon
                 for comp in companions:
-                    assert comp['mass_current'] <= comp['zams_mass'] + 10**-4
+                    assert comp['mass'] <= comp['zams_mass'] + mass_epsilon
                     
-                #FIXME: add a check for companion < primary mass
+                # check for companion < primary mass
+                mass_ratio_epsilon = 1.1   # comp mass is allowed to be 10% greater than primary
+                for comp in companions:
+                    assert comp['zams_mass'] <= primary['zams_mass'] * mass_ratio_epsilon
 
                 # Confirm that the sum of masses equals the system mass.
                 assert isclose(mass, primary['systemMass'], abs_tol=1e-5)
 
                 # Confirm that the current system mass is less than the zams system mass.
-                assert mass < zmass
+                assert mass <= zmass + mass_epsilon
 
                 # Keep track of how many we checked.
                 n_comp_checked += 1

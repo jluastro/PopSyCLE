@@ -968,6 +968,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                         star_dict, companions_table = _make_companions_table(cluster=cluster_tmp,
                                                                              star_dict=star_dict,
                                                                              comp_dict=comp_dict,
+                                                                             additional_photometric_systems=additional_photometric_systems,
                                                                              t0 = t0)
                         
                         
@@ -1963,7 +1964,7 @@ def match_companions(star_masses, SPISEA_primary_masses):
         
     return closest_index_arr
 
-def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
+def _make_companions_table(cluster, star_dict, comp_dict, additional_photometric_systems = None, t0 = 0):
     """
     Makes companions table by:
         1. Taking companions of compact objects and pointing their 
@@ -1993,6 +1994,10 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
 
     Optional Parameters
     -------------------
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+        
     t0 : float
         Initial time for timing purposes. Default is 0.
 
@@ -2076,20 +2081,33 @@ def _make_companions_table(cluster, star_dict, comp_dict, t0 = 0):
             
             # Changes luminosities to be system luminosities
             companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(add_magnitudes)
-            
-            star_dict['ubv_I'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
-            """star_dict['ubv_K'][group_companions_system_idxs] = comp_table['m_ukirt_K'][lum_CO_sys_idx].data
-            star_dict['ubv_J'][group_companions_system_idxs] = comp_table['m_ukirt_J'][lum_CO_sys_idx].data
-            star_dict['ubv_U'][group_companions_system_idxs] = comp_table['m_ubv_U'][lum_CO_sys_idx].data
-            star_dict['ubv_R'][group_companions_system_idxs] = comp_table['m_ubv_R'][lum_CO_sys_idx].data
-            star_dict['ubv_B'][group_companions_system_idxs] = comp_table['m_ubv_B'][lum_CO_sys_idx].data
-            star_dict['ubv_V'][group_companions_system_idxs] = comp_table['m_ubv_V'][lum_CO_sys_idx].data
-            star_dict['ubv_H'][group_companions_system_idxs] = comp_table['m_ukirt_H'][lum_CO_sys_idx].data
+            companions_system_m_ubv_K = grouped_companions['m_ukirt_K'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_J = grouped_companions['m_ukirt_J'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_U = grouped_companions['m_ubv_U'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_R = grouped_companions['m_ubv_R'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_B = grouped_companions['m_ubv_B'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_V = grouped_companions['m_ubv_V'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_H = grouped_companions['m_ukirt_H'].groups.aggregate(add_magnitudes)
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    star_dict['ztf_g'][group_companions_system_idxs] = comp_table['m_ztf_g'][lum_CO_sys_idx].data
-                    star_dict['ztf_r'][group_companions_system_idxs] = comp_table['m_ztf_r'][lum_CO_sys_idx].data
-                    star_dict['ztf_i'][group_companions_system_idxs] = comp_table['m_ztf_i'][lum_CO_sys_idx].data"""
+                    companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(add_magnitudes)
+                    companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(add_magnitudes)
+                    companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(add_magnitudes)
+                    
+            
+            star_dict['ubv_I'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
+            star_dict['ubv_K'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_K'][group_companions_system_idxs], companions_system_m_ubv_K])
+            star_dict['ubv_J'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_J'][group_companions_system_idxs], companions_system_m_ubv_J])
+            star_dict['ubv_U'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_U'][group_companions_system_idxs], companions_system_m_ubv_U])
+            star_dict['ubv_R'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_R'][group_companions_system_idxs], companions_system_m_ubv_R])
+            star_dict['ubv_B'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_B'][group_companions_system_idxs], companions_system_m_ubv_B])
+            star_dict['ubv_V'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_V'][group_companions_system_idxs], companions_system_m_ubv_V])
+            star_dict['ubv_H'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_H'][group_companions_system_idxs], companions_system_m_ubv_H])
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    star_dict['ztf_g'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
+                    star_dict['ztf_r'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
+                    star_dict['ztf_i'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
             
 
             # Switch companion table to point to obj_id instead of idx

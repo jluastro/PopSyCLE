@@ -1825,6 +1825,111 @@ def _rename_mass_columns_from_spisea(cluster, multiplicity):
     return
 
 
+def _add_multiples_new(star_zams_masses, cluster, verbose=0):
+    """
+    Modifies companion table of cluster object to point to Galaxia stars.
+    Effectively adds multiple systems with stellar primaries.
+
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams_mass column form the star_dict.
+
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    Returns
+    -------
+    modified_companions : astropy table
+        cluster companion table modified to point at Galaxia stars.
+        Deleted companions of compact objects and with primary zams masses too large.
+
+    """
+    # FIXME could join table above to improve memory instead of modifying the ss
+    # and multiple tables separately
+
+    # Define a timer to keep track of runtimes in this function.
+    if verbose > 2:
+        t0 = time.time()
+        print(f'\t Timer _add_multiples: start {t0:.5f} sec')
+
+    # populate an index column into cluster_ss to preserve original index
+    cluster_ss = cluster.star_systems
+    cluster_ss['system_idx'] = np.arange(len(cluster_ss))
+
+    # cut down primaries table with the following conditions:
+    #  - only multiples
+    #  - only stellar primaries (no dark compact objects)
+    #  - only spisea stars less massive than the most massive Galaxia star.
+    # These conditions are applied successively.
+    cond_multiple = cluster_ss['isMultiple'] == True
+    cond_stellar_prim = cond_multiple & (cluster_ss['phase'] < 100)
+    cond_not_too_massive = cond_stellar_prim & (cluster_ss['zams_mass'] <= np.max(star_zams_masses))
+    if verbose > 3:
+        print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries.')
+        print(f'  {np.sum(cond_multiple)} are multiple')
+        print(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
+        print(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
+    cluster_ss = cluster_ss[cond_not_too_massive]
+
+    # For each primary, find the closest, higher-mass Galaxia star.
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+    closest_index_arr, closest_mass_diff = match_companions_new(star_zams_masses,
+                                                                cluster_ss['zams_mass'].data,
+                                                                verbose=verbose)
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+
+    # Add columns for the matched galaxia ID and primary zams mass difference.
+    cluster_ss['galaxia_id'] = closest_index_arr
+    cluster_ss['zams_mass_match_diff'] = closest_mass_diff
+
+    # Trim out the non-matches
+    cond_matched = closest_index_arr != -1
+    if verbose > 3:
+        print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
+        print(f'  {np.sum(cond_matched)} are matched')
+    cluster_ss = cluster_ss[cond_matched]
+
+    # join tables to keep only those companions that pass our cuts.
+    companion_tmp_df = cluster.companions.to_pandas().set_index(['system_idx'])
+    event_table_df = cluster_ss.to_pandas().set_index(['system_idx'])
+    companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='', rsuffix='_prim', how='inner')
+
+    # for cc in range(len(companion_tmp_df_joined)):
+    #     print(cc)
+    #     print(companion_tmp_df_joined['zams_mass_match_diff'].values[cc])
+    #     print(star_zams_masses[companion_tmp_df_joined['galaxia_id'].values[cc]])
+    #     print(companion_tmp_df_joined['zams_mass_prim'].values[cc])
+    #     print(star_zams_masses[companion_tmp_df_joined['galaxia_id'].values[cc]] - companion_tmp_df_joined['zams_mass_prim'].values[cc])
+    #     np.testing.assert_almost_equal(companion_tmp_df_joined['zams_mass_match_diff'].values[cc],
+    #                                star_zams_masses[companion_tmp_df_joined['galaxia_id'].values[cc]] - companion_tmp_df_joined['zams_mass_prim'].values[cc],
+    #                                decimal=2)
+
+    # defines the companion Table as the new cut down table
+    # reset index adds system_idx back as its own column
+    # doing list(cluster.companions.columns) means that it only takes columns that were in cluster.companions
+    # all values that were nan were switched to None in pandas, so .filled(np.nan) switches them back to nan.
+    final_columns = list(cluster.companions.columns) + ['galaxia_id', 'zams_mass_match_diff', 'zams_mass_prim']
+    modified_companions = Table.from_pandas(
+        companion_tmp_df_joined.reset_index()[final_columns]).filled(np.nan)
+
+    # confirm all compnions were assigned to a popsycle primary
+    assert np.sum(np.isnan(modified_companions['galaxia_id'])) == 0
+    assert np.sum(modified_companions['galaxia_id'] < 0) == 0
+
+    # Reorganize the columns
+    modified_companions['spisea_idx'] = copy.deepcopy(modified_companions['system_idx'])
+    modified_companions['system_idx'] = modified_companions['galaxia_id'].astype(int)
+    del modified_companions['galaxia_id']
+    #del cluster.star_systems['system_idx']
+
+    if modified_companions is None:
+        return None
+
+    return modified_companions
+
 def _add_multiples(star_zams_masses, cluster):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
@@ -1983,6 +2088,108 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses):
     
         
     return closest_index_arr
+
+def match_companions_new(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+    """
+    Matches galaxia stars and SPISEA stellar primaries by closest match.
+    Note this is after all SPISEA stars with mass greater than the largest
+    galaxia mass have been dropped.
+
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams mass column form the star_dict.
+
+    SPISEA_primary_zams_masses : object
+        Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
+        primaries with companions less massive than the most massive galaxia star.
+
+    Returns
+    -------
+    closest_index_arr : array
+        Cloest index in the galaxia star_zams_masses (used to index into star_zams_masses)
+        with the length of SPISEA_primary_zams_masses.
+
+    """
+    # Shorter variable names
+    m_g = np.asarray(star_zams_masses)
+    m_s = np.asarray(SPISEA_primary_zams_masses)
+
+    # Pre-sort both.
+    sdx_s = np.argsort(m_s)  # connection between sorted and orig position
+    sdx_g = np.argsort(m_g)
+    m_s_sorted = m_s[sdx_s]
+    m_g_sorted = m_g[sdx_g]
+
+    # Make a big 2D array of all the differences.
+    # Shape is [N_g, N_s]
+    diff = m_g_sorted[:, np.newaxis] - m_s_sorted
+
+    # Append a 1000 Msun diff row so we ALWAYS have a match.
+    # Matching to the last row means "no match".
+    dummy_diffs = np.array([[1000] * len(m_s), ])
+    diff = np.append(diff, dummy_diffs, axis=0)
+    idx_nomatch = diff.shape[0] - 1  # index of the dummy case
+
+    # Only allow matches where the Galaxia mass is larger than the SPISEA mass.
+    diff[diff < 0] = np.nan # Set zeros (lower triangle) to nans.
+    closest_index_arr_sorted = np.nanargmin(diff, axis=0)
+    assert closest_index_arr_sorted.shape[0] == len(m_s)
+
+    # Now loop through and make sure we only have unique matches.
+    # Essentially, if two spisea stars match to the same Galaxia object,
+    # we will take the higher-mass spisea star and walk up in mass in the Galaxia
+    # table until we find a unique match.
+    k = 0
+    uni, indexes, counts = np.unique(closest_index_arr_sorted,
+                                   return_index=True,
+                                   return_counts=True)
+
+    # Count up the number of duplicates, not counting "no-matches"
+    cond = (counts > 1) & (uni != idx_nomatch)
+    n_dups = np.sum(cond)
+    n_nomatch = np.sum(uni == idx_nomatch)
+    if verbose > 3:
+        print(f'match_companions: Found {n_dups} duplicates in round {k}')
+        print(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+
+    nonunique_indices = indexes[cond]
+
+    # loop through until all duplicates are matched uniquely or we run out
+    # of galaxia stars at the highest mass. These become "no matches".
+    while n_dups > 0:
+        # increment up to the next most-massive galaxia star for the duplicates.
+        k += 1
+        closest_index_arr_sorted[nonunique_indices] += 1
+
+        # Update duplicates check.
+        uni, indexes, counts = np.unique(closest_index_arr_sorted,
+                                       return_index=True,
+                                       return_counts=True)
+
+        cond = (counts > 1) & (uni != idx_nomatch)
+        n_dups = np.sum(cond)
+        n_nomatch = np.sum(uni == idx_nomatch)
+        if verbose > 3:
+            print(f'match_companions: Found {n_dups} duplicates in round {k}')
+            print(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+
+        nonunique_indices = indexes[cond]
+
+
+    # Fix up the non-matches.
+    good_matches = np.argwhere(closest_index_arr_sorted != idx_nomatch)
+
+    # The final indices are still on the sorted array. Reverse to index on original input arrays.
+    # Note that index = -1 means no match.
+    closest_index_arr = np.ones_like(sdx_s) * -1
+    closest_index_arr[sdx_s[good_matches]] = sdx_g[closest_index_arr_sorted[good_matches]]
+
+    mass_diff = np.full_like(m_s, np.nan)
+    mass_diff[sdx_s[good_matches]] = m_g_sorted[closest_index_arr_sorted[good_matches]] - m_s_sorted[good_matches]
+
+    return closest_index_arr, mass_diff
+
 
 def _make_companions_table(cluster, star_dict, co_dict, additional_photometric_systems = None, t0 = 0):
     """

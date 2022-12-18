@@ -60,7 +60,7 @@ def srun_popsyn(srun_galaxia):
                               bin_edges_number=None,
                               BH_kick_speed_mean=100,
                               NS_kick_speed_mean=350,
-                              IFMR='Raithel18',
+                              IFMR='SukhboldN20',
                               overwrite=True,
                               seed=seed)
 
@@ -141,7 +141,7 @@ def mrun_popsyn(mrun_galaxia):
                               bin_edges_number=None,
                               BH_kick_speed_mean=100,
                               NS_kick_speed_mean=350,
-                              IFMR='Raithel18',
+                              IFMR='SukhboldN20',
                               multiplicity=multi_obj,
                               overwrite=True,
                               seed=seed)

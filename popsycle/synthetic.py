@@ -2797,7 +2797,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 1: We are centering on the lens.
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
-            # Note 3: PROPER BLENDING FOR BINARIES IS NOT PROPERLY TAKEN INTO ACCOUNT
+            # Note 3: Assumes all binaries are blended
             ##########
             blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
 
@@ -3919,6 +3919,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     Given the absolute magnitudes of a bunch of things,
     calculate their blended apparent magnitude and flux.
     Also calculate the centroid of these things.
+    Assumes all binaries are blended.
 
     Filter name is 'j', 'i', etc.
     red_law is Damineli16, Schlegel99, etc.
@@ -4881,7 +4882,7 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
         muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = comp_table[comp_idx]['alpha']
-        mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
+        mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)] #FIXME this is system mag
         mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
         b_sff = event_table[event_id]['f_blend_%s' % filter_name]
         raL = L_coords.icrs.ra.value # Lens R.A.

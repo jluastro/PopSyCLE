@@ -1825,7 +1825,7 @@ def _rename_mass_columns_from_spisea(cluster, multiplicity):
     return
 
 
-def _add_multiples_new(star_zams_masses, cluster, verbose=0):
+def _add_multiples(star_zams_masses, cluster, verbose=3):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -1875,7 +1875,7 @@ def _add_multiples_new(star_zams_masses, cluster, verbose=0):
     # For each primary, find the closest, higher-mass Galaxia star.
     if verbose > 2:
         print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
-    closest_index_arr, closest_mass_diff = match_companions_new(star_zams_masses,
+    closest_index_arr, closest_mass_diff = match_companions(star_zams_masses,
                                                                 cluster_ss['zams_mass'].data,
                                                                 verbose=verbose)
     if verbose > 2:
@@ -1920,7 +1920,8 @@ def _add_multiples_new(star_zams_masses, cluster, verbose=0):
     assert np.sum(modified_companions['galaxia_id'] < 0) == 0
 
     # Reorganize the columns
-    modified_companions['spisea_idx'] = copy.deepcopy(modified_companions['system_idx'])
+    modified_companions['spisea_idx'] = modified_companions['system_idx']
+    #modified_companions['spisea_idx'] = copy.deepcopy(modified_companions['system_idx'])
     modified_companions['system_idx'] = modified_companions['galaxia_id'].astype(int)
     del modified_companions['galaxia_id']
     #del cluster.star_systems['system_idx']
@@ -1930,7 +1931,7 @@ def _add_multiples_new(star_zams_masses, cluster, verbose=0):
 
     return modified_companions
 
-def _add_multiples(star_zams_masses, cluster):
+def _add_multiples_old(star_zams_masses, cluster):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -1991,7 +1992,7 @@ def _add_multiples(star_zams_masses, cluster):
     modified_companions['zams_mass_match_diff'] = np.nan
     
     print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
-    closest_index_arr = match_companions(star_zams_masses, cluster_ss['zams_mass'])
+    closest_index_arr = match_companions_old(star_zams_masses, cluster_ss['zams_mass'])
     print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
     
     
@@ -2020,7 +2021,7 @@ def _add_multiples(star_zams_masses, cluster):
 
     return modified_companions
 
-def match_companions(star_zams_masses, SPISEA_primary_zams_masses):
+def match_companions_old(star_zams_masses, SPISEA_primary_zams_masses):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2089,7 +2090,7 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses):
         
     return closest_index_arr
 
-def match_companions_new(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2109,6 +2110,9 @@ def match_companions_new(star_zams_masses, SPISEA_primary_zams_masses, verbose=0
     closest_index_arr : array
         Cloest index in the galaxia star_zams_masses (used to index into star_zams_masses)
         with the length of SPISEA_primary_zams_masses.
+    
+    mass_diff : array
+        Difference in masses between the corresponding galaxia star_zams_mass and SPISEA_primary_zams_mass
 
     """
     # Shorter variable names
@@ -2721,16 +2725,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
 
-            # Filling in number of companions column to primaries
-            N_companions = ((bigpatch_comp_df.groupby(['system_idx']).count()['mass']).to_frame()).reset_index()
-            N_companions = N_companions.rename(columns={'mass':'N_comp'})
-            # Cross referencing between N_companions from companions table and the primaries
-            N_companions = N_companions.set_index("system_idx")
-            bigpatch_df = bigpatch_df.set_index('obj_id')
-            bigpatch_df = bigpatch_df.join(N_companions)
-            bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
-            bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
-            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
+            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_companions']))
 
             a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
 
@@ -5496,6 +5491,19 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     return Alambda_AKs
 
 def add_magnitudes(mags):
+    """
+    Adds a list of magnitudes
+    
+    Parameters
+    ----------
+    mags: array-like
+        List or array of magnitudes
+    
+    Return
+    ------
+    m_sum : float
+        Sum of input magnitudes
+    """
     mags = np.array(mags)
     m_sum = -2.5*np.log10(np.sum(10**(-0.4*mags), axis = 0))
     

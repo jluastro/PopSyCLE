@@ -1825,7 +1825,7 @@ def _rename_mass_columns_from_spisea(cluster, multiplicity):
     return
 
 
-def _add_multiples(star_zams_masses, cluster, verbose=3):
+def _add_multiples(star_zams_masses, cluster, verbose=4):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2090,7 +2090,7 @@ def match_companions_old(star_zams_masses, SPISEA_primary_zams_masses):
         
     return closest_index_arr
 
-def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=4):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2115,30 +2115,49 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
         Difference in masses between the corresponding galaxia star_zams_mass and SPISEA_primary_zams_mass
 
     """
+    if verbose > 3:
+        print('memory test 0')
+    
     # Shorter variable names
     m_g = np.asarray(star_zams_masses)
     m_s = np.asarray(SPISEA_primary_zams_masses)
-
+    
+    if verbose > 3:
+        print('memory test 1')
+    
     # Pre-sort both.
     sdx_s = np.argsort(m_s)  # connection between sorted and orig position
     sdx_g = np.argsort(m_g)
     m_s_sorted = m_s[sdx_s]
     m_g_sorted = m_g[sdx_g]
+    
+    if verbose > 3:
+        print('memory test 2')
 
     # Make a big 2D array of all the differences.
     # Shape is [N_g, N_s]
     diff = m_g_sorted[:, np.newaxis] - m_s_sorted
+    
+    if verbose > 3:
+        print('memory test 3')
 
     # Append a 1000 Msun diff row so we ALWAYS have a match.
     # Matching to the last row means "no match".
     dummy_diffs = np.array([[1000] * len(m_s), ])
     diff = np.append(diff, dummy_diffs, axis=0)
     idx_nomatch = diff.shape[0] - 1  # index of the dummy case
+    
+    if verbose > 3:
+        print('memory test 4')
 
     # Only allow matches where the Galaxia mass is larger than the SPISEA mass.
     diff[diff < 0] = np.nan # Set zeros (lower triangle) to nans.
     closest_index_arr_sorted = np.nanargmin(diff, axis=0)
     assert closest_index_arr_sorted.shape[0] == len(m_s)
+    del diff
+    
+    if verbose > 3:
+        print('memory test 5')
 
     # Now loop through and make sure we only have unique matches.
     # Essentially, if two spisea stars match to the same Galaxia object,
@@ -2148,6 +2167,9 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
     uni, indexes, counts = np.unique(closest_index_arr_sorted,
                                    return_index=True,
                                    return_counts=True)
+    
+    if verbose > 3:
+        print('memory test 6')
 
     # Count up the number of duplicates, not counting "no-matches"
     cond = (counts > 1) & (uni != idx_nomatch)
@@ -3702,13 +3724,15 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
                 patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
                 patch_comp_L['system_idx'] = patch_comp_L.index
-                patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
+                if len(patch_comp_L) > 0:
+                    patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
                 
                 patch_comp_S['prim_type'] = "S"
                 patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
                 patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
                 patch_comp_S['system_idx'] = patch_comp_S.index
-                patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
+                if len(patch_comp_S) > 0:
+                    patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
 
                 #For first time companion table is being created
                 if len(companion_table) == 0:

@@ -6,12 +6,19 @@ if astropy_version < '3.0':
     # With older versions of Astropy, we actually need to import the pytest
     # plugins themselves in order to make them discoverable by pytest.
     from astropy.tests.pytest_plugins import *
-else:
+elif astropy_version >= '3.0' and astropy_version < '5.1':
     # As of Astropy 3.0, the pytest plugins provided by Astropy are
     # automatically made available when Astropy is installed. This means it's
     # not necessary to import them here, but we still need to import global
     # variables that are used for configuration.
     from astropy.tests.plugins.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
+else:
+    # As of Atropy 5.1, the pytest plugins provided by Astropy have been removed
+    # and are instead provided by pytest-astropy-header 
+    # (https://github.com/astropy/pytest-astropy-header)
+    from pytest_astropy_header.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
+    def pytest_configure(config):
+        config.option.astropy_header = True
 
 from astropy.tests.helper import enable_deprecations_as_exceptions
 

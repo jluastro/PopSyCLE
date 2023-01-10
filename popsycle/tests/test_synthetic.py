@@ -735,7 +735,7 @@ def test_system_luminosity(mrun_galaxia):
     
     #Group companions by system_idx
     grouped_companions = companions_table.group_by(['system_idx'])
-    companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(synthetic.add_magnitudes)
+    companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(binary_utils.add_magnitudes)
     grouped_system_idxs = np.array(grouped_companions.groups.keys['system_idx'])
     
     # Returns the intersecting obj_ids/system_idxs, indices in co_table or star_dict that correspond with the overlap, 
@@ -749,8 +749,6 @@ def test_system_luminosity(mrun_galaxia):
     
     calc_primary_luminosity = binary_utils.primary_mag_from_system_mag(star_dict['ubv_I'][star_idx_w_companions[1]],
                                                                        companions_system_m_ubv_I[star_idx_w_companions[2]])
-    #round to match primary_star_dict
-    #calc_primary_luminosity = np.around(calc_primary_luminosity,
     
     # checks the primary luminosity is the same as 
     # the system luminosity - companion luminosity
@@ -759,13 +757,21 @@ def test_system_luminosity(mrun_galaxia):
     calc_primary_luminosity_co = binary_utils.primary_mag_from_system_mag(co_dict['ubv_I'][co_idx_w_companions[1]],
                                                                        companions_system_m_ubv_I[co_idx_w_companions[2]])
     
+
     # checks that all the compact object 
-    # primary luminosities are nan, inifinite, or > 43
-    assert np.all(~np.isfinite(calc_primary_luminosity_co) | (calc_primary_luminosity_co > 43))
+    # primary luminosities are nan
+    assert np.all(np.isnan(calc_primary_luminosity_co))
     
     return
 
 def stripped_perform_pop_syn_for_system_luminosity_test(mrun_galaxia):
+    """
+    Mock version of perform_pop_syn that will also return the 
+    primary magnitudes. Runs for an arbitrary pop_id, age bin, and
+    metallicity bin.
+    If the way in which the bins are chosen are changed, this function
+    must also be changed.
+    """
     multi_obj = multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2)
     
     test_filepath = os.path.dirname(__file__)
@@ -881,8 +887,78 @@ def stripped_perform_pop_syn_for_system_luminosity_test(mrun_galaxia):
     
     
     return primary_star_dict, co_dict, star_dict, companions_table
+
+def test_add_mags():
+    """
+    Tests binary_utils.add_magnitudes() for a variety of cases both
+    individual and for a mock table of companions and primaries.
+    """
+    # array of 3 magnitudes adds up to the correct value
+    assert binary_utils.add_magnitudes([10, 10, 10]) == 8.807196863200843 
     
+    # including one nan gives the sum not including the nan
+    assert binary_utils.add_magnitudes([10, np.nan]) == 10
     
+    # sum of all nans gives nan
+    assert np.isnan(binary_utils.add_magnitudes([np.nan, np.nan])) == True
+    
+    # check a mock companion table grouped by system idx
+    companions_table = Table([[0, 0, 1, 2, 2, 3, 3], 
+                        [np.nan, 10, 11, np.nan, np.nan, 12, 13]], 
+                       names=('system_idx', 'mags'))
+    
+    grouped_companions = companions_table.group_by(['system_idx'])
+    companions_system_m = grouped_companions['mags'].groups.aggregate(binary_utils.add_magnitudes)
+    
+    assert companions_system_m[0] == 10
+    assert companions_system_m[1] == 11
+    assert np.isnan(companions_system_m[2]) == True
+    assert companions_system_m[3] == 11.636148842226767
+    
+    return
+
+def test_subtract_mags():
+    """
+    Tests binary_utils.subtract_magnitudes() for a variety of cases both
+    individual and for a mock table of companions and primaries.
+    If primary is dimmer than the companion, it will give a warning and a
+    nan magnitude.
+    """
+    
+    # brighter star - dimmer star gives the correct value
+    assert binary_utils.subtract_magnitudes(9, 10) == 9.551202076354773
+    
+    # magnitude - nan = magnitude
+    assert binary_utils.subtract_magnitudes(9, np.nan) == 9.0
+    
+    # magnitude - magnitude = nan
+    assert np.isnan(binary_utils.subtract_magnitudes(9, 9)) == True
+    
+    # nan - magnitude = nan
+    assert np.isnan(binary_utils.subtract_magnitudes(np.nan, 9)) == True
+    
+    # nan - nan = nan
+    assert np.isnan(binary_utils.subtract_magnitudes(np.nan, np.nan)) == True
+    
+    companions_table = Table([[0, 0, 1, 2, 2, 3, 3], 
+                        [np.nan, 10, 11, np.nan, np.nan, 12, 13]], 
+                       names=('system_idx', 'mags'))
+    test_table_prims = np.array([np.nan, 9, np.nan, 10])
+    
+    grouped_companions = companions_table.group_by(['system_idx'])
+    companions_system_m = grouped_companions['mags'].groups.aggregate(binary_utils.add_magnitudes)
+    grouped_system_idxs = np.array(grouped_companions.groups.keys['system_idx'])
+    
+    prims = test_table_prims[grouped_system_idxs]
+    
+    subtracted_mags = binary_utils.subtract_magnitudes(prims, companions_system_m)
+    
+    assert np.isnan(subtracted_mags[0]) == True
+    assert subtracted_mags[1] == 9.187350918581537
+    assert np.isnan(subtracted_mags[2]) == True
+    assert subtracted_mags[3] == 10.271972084483362
+    
+    return
 
 # FIXME
 def test_single_CO_frac():

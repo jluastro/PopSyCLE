@@ -49,6 +49,7 @@ from microlens.jlu import model
 from scipy.signal import find_peaks
 from collections import Counter
 from operator import itemgetter
+from popsycle import binary_utils
 
 ##########
 # Conversions.
@@ -2332,34 +2333,34 @@ def _make_companions_table(cluster, star_dict, co_dict, additional_photometric_s
             star_dict['N_companions'][companions_table['system_idx']] = itemgetter(*companions_table['system_idx'])(N_companions_dictionary)
             
             # Changes luminosities to be system luminosities
-            companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_K = grouped_companions['m_ukirt_K'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_J = grouped_companions['m_ukirt_J'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_U = grouped_companions['m_ubv_U'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_R = grouped_companions['m_ubv_R'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_B = grouped_companions['m_ubv_B'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_V = grouped_companions['m_ubv_V'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_H = grouped_companions['m_ukirt_H'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_K = grouped_companions['m_ukirt_K'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_J = grouped_companions['m_ukirt_J'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_U = grouped_companions['m_ubv_U'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_R = grouped_companions['m_ubv_R'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_B = grouped_companions['m_ubv_B'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_V = grouped_companions['m_ubv_V'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_H = grouped_companions['m_ukirt_H'].groups.aggregate(binary_utils.add_magnitudes)
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(add_magnitudes)
-                    companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(add_magnitudes)
-                    companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(add_magnitudes)
+                    companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(binary_utils.add_magnitudes)
                     
             
-            star_dict['ubv_I'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
-            star_dict['ubv_K'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_K'][group_companions_system_idxs], companions_system_m_ubv_K])
-            star_dict['ubv_J'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_J'][group_companions_system_idxs], companions_system_m_ubv_J])
-            star_dict['ubv_U'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_U'][group_companions_system_idxs], companions_system_m_ubv_U])
-            star_dict['ubv_R'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_R'][group_companions_system_idxs], companions_system_m_ubv_R])
-            star_dict['ubv_B'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_B'][group_companions_system_idxs], companions_system_m_ubv_B])
-            star_dict['ubv_V'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_V'][group_companions_system_idxs], companions_system_m_ubv_V])
-            star_dict['ubv_H'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_H'][group_companions_system_idxs], companions_system_m_ubv_H])
+            star_dict['ubv_I'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
+            star_dict['ubv_K'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_K'][group_companions_system_idxs], companions_system_m_ubv_K])
+            star_dict['ubv_J'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_J'][group_companions_system_idxs], companions_system_m_ubv_J])
+            star_dict['ubv_U'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_U'][group_companions_system_idxs], companions_system_m_ubv_U])
+            star_dict['ubv_R'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_R'][group_companions_system_idxs], companions_system_m_ubv_R])
+            star_dict['ubv_B'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_B'][group_companions_system_idxs], companions_system_m_ubv_B])
+            star_dict['ubv_V'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_V'][group_companions_system_idxs], companions_system_m_ubv_V])
+            star_dict['ubv_H'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_H'][group_companions_system_idxs], companions_system_m_ubv_H])
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    star_dict['ztf_g'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
-                    star_dict['ztf_r'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
-                    star_dict['ztf_i'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
+                    star_dict['ztf_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
+                    star_dict['ztf_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
+                    star_dict['ztf_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
             
 
             # Switch companion table to point to obj_id instead of idx
@@ -4586,7 +4587,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = comp_table[comp_idx]['alpha']
         mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
-        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
+        b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
 
         psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
                                    beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
@@ -4903,7 +4904,7 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
         alpha = comp_table[comp_idx]['alpha']
         mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)] #FIXME this is system mag
         mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
-        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
+        b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
         raL = L_coords.icrs.ra.value # Lens R.A.
         decL = L_coords.icrs.dec.value # Lens dec
         
@@ -5513,23 +5514,4 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Alambda_AKs = red_law_method(lambda_eff, 1)
 
     return Alambda_AKs
-
-def add_magnitudes(mags):
-    """
-    Adds a list of magnitudes
-    
-    Parameters
-    ----------
-    mags: array-like
-        List or array of magnitudes
-    
-    Return
-    ------
-    m_sum : float
-        Sum of input magnitudes
-    """
-    mags = np.array(mags)
-    m_sum = -2.5*np.log10(np.sum(10**(-0.4*mags), axis = 0))
-    
-    return m_sum
 

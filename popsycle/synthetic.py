@@ -1989,7 +1989,6 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
 
-<<<<<<< HEAD
     Parameters
     ----------
     star_zams_masses : list
@@ -2008,9 +2007,6 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
     return _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=verbose)
 
 def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
-=======
-def _add_multiples(star_zams_masses, cluster, verbose=4):
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2061,13 +2057,8 @@ def _add_multiples(star_zams_masses, cluster, verbose=4):
     if verbose > 2:
         print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, closest_mass_diff = match_companions(star_zams_masses,
-<<<<<<< HEAD
                                                             cluster_ss['zams_mass'].data,
                                                             verbose=verbose)
-=======
-                                                                cluster_ss['zams_mass'].data,
-                                                                verbose=verbose)
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     if verbose > 2:
         print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
 
@@ -2121,11 +2112,7 @@ def _add_multiples(star_zams_masses, cluster, verbose=4):
 
     return modified_companions
 
-<<<<<<< HEAD
 def _add_multiples_all(star_zams_masses, cluster, verbose=0):
-=======
-def _add_multiples_old(star_zams_masses, cluster):
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2185,19 +2172,12 @@ def _add_multiples_old(star_zams_masses, cluster):
     # Place new system_idx into temporary column initiated with NaN
     modified_companions['system_idx_tmp'] = np.nan
     modified_companions['zams_mass_match_diff'] = np.nan
-<<<<<<< HEAD
 
     if verbose > 2:
         print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, mass_diff = _match_companions_kdtree(star_zams_masses, cluster_ss['zams_mass'])
     if verbose > 2:
         print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
-=======
-    
-    print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
-    closest_index_arr = match_companions_old(star_zams_masses, cluster_ss['zams_mass'])
-    print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     
     
     # loop through each of the SPISEA cluster and match them to a galaxia star
@@ -2226,11 +2206,7 @@ def _add_multiples_old(star_zams_masses, cluster):
 
     return modified_companions
 
-<<<<<<< HEAD
 def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
-=======
-def match_companions_old(star_zams_masses, SPISEA_primary_zams_masses):
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2343,11 +2319,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
         
     return closest_index_arr, None
 
-<<<<<<< HEAD
 def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
-=======
-def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=4):
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2370,7 +2342,6 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=4):
     Returns
     -------
     closest_index_arr : array
-<<<<<<< HEAD
         Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
         with the length of mz_spisea. Note that an index of -1 indicates this star
         cannot be matched within 20% of the desired mass.
@@ -2379,14 +2350,6 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=4):
         The difference between the galaxia star mass and the spisea primary mass
         (m_galaxia - m_spisea) for every input spisea star.  Note that a value of np.nan
         is used for unmatched stars.
-=======
-        Cloest index in the galaxia star_zams_masses (used to index into star_zams_masses)
-        with the length of SPISEA_primary_zams_masses.
-    
-    mass_diff : array
-        Difference in masses between the corresponding galaxia star_zams_mass and SPISEA_primary_zams_mass
->>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
-
     """
     if verbose > 3:
         print('memory test 0')

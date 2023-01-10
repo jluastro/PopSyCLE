@@ -1,6 +1,8 @@
 import pytest
 
 from popsycle import synthetic
+from popsycle import ebf
+from popsycle import binary_utils
 from spisea.imf import multiplicity
 from astropy.coordinates import SkyCoord  # High-level coordinates
 import astropy.coordinates as coord
@@ -17,6 +19,8 @@ import filecmp
 import os
 from math import isclose
 import resource
+from copy import deepcopy
+from scipy.spatial import cKDTree
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
@@ -861,6 +865,249 @@ def test_system_mass(mrun_popsyn):
                 n_comp_checked += 1
 
         print(f'Field {field}: Successfully checked system masses of {n_comp_checked} multiple systems.')
+    return
+
+
+def test_system_luminosity(mrun_galaxia):
+    """
+    Checks that the system luminosity is the
+    primary + companions with compact objects not having luminosity.
+    Not integration test since primary luminosities are not kept.
+    """
+    
+    primary_star_dict, co_dict, star_dict, companions_table = stripped_perform_pop_syn_for_system_luminosity_test(mrun_galaxia)
+    
+    #Group companions by system_idx
+    grouped_companions = companions_table.group_by(['system_idx'])
+    companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(binary_utils.add_magnitudes)
+    grouped_system_idxs = np.array(grouped_companions.groups.keys['system_idx'])
+    
+    # Returns the intersecting obj_ids/system_idxs, indices in co_table or star_dict that correspond with the overlap, 
+    # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
+    co_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id']), grouped_system_idxs, return_indices = True)
+    star_idx_w_companions = np.intersect1d(np.array(star_dict['obj_id']), grouped_system_idxs, return_indices = True)
+    
+    # checks the matching was done properly
+    assert np.array_equiv(star_dict['obj_id'][star_idx_w_companions[1]], grouped_system_idxs[star_idx_w_companions[2]])
+    assert np.array_equiv(co_dict['obj_id'][co_idx_w_companions[1]], grouped_system_idxs[co_idx_w_companions[2]])
+    
+    calc_primary_luminosity = binary_utils.primary_mag_from_system_mag(star_dict['ubv_I'][star_idx_w_companions[1]],
+                                                                       companions_system_m_ubv_I[star_idx_w_companions[2]])
+    
+    # checks the primary luminosity is the same as 
+    # the system luminosity - companion luminosity
+    assert np.allclose(calc_primary_luminosity, primary_star_dict['ubv_I'][star_idx_w_companions[1]])
+    
+    calc_primary_luminosity_co = binary_utils.primary_mag_from_system_mag(co_dict['ubv_I'][co_idx_w_companions[1]],
+                                                                       companions_system_m_ubv_I[co_idx_w_companions[2]])
+    
+
+    # checks that all the compact object 
+    # primary luminosities are nan
+    assert np.all(np.isnan(calc_primary_luminosity_co))
+    
+    return
+
+def stripped_perform_pop_syn_for_system_luminosity_test(mrun_galaxia):
+    """
+    Mock version of perform_pop_syn that will also return the 
+    primary magnitudes. Runs for an arbitrary pop_id, age bin, and
+    metallicity bin.
+    If the way in which the bins are chosen are changed, this function
+    must also be changed.
+    """
+    multi_obj = multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2)
+    
+    test_filepath = os.path.dirname(__file__)
+    seed = 1
+    
+    pid = 7
+    age_min = 10.041392
+    age_max = 10.041393
+    feh_min = -1.500
+    feh_max = 0.00
+
+    ebf_file = mrun_galaxia + '.ebf'
+    
+    popid_array = ebf.read(ebf_file, '/popid')
+    popid_idx = np.where(popid_array == pid)[0]
+    age_array = ebf.read(ebf_file, '/age')
+    age_idx = np.where((age_array[popid_idx] >= age_min) &
+                               (age_array[popid_idx] < age_max))[0]
+    metallicity_array = ebf.read(ebf_file, '/feh')
+    feh_idx = np.where((metallicity_array[popid_idx[age_idx]] >= feh_min) &
+                                   (metallicity_array[popid_idx[age_idx]] < feh_max))[0]
+    bin_idx = popid_idx[age_idx[feh_idx]]
+    
+    num_stars_in_bin = len(bin_idx)
+    
+    len_adx = len(feh_idx)
+    kdt_star_p = None
+    exbv_arr4kdt = None
+    if len_adx > 0:
+        num_kdtree_samples = int(min(len_adx, num_stars_in_bin))
+        kdt_idx = np.random.choice(np.arange(len_adx),
+                                   size=num_kdtree_samples,
+                                   replace=False)
+        bin_idx_kd = popid_idx[age_idx[feh_idx[kdt_idx]]]
+        star_px = ebf.read_ind(ebf_file, '/px', bin_idx_kd) 
+        star_py = ebf.read_ind(ebf_file, '/py', bin_idx_kd)
+        star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx_kd)
+        star_xyz = np.array([star_px, star_py, star_pz]).T
+        kdt_star_p = cKDTree(star_xyz)
+        exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx_kd)
+        del bin_idx_kd, star_px, star_py, star_pz
+    
+    star_dict = {}
+    star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
+    star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
+    star_dict['systemMass'] = deepcopy(star_dict['mass'])
+    star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
+    star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
+    star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
+    star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
+    star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
+    star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
+    star_dict['age'] = age_array[bin_idx]
+    star_dict['popid'] = popid_array[bin_idx]
+    star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+    star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
+    star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
+    star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+    star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+    star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+    star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
+    star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
+    star_dict['isMultiple'] = np.zeros(len(bin_idx), dtype=int)
+    star_dict['N_companions'] = np.zeros(len(bin_idx), dtype=int)
+    star_dict['rem_id'] = np.zeros(len(bin_idx))
+    star_dict['obj_id'] = np.arange(len(bin_idx))
+    
+    star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
+    star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
+    star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
+    star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
+    star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
+    star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
+    star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
+    star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
+    
+    primary_star_dict = {}
+    primary_star_dict['ubv_J'] = deepcopy(star_dict['ubv_J'])
+    primary_star_dict['ubv_H'] = deepcopy(star_dict['ubv_H'])
+    primary_star_dict['ubv_K'] = deepcopy(star_dict['ubv_K'])
+    primary_star_dict['ubv_U'] = deepcopy(star_dict['ubv_U'])
+    primary_star_dict['ubv_I'] = deepcopy(star_dict['ubv_I'])
+    primary_star_dict['ubv_B'] = deepcopy(star_dict['ubv_B'])
+    primary_star_dict['ubv_V'] = deepcopy(star_dict['ubv_V'])
+    primary_star_dict['ubv_R'] = deepcopy(star_dict['ubv_R'])
+    
+    mass_in_bin = np.sum(star_dict['mass'])
+    
+    stars_in_bin = {}
+    for key, val in star_dict.items():
+        stars_in_bin[key] = val
+
+    from multiprocessing import Lock, Value
+    next_id_stars_val_in = Value('i', 0)
+    next_id_co_val_in = Value('i', num_stars_in_bin)
+    mp_lock = Lock()
+    synthetic._mp_init_worker(mp_lock, next_id_stars_val_in, next_id_co_val_in)
+
+    cluster, _, _ = synthetic._make_cluster(iso_dir = '/g/lu/models/PopSyCLE_isochrones',
+                            log_age = np.mean([age_min, age_max]), 
+                            currentClusterMass = mass_in_bin, 
+                            multiplicity=multi_obj, 
+                            IFMR = 'SukhboldN20', 
+                            feh = np.mean([feh_min, feh_max]), 
+                            seed=seed)
+    
+    co_dict, _ = synthetic._make_co_dict(np.mean([age_min, age_max]),
+                                     cluster,
+                                     stars_in_bin,
+                                     kdt_star_p, exbv_arr4kdt,
+                                     BH_kick_speed_mean=100,
+                                     NS_kick_speed_mean=350,
+                                     multiplicity=multi_obj,
+                                     seed=seed)
+    
+    star_dict, companions_table = synthetic._make_companions_table(cluster=cluster,
+                                                         star_dict=star_dict,
+                                                         co_dict=co_dict)
+    
+    
+    return primary_star_dict, co_dict, star_dict, companions_table
+
+def test_add_mags():
+    """
+    Tests binary_utils.add_magnitudes() for a variety of cases both
+    individual and for a mock table of companions and primaries.
+    """
+    # array of 3 magnitudes adds up to the correct value
+    assert binary_utils.add_magnitudes([10, 10, 10]) == 8.807196863200843 
+    
+    # including one nan gives the sum not including the nan
+    assert binary_utils.add_magnitudes([10, np.nan]) == 10
+    
+    # sum of all nans gives nan
+    assert np.isnan(binary_utils.add_magnitudes([np.nan, np.nan])) == True
+    
+    # check a mock companion table grouped by system idx
+    companions_table = Table([[0, 0, 1, 2, 2, 3, 3], 
+                        [np.nan, 10, 11, np.nan, np.nan, 12, 13]], 
+                       names=('system_idx', 'mags'))
+    
+    grouped_companions = companions_table.group_by(['system_idx'])
+    companions_system_m = grouped_companions['mags'].groups.aggregate(binary_utils.add_magnitudes)
+    
+    assert companions_system_m[0] == 10
+    assert companions_system_m[1] == 11
+    assert np.isnan(companions_system_m[2]) == True
+    assert companions_system_m[3] == 11.636148842226767
+    
+    return
+
+def test_subtract_mags():
+    """
+    Tests binary_utils.subtract_magnitudes() for a variety of cases both
+    individual and for a mock table of companions and primaries.
+    If primary is dimmer than the companion, it will give a warning and a
+    nan magnitude.
+    """
+    
+    # brighter star - dimmer star gives the correct value
+    assert binary_utils.subtract_magnitudes(9, 10) == 9.551202076354773
+    
+    # magnitude - nan = magnitude
+    assert binary_utils.subtract_magnitudes(9, np.nan) == 9.0
+    
+    # magnitude - magnitude = nan
+    assert np.isnan(binary_utils.subtract_magnitudes(9, 9)) == True
+    
+    # nan - magnitude = nan
+    assert np.isnan(binary_utils.subtract_magnitudes(np.nan, 9)) == True
+    
+    # nan - nan = nan
+    assert np.isnan(binary_utils.subtract_magnitudes(np.nan, np.nan)) == True
+    
+    companions_table = Table([[0, 0, 1, 2, 2, 3, 3], 
+                        [np.nan, 10, 11, np.nan, np.nan, 12, 13]], 
+                       names=('system_idx', 'mags'))
+    test_table_prims = np.array([np.nan, 9, np.nan, 10])
+    
+    grouped_companions = companions_table.group_by(['system_idx'])
+    companions_system_m = grouped_companions['mags'].groups.aggregate(binary_utils.add_magnitudes)
+    grouped_system_idxs = np.array(grouped_companions.groups.keys['system_idx'])
+    
+    prims = test_table_prims[grouped_system_idxs]
+    
+    subtracted_mags = binary_utils.subtract_magnitudes(prims, companions_system_m)
+    
+    assert np.isnan(subtracted_mags[0]) == True
+    assert subtracted_mags[1] == 9.187350918581537
+    assert np.isnan(subtracted_mags[2]) == True
+    assert subtracted_mags[3] == 10.271972084483362
+    
     return
 
 

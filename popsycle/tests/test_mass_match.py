@@ -68,9 +68,14 @@ def test_match_companions_kdtree(mass_arrays):
     t0 = time.time()
 
     # Run the traditional mass matching.
+<<<<<<< HEAD
     closest_index_arr, mass_diff = synthetic._match_companions_kdtree(m_g, m_s)
     dt = time.time() - t0
     print()
+=======
+    closest_index_arr = synthetic.match_companions_old(m_g, m_s)
+
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     print(f'Runtime = {time.time() - t0:.3} sec')
     print(f'Number of matches = {len(closest_index_arr)} of {len(m_s)}')
 
@@ -138,7 +143,11 @@ def test_match_companions_diff_array(mass_arrays):
     m_s = m_s[gdx]
 
     t0 = time.time()
+<<<<<<< HEAD
     closest_index_arr, closest_mass_diff = synthetic._match_companions_diff_array(m_g, m_s)
+=======
+    closest_index_arr, closest_mass_diff = synthetic.match_companions(m_g, m_s)
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     print(f'\n Runtime = {time.time() - t0:.3} sec')
 
     ####
@@ -376,7 +385,7 @@ def test_add_multiples_match_with_diff_array():
     # Test _add_multiples
     ###
     t0 = time.time()
-    modified_companions = synthetic._add_multiples_new(m_zams_g, cluster_s, verbose=0)
+    modified_companions = synthetic._add_multiples(m_zams_g, cluster_s, verbose=0)
     print(f'Runtime = {time.time() - t0:.3} sec')
 
     assert len(modified_companions) > 0.5 * len(cluster_s.companions)

@@ -49,6 +49,7 @@ from bagle import model
 from scipy.signal import find_peaks
 from collections import Counter
 from operator import itemgetter
+from popsycle import binary_utils
 
 ##########
 # Conversions.
@@ -1988,6 +1989,7 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
 
+<<<<<<< HEAD
     Parameters
     ----------
     star_zams_masses : list
@@ -2006,6 +2008,9 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
     return _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=verbose)
 
 def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
+=======
+def _add_multiples(star_zams_masses, cluster, verbose=4):
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2056,8 +2061,13 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     if verbose > 2:
         print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, closest_mass_diff = match_companions(star_zams_masses,
+<<<<<<< HEAD
                                                             cluster_ss['zams_mass'].data,
                                                             verbose=verbose)
+=======
+                                                                cluster_ss['zams_mass'].data,
+                                                                verbose=verbose)
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     if verbose > 2:
         print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
 
@@ -2100,7 +2110,8 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     assert np.sum(modified_companions['galaxia_id'] < 0) == 0
 
     # Reorganize the columns
-    modified_companions['spisea_idx'] = copy.deepcopy(modified_companions['system_idx'])
+    modified_companions['spisea_idx'] = modified_companions['system_idx']
+    #modified_companions['spisea_idx'] = copy.deepcopy(modified_companions['system_idx'])
     modified_companions['system_idx'] = modified_companions['galaxia_id'].astype(int)
     del modified_companions['galaxia_id']
     #del cluster.star_systems['system_idx']
@@ -2110,7 +2121,11 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
 
     return modified_companions
 
+<<<<<<< HEAD
 def _add_multiples_all(star_zams_masses, cluster, verbose=0):
+=======
+def _add_multiples_old(star_zams_masses, cluster):
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2170,12 +2185,19 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     # Place new system_idx into temporary column initiated with NaN
     modified_companions['system_idx_tmp'] = np.nan
     modified_companions['zams_mass_match_diff'] = np.nan
+<<<<<<< HEAD
 
     if verbose > 2:
         print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, mass_diff = _match_companions_kdtree(star_zams_masses, cluster_ss['zams_mass'])
     if verbose > 2:
         print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+=======
+    
+    print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+    closest_index_arr = match_companions_old(star_zams_masses, cluster_ss['zams_mass'])
+    print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     
     
     # loop through each of the SPISEA cluster and match them to a galaxia star
@@ -2204,7 +2226,11 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
 
     return modified_companions
 
+<<<<<<< HEAD
 def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+=======
+def match_companions_old(star_zams_masses, SPISEA_primary_zams_masses):
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2317,7 +2343,11 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
         
     return closest_index_arr, None
 
+<<<<<<< HEAD
 def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+=======
+def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=4):
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2340,6 +2370,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     Returns
     -------
     closest_index_arr : array
+<<<<<<< HEAD
         Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
         with the length of mz_spisea. Note that an index of -1 indicates this star
         cannot be matched within 20% of the desired mass.
@@ -2348,32 +2379,58 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         The difference between the galaxia star mass and the spisea primary mass
         (m_galaxia - m_spisea) for every input spisea star.  Note that a value of np.nan
         is used for unmatched stars.
+=======
+        Cloest index in the galaxia star_zams_masses (used to index into star_zams_masses)
+        with the length of SPISEA_primary_zams_masses.
+    
+    mass_diff : array
+        Difference in masses between the corresponding galaxia star_zams_mass and SPISEA_primary_zams_mass
+>>>>>>> 249375aa65e4b4aee868c97cab99d19797b09c5c
 
     """
+    if verbose > 3:
+        print('memory test 0')
+    
     # Shorter variable names
     m_g = np.asarray(star_zams_masses)
     m_s = np.asarray(SPISEA_primary_zams_masses)
-
+    
+    if verbose > 3:
+        print('memory test 1')
+    
     # Pre-sort both.
     sdx_s = np.argsort(m_s)  # connection between sorted and orig position
     sdx_g = np.argsort(m_g)
     m_s_sorted = m_s[sdx_s]
     m_g_sorted = m_g[sdx_g]
+    
+    if verbose > 3:
+        print('memory test 2')
 
     # Make a big 2D array of all the differences.
     # Shape is [N_g, N_s]
     diff = m_g_sorted[:, np.newaxis] - m_s_sorted
+    
+    if verbose > 3:
+        print('memory test 3')
 
     # Append a 1000 Msun diff row so we ALWAYS have a match.
     # Matching to the last row means "no match".
     dummy_diffs = np.array([[1000] * len(m_s), ])
     diff = np.append(diff, dummy_diffs, axis=0)
     idx_nomatch = diff.shape[0] - 1  # index of the dummy case
+    
+    if verbose > 3:
+        print('memory test 4')
 
     # Only allow matches where the Galaxia mass is larger than the SPISEA mass.
     diff[diff < 0] = np.nan # Set zeros (lower triangle) to nans.
     closest_index_arr_sorted = np.nanargmin(diff, axis=0)
     assert closest_index_arr_sorted.shape[0] == len(m_s)
+    del diff
+    
+    if verbose > 3:
+        print('memory test 5')
 
     # Now loop through and make sure we only have unique matches.
     # Essentially, if two spisea stars match to the same Galaxia object,
@@ -2383,6 +2440,9 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     uni, indexes, counts = np.unique(closest_index_arr_sorted,
                                    return_index=True,
                                    return_counts=True)
+    
+    if verbose > 3:
+        print('memory test 6')
 
     # Count up the number of duplicates, not counting "no-matches"
     cond = (counts > 1) & (uni != idx_nomatch)
@@ -2699,34 +2759,34 @@ def _make_companions_table(cluster, star_dict, co_dict,
             star_dict['N_companions'][companions_table['system_idx']] = itemgetter(*companions_table['system_idx'])(N_companions_dictionary)
             
             # Changes luminosities to be system luminosities
-            companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_K = grouped_companions['m_ukirt_K'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_J = grouped_companions['m_ukirt_J'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_U = grouped_companions['m_ubv_U'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_R = grouped_companions['m_ubv_R'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_B = grouped_companions['m_ubv_B'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_V = grouped_companions['m_ubv_V'].groups.aggregate(add_magnitudes)
-            companions_system_m_ubv_H = grouped_companions['m_ukirt_H'].groups.aggregate(add_magnitudes)
+            companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_K = grouped_companions['m_ukirt_K'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_J = grouped_companions['m_ukirt_J'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_U = grouped_companions['m_ubv_U'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_R = grouped_companions['m_ubv_R'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_B = grouped_companions['m_ubv_B'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_V = grouped_companions['m_ubv_V'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_H = grouped_companions['m_ukirt_H'].groups.aggregate(binary_utils.add_magnitudes)
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(add_magnitudes)
-                    companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(add_magnitudes)
-                    companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(add_magnitudes)
+                    companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(binary_utils.add_magnitudes)
                     
             
-            star_dict['ubv_I'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
-            star_dict['ubv_K'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_K'][group_companions_system_idxs], companions_system_m_ubv_K])
-            star_dict['ubv_J'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_J'][group_companions_system_idxs], companions_system_m_ubv_J])
-            star_dict['ubv_U'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_U'][group_companions_system_idxs], companions_system_m_ubv_U])
-            star_dict['ubv_R'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_R'][group_companions_system_idxs], companions_system_m_ubv_R])
-            star_dict['ubv_B'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_B'][group_companions_system_idxs], companions_system_m_ubv_B])
-            star_dict['ubv_V'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_V'][group_companions_system_idxs], companions_system_m_ubv_V])
-            star_dict['ubv_H'][group_companions_system_idxs] = add_magnitudes([star_dict['ubv_H'][group_companions_system_idxs], companions_system_m_ubv_H])
+            star_dict['ubv_I'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
+            star_dict['ubv_K'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_K'][group_companions_system_idxs], companions_system_m_ubv_K])
+            star_dict['ubv_J'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_J'][group_companions_system_idxs], companions_system_m_ubv_J])
+            star_dict['ubv_U'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_U'][group_companions_system_idxs], companions_system_m_ubv_U])
+            star_dict['ubv_R'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_R'][group_companions_system_idxs], companions_system_m_ubv_R])
+            star_dict['ubv_B'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_B'][group_companions_system_idxs], companions_system_m_ubv_B])
+            star_dict['ubv_V'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_V'][group_companions_system_idxs], companions_system_m_ubv_V])
+            star_dict['ubv_H'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_H'][group_companions_system_idxs], companions_system_m_ubv_H])
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    star_dict['ztf_g'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
-                    star_dict['ztf_r'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
-                    star_dict['ztf_i'][group_companions_system_idxs] = add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
+                    star_dict['ztf_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
+                    star_dict['ztf_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
+                    star_dict['ztf_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
             
 
             # Switch companion table to point to obj_id instead of idx
@@ -3114,16 +3174,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
 
-            # Filling in number of companions column to primaries
-            N_companions = ((bigpatch_comp_df.groupby(['system_idx']).count()['mass']).to_frame()).reset_index()
-            N_companions = N_companions.rename(columns={'mass':'N_comp'})
-            # Cross referencing between N_companions from companions table and the primaries
-            N_companions = N_companions.set_index("system_idx")
-            bigpatch_df = bigpatch_df.set_index('obj_id')
-            bigpatch_df = bigpatch_df.join(N_companions)
-            bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
-            bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
-            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
+            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_companions']))
 
             a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
 
@@ -3190,7 +3241,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 1: We are centering on the lens.
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
-            # Note 3: PROPER BLENDING FOR BINARIES IS NOT PROPERLY TAKEN INTO ACCOUNT
+            # Note 3: Assumes all binaries are blended
             ##########
             blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
 
@@ -4100,13 +4151,15 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
                 patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
                 patch_comp_L['system_idx'] = patch_comp_L.index
-                patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
+                if len(patch_comp_L) > 0:
+                    patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
                 
                 patch_comp_S['prim_type'] = "S"
                 patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
                 patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
                 patch_comp_S['system_idx'] = patch_comp_S.index
-                patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
+                if len(patch_comp_S) > 0:
+                    patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
 
                 #For first time companion table is being created
                 if len(companion_table) == 0:
@@ -4312,6 +4365,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     Given the absolute magnitudes of a bunch of things,
     calculate their blended apparent magnitude and flux.
     Also calculate the centroid of these things.
+    Assumes all binaries are blended.
 
     Filter name is 'j', 'i', etc.
     red_law is Damineli16, Schlegel99, etc.
@@ -4959,7 +5013,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = comp_table[comp_idx]['alpha']
         mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
-        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
+        b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
 
         psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
                                    beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
@@ -5274,9 +5328,9 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
         muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
         sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
         alpha = comp_table[comp_idx]['alpha']
-        mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
+        mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)] #FIXME this is system mag
         mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
-        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
+        b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
         raL = L_coords.icrs.ra.value # Lens R.A.
         decL = L_coords.icrs.dec.value # Lens dec
         
@@ -5886,10 +5940,4 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Alambda_AKs = red_law_method(lambda_eff, 1)
 
     return Alambda_AKs
-
-def add_magnitudes(mags):
-    mags = np.array(mags)
-    m_sum = -2.5*np.log10(np.sum(10**(-0.4*mags), axis = 0))
-    
-    return m_sum
 

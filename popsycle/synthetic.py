@@ -4896,7 +4896,7 @@ def refine_binary_events_new(events, companions, photometric_system, filter_name
         comp_table[comp_idx]['avg_t'] = results[ii]['avg_t']
         comp_table[comp_idx]['std_t'] = results[ii]['std_t']
         comp_table[comp_idx]['asymmetry'] = results[ii]['asymmetry']
-        rows = results[ii]['rows']
+        rows = results[ii]['mp_rows']
         for row in rows:
             mult_peaks.add_row(row)
         
@@ -4999,6 +4999,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
         
     obj_id_S : int
         Object id of the source associated with event
+        
     """
     obj_id_L = comp_table[comp_idx]['obj_id_L']
     obj_id_S = comp_table[comp_idx]['obj_id_S']
@@ -5045,6 +5046,32 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
     
     obj_id_L : int
         Object id of the lens associated with event
+    
+    obj_id_S : int
+        Object id of the source associated with event
+    
+    Optional Parameters
+    -------------------
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+        
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    
+    Output:
+    ----------
+    param_dict : dict
+        Dictionary of additional parameters added to companion table
+        and one called 'mp_rows' which are the rows to be added to the multi peak
+        table.
     """
 
     name = "{}".format(comp_idx)
@@ -5093,7 +5120,7 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
         
     param_dict = {'n_peaks' : 0, 'bin_delta_m' : np.nan, 'tE_sys' : np.nan, 
                   'tE_primary' : np.nan, 'primary_t' : np.nan, 'avg_t' : np.nan, 
-                  'std_t' : np.nan, 'asymmetry' : np.nan, 'rows' : []}
+                  'std_t' : np.nan, 'asymmetry' : np.nan, 'mp_rows' : []}
 
     #because this is magnitudes max(phot) is baseline and min(phot) is peak
     #baseline 2000tE away get_photometry
@@ -5181,7 +5208,7 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
             tE = max(dt[split_half]) - min(dt[split_half])
             rows.append([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
             
-        param_dict['rows'] = rows
+        param_dict['mp_rows'] = rows
 
             #mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
 

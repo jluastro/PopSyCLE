@@ -497,24 +497,24 @@ def test_calc_blends_old():
     return
 
 # FIXME
-def time_calc_event_time_loop():
-    t1 = test_calc_event_time_loop(1)
-    t4 = test_calc_event_time_loop(4)
-    t8 = test_calc_event_time_loop(8)
-    t12 = test_calc_event_time_loop(12)
-
-    t_proc = np.array([t1, t4, t8, t12])
-    t_thry = t_proc[0] * np.array([1, 1 / 4.0, 1 / 8.0, 1 / 12.0])
-    n_proc = np.array([1, 4, 8, 12])
-
-    fig = plt.figure(1, figsize=(6, 6))
-    plt.clf()
-    plt.plot(n_proc, t_thry, '.', label='Ideal')
-    plt.plot(n_proc, t_proc, '.', label='Reality')
-    plt.xlabel('N processors')
-    plt.ylabel('Time (sec)')
-    plt.legend()
-    plt.show()
+# def time_calc_event_time_loop():
+#     t1 = test_calc_event_time_loop(1)
+#     t4 = test_calc_event_time_loop(4)
+#     t8 = test_calc_event_time_loop(8)
+#     t12 = test_calc_event_time_loop(12)
+#
+#     t_proc = np.array([t1, t4, t8, t12])
+#     t_thry = t_proc[0] * np.array([1, 1 / 4.0, 1 / 8.0, 1 / 12.0])
+#     n_proc = np.array([1, 4, 8, 12])
+#
+#     fig = plt.figure(1, figsize=(6, 6))
+#     plt.clf()
+#     plt.plot(n_proc, t_thry, '.', label='Ideal')
+#     plt.plot(n_proc, t_proc, '.', label='Reality')
+#     plt.xlabel('N processors')
+#     plt.ylabel('Time (sec)')
+#     plt.legend()
+#     plt.show()
 
 # FIXME
 def calc_event_time_loop(n_proc):

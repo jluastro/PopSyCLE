@@ -29,6 +29,7 @@ def mass_arrays():
 
     return masses
 
+
 def make_mass_arrays(n_spisea=100, n_galaxia=300):
     masses = {}
 
@@ -48,6 +49,7 @@ def make_mass_arrays(n_spisea=100, n_galaxia=300):
 
     return masses
 
+
 def make_mass_arrays_edge_cases():
     masses = {}
 
@@ -55,6 +57,7 @@ def make_mass_arrays_edge_cases():
     masses['galaxia'] = np.array([9.0, 0.6, 1.4, 1.5, 2.5, 2.5, 3.0])
 
     return masses
+
 
 def test_match_companions_kdtree(mass_arrays):
     m_s = mass_arrays['spisea']
@@ -80,6 +83,7 @@ def test_match_companions_kdtree(mass_arrays):
     print(f'Number of duplicates = {n_duplicates}')
 
     return dt
+
 
 def test_match_companions_kdtree_nonneg(mass_arrays, plot=False):
     m_s = mass_arrays['spisea']
@@ -128,6 +132,7 @@ def test_match_companions_kdtree_nonneg(mass_arrays, plot=False):
 
     return dt
 
+
 def test_match_companions_diff_array(mass_arrays):
     m_s = mass_arrays['spisea']
     m_g = mass_arrays['galaxia']
@@ -165,6 +170,7 @@ def test_match_companions_diff_array(mass_arrays):
 
     return
 
+
 def test_add_multiples_match_with_kdtree():
     ####
     # Make fake data to work on.
@@ -194,12 +200,13 @@ def test_add_multiples_match_with_kdtree():
     # masses = make_mass_arrays(n_galaxia=300)
     # m_g = masses['galaxia']
 
+    # noinspection PyTypeChecker
     foo2 = synthetic._make_cluster(iso_dir=iso_dir,
-                                  log_age=log_age,
-                                  currentClusterMass=np.sum(m_curr_g),
-                                  multiplicity=multi_obj,
-                                  IFMR='SukhboldN20',
-                                  feh=feh, seed=seed)
+                                   log_age=log_age,
+                                   currentClusterMass=np.sum(m_curr_g),
+                                   multiplicity=multi_obj,
+                                   IFMR='SukhboldN20',
+                                   feh=feh, seed=seed)
     cluster_s, _, _ = foo2
 
     print(f'GALAXIA: Current cluster mass = {np.sum(m_curr_g):.1f} Msun')
@@ -207,8 +214,6 @@ def test_add_multiples_match_with_kdtree():
     print(f'SPISEA:  Current cluster mass = {cluster_s.star_systems["mass"].sum():.1f} Msun')
     print(f'SPISEA:  Total number of primaries = {len(cluster_s.star_systems)}')
     print(f'SPISEA:  Total number of companions = {len(cluster_s.companions)}')
-
-
 
     ###
     # Test _add_multiples
@@ -237,6 +242,7 @@ def test_add_multiples_match_with_kdtree():
     print(f'N neg diff = {len(ndx)}')
 
     return
+
 
 def test_add_multiples_match_with_kdtree_nonneg():
     ####
@@ -329,6 +335,7 @@ def test_add_multiples_match_with_kdtree_nonneg():
 
     return
 
+
 def test_add_multiples_match_with_diff_array():
     ####
     # Make fake data to work on.
@@ -420,6 +427,7 @@ def test_add_multiples_match_with_diff_array():
 
     return
 
+
 def time_vs_nstar_old(n_stars=None):
     if n_stars is None:
         n_stars = np.array([50, 100, 500, 1000, 5000, 7500, 10000, 25000, 50000, 75000, 100000])
@@ -443,6 +451,7 @@ def time_vs_nstar_old(n_stars=None):
 
     return n_stars, dt_all
 
+
 def time_vs_nstar(n_stars=None):
     if n_stars is None:
         n_stars = np.array([50, 100, 500, 1000, 5000, 7500, 10000, 25000, 50000, 75000, 100000])
@@ -465,6 +474,7 @@ def time_vs_nstar(n_stars=None):
     plt.savefig('mass_match_kdtree_time_vs_nstar_new.png')
 
     return n_stars, dt_all
+
 
 def time_vs_nstar_compare():
     # n_stars = np.array([50, 100, 500, 1000, 5000, 7500, 10000, 25000])#, 50000, 75000, 100000])

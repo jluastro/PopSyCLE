@@ -929,6 +929,8 @@ def stripped_perform_pop_syn_for_system_luminosity_test(mrun_galaxia):
     age_max = 10.041393
     feh_min = -1.500
     feh_max = 0.00
+    
+    additional_photometric_systems = None
 
     ebf_file = mrun_galaxia + '.ebf'
     
@@ -944,56 +946,17 @@ def stripped_perform_pop_syn_for_system_luminosity_test(mrun_galaxia):
     
     num_stars_in_bin = len(bin_idx)
     
-    len_adx = len(feh_idx)
-    kdt_star_p = None
-    exbv_arr4kdt = None
-    if len_adx > 0:
-        num_kdtree_samples = int(min(len_adx, num_stars_in_bin))
-        kdt_idx = np.random.choice(np.arange(len_adx),
-                                   size=num_kdtree_samples,
-                                   replace=False)
-        bin_idx_kd = popid_idx[age_idx[feh_idx[kdt_idx]]]
-        star_px = ebf.read_ind(ebf_file, '/px', bin_idx_kd) 
-        star_py = ebf.read_ind(ebf_file, '/py', bin_idx_kd)
-        star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx_kd)
-        star_xyz = np.array([star_px, star_py, star_pz]).T
-        kdt_star_p = cKDTree(star_xyz)
-        exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx_kd)
-        del bin_idx_kd, star_px, star_py, star_pz
-    
+    exbv_arr4kdt, kdt_star_p = synthetic._make_extinction_kdtree(ebf_file, popid_idx[age_idx])
+        
     star_dict = {}
-    star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
-    star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
-    star_dict['systemMass'] = deepcopy(star_dict['mass'])
-    star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
-    star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
-    star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
-    star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
-    star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
-    star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
     star_dict['age'] = age_array[bin_idx]
     star_dict['popid'] = popid_array[bin_idx]
-    star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-    star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
-    star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
-    star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
-    star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
-    star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
-    star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
-    star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
-    star_dict['isMultiple'] = np.zeros(len(bin_idx), dtype=int)
-    star_dict['N_companions'] = np.zeros(len(bin_idx), dtype=int)
-    star_dict['rem_id'] = np.zeros(len(bin_idx))
     star_dict['obj_id'] = np.arange(len(bin_idx))
     
-    star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
-    star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
-    star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
-    star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
-    star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
-    star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
-    star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
-    star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
+    synthetic._load_galaxia_into_star_dict(star_dict,
+                                 bin_idx,
+                                 ebf_file,
+                                 additional_photometric_systems)
     
     primary_star_dict = {}
     primary_star_dict['ubv_J'] = deepcopy(star_dict['ubv_J'])

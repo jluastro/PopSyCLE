@@ -1014,6 +1014,112 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                  multiplicity, additional_photometric_systems, t0,
                                  binning, seed,
                                  output_root, verbose=0):
+    
+    """
+    Processess the objects in a bin including 
+    creating the star dict, generating the compact objects
+    and companions (if applicable) and writing to hdf5 file.
+    
+    Parameters
+    -----------
+    bin_idx : array
+        Array of indices of stars that are in the bin
+    
+    age_of_bin : float
+        Mid-point age of bin
+        
+    metallicity_of_bin : float
+        Value of the metallicity bin
+        
+    pop_id_array : array
+        Array of population ids (i.e. 0-9) of Galaxia stars
+    
+    age_array : array
+        Array of ages of Galaxia stars
+    
+    lat_bin_edges : array
+        Edges for the latitude binning (deg)
+
+    long_bin_edges : array
+        Edges for the longitude binning (deg)
+    
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+        
+    kdt_star_p : scipy KDTree
+        KDTree of the momenta of a random selection of Galaxia stars.
+        
+    exbv_arr4kdt : array
+        Exteniction of the stars in the KD Tree.
+    
+    iso_dir : filepath
+        Where are the isochrones stored (for SPISEA)
+        
+    IFMR : string
+        The name of the IFMR object from SPISEA. For additional information on these objects see ifmr.py
+        in SPISEA. 
+        'Raithel18' = IFMR_Raithel18
+        'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
+        
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+        
+    BH_kick_speed_mean : float
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
+        
+    multiplicity : multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+        
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+    
+    t0 : float
+        Start time for timing purposes
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
+        
+    seed : int
+        If set to non-None, all random sampling will be seeded with the
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
+        Default None.
+        
+    output_root :str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+    
+    Optional Parameters
+    --------------------
+    verbose : int
+        The higher this number, the more additional information will print out.
+        Default is 0
+    
+    Returns
+    --------
+    n_co_new : int
+        Number of new compact objects generated per bin.
+    
+    unmade_cluster_counter_new : int
+        Updated number of unmade clusters (<= 100 M_sun)
+
+    unmade_cluster_mass_new: float
+        The current mass in the unmade clusters (<= 100 M_sun)
+    
+    """
 
     # Load up our global (thread-safe) variables.
     global lock, next_id_stars_val, next_id_co_val
@@ -1197,6 +1303,25 @@ def _make_extinction_kdtree(ebf_file, indices, max_num_stars_in_kdt_p=int(2e6)):
 
 
 def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photometric_systems):
+    """
+    The dictionary is edited in place, so nothing is returned.
+    
+    Parameters
+    ----------
+    star_dict : dictionary
+        The number of entries for each key is the number of stars.
+    
+    bin_idx : array
+        Array of indices of stars that are in the bin
+        
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+        
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+    """
     star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
     star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
     star_dict['systemMass'] = copy.deepcopy(star_dict['mass'])
@@ -1255,6 +1380,41 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
 
 
 def _get_bin_edges(l, b, surveyArea, bin_edges_number):
+    """
+    
+    Parameters
+    -----------    
+    l : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+        
+    b : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+        
+    surveyArea : float
+        Area of the sky that will be generated, in square degrees
+        
+    bin_edges_number :int
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default in perform_pop_syn), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
+    
+    Returns
+    --------
+    bin_edges_number : int
+        Modified number of edges for the bins.
+        If bin_edges_number = None
+            The widths fo the bins are set to 1/2 an arcmin
+        Bin numbers are set to at least 3 bins.
+        
+    lat_bin_edges : array
+        Edges for the latitude binning (deg)
+
+    long_bin_edges : array
+        Edges for the longitude binning (deg)
+    """
     # Extend the edges a bit, that's what the * 1.1 is for
     # (to potentially catch any edge cases.)
     # make bins of size ~1/2 arcmin
@@ -1285,7 +1445,7 @@ def _make_co_dict(log_age,
                   additional_photometric_systems=None,
                   multiplicity=None,
                   seed=None):
-    # star_dict, next_id,
+    
     """
     Perform population synthesis.
 

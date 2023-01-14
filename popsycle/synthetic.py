@@ -670,7 +670,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
                            multiplicity, binning,
-                           overwrite, seed)
+                           overwrite, seed,
+                           n_proc, verbose)
 
     ##########
     # Start of code
@@ -5081,7 +5082,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     _check_refine_binary_events(events, companions, 
                          photometric_system, filter_name,
                          overwrite, output_file,
-                         save_phot, phot_dir)
+                         save_phot, phot_dir, n_proc)
         
     
     event_table = Table.read(events)

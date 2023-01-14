@@ -253,6 +253,53 @@ def mrun_big_popsyn():
 
     return output_root
 
+def mrun_0p034deg_galaxia_NERSC():
+    seed = 10
+
+    output_root = 'data_test/test_Mrun_0p034deg'
+
+    test_filepath = os.path.dirname(__file__)
+    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
+
+    synthetic.write_galaxia_params(output_root=output_root,
+                                   longitude=1.25,
+                                   latitude=-2.65,
+                                   area=0.034,
+                                   seed=seed)
+
+    synthetic.run_galaxia(output_root=output_root,
+                          longitude=1.25,
+                          latitude=-2.65,
+                          area=0.034,
+                          galaxia_galaxy_model_filename=galaxia_params,
+                          seed=seed)
+
+    return output_root
+
+def mrun_0p034deg_popsyn_NERSC():
+    seed = 10
+
+    output_root = 'data_test/test_Mrun_0p034deg'
+    ebf_file = output_root + '.ebf'
+
+    multi_obj = multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2)
+
+    synthetic.perform_pop_syn(ebf_file=ebf_file,
+                              output_root=output_root,
+                              iso_dir='/global/homes/n/nsabrams/uLens/code/src/PopSyCLE_isochrones',
+                              bin_edges_number=None,
+                              BH_kick_speed_mean=100,
+                              NS_kick_speed_mean=350,
+                              IFMR='SukhboldN20',
+                              multiplicity=multi_obj,
+                              overwrite=True,
+                              seed=seed, n_proc=6)
+
+    max_mem_Mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1.0e6
+    print(f'Max Memory Used: {max_mem_Mb} Mb')
+
+    return output_root
+
 def remake_correct_data():
     import os, glob
 

@@ -387,7 +387,8 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
                            multiplicity, binning,
-                           overwrite, seed):
+                           overwrite, seed,
+                           n_proc, verbose):
     """
     Checks that the inputs of perform_pop_syn are valid
 
@@ -454,7 +455,17 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
+        
+    n_proc : int
+        Number of processors to use in the parallel processing. Note that
+        calculations are memory intensive and n_proc > few should likely not be
+        used to avoid memory overruns that may result in data corruption.
+        Default is 1.
 
+    verbose : int
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
     """
 
     if not isinstance(ebf_file, str):
@@ -510,6 +521,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if seed is not None:
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
+    
+    if not isinstance(n_proc, int):
+        raise Exception('n_proc (%s) must be an integer.' % str(seed))
+    
+    if not isinstance(verbose, int):
+        raise Exception('verbose (%s) must be an integer.' % str(seed))
     
 
     if additional_photometric_systems is not None:
@@ -611,10 +628,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Number of processors to use in the parallel processing. Note that
         calculations are memory intensive and n_proc > few should likely not be
         used to avoid memory overruns that may result in data corruption.
+        Default is 1.
 
     verbose : int
         Level of debugging information to print to stderr. Set to 0 for minimal
         information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
 
     Output Files
     ------------
@@ -1105,8 +1124,9 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     Optional Parameters
     --------------------
     verbose : int
-        The higher this number, the more additional information will print out.
-        Default is 0
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
     
     Returns
     --------
@@ -4899,7 +4919,7 @@ def _add_multiples_parameters(companion_table, event_table):
 def _check_refine_binary_events(events, companions,
                                 photometric_system, filter_name,
                                 overwrite, output_file,
-                                save_phot, phot_dir):
+                                save_phot, phot_dir, n_proc):
     """
     Checks that the inputs of refine_binary_events are valid
 
@@ -4932,6 +4952,10 @@ def _check_refine_binary_events(events, companions,
     phot_dir : str
         Name of the directory photometry is saved if save_phot = True.
         This parameters is NOT optional if save_phot = True.
+        
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
     """
 
     if not isinstance(events, str):
@@ -4958,6 +4982,9 @@ def _check_refine_binary_events(events, companions,
     if not isinstance(phot_dir, str):
         if not isinstance(phot_dir, type(None)):
             raise Exception('phot_dir (%s) must be a string or None.' % str(phot_dir))
+            
+    if not isinstance(n_proc, int):
+        raise Exception('n_proc (%s) must be an integer.' % str(seed))
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:

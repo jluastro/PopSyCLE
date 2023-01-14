@@ -208,7 +208,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   photometric_system='ubv',
                                   filter_name='R', red_law='Damineli16',
                                   multiplicity=None,
-                                  binning = True
+                                  binning = True,
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -322,7 +322,8 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'photometric_system': photometric_system,
               'filter_name': filter_name,
               'red_law': red_law,
-              'multiplicity': multiplicity}
+              'multiplicity': multiplicity,
+              'binning':binning}
     generate_config_file(config_filename, config)
 
 
@@ -645,8 +646,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=[popsycle_config['photometric_system']],
                                n_proc=n_cores_perform_pop_syn,
-                               binning = popsycle_config['binning']
-                               verbose = verbose
+                               binning = popsycle_config['binning'],
+                               verbose = verbose,
                                overwrite=overwrite,
                                seed=seed,
                                multiplicity=multiplicity)
@@ -667,6 +668,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              photometric_system=popsycle_config['photometric_system'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
+                             legacy=False,
                              output_file='default',
                              hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_binary_events:

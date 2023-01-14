@@ -632,7 +632,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=[popsycle_config['photometric_system']],
-                               n_proc=n_cores_perform_pop_syn
+                               n_proc=n_cores_perform_pop_syn,
                                overwrite=overwrite,
                                seed=seed,
                                multiplicity=multiplicity)
@@ -668,7 +668,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                     companions=refined_events_comp_filename,
                                     photometric_system=popsycle_config['photometric_system'],
                                     filter_name=popsycle_config['filter_name'],
-                                    n_proc=n_cores_refine_binary_events
+                                    n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
                                     phot_dir=phot_dir)

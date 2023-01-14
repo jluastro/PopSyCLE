@@ -2030,7 +2030,8 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
         print(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
         print(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
     cluster_ss = cluster_ss[cond_not_too_massive]
-
+    
+    
     # For each primary, find the closest, higher-mass Galaxia star.
     if verbose > 2:
         print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
@@ -2055,7 +2056,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     companion_tmp_df = cluster.companions.to_pandas().set_index(['system_idx'])
     event_table_df = cluster_ss.to_pandas().set_index(['system_idx'])
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='', rsuffix='_prim', how='inner')
-
+    
     # for cc in range(len(companion_tmp_df_joined)):
     #     print(cc)
     #     print(companion_tmp_df_joined['zams_mass_match_diff'].values[cc])
@@ -2073,7 +2074,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     final_columns = list(cluster.companions.columns) + ['galaxia_id', 'zams_mass_match_diff', 'zams_mass_prim']
     modified_companions = Table.from_pandas(
         companion_tmp_df_joined.reset_index()[final_columns]).filled(np.nan)
-
+    
     # confirm all compnions were assigned to a popsycle primary
     assert np.sum(np.isnan(modified_companions['galaxia_id'])) == 0
     assert np.sum(modified_companions['galaxia_id'] < 0) == 0
@@ -2726,12 +2727,11 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['ztf_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
                     star_dict['ztf_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
             
-
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
 
             # Makes companions with stellar and compact primaries into one table
-            if co_dict != None:
+            if co_dict is not None:
                 companions_table = (vstack([companions_table, compact_companions], join_type='inner'))
 
             if verbose > 3: print(f'test4 {time.time() - t0:.2f} sec')

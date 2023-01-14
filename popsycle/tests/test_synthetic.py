@@ -807,7 +807,7 @@ def test_system_mass(mrun_popsyn):
     test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
 
     subfield_list = list(test_h5.keys())[1:-2]
-
+    
     for ff in range(len(subfield_list)):
     #for ff in range(0, 1):
         field = subfield_list[ff]
@@ -827,6 +827,9 @@ def test_system_mass(mrun_popsyn):
         # the associated companions. Do it the slow way to be absolutely sure.
         n_comp_checked = 0
         #for ss in range(len(tab_syst)):
+        if len(tab_syst) == 0:
+            continue
+            
         for ss in range(1000):
             primary = tab_syst[ss]
 

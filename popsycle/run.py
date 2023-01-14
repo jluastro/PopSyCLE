@@ -208,6 +208,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   photometric_system='ubv',
                                   filter_name='R', red_law='Damineli16',
                                   multiplicity=None,
+                                  binning = True
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -276,6 +277,11 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         If a resovled multiplicity object is specified,
         the table will be generated with resolved multiples.
         Default is None.
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
 
     Optional Parameters
     -------------------
@@ -454,7 +460,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           returnJobID=False, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False,
-                          skip_refine_binary_events=False):
+                          skip_refine_binary_events=False,
+                          verbose = 0):
     """
     Generates (and possibly submits) the slurm script that
     executes the PopSyCLE pipeline
@@ -559,6 +566,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     skip_refine_binary_events : bool
         If True, pipeline will not run refine_binary_events.
         Default is False
+        
+    verbose : int
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
 
     Output
     ------
@@ -633,6 +645,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=[popsycle_config['photometric_system']],
                                n_proc=n_cores_perform_pop_syn,
+                               binning = popsycle_config['binning']
+                               verbose = verbose
                                overwrite=overwrite,
                                seed=seed,
                                multiplicity=multiplicity)

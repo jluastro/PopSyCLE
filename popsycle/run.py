@@ -936,7 +936,10 @@ def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'tx
 def run(output_root='root0',
         field_config_filename='field_config.yaml',
         popsycle_config_filename='popsycle_config.yaml',
+        n_cores_perform_pop_syn=1,
         n_cores_calc_events=1,
+        n_cores_refine_binary_events=1,
+        verbose=0,
         seed=None,
         overwrite=False,
         skip_galaxia=False,
@@ -1015,6 +1018,9 @@ def run(output_root='root0',
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=additional_photometric_systems,
+                               verbose=verbose,
+                               n_proc=n_cores_perform_pop_syn,
+                               binning=popsycle_config['binning'],
                                overwrite=overwrite,
                                seed=seed,
                                multiplicity=multiplicity)
@@ -1035,8 +1041,26 @@ def run(output_root='root0',
                              photometric_system=popsycle_config['photometric_system'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
+                             legacy=False,
                              output_file='default',
                              hdf5_file_comp=hdf5_file_comp)
+    if not skip_refine_binary_events:
+        refined_events_filename = '{0:s}_refined_events_' \
+                              '{1:s}_{2:s}_{3:s}.' \
+                              'fits'.format(output_root,
+                                            popsycle_config['photometric_system'],
+                                            popsycle_config['filter_name'],
+                                            popsycle_config['red_law'])
+        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        phot_dir = '%s_bin_phot' % output_root
+        _check_refine_binary_events(events=refined_events_filename,
+                                    companions=refined_events_comp_filename,
+                                    photometric_system=popsycle_config['photometric_system'],
+                                    filter_name=popsycle_config['filter_name'],
+                                    n_proc=n_cores_refine_binary_events,
+                                    overwrite=overwrite,
+                                    output_file='default', save_phot=True,
+                                    phot_dir=phot_dir)
 
     if not skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True

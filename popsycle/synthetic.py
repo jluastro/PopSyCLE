@@ -5395,7 +5395,7 @@ def refine_binary_events_new(events, companions, photometric_system, filter_name
     _check_refine_binary_events(events, companions, 
                          photometric_system, filter_name,
                          overwrite, output_file,
-                         save_phot, phot_dir)
+                         save_phot, phot_dir, n_proc)
         
     
     event_table = Table.read(events)
@@ -5436,6 +5436,7 @@ def refine_binary_events_new(events, companions, photometric_system, filter_name
     for ii, comp_idx in enumerate(L_idxs):
         psbl_parameter_dict, obj_id_L, obj_id_S = get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name)
         parameters[ii] = [comp_idx, psbl_parameter_dict, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite]
+    
     
     results = pool.starmap(one_psbl_lightcurve_analysis, parameters)
     
@@ -5677,6 +5678,7 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
     #because this is magnitudes max(phot) is baseline and min(phot) is peak
     #baseline 2000tE away get_photometry
     bin_delta_m = max(phot) - min(phot)
+    param_dict['bin_delta_m'] = bin_delta_m
     
     # system tE is the time between where the event is first above 10% of it's base mag
     # to the last time. This may not happen for some events
@@ -5720,15 +5722,13 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
 
     highest_peak = np.argmin(phot[peaks])
 
-    if len(split_data[highest_peak][1]) == 0:
-        print(comp_idx)
-        return param_dict
-
-    highest_bump_mag = max(split_data[highest_peak][1]) - min(split_data[highest_peak][1])
-    highest_half = np.where(split_data[highest_peak][1] < (max(split_data[highest_peak][1]) - 0.5*highest_bump_mag))[0]
-    if len(highest_half) == 0:
-        return param_dict
-    tE_primary = max(dt[highest_half]) - min(dt[highest_half])
+    if len(split_data[highest_peak][1]) != 0:
+        highest_bump_mag = max(split_data[highest_peak][1]) - min(split_data[highest_peak][1])
+        highest_half = np.where(split_data[highest_peak][1] < (max(split_data[highest_peak][1]) - 0.5*highest_bump_mag))[0]
+        
+        if len(highest_half) != 0:
+            tE_primary = max(dt[highest_half]) - min(dt[highest_half])
+            param_dict['tE_primary'] = tE_primary
 
     # For events with more than one peak, add them to the multi peak table
     rows = []

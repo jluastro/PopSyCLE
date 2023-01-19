@@ -6103,7 +6103,6 @@ def make_ebf_log(ebf_table):
 
     return ebf_log
 
-
 def make_label_file(h5file_name, overwrite=False):
     """
     Given an output root for an .h5 file, creates a table of
@@ -6124,14 +6123,20 @@ def make_label_file(h5file_name, overwrite=False):
         Table containing the dataset name, and corresponding l, b, and number of objects.
 
     """
-    data_dict = {'file_name': [], 'long_start': [], 'long_end': [],
-                 'lat_start': [], 'lat_end': [], 'objects': [],
-                 'N_stars': [], 'N_WD': [], 'N_NS': [], 'N_BH': []}
-
+    label_file_start_time = time.time()
+    
     hf = h5py.File(h5file_name + '.h5', 'r')
     l_array = hf['long_bin_edges']
     b_array = hf['lat_bin_edges']
-
+    
+    dset_num = (len(l_array)-1)*(len(b_array)-1)
+    
+    data_dict = {'file_name': np.chararray(dset_num,itemsize=20), 'long_start': np.empty(dset_num), 'long_end': np.empty(dset_num),
+                 'lat_start': np.empty(dset_num), 'lat_end': np.empty(dset_num), 'objects': np.empty(dset_num, dtype = int),
+                 'N_stars': np.empty(dset_num, dtype = int), 'N_WD': np.empty(dset_num, dtype = int),
+                 'N_NS': np.empty(dset_num, dtype = int), 'N_BH': np.empty(dset_num, dtype = int)}
+    
+    dset_num = 0
     for ll in range(len(l_array) - 1):
         for bb in range(len(b_array) - 1):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
@@ -6143,21 +6148,37 @@ def make_label_file(h5file_name, overwrite=False):
                 N_NS = 0
                 N_BH = 0
             else:
-                N_stars = np.sum(dataset['rem_id'] == 0)
-                N_WD = np.sum(dataset['rem_id'] == 101)
-                N_NS = np.sum(dataset['rem_id'] == 102)
-                N_BH = np.sum(dataset['rem_id'] == 103)
-
-            data_dict['file_name'].append(dset_name)
-            data_dict['long_start'].append(l_array[ll])
-            data_dict['long_end'].append(l_array[ll + 1])
-            data_dict['lat_start'].append(b_array[bb])
-            data_dict['lat_end'].append(b_array[bb + 1])
-            data_dict['objects'].append(dataset.shape[0])
-            data_dict['N_stars'].append(N_stars)
-            data_dict['N_WD'].append(N_WD)
-            data_dict['N_NS'].append(N_NS)
-            data_dict['N_BH'].append(N_BH)
+                values, counts = np.unique(dataset['rem_id'], return_counts = True)
+                if 0 in values:
+                    N_stars = counts[values == 0][0]
+                else:
+                    N_stars = 0
+                if 101 in values:
+                    N_WD = counts[values == 101][0]
+                else:
+                    N_WD = 0
+                if 102 in values:
+                    N_NS = counts[values == 102][0]
+                else:
+                    N_NS = 0
+                if 103 in values:
+                    N_BH = counts[values == 103][0]
+                else:
+                    N_BH = 0
+            
+            data_dict['file_name'][dset_num] = dset_name
+            data_dict['long_start'][dset_num] = l_array[ll]
+            data_dict['long_end'][dset_num] = l_array[ll + 1]
+            data_dict['lat_start'][dset_num] = b_array[bb]
+            data_dict['lat_end'][dset_num] = b_array[bb + 1]
+            data_dict['objects'][dset_num] = len(dataset)
+            data_dict['N_stars'][dset_num] = N_stars
+            data_dict['N_WD'][dset_num] = N_WD
+            data_dict['N_NS'][dset_num] = N_NS
+            data_dict['N_BH'][dset_num] = N_BH
+            
+            dset_num += 1
+            del dataset
 
     hf.close()
 
@@ -6173,6 +6194,8 @@ def make_label_file(h5file_name, overwrite=False):
     label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
 
     label_file.write(h5file_name + '_label.fits', overwrite=overwrite)
+    
+    print('make label file time: {0:f} s'.format(time.time() - label_file_start_time))
 
     return
 

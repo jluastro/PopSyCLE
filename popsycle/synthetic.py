@@ -5239,10 +5239,10 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     obj_id_L = comp_table[comp_idx]['obj_id_L']
     obj_id_S = comp_table[comp_idx]['obj_id_S']
     event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
-    L_coords = SkyCoord(l = event_table[event_id]['glat_L']*unit.degree, b = event_table[event_id]['glon_L']*unit.degree, 
+    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
                             pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
                             pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
-    S_coords = SkyCoord(l = event_table[event_id]['glat_S']*unit.degree, b = event_table[event_id]['glon_S']*unit.degree, 
+    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
                             pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
     raL = L_coords.icrs.ra.value # Lens R.A.
@@ -5566,10 +5566,10 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
         if event_table[event_id]['isMultiple_L'] == True:
             continue
             
-        L_coords = SkyCoord(l = event_table[event_id]['glat_L']*unit.degree, b = event_table[event_id]['glon_L']*unit.degree, 
+        L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
                                 pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
                                 pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
-        S_coords = SkyCoord(l = event_table[event_id]['glat_S']*unit.degree, b = event_table[event_id]['glon_S']*unit.degree, 
+        S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
                                 pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                                   pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
 

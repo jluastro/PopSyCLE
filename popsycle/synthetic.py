@@ -5117,10 +5117,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     parameters = np.empty(len(L_idxs), dtype = object)
     for ii, comp_idx in enumerate(L_idxs):
         psbl_parameter_dict, obj_id_L, obj_id_S = get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name)
-        parameters[ii] = [comp_idx, psbl_parameter_dict, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite]
+        parameters[ii] = [comp_idx, psbl_parameter_dict, psbl_model_gen, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite]
     
     
-    results = pool.starmap(one_psbl_lightcurve_analysis, parameters)
+    results = pool.starmap(one_lightcurve_analysis, parameters)
     
     for ii, comp_idx in enumerate(L_idxs):
         comp_table[comp_idx]['n_peaks'] = results[ii]['n_peaks']
@@ -5267,7 +5267,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
                            'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff}
     return psbl_parameter_dict, obj_id_L, obj_id_S
     
-def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id_S, save_phot = False, phot_dir = None, overwrite = False):
+def one_lightcurve_analysis(comp_idx, model_parameter_dict, model_func, obj_id_L, obj_id_S, save_phot = False, phot_dir = None, overwrite = False):
     """
     Find the parameters
     
@@ -5276,8 +5276,11 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
     comp_idx : int
         Index into the comp_table of the companion for which the psbl is being calculated.
      
-     psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param1 parameters   
+    model_parameter_dict : dict
+        Dictionary of the bagel model parameters   
+        
+    model_func : function
+        Function associated with generating the microlensing model (must be same as parameter_dict)
     
     obj_id_L : int
         Object id of the lens associated with event
@@ -5310,42 +5313,18 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
     """
 
     name = "{}".format(comp_idx)
-
-    ##########
-    # Calculate binary model and photometry
-    ##########
-    raL = psbl_parameter_dict['raL'] # Lens R.A.
-    decL = psbl_parameter_dict['decL'] # Lens dec
-    mL1 = psbl_parameter_dict['mL1'] # msun (Primary lens current mass)
-    mL2 = psbl_parameter_dict['mL2'] # msun (Companion lens current mass)
-    t0 = psbl_parameter_dict['t0'] # mjd
-    xS0 = psbl_parameter_dict['xS0'] #arbitrary offset (arcsec)
-    beta = psbl_parameter_dict['beta']
-    muL = psbl_parameter_dict['muL'] #lens proper motion mas/year
-    muS = psbl_parameter_dict['muS'] #source proper motion mas/year
-    dL = psbl_parameter_dict['dL'] #Distance to lens
-    dS = psbl_parameter_dict['dS'] #Distance to source
-    sep = psbl_parameter_dict['sep'] #mas (separation between primary and companion)
-    alpha = psbl_parameter_dict['alpha']
-    mag_src = psbl_parameter_dict['mag_src']
-    b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
-
-    psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
-                               beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
-                               sep, alpha, [b_sff], [mag_src], 
-                               raL=raL, decL=decL, 
-                               root_tol = 0.00000001)
-
+    
+    model = model_func(model_parameter_dict)
 
     # Calculate the photometry 
     duration=1000 # days
     time_steps=5000
-    tmin = psbl.t0 - (duration / 2.0)
-    tmax = psbl.t0 + (duration / 2.0)
+    tmin = model.t0 - (duration / 2.0)
+    tmax = model.t0 + (duration / 2.0)
     dt = np.linspace(tmin, tmax, time_steps)
 
-    img, amp = psbl.get_all_arrays(dt)
-    phot = psbl.get_photometry(dt, amp_arr=amp)
+    img, amp = model.get_all_arrays(dt)
+    phot = model.get_photometry(dt, amp_arr=amp)
 
     if save_phot == True:
         if not os.path.exists(phot_dir):
@@ -5416,8 +5395,6 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
     rows = []
     if len(peaks) > 1:
         n_peaks = len(peaks)
-        #obj_id_L = comp_table[comp_idx]['obj_id_L']
-        #obj_id_S = comp_table[comp_idx]['obj_id_S']
         for i in range(len(peaks)):
             t = dt[peaks[i]]
             delta_m = max(phot) - phot[peaks[i]]
@@ -5444,9 +5421,46 @@ def one_psbl_lightcurve_analysis(comp_idx, psbl_parameter_dict, obj_id_L, obj_id
             
         param_dict['mp_rows'] = rows
 
-            #mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
-
     return param_dict
+
+def psbl_model_gen(psbl_parameter_dict):
+    """
+    Generate psbl_photastrom_par_param1 model from parameter dict
+    
+    Parameters:
+    -----------
+    psbl_parameter_dict : dict
+        Dictionary of the PSBL_PhotAstrom_Par_Param1 parameters 
+        
+    Output:
+    --------
+    psbl model
+    """
+    ##########
+    # Calculate binary model and photometry
+    ##########
+    raL = psbl_parameter_dict['raL'] # Lens R.A.
+    decL = psbl_parameter_dict['decL'] # Lens dec
+    mL1 = psbl_parameter_dict['mL1'] # msun (Primary lens current mass)
+    mL2 = psbl_parameter_dict['mL2'] # msun (Companion lens current mass)
+    t0 = psbl_parameter_dict['t0'] # mjd
+    xS0 = psbl_parameter_dict['xS0'] #arbitrary offset (arcsec)
+    beta = psbl_parameter_dict['beta']
+    muL = psbl_parameter_dict['muL'] #lens proper motion mas/year
+    muS = psbl_parameter_dict['muS'] #source proper motion mas/year
+    dL = psbl_parameter_dict['dL'] #Distance to lens
+    dS = psbl_parameter_dict['dS'] #Distance to source
+    sep = psbl_parameter_dict['sep'] #mas (separation between primary and companion)
+    alpha = psbl_parameter_dict['alpha']
+    mag_src = psbl_parameter_dict['mag_src']
+    b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+
+    psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
+                               beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
+                               sep, alpha, [b_sff], [mag_src], 
+                               raL=raL, decL=decL, 
+                               root_tol = 0.00000001)
+    return psbl
 
 
 def refine_bspl_events(events, companions, photometric_system, filter_name,

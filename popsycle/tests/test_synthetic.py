@@ -1233,7 +1233,53 @@ def test_binary_angles(mrun_refine_events):
     return
 
 
-
+def test_psbl_parallax():
+    """
+    Test psbl lightcurve model to make sure in a 
+    bulge field we only have E component of parallax.
+    This is to verify that l and b haven't been mixed up.
+    """
+    
+    switch_l_and_b_psbl_parameter_dict = {'raL': 255.87254973655152,
+                                          'decL': -26.747150542896915,
+                                          'mL1': 0.5779610276222229,
+                                          'mL2': 0.5368390723932487,
+                                          't0': -251.56921080815064,
+                                          'xS0': np.array([0, 0]),
+                                          'beta': 0.07288389063108912,
+                                          'muL': np.array([-2.93909249, -0.21650692]),
+                                          'muS': np.array([-5.13010866, -6.9610909 ]),
+                                          'dL': 1798.2280471728398,
+                                          'dS': 7807.97229570119,
+                                          'sep': 3.0858608224470054,
+                                          'alpha': 348.88370965770963,
+                                          'mag_src': 24.11974436088592,
+                                          'b_sff': 0.006463304120418371}
+    
+    psbl_parameter_dict = {'raL': 274.61067095602954,
+                              'decL': -22.847924243752118,
+                              'mL1': 0.5779610276222229,
+                              'mL2': 0.5368390723932487,
+                              't0': -251.56921080815064,
+                              'xS0': np.array([0, 0]),
+                              'beta': 0.07288389063108912,
+                              'muL': np.array([-2.87453565, -0.64975743]),
+                              'muS': np.array([-4.04164504, -7.64459984]),
+                              'dL': 1798.2280471728398,
+                              'dS': 7807.97229570119,
+                              'sep': 3.0858608224470054,
+                              'alpha': 348.88370965770963,
+                              'mag_src': 24.11974436088592,
+                              'b_sff': 0.006463304120418371}
+    
+    model = synthetic.psbl_model_gen(test_dict)#psbl_parameter_dict)
+    
+    piE_E, piE_N = model.piE
+    
+    import pdb
+    pdb.set_trace()
+    
+    return
     
     
 def generate_correct_Srun_files():

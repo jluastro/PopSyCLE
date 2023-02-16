@@ -88,7 +88,7 @@ def subtract_magnitudes(m1, m2):
     
     m_diff = -2.5*np.log10(f1 - f2)
     
-    diff_criteria =  np.abs(f1 - f2) < 0.00001
+    diff_criteria =  np.abs(f1 - f2) < 1e-12
     if np.shape(diff_criteria) == ():
         if diff_criteria == True:
             m_diff = np.nan
@@ -97,6 +97,5 @@ def subtract_magnitudes(m1, m2):
     
     if np.any(f1 - f2 < 0):
         warnings.warn("Warning: first magnitude dimmer than second magnitude. Result will be nan.")
-    
     
     return m_diff

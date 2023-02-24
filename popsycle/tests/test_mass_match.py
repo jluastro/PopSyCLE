@@ -4,6 +4,7 @@ import numpy as np
 import pylab as plt
 import pytest
 from spisea.imf import multiplicity
+import psutil, os, resource
 
 from popsycle import synthetic
 import time
@@ -36,8 +37,8 @@ def make_mass_arrays(n_spisea=100, n_galaxia=300):
     # Work in ranges of log mass to better approximate IMF.
     lo_s = -0.5
     lo_g = -0.95
-    hi_s = 2.0
-    hi_g = 1.9
+    hi_s = 1.9
+    hi_g = 2.0
     sz_s = n_spisea
     sz_g = n_galaxia
 
@@ -170,8 +171,59 @@ def test_match_companions_diff_array(mass_arrays):
 
     return
 
+<<<<<<< Updated upstream
 
 def test_add_multiples_match_with_kdtree():
+=======
+def memory_limit(max_mem):
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            process = psutil.Process(os.getpid())
+            prev_limits = resource.getrlimit(resource.RLIMIT_AS)
+            resource.setrlimit(
+                resource.RLIMIT_AS, (
+                     process.memory_info().rss + max_mem, -1
+                )
+            )
+            result = f(*args, **kwargs)
+            resource.setrlimit(resource.RLIMIT_AS, prev_limits)
+            return result
+        return wrapper
+    return decorator
+
+@memory_limit(int(16e6))
+def test_match_companions_diff_array_large():
+    mass_arrays = make_mass_arrays(n_spisea=25, n_galaxia=35)
+
+    m_s = mass_arrays['spisea']
+    m_g = mass_arrays['galaxia']
+
+    t0 = time.time()
+    closest_index_arr, closest_mass_diff = synthetic.match_companions_new(m_g, m_s)
+    print(f'\n Runtime = {time.time() - t0:.3} sec')
+
+    return
+
+def test_match_companions_diff_array_large2():
+    mass_arrays = make_mass_arrays(n_spisea=int(2e4), n_galaxia=int(3e4))
+
+    m_s = mass_arrays['spisea']
+    m_g = mass_arrays['galaxia']
+
+    t0 = time.time()
+    mem_before = psutil.Process().memory_info().rss / (1024 * 1024)    
+    closest_index_arr, closest_mass_diff = synthetic.match_companions_new2(m_g, m_s)
+    mem_after = psutil.Process().memory_info().rss / (1024 * 1024)
+    mem_diff = mem_after - mem_before
+    print(f'\n Runtime = {time.time() - t0:.3} sec')
+    print(f' Memory Used = {mem_diff}')
+    print(mem_before, mem_after)
+
+    return
+
+
+def test_add_multiples_with_kdtree():
+>>>>>>> Stashed changes
     ####
     # Make fake data to work on.
     ####

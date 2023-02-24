@@ -2519,6 +2519,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     # Pre-sort both.
     sdx_s = np.argsort(m_s)  # connection between sorted and orig position
     sdx_g = np.argsort(m_g)
+
     m_s_sorted = m_s[sdx_s]
     m_g_sorted = m_g[sdx_g]
     

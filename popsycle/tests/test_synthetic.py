@@ -1232,6 +1232,10 @@ def test_binary_angles(mrun_refine_events):
     
     return
 
+def test_refine_binary_events_lightcurves():
+    #FIXME
+    return
+
 
 def test_psbl_parallax():
     """

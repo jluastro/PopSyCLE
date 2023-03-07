@@ -1,5 +1,7 @@
 import numpy as np
 import warnings
+from astropy.table import Table
+from ast import literal_eval
 
 
 def primary_mag_from_system_mag(system_mag, companion_mag):
@@ -99,3 +101,30 @@ def subtract_magnitudes(m1, m2):
         warnings.warn("Warning: first magnitude dimmer than second magnitude. Result will be nan.")
     
     return m_diff
+
+
+def event_table_companion_idxs_to_lists(events):
+    """
+    The event table from refine_binary_events() is saved with
+    'companion_idx_list' as strs so it can be saved as a .fits file.
+    This function switches that column to lists.
+    (Note this changes in place, so input table is changed).
+    
+    Parameters
+    ----------
+    events : Astropy Table
+        Event table from refine_binary_events with 'companion_idx_list' as strs
+    
+    Outputs
+    --------
+    events : Astropy Table
+        Event table with 'companion_idx_list' as lists
+    """
+    
+    lists = []
+    for i in events['companion_idx_list'].astype('str'):
+        lists.append(literal_eval(i))
+        
+    events['companion_idx_list'] = lists
+    
+    return events

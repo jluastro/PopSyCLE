@@ -108,7 +108,7 @@ def event_table_companion_idxs_to_lists(events):
     The event table from refine_binary_events() is saved with
     'companion_idx_list' as strs so it can be saved as a .fits file.
     This function switches that column to lists.
-    (Note this changes in place, so input table is changed).
+    (Note this changes in place, so input table is changed). 
     
     Parameters
     ----------

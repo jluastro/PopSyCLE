@@ -3,6 +3,7 @@ import pytest
 from popsycle import synthetic
 from popsycle import ebf
 from popsycle import binary_utils
+import popsycle
 from spisea.imf import multiplicity
 from astropy.coordinates import SkyCoord  # High-level coordinates
 import astropy.coordinates as coord
@@ -21,6 +22,8 @@ from math import isclose
 import resource
 from copy import deepcopy
 from scipy.spatial import cKDTree
+from scipy.signal import find_peaks
+
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
@@ -1232,8 +1235,86 @@ def test_binary_angles(mrun_refine_events):
     
     return
 
-def test_refine_binary_events_lightcurves():
-    #FIXME
+def test_refine_binary_events_pspl_lightcurve():
+    """
+    Generates a lightcurve that should have 4 peaks.
+    Check by eye against 'tests/data_correct/psbl_4_peaks_example.png'
+    """
+    
+    psbl_param_dict = {'raL': 265,
+                       'decL' : -30,
+                       'mL1' : 4,
+                       'mL2' : 1,
+                       't0' : 0,
+                       'xS0': np.array([0, 0]),
+                       'beta' : 0.001,
+                       'muL' : np.array([0,0]),
+                       'muS' : np.array([0,1]),
+                       'dL' : 4000,
+                       'dS' : 8000,
+                       'sep' : 1,
+                       'alpha' : 180,
+                       'mag_src' : 22,
+                      'b_sff' : 1}
+    
+    psbl = synthetic.psbl_model_gen(psbl_param_dict)
+    
+    duration=1000 # days
+    time_steps=5000
+    tmin = psbl.t0 - (duration / 2.0)
+    tmax = psbl.t0 + (duration / 2.0)
+    dt = np.linspace(tmin, tmax, time_steps)
+    img, amp = psbl.get_all_arrays(dt)
+    phot = psbl.get_photometry(dt, amp_arr=amp)
+    
+    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+    
+    assert(len(peaks) == 4)
+    
+    plt.plot(dt, phot.data)
+    plt.plot(dt[peaks], phot.data[peaks], marker = '.', linestyle = 'None')
+    plt.gca().invert_yaxis()
+    plt.savefig(popsycle.__path__[0] + '/tests/data_test/psbl_4_peaks_example.png')
+    
+    return
+
+def test_bspl_single_luminous_source_one_peak():
+    """
+    Makes sure that a BSPL event with one luminous source
+    and one dark source only has a single peak (picked parameters
+    such that not high parallax)
+    """
+    
+    bspl_param_dict = {'raL': 265,
+                       'decL' : -30,
+                       'mL' : 4,
+                       't0' : 0,
+                       'xS0': np.array([0, 0]),
+                       'beta' : 0.001,
+                       'muL_E' : 0,
+                       'muL_N' : 0,
+                       'muS_E' : 0,
+                       'muS_N' : 1,
+                       'dL' : 4000,
+                       'dL_dS' : 0.5,
+                       'sep' : 1,
+                       'alpha' : 270,
+                       'mag_src_pri' : 22,
+                         'mag_src_sec' : np.nan,
+                      'b_sff' : 1}
+    bspl = synthetic.bspl_model_gen(bspl_param_dict)
+    
+    duration=1000 # days
+    time_steps=5000
+    tmin = bspl.t0 - (duration / 2.0)
+    tmax = bspl.t0 + (duration / 2.0)
+    dt = np.linspace(tmin, tmax, time_steps)
+    phot = bspl.get_photometry(dt)
+    
+    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+    
+    assert(len(peaks) == 1)
+    
     return
 
 

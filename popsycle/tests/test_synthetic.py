@@ -9,12 +9,76 @@ from multiprocessing import Pool
 import itertools
 import matplotlib.pyplot as plt
 import time
+import ebf
+import astropy.units as u
+import astropy.coordinates as coord
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
 au_to_kpc = 4.848 * 10 ** -9
 
 
+def test_galactic_to_heliocentric():
+    """
+    Test the conversion from Galactic to Heliocentric positions.
+
+    NOTE THAT HELIOCENTRIC COORDINATES ARE NOT THE SAME AS
+    ASTROPY'S DEFAULT GALACTOCENTRIC COORDINATES!!!
+    
+    THEY ARE BOTH RECTANGULAR, BUT ONE IS CENTERED ON THE SUN,
+    THE OTHER IS CENTERED ON THE GC!
+    """
+    
+    # The arrays px, py, pz, glat, glon come from Galaxia.
+    # They are just the first 10 entries of an EBF file it made.
+    # For internal reference: the file is
+    # /g2/scratch/casey/papers/microlens_2019/popsycle_rr_files/OGLE150_v2.ebf
+
+    # Heliocentric 3-D positions (kpc)
+    px = np.array([1.1423072 , 1.5105276 , 0.63417935, 0.7515631 , 1.1420373 ,
+                   1.1334454 , 1.1531974 , 1.2154862 , 1.2258973 , 1.3694662 ])
+
+    py = np.array([0.03450311, 0.04551123, 0.01913031, 0.02276252, 0.03423306,
+                   0.0343769 , 0.03504916, 0.03649908, 0.03713397, 0.04156267])
+
+    pz = np.array([-0.08887936, -0.11735878, -0.04948796, -0.05863307, -0.08901644,
+                   -0.08859035, -0.08981982, -0.09497609, -0.09539149, -0.10696827])
+
+    # Galactic 3-D positions (deg and kpc)
+    glat = np.array([-4.4470243, -4.4406023, -4.4599943, -4.458851 , -4.454934 ,
+                     -4.467121 , -4.451596 , -4.465916 , -4.4473953, -4.4642286])
+
+    glon = np.array([1.7300799, 1.7257639, 1.7278297, 1.734782 , 1.716952 ,
+                     1.7372237, 1.7408566, 1.7199831, 1.7350312, 1.7383676])
+
+    rad = np.array([1.146279 , 1.5157632, 0.6363949, 0.7541903, 1.1460127,
+                    1.1374218, 1.157221 , 1.2197374, 1.2301637, 1.374266 ])
+
+    # Convert the Heliocentric positions to Galactic positions
+    r, b, l = synthetic.heliocentric_to_galactic(px, py, pz)
+
+    np.testing.assert_almost_equal(r, rad, 5)
+    np.testing.assert_almost_equal(b, glat, 5)
+    np.testing.assert_almost_equal(l, glon, 5)
+
+    ##########
+    # Astropy.
+    # 
+    # Note: This is not a test because we're showing
+    # that Heliocentric is not the same as Galactocentric...
+    # This is just for reference... so it's just comments.
+    ##########
+    # c_xyz = coord.SkyCoord(x=px * u.kpc,
+    #                        y=py * u.kpc,
+    #                        z=pz * u.kpc,
+    #                        frame=coord.Galactocentric)
+    # 
+    # c_gal = c_xyz.transform_to(coord.Galactic)
+    # 
+    # print(np.min(c_gal.b.value - glat))
+    # print(np.min(c_gal.l.value - glon))
+    # print(np.min(c_gal.distance.value - rad))
+    
 def test_galactic_to_heliocentric_1():
     """
     Test that the formula gives the right things in 3 simple geometry cases.

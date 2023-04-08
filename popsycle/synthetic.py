@@ -123,7 +123,18 @@ multiplicity_list = {'None': None,
 
 def write_galaxia_params(output_root,
                          longitude, latitude, area,
-                         seed=None):
+                         seed=None,
+                         output_dir='./',
+                         photo_sys='UBV',
+                         mag_color_names='V,B-V',
+                         app_mag_limits=[-1000, 1000],
+                         abs_mag_limits=[-1000, 1000],
+                         color_limits=[-1000, 1000],
+                         geometry_option=1,
+                         f_sample=1,
+                         pop_ID=-1,
+                         warp_flare_on=1,
+                         r_max=30):
     """
     Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running. User can also specify a seed for
@@ -164,24 +175,24 @@ def write_galaxia_params(output_root,
 
     params = [
         "outputFile %s" % output_root,
-        "outputDir ./",
-        "photoSys UBV",
-        "magcolorNames V,B-V",
-        "appMagLimits[0] -1000",
-        "appMagLimits[1] 1000",
-        "absMagLimits[0] -1000",
-        "absMagLimits[1] 1000",
-        "colorLimits[0] -1000",
-        "colorLimits[1] 1000",
-        "geometryOption 1",
+        "outputDir %s" % output_dir,
+        "photoSys %s" % photo_sys,
+        "magcolorNames %s" % mag_color_names,
+        "appMagLimits[0] %s" % app_mag_limits[0],
+        "appMagLimits[1] %s" % app_mag_limits[1],
+        "absMagLimits[0] %s" % abs_mag_limits[0],
+        "absMagLimits[1] %s" % abs_mag_limits[1],
+        "colorLimits[0] %s" % color_limits[0],
+        "colorLimits[1] %s" % color_limits[1],
+        "geometryOption %s" % geometry_option,
         "longitude %f" % longitude,
         "latitude %f" % latitude,
         "surveyArea %.5f" % area,
-        "fSample 1",
-        "popID -1",
-        "warpFlareOn 1",
+        "fSample %s" % f_sample,
+        "popID %s" % pop_ID,
+        "warpFlareOn %s" % warp_flare_on,
         "seed %i" % seed,
-        "r_max 30",
+        "r_max %s" % r_max,
         "starType 0",
         "photoError 0"
     ]
@@ -282,7 +293,18 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
 def run_galaxia(output_root, longitude, latitude, area,
                 galaxia_galaxy_model_filename,
-                seed=None):
+                seed=None,
+                output_dir='./',
+                photo_sys='UBV',
+                mag_color_names='V,B-V',
+                app_mag_limits=[-1000, 1000],
+                abs_mag_limits=[-1000, 1000],
+                color_limits=[-1000, 1000],
+                geometry_option=1,
+                f_sample=1,
+                pop_ID=-1,
+                warp_flare_on=1,
+                r_max=30):
     """
     Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running and executes Galaxia.
@@ -325,7 +347,18 @@ def run_galaxia(output_root, longitude, latitude, area,
                          longitude=longitude,
                          latitude=latitude,
                          area=area,
-                         seed=seed)
+                         seed=seed,
+                         output_dir=output_dir,
+                         photo_sys=photo_sys,
+                         mag_color_names=mag_color_names,
+                         app_mag_limits=app_mag_limits,
+                         abs_mag_limits=abs_mag_limits,
+                         color_limits=color_limits,
+                         geometry_option=geometry_option,
+                         f_sample=f_sample,
+                         pop_ID=pop_ID,
+                         warp_flare_on=warp_flare_on,
+                         r_max=r_max)
 
     # Execute Galaxia
     cmd = 'galaxia -r %s_galaxia_params.txt %s' % (output_root, galaxia_galaxy_model_filename)

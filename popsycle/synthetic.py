@@ -45,7 +45,7 @@ from astropy.io import fits
 from spisea.imf.multiplicity import MultiplicityResolvedDK
 from popsycle import orbits
 import pandas as pd
-from microlens.jlu import model
+from bagle import model
 from scipy.signal import find_peaks
 import pdb
 

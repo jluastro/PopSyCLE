@@ -42,13 +42,13 @@ def srun_galaxia():
     synthetic.write_galaxia_params(output_root=output_root,
                                    longitude=1.25,
                                    latitude=-2.65,
-                                   area=0.0001,
+                                   area=0.001,
                                    seed=seed)
 
     synthetic.run_galaxia(output_root=output_root,
                           longitude=1.25,
                           latitude=-2.65,
-                          area=0.0001,
+                          area=0.001,
                           galaxia_galaxy_model_filename=galaxia_params,
                           seed=seed)
 
@@ -122,13 +122,13 @@ def mrun_galaxia():
     synthetic.write_galaxia_params(output_root=output_root,
                                    longitude=1.25,
                                    latitude=-2.65,
-                                   area=0.0001,
+                                   area=0.001,
                                    seed=seed)
 
     synthetic.run_galaxia(output_root=output_root,
                           longitude=1.25,
                           latitude=-2.65,
-                          area=0.0001,
+                          area=0.001,
                           galaxia_galaxy_model_filename=galaxia_params,
                           seed=seed)
 
@@ -157,7 +157,7 @@ def mrun_popsyn(mrun_galaxia):
 
     return output_root
 
-#@pytest.fixture()
+@pytest.fixture()
 def mrun_calc_events(mrun_popsyn):
     seed = 10
 
@@ -205,7 +205,7 @@ def mrun_refine_binary(mrun_refine_events):
                                    photometric_system='ubv', overwrite=True,
                                    output_file='default', save_phot=False)
 
-    output_root = input_root + '_companions_rb'
+    output_root = input_root + '_rb'
 
     return output_root
 
@@ -1235,7 +1235,19 @@ def test_binary_angles(mrun_refine_events):
     
     return
 
-def test_refine_binary_events_pspl_lightcurve():
+def test_refine_binary_events_multiple_lightcurves(mrun_refine_binary):
+    """
+    Makes sure refine binary events properly 
+    makes the right number of lightcurves for event (i.e. 2 lightcurves
+    for PSBL and 4 lightcurves for BSBL). Also that it picks the correct
+    one as the primary one (highest delta m).
+    """
+    
+    import pdb
+    pdb.set_trace()
+    test_events = Table.read(mrun_refine_binary + '.fits')
+
+def test_refine_binary_events_psbl_lightcurve():
     """
     Generates a lightcurve that should have 4 peaks.
     Check by eye against 'tests/data_correct/psbl_4_peaks_example.png'

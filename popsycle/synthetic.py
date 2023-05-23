@@ -5744,8 +5744,6 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         and one called 'mp_rows' which are the rows to be added to the multi peak
         table.
     """
-
-    name = "L_{}_S_{}".format(obj_id_L, obj_id_S)
     
     
     multi_L = event_table_row[0]['isMultiple_L']
@@ -5766,6 +5764,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         comp_idxs_L = np.where(comp_table_rows['prim_type'] == b"L")[0]
         for comp_idx_S in comp_idxs_S:
             for comp_idx_L in comp_idxs_L:
+                name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(comp_idx_L, comp_idx_S)
                 model_parameter_dict, _, _ = get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
                                                                       photometric_system, filter_name, red_law, event_id = 0)
                 model = bsbl_model_gen(model_parameter_dict)
@@ -5776,6 +5775,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
                 
     elif event_type == 'PSBL':
         for comp_idx in range(len(comp_table_rows)):
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(comp_idx)
             model_parameter_dict, _, _ = get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, event_id = 0)
             model = psbl_model_gen(model_parameter_dict)
             param_dict = lightcurve_parameter_gen(model, model_parameter_dict, [comp_idx], obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
@@ -5785,6 +5785,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     
     elif event_type == 'BSPL':
         for comp_idx in range(len(comp_table_rows)):
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(comp_idx)
             model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
             model = bspl_model_gen(model_parameter_dict)
             param_dict = lightcurve_parameter_gen(model, model_parameter_dict, [comp_idx], obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)

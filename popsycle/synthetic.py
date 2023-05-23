@@ -727,7 +727,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     h5file.close()
     
     # Make one for companions if multiplicity
-    if multiplicity != None:
+    if multiplicity is not None:
         h5file_comp = h5py.File(output_root + '_companions' + '.h5', 'w')
         h5file_comp['lat_bin_edges'] = lat_bin_edges
         h5file_comp['long_bin_edges'] = long_bin_edges
@@ -977,11 +977,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     # If there are multiples add them in
                     #########
 
-                    if multiplicity != None:
+                    if multiplicity is not None:
                         if cluster_tmp:
                             # Makes a separate companion table with primaries as compact objects
                             # Points the system_idx to obj_id instead of idx
-                            if comp_dict != None and cluster_tmp.companions:
+                            if comp_dict is not None and cluster_tmp.companions:
                                 # Build a list of systems for every companion (will be repeat systems). Shape = N_companions
                                 # We will call this the "dup_sys" table for duplicate systems (duplicated x N_companions)
                                 clust_dup_sys = cluster_tmp.star_systems[cluster_tmp.companions['system_idx']]
@@ -1009,7 +1009,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                                 companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
 
                                 # Makes companions with stellar and compact primaries into one table
-                                if comp_dict != None:
+                                if comp_dict is not None:
                                     companions_table = (vstack([companions_table, compact_companions], join_type='inner'))
 
                                 # Bin in l, b all companions
@@ -1097,7 +1097,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line20 = 'FILES CREATED' + '\n'
     line21 = output_root + '.h5 : HDF5 file' + '\n'
     line22 = output_root + '_label.fits : label file' + '\n'
-    if multiplicity != None:
+    if multiplicity is not None:
         line23 = output_root + '_companions.h5 : HDF5 file' + '\n'
     else:
         line23 = 'No companions h5 file as multiplicity = None' + '\n'
@@ -1237,7 +1237,7 @@ def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
     """
     global _Mclust_v_age_func
 
-    if _Mclust_v_age_func == None:
+    if _Mclust_v_age_func is None:
         try:
             boop = np.loadtxt(ratio_file)
         except Exception as e:
@@ -1597,7 +1597,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
         latitude bin edges, and the compact objects and stars sorted into
         those bins.
     """
-    if companion_obj_arr == None:
+    if companion_obj_arr is None:
         # Create compound datatype from obj_arr
         comp_dtype = _generate_comp_dtype(obj_arr)
     else:
@@ -1639,7 +1639,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=comp_dtype)
-                if companion_obj_arr == None:
+                if companion_obj_arr is None:
                     for colname in obj_arr:
                         save_data[colname] = obj_arr[colname][id_lb]
                 # If making a companion hd5f file, finds corresponding companions and save them
@@ -1652,7 +1652,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[0]
-                if companion_obj_arr == None:
+                if companion_obj_arr is None:
                     new_size = old_size + len(id_lb)                
                 else:
                     new_size = old_size + len(companion_id_lb)                     
@@ -2105,7 +2105,7 @@ def calc_events(hdf5_file, output_root2,
 
     inputs = zip(llbb, hd, ot, no, rc, tf, br)
     
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hdc = itertools.repeat(hdf5_file_comp, reps)
         inputs = zip(llbb, hd, ot, no, rc, tf, br, hdc)
     
@@ -2262,7 +2262,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     hf.close()
 
     # Adds separation in mas between primary and furthest companion if there are companions
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hfc = h5py.File(hdf5_file_comp, 'r')
         bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
         hfc.close()
@@ -3183,7 +3183,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     
     # If Multiples
     start_time_test = time.time()
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         companion_table = []
         
@@ -3310,7 +3310,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line13 = output_file + ' : refined events'
     line14 = '\n' #By default no companion file created
     
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
 

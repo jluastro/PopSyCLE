@@ -5963,7 +5963,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
 
 def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, event_id = None):
     """
-    Find the parameters for PSBL_PhotAstrom_Par_Param1 from 
+    Find the parameters for PSBL_PhotAstrom_Par_Param7 from 
     event_table and comp_table.
 
     Parameters
@@ -5993,7 +5993,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     Output:
     ----------
     psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param1 parameters
+        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters
         
     obj_id_L : int
         Object id of the lens associated with event
@@ -6029,7 +6029,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     alpha = comp_table['alpha'][comp_idx]
     mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
-    model_name = 'PSBL_PhotAstrom_Par_Param1'
+    model_name = 'PSBL_PhotAstrom_Par_Param7'
     
     psbl_parameter_dict = {'raL': raL, 'decL': decL, 'mL1': mL1, 'mL2': mL2, 
                            't0': t0, 'xS0': xS0, 'beta': beta, 'muL': muL, 
@@ -6046,7 +6046,7 @@ def psbl_model_gen(psbl_parameter_dict):
     Parameters:
     -----------
     psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param1 parameters 
+        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters 
         
     Output:
     --------
@@ -6071,7 +6071,7 @@ def psbl_model_gen(psbl_parameter_dict):
     mag_src = psbl_parameter_dict['mag_src']
     b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
 
-    psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
+    psbl = model.PSBL_PhotAstrom_Par_Param7(mL1, mL2, t0, xS0[0], xS0[1],
                                beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
                                sep, alpha, [b_sff], [mag_src], 
                                raL=raL, decL=decL, 
@@ -6208,7 +6208,7 @@ def bspl_model_gen(bspl_parameter_dict):
 
 def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law, event_id = None):
     """
-    Find the parameters for BSPL_PhotAstrom_Par_Param1 from 
+    Find the parameters for BSPL_PhotAstrom_Par_Param2 from 
     event_table and comp_table.
 
     Parameters
@@ -6244,7 +6244,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     Output:
     ----------
     bsbl_parameter_dict : dict
-        Dictionary of the BSBL_PhotAstrom_Par_Param1 parameters
+        Dictionary of the BSBL_PhotAstrom_Par_Param2 parameters
         
     obj_id_L : int
         Object id of the lens associated with event
@@ -6290,7 +6290,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
     mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
-    model_name = 'BSBL_PhotAstrom_Par_Param1'
+    model_name = 'BSBL_PhotAstrom_Par_Param2'
     
     bsbl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
                            't0': t0, 'xS0_E': xS0_E, 'xS0_N': xS0_N, 'beta': beta, 
@@ -6340,7 +6340,7 @@ def bsbl_model_gen(bsbl_parameter_dict):
     mag_src_pri = bsbl_parameter_dict['mag_src_pri']
     b_sff = bsbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
 
-    bsbl = model.BSBL_PhotAstrom_Par_Param1(mLp, mLs, t0, xS0_E, xS0_N,
+    bsbl = model.BSBL_PhotAstrom_Par_Param2(mLp, mLs, t0, xS0_E, xS0_N,
                                               beta, muL_E, muL_N, muS_E, muS_N,
                                               dL, dS, sepL, alphaL, sepS, alphaS,
                                               mag_src_pri, mag_src_sec, b_sff,

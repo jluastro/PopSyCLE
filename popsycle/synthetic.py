@@ -3450,7 +3450,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    flux_N = np.nan_to_num(flux_N)
+    flux_N = np.nan_to_num(flux_N.filled(np.nan))
 
     # Get total flux
     flux_N_tot = np.sum(flux_N)
@@ -3499,8 +3499,8 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
 
-    flux_L = np.nan_to_num(flux_L)
-    flux_S = np.nan_to_num(flux_S)
+    flux_L = np.nan_to_num(flux_L.filled(np.nan))
+    flux_S = np.nan_to_num(flux_S.filled(np.nan))
 
     # Find the blends.
     LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']),

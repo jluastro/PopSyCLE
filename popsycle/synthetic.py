@@ -4495,7 +4495,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    flux_N = np.nan_to_num(flux_N)
+    flux_N = np.nan_to_num(flux_N.filled(np.nan))
 
     # Get total flux
     flux_N_tot = np.sum(flux_N)
@@ -4544,8 +4544,8 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
 
-    flux_L = np.nan_to_num(flux_L)
-    flux_S = np.nan_to_num(flux_S)
+    flux_L = np.nan_to_num(flux_L.filled(np.nan))
+    flux_S = np.nan_to_num(flux_S.filled(np.nan))
 
     # Find the blends.
     LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']),
@@ -5542,10 +5542,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     event_table = Table.read(events)
     comp_table = Table.read(companions)
-    
+
     comp_table['companion_idx'] = np.arange(len(comp_table))
     
-    event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name].filled(np.nan)
+    event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
     comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
     
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
@@ -5626,7 +5626,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     
     lightcurve_table.remove_column('mp_rows')
 
-    
+    # For write issues, if mult_peaks is empty, define it without dtype
+    if len(mult_peaks) == 0:
+        mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
+
     # Writes fits file
     if output_file == 'default':
         event_table.write(events[:-5] + "_rb.fits", overwrite=overwrite)
@@ -5746,7 +5749,6 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         table.
     """
     
-    
     multi_L = event_table_row[0]['isMultiple_L']
     multi_S = event_table_row[0]['isMultiple_S']
     if multi_L == 1 and multi_S == 1:
@@ -5756,8 +5758,8 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     elif multi_L == 0 and multi_S == 1:
         event_type = 'BSPL'
     else:
-        raise Exception('one_lightcurve_analysis() on analyises binary events')
-    
+        raise Exception('one_lightcurve_analysis() only analyizes binary events')
+
     lightcurve_parameters = []
     max_delta_m = np.nan
     if event_type == 'BSBL':
@@ -5813,7 +5815,6 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             #argmax ignoring nans
             max_delta_m_idx = np.nanargmax(delta_ms)
             lightcurve_parameters[max_delta_m_idx][0]['used_lightcurve'] = 1
-    
     return lightcurve_parameters
 
         

@@ -5576,7 +5576,8 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     # tE is Einstein crossing time of peak defined by times of 0.5*(max(peak mag) - min(peak mag))
     # delta m is the change in magnitude between the peak and baseline
     # ratio is the magnitude ratio between min peak/max peak
-    mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
+    mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'),
+                       dtype = (object, float, float, float, float, float, float, float))
     
     multiples_lightcurves = sum((event_table['isMultiple_S'] == 1) | (event_table['isMultiple_L'] == 1))
     
@@ -5763,36 +5764,41 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         comp_idxs_S = np.where(comp_table_rows['prim_type'] == b"S")[0]
         comp_idxs_L = np.where(comp_table_rows['prim_type'] == b"L")[0]
         for comp_idx_S in comp_idxs_S:
+            global_comp_idx_S = comp_table_rows['companion_idx'][comp_idx_S]
             for comp_idx_L in comp_idxs_L:
+                global_comp_idx_L = comp_table_rows['companion_idx'][comp_idx_L]
                 name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(comp_idx_L, comp_idx_S)
                 model_parameter_dict, _, _ = get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
                                                                       photometric_system, filter_name, red_law, event_id = 0)
                 model = bsbl_model_gen(model_parameter_dict)
-                param_dict = lightcurve_parameter_gen(model, model_parameter_dict, [comp_idx_L, comp_idx_S], obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+                param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx_L, global_comp_idx_S]), 
+                                                      obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
                 lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx_L], 
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx_S], 'class' : event_type}
                 lightcurve_parameters.append([param_dict, lightcurve_dict])
                 
     elif event_type == 'PSBL':
         for comp_idx in range(len(comp_table_rows)):
+            global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
             name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(comp_idx)
             model_parameter_dict, _, _ = get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, event_id = 0)
             model = psbl_model_gen(model_parameter_dict)
-            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, [comp_idx], obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx], 
                                    'companion_id_S' : np.nan, 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
     
     elif event_type == 'BSPL':
         for comp_idx in range(len(comp_table_rows)):
+            global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
             name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(comp_idx)
             model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
             model = bspl_model_gen(model_parameter_dict)
-            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, [comp_idx], obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan, 
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
-    
+
     # If multiple lightcurves were generated (i.e. for triples)
     # then take the lightcurve with the highest delta_m.
     # If all the delta_ms are nan, take the first one

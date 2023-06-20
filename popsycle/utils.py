@@ -5,11 +5,11 @@ Functions (and their associated functions) for utilities.
 """
 import subprocess
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, MaskedColumn
 from astropy.table import vstack
 import os
 import gc
-from popsycle import synthetic
+from popsycle import synthetic, orbits
 import copy
 import time
 import datetime
@@ -597,15 +597,45 @@ def remove_nan_companions(event_table_loc, comp_table_loc, event_output_loc = No
     bad_idxs = np.where(np.isnan(comp_table['mass']) == True)[0].tolist()
         
     # Set primary to not have companion
+    if type(event_table['systemMass_L']) == MaskedColumn:
+        event_table['systemMass_L'] = event_table['systemMass_L'].filled(np.nan)
+    if type(event_table['systemMass_S']) == MaskedColumn:
+        event_table['systemMass_S'] = event_table['systemMass_S'].filled(np.nan)
     for idx in bad_idxs:
         prim_type = comp_table['prim_type'][idx]
         system_idx = comp_table['system_idx'][idx]
         event_rows = event_table['obj_id_{}'.format(prim_type)] == system_idx
         # Decreases number of companions by 1 and if none are left, says system is no longer multiple
         event_table['N_companions_{}'.format(prim_type)][event_rows] -= 1
-        event_table['isMultiple_{}'.format(prim_type)][(event_table['N_companions_{}'.format(prim_type)] == 0) & (event_rows)] = 0
-    
-    
+        companionless_event_rows = (event_table['N_companions_{}'.format(prim_type)] == 0) & (event_rows)
+        event_table['isMultiple_{}'.format(prim_type)][companionless_event_rows] = 0
+
+        # Fix system mass for those with dropped companions
+        # Luminosity doesn't need to be fixed since nan mag counted as 0 flux
+        # For those with no more companions, set systemMass to mass of primary
+        systemMass_new_mass = event_table['mass_{}'.format(prim_type)][companionless_event_rows]
+        event_table['systemMass_{}'.format(prim_type)][companionless_event_rows] = systemMass_new_mass 
+        # For those with remaining companions, recalculate systemMass
+        more_companions_event_rows = (event_table['N_companions_{}'.format(prim_type)] > 0) & (event_rows)
+        systemMass_new =  event_table['mass_{}'.format(prim_type)][more_companions_event_rows]
+        companions_mass = np.nan_to_num(comp_table['mass'][comp_table['system_idx'] == system_idx]) #treats nan masses as 0
+        systemMass_new += sum(companions_mass) # adds the same to all of them, since it'd be multiple events with the same system if there are multiple rows
+        event_table['systemMass_{}'.format(prim_type)][more_companions_event_rows] = systemMass_new
+
+        # Fix Period, alpha, and phi
+        # For those with remaining companions
+        remaining_companions_rows = (comp_table['system_idx'] == system_idx) & (np.isnan(comp_table['mass']) == False)
+        if sum(remaining_companions_rows) > 0:
+            comp_table['P'][remaining_companions_rows] = orbits.a_to_P(systemMass_new, 10**comp_table['log_a'][remaining_companions_rows])
+            event_table_df = event_table[more_companions_event_rows].to_pandas()
+            event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
+            comp_table_df = comp_table[remaining_companions_rows].to_pandas()
+            comp_table_df = comp_table_df.set_index(['obj_id_L', 'obj_id_S'])
+            joined_table = comp_table_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim')
+            alphas, phi_pi_Es, phis = synthetic.calculate_binary_angles(joined_table)
+            comp_table['alpha'][remaining_companions_rows] = alphas
+            comp_table['phi'][remaining_companions_rows] = phis
+            
     # Remove bad companions
     comp_table.remove_rows(bad_idxs)
 

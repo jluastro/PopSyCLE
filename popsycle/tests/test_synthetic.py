@@ -55,7 +55,7 @@ def srun_galaxia():
 
 @pytest.fixture(name = 'srun_galaxia')
 def srun_galaxia_fixture():
-    return srun_galaxia
+    return srun_galaxia()
 
 def srun_popsyn(srun_galaxia):
     seed = 10
@@ -78,7 +78,7 @@ def srun_popsyn(srun_galaxia):
 
 @pytest.fixture(name = 'srun_popsyn')
 def srun_popsyn_fixture(srun_galaxia):
-    return srun_popsyn
+    return srun_popsyn()
 
 def srun_calc_events(srun_popsyn):
     seed = 10
@@ -100,7 +100,7 @@ def srun_calc_events(srun_popsyn):
 
 @pytest.fixture(name = 'srun_calc_events')
 def srun_calc_events_fixture(srun_popsyn):
-    return srun_calc_events
+    return srun_calc_events()
 
 def srun_refine_events(srun_calc_events):
     seed = 0
@@ -120,7 +120,7 @@ def srun_refine_events(srun_calc_events):
 
 @pytest.fixture(name = 'srun_refine_events')
 def srun_refine_events_fixture(srun_calc_events):
-    return srun_refine_events
+    return srun_refine_events()
 
 def mrun_galaxia():
     seed = 10
@@ -147,7 +147,7 @@ def mrun_galaxia():
 
 @pytest.fixture(name = 'mrun_galaxia')
 def mrun_galaxia_fixture():
-    return mrun_galaxia
+    return mrun_galaxia()
 
 def mrun_popsyn(mrun_galaxia):
     seed = 10
@@ -173,7 +173,7 @@ def mrun_popsyn(mrun_galaxia):
 
 @pytest.fixture(name = 'mrun_popsyn')
 def mrun_popsyn_fixture(mrun_galaxia):
-    return mrun_popsyn
+    return mrun_popsyn()
 
 def mrun_calc_events(mrun_popsyn):
     seed = 10
@@ -197,7 +197,7 @@ def mrun_calc_events(mrun_popsyn):
 
 @pytest.fixture(name = 'mrun_calc_events')
 def mrun_calc_events_fixture(mrun_popsyn):
-    return mrun_calc_events
+    return mrun_calc_events()
 
 def mrun_refine_events(mrun_calc_events):
     seed = 10
@@ -219,7 +219,7 @@ def mrun_refine_events(mrun_calc_events):
 
 @pytest.fixture(name = 'mrun_refine_events')
 def mrun_refine_events_fixture(mrun_calc_events):
-    return mrun_refine_events
+    return mrun_refine_events()
 
 def mrun_refine_binary(mrun_refine_events):
     input_root = mrun_refine_events
@@ -237,7 +237,7 @@ def mrun_refine_binary(mrun_refine_events):
 
 @pytest.fixture(name = 'mrun_refine_binary')
 def mrun_refine_binary_fixture(mrun_refine_events):
-    return mrun_refine_binary
+    return mrun_refine_binary()
 
 def mrun_big_galaxia():
     seed = 10
@@ -882,7 +882,7 @@ def test_system_mass(mrun_popsyn):
     seed = 10
 
     output_root = mrun_popsyn
-
+    
     test_h5 = h5py.File(output_root + '.h5', 'r')
     test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
 

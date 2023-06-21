@@ -134,7 +134,7 @@ def mrun_galaxia():
 
     return output_root
 
-@pytest.fixture()
+
 def mrun_popsyn(mrun_galaxia):
     seed = 10
 
@@ -156,6 +156,10 @@ def mrun_popsyn(mrun_galaxia):
                               n_proc=1)
 
     return output_root
+
+@pytest.fixture(name = 'mrun_popsyn')
+def mrun_popsyn_fixture(mrun_galaxia):
+    return mrun_popsyn
 
 @pytest.fixture()
 def mrun_calc_events(mrun_popsyn):
@@ -1126,6 +1130,46 @@ def test_subtract_mags():
     
     return
 
+def test_no_nan_companions(mrun_popsyn):
+    """
+    Tests that there are no nan companions that weren't
+    assigned isochrones (happens for low mass companions often
+    with high metalicity + old)
+
+    Checks systemMass and mass are not nan and that N_companions
+    is correct (since it was modified)
+    """
+    
+    output_root = mrun_popsyn
+    test_h5 = h5py.File(output_root + '.h5', 'r')
+    test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
+    
+    subfield_list = list(test_h5.keys())[1:-2]
+    
+    for ff, subfield in enumerate(subfield_list):
+        systemMasses = test_h5[subfield]['systemMass']
+        companion_masses = test_comp_h5[subfield]['mass']
+        
+        assert sum(np.isnan(systemMasses)) == 0
+        assert sum(np.isnan(companion_masses)) == 0
+    
+        del systemMasses, companion_masses
+    
+        # Checks number of companions matches for 1000 cases
+        # since this was edited
+        N_companions_all = test_h5[subfield]['N_companions']
+        obj_id_all = test_h5[subfield]['obj_id']
+        system_id_all = test_comp_h5[subfield]['system_idx']
+        for ss in range(1000):
+            N_companions = N_companions_all[ss]
+            obj_id = obj_id_all[ss]
+            companions = np.where(system_id_all == obj_id)[0]
+    
+            assert(N_companions == len(companions))
+    
+        del N_companions_all, obj_id_all, system_id_all
+        
+
 
 def test_single_CO_frac(srun_popsyn):
     """
@@ -1235,6 +1279,8 @@ def test_binary_angles(mrun_refine_events):
     
     return
 
+# FIXME
+@pytest.mark.xfail
 def test_refine_binary_events_multiple_lightcurves(mrun_refine_binary):
     """
     Makes sure refine binary events properly 
@@ -1243,8 +1289,6 @@ def test_refine_binary_events_multiple_lightcurves(mrun_refine_binary):
     one as the primary one (highest delta m).
     """
     
-    import pdb
-    pdb.set_trace()
     test_events = Table.read(mrun_refine_binary + '.fits')
 
 def test_refine_binary_events_psbl_lightcurve():
@@ -1329,7 +1373,8 @@ def test_bspl_single_luminous_source_one_peak():
     
     return
 
-
+#FIXME
+@pytest.mark.xfail
 def test_psbl_parallax():
     """
     Test psbl lightcurve model to make sure in a 

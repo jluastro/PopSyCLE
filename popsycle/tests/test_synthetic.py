@@ -30,7 +30,6 @@ kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
 au_to_kpc = 4.848 * 10 ** -9
 
 # Define some fixtures for each stage of synthetic analysis.
-@pytest.fixture
 def srun_galaxia():
     seed = 10
 
@@ -54,7 +53,10 @@ def srun_galaxia():
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'srun_galaxia')
+def srun_galaxia_fixture():
+    return srun_galaxia
+
 def srun_popsyn(srun_galaxia):
     seed = 10
 
@@ -74,7 +76,10 @@ def srun_popsyn(srun_galaxia):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'srun_popsyn')
+def srun_popsyn_fixture(srun_galaxia):
+    return srun_popsyn
+
 def srun_calc_events(srun_popsyn):
     seed = 10
 
@@ -93,7 +98,10 @@ def srun_calc_events(srun_popsyn):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'srun_calc_events')
+def srun_calc_events_fixture(srun_popsyn):
+    return srun_calc_events
+
 def srun_refine_events(srun_calc_events):
     seed = 0
 
@@ -110,7 +118,10 @@ def srun_refine_events(srun_calc_events):
 
     return output_root
 
-@pytest.fixture
+@pytest.fixture(name = 'srun_refine_events')
+def srun_refine_events_fixture(srun_calc_events):
+    return srun_refine_events
+
 def mrun_galaxia():
     seed = 10
 
@@ -134,6 +145,9 @@ def mrun_galaxia():
 
     return output_root
 
+@pytest.fixture(name = 'mrun_galaxia')
+def mrun_galaxia_fixture():
+    return mrun_galaxia
 
 def mrun_popsyn(mrun_galaxia):
     seed = 10
@@ -161,7 +175,6 @@ def mrun_popsyn(mrun_galaxia):
 def mrun_popsyn_fixture(mrun_galaxia):
     return mrun_popsyn
 
-@pytest.fixture()
 def mrun_calc_events(mrun_popsyn):
     seed = 10
 
@@ -182,7 +195,10 @@ def mrun_calc_events(mrun_popsyn):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'mrun_calc_events')
+def mrun_calc_events_fixture(mrun_popsyn):
+    return mrun_calc_events
+
 def mrun_refine_events(mrun_calc_events):
     input_root = mrun_calc_events
 
@@ -198,7 +214,10 @@ def mrun_refine_events(mrun_calc_events):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'mrun_refine_events')
+def mrun_refine_events_fixture(mrun_calc_events):
+    return mrun_refine_events
+
 def mrun_refine_binary(mrun_refine_events):
     input_root = mrun_refine_events
     events_prim_fits = input_root + '.fits'
@@ -212,6 +231,10 @@ def mrun_refine_binary(mrun_refine_events):
     output_root = input_root + '_rb'
 
     return output_root
+
+@pytest.fixture(name = 'mrun_refine_binary')
+def mrun_refine_binary_fixture(mrun_refine_events):
+    return mrun_refine_binary
 
 def mrun_big_galaxia():
     seed = 10

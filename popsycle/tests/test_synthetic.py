@@ -200,6 +200,8 @@ def mrun_calc_events_fixture(mrun_popsyn):
     return mrun_calc_events
 
 def mrun_refine_events(mrun_calc_events):
+    seed = 10
+    
     input_root = mrun_calc_events
 
     synthetic.refine_events(input_root=input_root,
@@ -208,7 +210,8 @@ def mrun_refine_events(mrun_calc_events):
                             red_law='Damineli16',
                             hdf5_file_comp=input_root + '_companions.h5',
                             overwrite=True,
-                            output_file='default')
+                            output_file='default',
+                            seed = seed)
 
     output_root = input_root + '_refined_events_ubv_I_Damineli16'
 

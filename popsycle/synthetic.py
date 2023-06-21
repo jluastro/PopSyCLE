@@ -3945,7 +3945,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
 
 def _check_refine_events(input_root, filter_name,
                          photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp, legacy):
+                         output_file, hdf5_file_comp, legacy, seed):
     """
     Checks that the inputs of refine_events are valid
 
@@ -3979,6 +3979,11 @@ def _check_refine_events(input_root, filter_name,
         For running on files created before ~2020 when the filter system was changed
         to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
         Default is False.
+
+    seed : None or int
+        If not None, this forces the random orbit time for binaries to be fixed every time.
+        If seed is added but there are no binaries, the seed will have no consequence.
+        Default is None.
     """
 
     if not isinstance(input_root, str):
@@ -4005,6 +4010,10 @@ def _check_refine_events(input_root, filter_name,
             
     if not isinstance(legacy, bool):
         raise Exception('legacy (%s) must be a boolean.' % str(legacy))
+
+    if seed is not None:
+        if not isinstance(seed, int):
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -4038,7 +4047,7 @@ def _check_refine_events(input_root, filter_name,
 
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
-                  output_file='default', hdf5_file_comp=None, legacy = False):
+                  output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -4081,6 +4090,11 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         For running on files created before ~2020 when the filter system was changed
         to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
         Default is False.
+        
+    seed : None or int
+        If not None, this forces the random orbit time for binaries to be fixed every time.
+        If seed is added but there are no binaries, the seed will have no consequence.
+        Default is None.
 
     Output:
     ----------
@@ -4094,6 +4108,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     that contains the same objects as a the companion file with extra columns of data.
 
     """
+    # Set random seed
+    np.random.seed(seed)
+                      
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.
     if not overwrite and os.path.isfile(output_file):
@@ -4103,7 +4120,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Error handling/complaining if input types are not right.
     _check_refine_events(input_root, filter_name,
                          photometric_system, red_law,
-                         overwrite, output_file, hdf5_file_comp, legacy)
+                         overwrite, output_file, hdf5_file_comp, legacy, seed)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
@@ -4314,14 +4331,12 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 del patch_comp_L
                 del patch_comp_S
         hf_comp.close()
-        print('memory test 1')
         
         
         if len(companion_table) > 0:
             
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
-            print('memory test 2')
             companion_table = _add_binary_angles(companion_table, event_tab)
             companion_table = Table.from_pandas(companion_table).filled(np.nan)
             
@@ -4654,25 +4669,19 @@ def _add_binary_angles(companion_table, event_table):
     
     
     """
-    companion_tmp_df = copy.deepcopy(companion_table)
-    print('memory test 3')
-    
+    companion_tmp_df = copy.deepcopy(companion_table)    
     event_table_df = event_table.to_pandas()
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
     event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
-    
-    print('memory test 4')
-    
+        
     del event_table_df
     
     start_time_bin_angles = time.time()    
     alphas, phi_pi_Es, phis = calculate_binary_angles(companion_tmp_df_joined)
-    
-    print('memory test 5')
-    
+        
     companion_tmp_df_joined['alpha'] = alphas
     companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
     companion_tmp_df_joined['phi'] = phis
@@ -4681,7 +4690,7 @@ def _add_binary_angles(companion_table, event_table):
     # doing list(cluster.companions.columns) + those other names means that it only takes columns 
     # that were in cluster.companions and obj_id_L, obj_id_S, alpha,...
     companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi']]
-    print('full bin angles loop', start_time_bin_angles - time.time())
+    #print('full bin angles loop', time.time() - start_time_bin_angles)
     
     del companion_tmp_df_joined
     return companion_tmp_df
@@ -4866,12 +4875,8 @@ def _add_multiples_parameters(companion_table, event_table):
 
     """
     companion_tmp_df = copy.deepcopy(companion_table)
-    
-    print('memory test 1.1')
-    
     event_table_df = event_table.to_pandas()
     
-    print('memory test 1.2')
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
@@ -4879,7 +4884,6 @@ def _add_multiples_parameters(companion_table, event_table):
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
 
     del event_table_df
-    print('memory test 1.3')
     
     a_kpc = (np.array(10**companion_tmp_df_joined['log_a'])*unit.AU).to('kpc').value
     
@@ -4899,25 +4903,18 @@ def _add_multiples_parameters(companion_table, event_table):
         event_prim_masses[count] = row[1]['mass_' + prim_type]
         event_system_masses[count] = row[1]['systemMass_' + prim_type]
         event_prim_distances[count] = row[1]['rad_' + prim_type]
-    
-    print('memory test 1.4')
-    
+        
     companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass']/event_prim_masses #mass ratio
-    print('memory test 1.5')
     #abs(acos(i))
     abs_cos_i = np.abs(np.cos(list(companion_tmp_df_joined['i'])))
-    print('memory test 1.6')
     a_mas = (np.arcsin(a_kpc/event_prim_distances)*unit.radian).to('mas').value
-    print('memory test 1.7')
     companion_tmp_df_joined['sep'] = abs_cos_i*a_mas #separation in mas
-    print('memory test 1.8')
     companion_tmp_df_joined['P'] = orbits.a_to_P(event_system_masses, 10**companion_tmp_df_joined['log_a']) #period
-    print('memory test 1.9')
     # reset index adds obj_id_L and obj_id_S back as their own columns
     # doing list(cluster.companions.columns) + those other names means that it only takes columns 
     # that were in cluster.companions and obj_id_L, obj_id_S, q,...
     companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['q', 'sep', 'P']]
-    print('memory test 1.91')
+
     del companion_tmp_df_joined
     return companion_tmp_df
 

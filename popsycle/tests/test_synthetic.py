@@ -945,6 +945,10 @@ def test_system_mass(mrun_popsyn):
                 n_comp_checked += 1
 
         print(f'Field {field}: Successfully checked system masses of {n_comp_checked} multiple systems.')
+        
+    test_h5.close()
+    test_comp_h5.close()
+    
     return
 
 
@@ -964,12 +968,14 @@ def test_system_luminosity(mrun_galaxia):
     
     # Returns the intersecting obj_ids/system_idxs, indices in co_table or star_dict that correspond with the overlap, 
     # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
-    co_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id']), grouped_system_idxs, return_indices = True)
+    # DOES NOT TEST WDs since some are luminous and I have no reference magnitudes for them!!!
+    NS_BH_idxs = np.where(co_dict['rem_id'] >= 102)
+    co_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id'][NS_BH_idxs]), grouped_system_idxs, return_indices = True)
     star_idx_w_companions = np.intersect1d(np.array(star_dict['obj_id']), grouped_system_idxs, return_indices = True)
     
     # checks the matching was done properly
     assert np.array_equiv(star_dict['obj_id'][star_idx_w_companions[1]], grouped_system_idxs[star_idx_w_companions[2]])
-    assert np.array_equiv(co_dict['obj_id'][co_idx_w_companions[1]], grouped_system_idxs[co_idx_w_companions[2]])
+    assert np.array_equiv(co_dict['obj_id'][NS_BH_idxs][co_idx_w_companions[1]], grouped_system_idxs[co_idx_w_companions[2]])
     
     calc_primary_luminosity = binary_utils.primary_mag_from_system_mag(star_dict['ubv_I'][star_idx_w_companions[1]],
                                                                        companions_system_m_ubv_I[star_idx_w_companions[2]])
@@ -978,7 +984,7 @@ def test_system_luminosity(mrun_galaxia):
     # the system luminosity - companion luminosity
     assert np.allclose(calc_primary_luminosity, primary_star_dict['ubv_I'][star_idx_w_companions[1]])
     
-    calc_primary_luminosity_co = binary_utils.primary_mag_from_system_mag(co_dict['ubv_I'][co_idx_w_companions[1]],
+    calc_primary_luminosity_co = binary_utils.primary_mag_from_system_mag(co_dict['ubv_I'][NS_BH_idxs][co_idx_w_companions[1]],
                                                                        companions_system_m_ubv_I[co_idx_w_companions[2]])
     
 
@@ -1252,6 +1258,8 @@ def test_multiplicity_properties(mrun_popsyn):
     min_log_semimajor_axis_imposed = -2
     
     assert(min_log_semimajor_axis_imposed < min_log_semimajor_axis)
+
+    test_hdf5_comp.close()
     
     return
 

@@ -1193,7 +1193,6 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                                                      IFMR=IFMR,
                                                                                      feh=metallicity_of_bin, seed=seed,
                                                                                      additional_photometric_systems=additional_photometric_systems)
-
     # Make a temporary table of the compact object primaries. Will eventually be appended to star_dict.
     co_dict, next_id_co = _make_co_dict(age_of_bin,
                                         cluster_tmp,
@@ -2114,7 +2113,21 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         if currentClusterMass > 5*10**4:
             SPISEA_present_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
             assert(np.abs((SPISEA_present_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
-            
+
+        # Removes companions with unnassigned masses being not massive enough for
+        # their isochrone (often high metallicity and old)
+        if multiplicity is not None:
+            bad_companions = np.where(np.isnan(cluster.companions['mass']) == True)
+            bad_companions_primaries = cluster.companions['system_idx'][bad_companions]
+            unique_bad_companions_primaries = np.unique(bad_companions_primaries, return_counts = True)
+            # Subtract number of companions that are bad
+            cluster.star_systems['N_companions'][unique_bad_companions_primaries[0]] -= unique_bad_companions_primaries[1]
+            # Set those that have no companions left to non-multiples
+            cluster.star_systems['isMultiple'][cluster.star_systems['N_companions'] == 0] = 0
+            # Drop companions
+            cluster.companions.remove_rows(bad_companions)
+        
+        
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
 
@@ -2836,7 +2849,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
 
             # Reset the companion system_idx to be the correct obj_id
             compact_companions['system_idx'] = co_dict['obj_id'][co_idx_for_dup_sys_table]
-            
+
             # sums mass of companions if there are triples
             grouped_co_companions = compact_companions.group_by(['system_idx'])
             CO_companions_system_mass = grouped_co_companions['mass'].groups.aggregate(np.sum)
@@ -5769,7 +5782,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             global_comp_idx_S = comp_table_rows['companion_idx'][comp_idx_S]
             for comp_idx_L in comp_idxs_L:
                 global_comp_idx_L = comp_table_rows['companion_idx'][comp_idx_L]
-                name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(comp_idx_L, comp_idx_S)
+                name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(global_comp_idx_L, global_comp_idx_S)
                 model_parameter_dict, _, _ = get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
                                                                       photometric_system, filter_name, red_law, event_id = 0)
                 model = bsbl_model_gen(model_parameter_dict)
@@ -5782,7 +5795,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     elif event_type == 'PSBL':
         for comp_idx in range(len(comp_table_rows)):
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
-            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(comp_idx)
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(global_comp_idx)
             model_parameter_dict, _, _ = get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, event_id = 0)
             model = psbl_model_gen(model_parameter_dict)
             param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
@@ -5793,7 +5806,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     elif event_type == 'BSPL':
         for comp_idx in range(len(comp_table_rows)):
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
-            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(comp_idx)
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(global_comp_idx)
             model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
             model = bspl_model_gen(model_parameter_dict)
             param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)

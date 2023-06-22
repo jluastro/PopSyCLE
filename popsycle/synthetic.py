@@ -48,6 +48,7 @@ from collections import Counter
 from operator import itemgetter
 from popsycle import binary_utils
 from astropy.io import fits
+import logging
 
 ##########
 # Conversions.
@@ -649,6 +650,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         A fits file that shows the correspondence between dataset name,
         latitude, longitude, and number of objects in that bin.
     """
+    
     # Check whether files exist
     if not overwrite:
         # Check if HDF5 file exists already. If it does, throw an error message
@@ -682,6 +684,26 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     np.random.seed(seed)
 
     t0 = time.time()
+
+    ##########
+    # Set up logging
+    ##########
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename=output_root + '_perform_pop_syn_verbose.log',
+                    filemode='w')
+    # Checks if handler already exists since it persists if run in jupyter notebook
+    if not logging.handlers:
+        # define a Handler which writes INFO messages or higher to the sys.stderr
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        formatter = logging.Formatter('%(levelname)-8s %(message)s')
+        # tell the handler to use this format
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger().addHandler(console)
 
     #########
     # Read in only what you need
@@ -772,9 +794,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # age ranges and radius ranges.
     ##########
     for pid in range(10):
-        print('******************** Starting popid ' + str(pid))
+        logging.info('******************** Starting popid ' + str(pid))
         if np.sum(popid_array == pid) == 0:
-            print('No stars with this pid. Skipping!')
+            logging.info('No stars with this pid. Skipping!')
             continue
 
         popid_idx = np.where(popid_array == pid)[0]
@@ -802,7 +824,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         #   duplicated things carried in memory.
         ##########
         for aa in range(len(logt_bins) - 1):
-            print(f'********** Starting log age bin {logt_bins[aa]:.1f}')
+            logging.info(f'********** Starting log age bin {logt_bins[aa]:.1f}')
             # Mid-point age of bin.
             age_of_bin = (logt_bins[aa] + logt_bins[aa + 1]) / 2.0
 
@@ -841,7 +863,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             # Loop through metallicity bins
             ##########
             for bb in range(len(feh_bins) - 1):
-                print('***** Starting metallicity bin ', feh_vals[bb])
+                logging.info(f'***** Starting metallicity bin {feh_vals[bb]}')
                 # Value of the metallicity bin
                 metallicity_of_bin = feh_vals[bb]
 
@@ -865,7 +887,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     n_stop = int((nn + 1) * num_stars_in_bin)
 
                     bin_idx = popid_idx[age_idx[feh_idx[n_start:n_stop]]]
-                    print(f'** Starting sub-bin {nn:2d} with {len(bin_idx)} stars in bin')
+                    logging.info(f'** Starting sub-bin {nn:2d} with {len(bin_idx)} stars in bin')
 
                     # # Single-threaded version. - START
                     # count_out = _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
@@ -918,7 +940,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     mp_pool.join()
 
     t1 = time.time()
-    print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
+    logging.info('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.
@@ -992,14 +1014,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Informative print statements.
     ##########
     if (n_stars + co_counter) != binned_counter:
-        print('***************** WARNING ******************')
-        print('Number of things in != number of things out.')
-        print('********************************************')
+        logging.warning('***************** WARNING ******************' + '\n'
+                        + 'Number of things in != number of things out.' + '\n'
+                        + '********************************************')
 
-    print('******************** INFO **********************')
-    print('Total number of stars from Galaxia: ' + str(n_stars))
-    print('Total number of compact objects made: ' + str(co_counter))
-    print('Total number of things binned: ' + str(binned_counter))
+    logging.info('******************** INFO **********************' + '\n'
+                 + 'Total number of stars from Galaxia: ' + str(n_stars) + '\n'
+                 + 'Total number of compact objects made: ' + str(co_counter) + '\n'
+                 + 'Total number of things binned: ' + str(binned_counter))
 
     return
 
@@ -1235,7 +1257,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                     _no_bins_hdf5(stars_in_bin, output_root + '_companions',
                                   companion_obj_arr=companions_table)
 
-    if verbose > 3: print(f'test5 {time.time() - t0:.2f} sec')
+    if verbose > 3: logging.debug(f'test5 {time.time() - t0:.2f} sec')
     del cluster_tmp
 
     ##########
@@ -1258,7 +1280,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                 _no_bins_hdf5(co_dict, output_root)
             _no_bins_hdf5(stars_in_bin, output_root)
 
-    if verbose > 1: print(f'test6 {time.time() - t0:.2f} sec')
+    if verbose > 1: logging.debug(f'test6 {time.time() - t0:.2f} sec')
 
     ##########
     # Done with galaxia output in dictionary t and ebf_log.
@@ -2201,7 +2223,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     # Define a timer to keep track of runtimes in this function.
     if verbose > 2:
         t0 = time.time()
-        print(f'\t Timer _add_multiples: start {t0:.5f} sec')
+        logging.debug(f'\t Timer _add_multiples: start {t0:.5f} sec')
 
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
@@ -2216,21 +2238,21 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     cond_stellar_prim = cond_multiple & (cluster_ss['phase'] < 100)
     cond_not_too_massive = cond_stellar_prim & (cluster_ss['zams_mass'] <= np.max(star_zams_masses))
     if verbose > 3:
-        print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries.')
-        print(f'  {np.sum(cond_multiple)} are multiple')
-        print(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
-        print(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
+        logging.info(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries.')
+        logging.info(f'  {np.sum(cond_multiple)} are multiple')
+        logging.info(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
+        logging.info(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
     cluster_ss = cluster_ss[cond_not_too_massive]
     
     
     # For each primary, find the closest, higher-mass Galaxia star.
     if verbose > 2:
-        print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+        logging.debug(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, closest_mass_diff = match_companions(star_zams_masses,
                                                             cluster_ss['zams_mass'].data,
                                                             verbose=verbose)
     if verbose > 2:
-        print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+        logging.debug(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
 
     # Add columns for the matched galaxia ID and primary zams mass difference.
     cluster_ss['galaxia_id'] = closest_index_arr
@@ -2239,8 +2261,8 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     # Trim out the non-matches
     cond_matched = closest_index_arr != -1
     if verbose > 3:
-        print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
-        print(f'  {np.sum(cond_matched)} are matched')
+        logging.info(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
+        logging.info(f'  {np.sum(cond_matched)} are matched')
     cluster_ss = cluster_ss[cond_matched]
 
     # join tables to keep only those companions that pass our cuts.
@@ -2308,7 +2330,7 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     # Define a timer to keep track of runtimes in this function.
     t0 = time.time()
     if verbose > 2:
-        print(f'\t Timer _add_multiples: start {t0:.5f} sec')
+        logging.debug(f'\t Timer _add_multiples: start {t0:.5f} sec')
 
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
@@ -2344,10 +2366,10 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     modified_companions['zams_mass_match_diff'] = np.nan
 
     if verbose > 2:
-        print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+        logging.debug(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, mass_diff = _match_companions_kdtree(star_zams_masses, cluster_ss['zams_mass'])
     if verbose > 2:
-        print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+        logging.debug(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
 
     # loop through each of the SPISEA cluster and match them to a galaxia star
     for ii, index in enumerate(cluster_ss['system_idx']):
@@ -2370,8 +2392,7 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
 
     num_companions = len(cluster.companions)
     if verbose > 1:
-        print("Total companions, too big, too big fraction:", num_companions,
-              too_big, too_big / num_companions)
+        logging.info(f"Total companions, too big, too big fraction: {num_companions}, {too_big}, {too_big / num_companions}")
 
     return modified_companions
 
@@ -2449,7 +2470,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
     cluster_search_mass = np.expand_dims(SPISEA_primary_zams_masses, axis=1)
     k = 1
     _, closest_index_arr = galaxia_mass_tree.query(cluster_search_mass, k=k)
-    print('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
+    logging.debug('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
 
     # find the number of matches that are duplicates.
     # indexes returns the 1st star_system index that
@@ -2459,7 +2480,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
                                    return_index=True,
                                    return_counts=True)
     cond = counts > 1
-    print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+    logging.debug('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
 
     # grab indicies where the first duplicate is located
     nonunique_indicies = indexes[cond]
@@ -2521,14 +2542,14 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         is used for unmatched stars.
     """
     if verbose > 3:
-        print('memory test 0')
+        logging.debug('memory test 0')
     
     # Shorter variable names
     m_g = np.asarray(star_zams_masses)
     m_s = np.asarray(SPISEA_primary_zams_masses)
     
     if verbose > 3:
-        print('memory test 1')
+        logging.debug('memory test 1')
     
     # Pre-sort both.
     sdx_s = np.argsort(m_s)  # connection between sorted and orig position
@@ -2537,14 +2558,14 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     m_g_sorted = m_g[sdx_g]
     
     if verbose > 3:
-        print('memory test 2')
+        logging.debug('memory test 2')
 
     # Make a big 2D array of all the differences.
     # Shape is [N_g, N_s]
     diff = m_g_sorted[:, np.newaxis] - m_s_sorted
     
     if verbose > 3:
-        print('memory test 3')
+        logging.debug('memory test 3')
 
     # Append a 1000 Msun diff row so we ALWAYS have a match.
     # Matching to the last row means "no match".
@@ -2553,7 +2574,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     idx_nomatch = diff.shape[0] - 1  # index of the dummy case
     
     if verbose > 3:
-        print('memory test 4')
+        logging.debug('memory test 4')
 
     # Only allow matches where the Galaxia mass is larger than the SPISEA mass.
     diff[diff < 0] = np.nan # Set zeros (lower triangle) to nans.
@@ -2562,7 +2583,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     del diff
     
     if verbose > 3:
-        print('memory test 5')
+        logging.debug('memory test 5')
 
     # Now loop through and make sure we only have unique matches.
     # Essentially, if two spisea stars match to the same Galaxia object,
@@ -2574,15 +2595,15 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
                                    return_counts=True)
     
     if verbose > 3:
-        print('memory test 6')
+        logging.debug('memory test 6')
 
     # Count up the number of duplicates, not counting "no-matches"
     cond = (counts > 1) & (uni != idx_nomatch)
     n_dups = np.sum(cond)
     n_nomatch = np.sum(uni == idx_nomatch)
     if verbose > 3:
-        print(f'match_companions: Found {n_dups} duplicates in round {k}')
-        print(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+        logging.info(f'match_companions: Found {n_dups} duplicates in round {k}')
+        logging.info(f'match_companions: Found {n_nomatch} with no matches in round {k}')
 
     nonunique_indices = indexes[cond]
 
@@ -2602,8 +2623,8 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         n_dups = np.sum(cond)
         n_nomatch = np.sum(uni == idx_nomatch)
         if verbose > 3:
-            print(f'match_companions: Found {n_dups} duplicates in round {k}')
-            print(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+            logging.info(f'match_companions: Found {n_dups} duplicates in round {k}')
+            logging.info(f'match_companions: Found {n_nomatch} with no matches in round {k}')
 
         nonunique_indices = indexes[cond]
 
@@ -2663,7 +2684,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
     mz_spisea = np.expand_dims(mz_spisea_in, axis=1)
     galaxia_mass_tree = cKDTree(mz_galaxia)
     if verbose > 0:
-        print(f'match_companions: {mz_galaxia.shape[0]} galaxia masses, {mz_spisea.shape[0]} spisea masses')
+        logging.info(f'match_companions: {mz_galaxia.shape[0]} galaxia masses, {mz_spisea.shape[0]} spisea masses')
 
     # Setup our output variables.
     # Note: closest_index_arr can take the following values:
@@ -2679,7 +2700,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
     # while there are un-matched stars, keep going.
     while len(unmatched_indices) > 0 and k < mz_galaxia.shape[0]:
-        if verbose > 3: print(f'match_companions: k = {k}')
+        if verbose > 3: logging.debug(f'match_companions: k = {k}')
 
         # Search the KDtree for matches
         _, new_closest_index_arr = galaxia_mass_tree.query(mz_spisea[unmatched_indices], k=k)
@@ -2694,7 +2715,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
         # Identify the good matches that have m_galaxia < m_spisea.
         new_matches = np.where(new_mass_diff >= 0)[0]
-        if verbose > 3: print(f'-- Found {len(unmatched_indices) - len(new_matches)} m_galaxia < m_spisea')
+        if verbose > 3: logging.debug(f'-- Found {len(unmatched_indices) - len(new_matches)} m_galaxia < m_spisea')
 
         # For new, good matches, assign the closest index value and mass difference.
         # Otherwise, index = -1 and mass_diff = nan to indicate negative mass diff stars.
@@ -2707,8 +2728,8 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         closest_index_arr[unmatched_indices[bad_matches]] = -1   # Declare these unmatched forever.
         mass_diff[unmatched_indices[bad_matches]] = np.nan
         if verbose > 3:
-            print(f'-- Found {len(bad_matches)} new matches with dm/m > {max_frac_mass_diff} to call unmatched.')
-            print(f'-- Fractional abs mass diff range = {new_frac_mass_diff.min():.3f} - {new_frac_mass_diff.max():.2f}')
+            logging.debug(f'-- Found {len(bad_matches)} new matches with dm/m > {max_frac_mass_diff} to call unmatched.')
+            logging.debug(f'-- Fractional abs mass diff range = {new_frac_mass_diff.min():.3f} - {new_frac_mass_diff.max():.2f}')
 
         # *** Condition *** Enforce no duplicates.
         # count the number of duplicates that remain in the whole array.
@@ -2718,7 +2739,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
                                               return_counts=True)
         
         cond_dup = np.logical_and(counts > 1, uni_vals >= 0)  # Only consider dupes among good matches.
-        if verbose > 3: print(f'-- Found {np.sum(cond_dup)} duplicates')
+        if verbose > 3: logging.debug(f'-- Found {np.sum(cond_dup)} duplicates')
     
         # grab indices where the first duplicate is located
         nonunique_indices = indexes[cond_dup]
@@ -2729,7 +2750,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
         # Fix cases where there were duplicates with >2 counts.
         tdx = np.where((counts > 2) & (uni_vals >= 0))[0]
-        if verbose > 3: print(f'-- Found {len(tdx)} duplicates with count > 2')
+        if verbose > 3: logging.debug(f'-- Found {len(tdx)} duplicates with count > 2')
         for tt in tdx:
             cdx = np.where(idx_inverse == tt)[0]
 
@@ -2754,7 +2775,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         # grab indices of all stars that remain to be matched
         # indicated by -2 closest index.
         unmatched_indices = np.where(closest_index_arr == -2)[0]
-        if verbose > 3: print(f'-- Found {len(unmatched_indices)} still unmatched after this round')
+        if verbose > 3: logging.debug(f'-- Found {len(unmatched_indices)} still unmatched after this round')
 
         # increase the search to one neighbor further away for next round.
         k += 1
@@ -2763,7 +2784,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         N_total = len(closest_index_arr)
         N_matched = np.sum(closest_index_arr >= 0)
         #N_unmatched = np.sum(closest_index_arr == -1)
-        print(f'match_companions: Maximum k = {k-1} with {N_matched} of {N_total} matched.')
+        logging.info(f'match_companions: Maximum k = {k-1} with {N_matched} of {N_total} matched.')
 
     return closest_index_arr, mass_diff
 
@@ -2822,7 +2843,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
 
     """
     if cluster:
-        if verbose > 3: print(f'test1 {time.time() - t0:.2f} sec')
+        if verbose > 3: logging.debug(f'test1 {time.time() - t0:.2f} sec')
 
         ###########
         # Treats compact object companions
@@ -2862,7 +2883,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
             # (i.e. no duplicated if there are triples)
             co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
 
-            if verbose > 3: print(f'test2 {time.time() - t0:.2f} sec')
+            if verbose > 3: logging.debug(f'test2 {time.time() - t0:.2f} sec')
 
             del co_dict_tmp
         
@@ -2871,7 +2892,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
         ###########
         # First matches galaxia and SPISEA primaries
         companions_table = _add_multiples(star_zams_masses=star_dict['zams_mass'], cluster=cluster)
-        if verbose > 3: print(f'test3 {time.time() - t0:.2f} sec')
+        if verbose > 3: logging.debug(f'test3 {time.time() - t0:.2f} sec')
         if companions_table:
             # sums mass of companions if there are triples
             grouped_companions = companions_table.group_by(['system_idx'])
@@ -2925,7 +2946,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
             if co_dict is not None:
                 companions_table = (vstack([companions_table, compact_companions], join_type='inner'))
 
-            if verbose > 3: print(f'test4 {time.time() - t0:.2f} sec')
+            if verbose > 3: logging.debug(f'test4 {time.time() - t0:.2f} sec')
     else:
         companions_table = None
             

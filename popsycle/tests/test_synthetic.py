@@ -53,7 +53,7 @@ def srun_galaxia():
 
     return output_root
 
-@pytest.fixture(name = 'srun_galaxia')
+@pytest.fixture(name = 'srun_galaxia', scope="module")
 def srun_galaxia_fixture():
     return srun_galaxia()
 
@@ -76,9 +76,9 @@ def srun_popsyn(srun_galaxia):
 
     return output_root
 
-@pytest.fixture(name = 'srun_popsyn')
+@pytest.fixture(name = 'srun_popsyn', scope="module")
 def srun_popsyn_fixture(srun_galaxia):
-    return srun_popsyn()
+    return srun_popsyn(srun_galaxia)
 
 def srun_calc_events(srun_popsyn):
     seed = 10
@@ -98,9 +98,9 @@ def srun_calc_events(srun_popsyn):
 
     return output_root
 
-@pytest.fixture(name = 'srun_calc_events')
+@pytest.fixture(name = 'srun_calc_events', scope="module")
 def srun_calc_events_fixture(srun_popsyn):
-    return srun_calc_events()
+    return srun_calc_events(srun_popsyn)
 
 def srun_refine_events(srun_calc_events):
     seed = 0
@@ -118,9 +118,9 @@ def srun_refine_events(srun_calc_events):
 
     return output_root
 
-@pytest.fixture(name = 'srun_refine_events')
+@pytest.fixture(name = 'srun_refine_events', scope="module")
 def srun_refine_events_fixture(srun_calc_events):
-    return srun_refine_events()
+    return srun_refine_events(srun_calc_events)
 
 def mrun_galaxia():
     seed = 10
@@ -145,7 +145,7 @@ def mrun_galaxia():
 
     return output_root
 
-@pytest.fixture(name = 'mrun_galaxia')
+@pytest.fixture(name = 'mrun_galaxia', scope="module")
 def mrun_galaxia_fixture():
     return mrun_galaxia()
 
@@ -171,9 +171,9 @@ def mrun_popsyn(mrun_galaxia):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_popsyn')
+@pytest.fixture(name = 'mrun_popsyn', scope="module")
 def mrun_popsyn_fixture(mrun_galaxia):
-    return mrun_popsyn()
+    return mrun_popsyn(mrun_galaxia)
 
 def mrun_calc_events(mrun_popsyn):
     seed = 10
@@ -195,9 +195,9 @@ def mrun_calc_events(mrun_popsyn):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_calc_events')
+@pytest.fixture(name = 'mrun_calc_events', scope="module")
 def mrun_calc_events_fixture(mrun_popsyn):
-    return mrun_calc_events()
+    return mrun_calc_events(mrun_popsyn)
 
 def mrun_refine_events(mrun_calc_events):
     seed = 10
@@ -217,9 +217,9 @@ def mrun_refine_events(mrun_calc_events):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_refine_events')
+@pytest.fixture(name = 'mrun_refine_events', scope="module")
 def mrun_refine_events_fixture(mrun_calc_events):
-    return mrun_refine_events()
+    return mrun_refine_events(mrun_calc_events)
 
 def mrun_refine_binary(mrun_refine_events):
     input_root = mrun_refine_events
@@ -235,9 +235,9 @@ def mrun_refine_binary(mrun_refine_events):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_refine_binary')
+@pytest.fixture(name = 'mrun_refine_binary', scope="module")
 def mrun_refine_binary_fixture(mrun_refine_events):
-    return mrun_refine_binary()
+    return mrun_refine_binary(mrun_refine_events)
 
 def mrun_big_galaxia():
     seed = 10
@@ -1150,7 +1150,7 @@ def test_multiplicity_properties(mrun_popsyn):
     """
     test_hdf5 = h5py.File(mrun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.5 #Msun
-    multiplicity_frac = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
+    multiplicity_frac, multiples, total = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
     
     precalc_mult_frac = 0.4727
     precalc_mult_number = 2052
@@ -1183,7 +1183,7 @@ def calc_multiplicity_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
         total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
         del array
     multiple_frac = multiples/total
-    return  multiple_frac
+    return  multiple_frac, multiples, total
 
 def calc_min_semimajor_axis(hdf5_file):
     subfield_list = list(hdf5_file.keys())[1:-2]

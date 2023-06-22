@@ -30,10 +30,10 @@ kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
 au_to_kpc = 4.848 * 10 ** -9
 
 # Define some fixtures for each stage of synthetic analysis.
-def srun_galaxia():
+def galaxia():
     seed = 10
 
-    output_root = 'data_test/test_Srun'
+    output_root = 'data_test/test'
 
     test_filepath = os.path.dirname(__file__)
     galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
@@ -53,9 +53,39 @@ def srun_galaxia():
 
     return output_root
 
+@pytest.fixture(name = 'galaxia', scope="module")
+def galaxia_fixture():
+    return galaxia()
+    
+def srun_galaxia(galaixa):
+    # Srun and Mrun share the same galaxia file
+    input_root = 'data_test/test'
+
+    output_root = 'data_test/test_Srun'
+    
+    test_filepath = os.path.dirname(__file__)
+    full_input_root = test_filepath + '/' + input_root
+    full_output_root = test_filepath + '/' + output_root
+    
+
+    try:
+        os.symlink(full_input_root + '_galaxia.log', full_output_root + '_galaxia.log')  
+    except FileExistsError:
+        pass
+    try: 
+        os.symlink(full_input_root + '_galaxia_params.txt', full_output_root + '_galaxia_params.txt')
+    except FileExistsError:
+        pass
+    try:
+        os.symlink(full_input_root + '.ebf', full_output_root + '.ebf')
+    except FileExistsError:
+        pass
+
+    return output_root
+
 @pytest.fixture(name = 'srun_galaxia', scope="module")
-def srun_galaxia_fixture():
-    return srun_galaxia()
+def srun_galaxia_fixture(galaxia):
+    return srun_galaxia(galaxia)
 
 def srun_popsyn(srun_galaxia):
     seed = 10
@@ -122,32 +152,33 @@ def srun_refine_events(srun_calc_events):
 def srun_refine_events_fixture(srun_calc_events):
     return srun_refine_events(srun_calc_events)
 
-def mrun_galaxia():
-    seed = 10
-
+def mrun_galaxia(galaixa):
+    # Srun and Mrun share the same galaxia file
+    input_root = 'data_test/test'
     output_root = 'data_test/test_Mrun'
-
+    
     test_filepath = os.path.dirname(__file__)
-    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
+    full_input_root = test_filepath + '/' + input_root
+    full_output_root = test_filepath + '/' + output_root
 
-    synthetic.write_galaxia_params(output_root=output_root,
-                                   longitude=1.25,
-                                   latitude=-2.65,
-                                   area=0.001,
-                                   seed=seed)
-
-    synthetic.run_galaxia(output_root=output_root,
-                          longitude=1.25,
-                          latitude=-2.65,
-                          area=0.001,
-                          galaxia_galaxy_model_filename=galaxia_params,
-                          seed=seed)
+    try:
+        os.symlink(full_input_root + '_galaxia.log', full_output_root + '_galaxia.log')
+    except FileExistsError:
+        pass
+    try:
+        os.symlink(full_input_root + '_galaxia_params.txt', full_output_root + '_galaxia_params.txt')
+    except FileExistsError:
+        pass
+    try:
+        os.symlink(full_input_root + '.ebf', full_output_root + '.ebf')
+    except FileExistsError:
+        pass
 
     return output_root
 
 @pytest.fixture(name = 'mrun_galaxia', scope="module")
-def mrun_galaxia_fixture():
-    return mrun_galaxia()
+def mrun_galaxia_fixture(galaxia):
+    return mrun_galaxia(galaxia)
 
 def mrun_popsyn(mrun_galaxia):
     seed = 10

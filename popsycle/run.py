@@ -1043,7 +1043,8 @@ def run(output_root='root0',
                              overwrite=overwrite,
                              legacy=False,
                              output_file='default',
-                             hdf5_file_comp=hdf5_file_comp)
+                             hdf5_file_comp=hdf5_file_comp,
+                             seed=seed)
     if not skip_refine_binary_events:
         refined_events_filename = '{0:s}_refined_events_' \
                               '{1:s}_{2:s}_{3:s}.' \
@@ -1158,7 +1159,8 @@ def run(output_root='root0',
                                 red_law=popsycle_config['red_law'],
                                 overwrite=overwrite,
                                 output_file='default',
-                                hdf5_file_comp=hdf5_file_comp)
+                                hdf5_file_comp=hdf5_file_comp,
+                                seed=seed)
 
     if multiplicity is not None and not skip_refine_binary_events:
         if not os.path.exists(refined_events_filename):

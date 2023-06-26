@@ -693,8 +693,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     datefmt='%m-%d %H:%M',
                     filename=output_root + '_perform_pop_syn_verbose.log',
                     filemode='w')
+    perform_pop_syn_log = logging.getLogger('perform_pop_syn_log')
     # Checks if handler already exists since it persists if run in jupyter notebook
-    if not logging.handlers:
+    if not perform_pop_syn_log.handlers:
         # define a Handler which writes INFO messages or higher to the sys.stderr
         console = logging.StreamHandler()
         console.setLevel(logging.DEBUG)
@@ -794,9 +795,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # age ranges and radius ranges.
     ##########
     for pid in range(10):
-        logging.info('******************** Starting popid ' + str(pid))
+        perform_pop_syn_log.info('******************** Starting popid ' + str(pid))
         if np.sum(popid_array == pid) == 0:
-            logging.info('No stars with this pid. Skipping!')
+            perform_pop_syn_log.info('No stars with this pid. Skipping!')
             continue
 
         popid_idx = np.where(popid_array == pid)[0]
@@ -824,7 +825,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         #   duplicated things carried in memory.
         ##########
         for aa in range(len(logt_bins) - 1):
-            logging.info(f'********** Starting log age bin {logt_bins[aa]:.1f}')
+            perform_pop_syn_log.info(f'********** Starting log age bin {logt_bins[aa]:.1f}')
             # Mid-point age of bin.
             age_of_bin = (logt_bins[aa] + logt_bins[aa + 1]) / 2.0
 
@@ -863,7 +864,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             # Loop through metallicity bins
             ##########
             for bb in range(len(feh_bins) - 1):
-                logging.info(f'***** Starting metallicity bin {feh_vals[bb]}')
+                perform_pop_syn_log.info(f'***** Starting metallicity bin {feh_vals[bb]}')
                 # Value of the metallicity bin
                 metallicity_of_bin = feh_vals[bb]
 
@@ -887,7 +888,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     n_stop = int((nn + 1) * num_stars_in_bin)
 
                     bin_idx = popid_idx[age_idx[feh_idx[n_start:n_stop]]]
-                    logging.info(f'** Starting sub-bin {nn:2d} with {len(bin_idx)} stars in bin')
+                    perform_pop_syn_log.info(f'** Starting sub-bin {nn:2d} with {len(bin_idx)} stars in bin')
 
                     # # Single-threaded version. - START
                     # count_out = _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
@@ -915,7 +916,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
                             multiplicity,
                             additional_photometric_systems,
-                            t0, binning, seed, output_root, verbose)
+                            t0, binning, seed, perform_pop_syn_log, output_root, verbose)
 
                     # proc_tmp = Process(target=_process_popsyn_stars_in_bin, args=args)
                     mp_res_tmp = mp_pool.apply_async(_process_popsyn_stars_in_bin, args=args)
@@ -940,7 +941,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     mp_pool.join()
 
     t1 = time.time()
-    logging.info('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
+    perform_pop_syn_log.info('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
     ##########
     # Figure out how much stuff got binned.
@@ -955,7 +956,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make label file containing information about l,b bins
     ##########
     if binning == True:
-        make_label_file(output_root, overwrite=overwrite)
+        make_label_file(output_root, perform_pop_syn_log, overwrite=overwrite)
     else:
         make_label_file_no_bins(output_root, overwrite=overwrite)
 
@@ -1014,11 +1015,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Informative print statements.
     ##########
     if (n_stars + co_counter) != binned_counter:
-        logging.warning('***************** WARNING ******************' + '\n'
+        perform_pop_syn_log.warning('***************** WARNING ******************' + '\n'
                         + 'Number of things in != number of things out.' + '\n'
                         + '********************************************')
 
-    logging.info('******************** INFO **********************' + '\n'
+    perform_pop_syn_log.info('******************** INFO **********************' + '\n'
                  + 'Total number of stars from Galaxia: ' + str(n_stars) + '\n'
                  + 'Total number of compact objects made: ' + str(co_counter) + '\n'
                  + 'Total number of things binned: ' + str(binned_counter))
@@ -1051,7 +1052,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                  ebf_file, kdt_star_p, exbv_arr4kdt,
                                  iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
                                  multiplicity, additional_photometric_systems, t0,
-                                 binning, seed,
+                                 binning, seed, perform_pop_syn_log,
                                  output_root, verbose=0):
     
     """
@@ -1133,6 +1134,9 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
+    
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
         
     output_root :str
         The thing you want the output files to be named
@@ -1234,6 +1238,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                              star_dict=star_dict,
                                                              co_dict=co_dict,
                                                              additional_photometric_systems=additional_photometric_systems,
+                                                             perform_pop_syn_log=perform_pop_syn_log,
                                                              t0=t0, verbose=verbose)
 
         # Save companion table
@@ -1257,7 +1262,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                     _no_bins_hdf5(stars_in_bin, output_root + '_companions',
                                   companion_obj_arr=companions_table)
 
-    if verbose > 3: logging.debug(f'test5 {time.time() - t0:.2f} sec')
+    if verbose > 3: perform_pop_syn_log.debug(f'test5 {time.time() - t0:.2f} sec')
     del cluster_tmp
 
     ##########
@@ -1280,7 +1285,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                 _no_bins_hdf5(co_dict, output_root)
             _no_bins_hdf5(stars_in_bin, output_root)
 
-    if verbose > 1: logging.debug(f'test6 {time.time() - t0:.2f} sec')
+    if verbose > 1: perform_pop_syn_log.debug(f'test6 {time.time() - t0:.2f} sec')
 
     ##########
     # Done with galaxia output in dictionary t and ebf_log.
@@ -2175,7 +2180,7 @@ def _rename_mass_columns_from_spisea(cluster, multiplicity):
 
     return
 
-def _add_multiples(star_zams_masses, cluster, verbose=0):
+def _add_multiples(star_zams_masses, cluster, perform_pop_syn_log, verbose=0):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2187,6 +2192,9 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
 
     cluster : object
         Resolved cluster object from SPISEA.
+
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
 
     Returns
     -------
@@ -2195,9 +2203,9 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
         Deleted companions of compact objects and with primary zams masses too large.
 
     """
-    return _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=verbose)
+    return _add_multiples_some_unmatched(star_zams_masses, cluster, perform_pop_syn_log, verbose=verbose)
 
-def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
+def _add_multiples_some_unmatched(star_zams_masses, cluster, perform_pop_syn_log, verbose=0):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2209,6 +2217,9 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
 
     cluster : object
         Resolved cluster object from SPISEA.
+
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
 
     Returns
     -------
@@ -2223,7 +2234,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     # Define a timer to keep track of runtimes in this function.
     if verbose > 2:
         t0 = time.time()
-        logging.debug(f'\t Timer _add_multiples: start {t0:.5f} sec')
+        perform_pop_syn_log.debug(f'\t Timer _add_multiples: start {t0:.5f} sec')
 
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
@@ -2238,21 +2249,22 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     cond_stellar_prim = cond_multiple & (cluster_ss['phase'] < 100)
     cond_not_too_massive = cond_stellar_prim & (cluster_ss['zams_mass'] <= np.max(star_zams_masses))
     if verbose > 3:
-        logging.info(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries.')
-        logging.info(f'  {np.sum(cond_multiple)} are multiple')
-        logging.info(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
-        logging.info(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
+        perform_pop_syn_log.info(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries.')
+        perform_pop_syn_log.info(f'  {np.sum(cond_multiple)} are multiple')
+        perform_pop_syn_log.info(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
+        perform_pop_syn_log.info(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
     cluster_ss = cluster_ss[cond_not_too_massive]
     
     
     # For each primary, find the closest, higher-mass Galaxia star.
     if verbose > 2:
-        logging.debug(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+        perform_pop_syn_log.debug(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
     closest_index_arr, closest_mass_diff = match_companions(star_zams_masses,
                                                             cluster_ss['zams_mass'].data,
+                                                            perform_pop_syn_log,
                                                             verbose=verbose)
     if verbose > 2:
-        logging.debug(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+        perform_pop_syn_log.debug(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
 
     # Add columns for the matched galaxia ID and primary zams mass difference.
     cluster_ss['galaxia_id'] = closest_index_arr
@@ -2261,8 +2273,8 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     # Trim out the non-matches
     cond_matched = closest_index_arr != -1
     if verbose > 3:
-        logging.info(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
-        logging.info(f'  {np.sum(cond_matched)} are matched')
+        perform_pop_syn_log.info(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
+        perform_pop_syn_log.info(f'  {np.sum(cond_matched)} are matched')
     cluster_ss = cluster_ss[cond_matched]
 
     # join tables to keep only those companions that pass our cuts.
@@ -2304,7 +2316,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
 
     return modified_companions
 
-def _add_multiples_all(star_zams_masses, cluster, verbose=0):
+def _add_multiples_all(star_zams_masses, cluster, perform_pop_syn_log, verbose=0):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2316,6 +2328,9 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
 
     cluster : object
         Resolved cluster object from SPISEA.
+
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
 
     Returns
     -------
@@ -2330,7 +2345,7 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     # Define a timer to keep track of runtimes in this function.
     t0 = time.time()
     if verbose > 2:
-        logging.debug(f'\t Timer _add_multiples: start {t0:.5f} sec')
+        perform_pop_syn_log.debug(f'\t Timer _add_multiples: start {t0:.5f} sec')
 
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
@@ -2366,10 +2381,10 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     modified_companions['zams_mass_match_diff'] = np.nan
 
     if verbose > 2:
-        logging.debug(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
-    closest_index_arr, mass_diff = _match_companions_kdtree(star_zams_masses, cluster_ss['zams_mass'])
+        perform_pop_syn_log.debug(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+    closest_index_arr, mass_diff = _match_companions_kdtree(star_zams_masses, cluster_ss['zams_mass'], perform_pop_syn_log, verbose = verbose)
     if verbose > 2:
-        logging.debug(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+        perform_pop_syn_log.debug(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
 
     # loop through each of the SPISEA cluster and match them to a galaxia star
     for ii, index in enumerate(cluster_ss['system_idx']):
@@ -2392,11 +2407,11 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
 
     num_companions = len(cluster.companions)
     if verbose > 1:
-        logging.info(f"Total companions, too big, too big fraction: {num_companions}, {too_big}, {too_big / num_companions}")
+        perform_pop_syn_log.info(f"Total companions, too big, too big fraction: {num_companions}, {too_big}, {too_big / num_companions}")
 
     return modified_companions
 
-def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+def match_companions(star_zams_masses, SPISEA_primary_zams_masses, perform_pop_syn_log, verbose=0):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2410,6 +2425,9 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
     SPISEA_primary_zams_masses : object
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
+        
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
 
     Returns
     -------
@@ -2425,11 +2443,12 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
 
     closest_index_arr, mass_diff = _match_companions_kdtree_nonneg(star_zams_masses,
                                                                    SPISEA_primary_zams_masses,
+                                                                   perform_pop_syn_log,
                                                                    verbose=verbose)
 
     return closest_index_arr, mass_diff
 
-def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, perform_pop_syn_log, verbose=0):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2449,6 +2468,9 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
     SPISEA_primary_zams_masses : object
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
+
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
 
     Returns
     -------
@@ -2470,7 +2492,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
     cluster_search_mass = np.expand_dims(SPISEA_primary_zams_masses, axis=1)
     k = 1
     _, closest_index_arr = galaxia_mass_tree.query(cluster_search_mass, k=k)
-    logging.debug('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
+    perform_pop_syn_log.debug('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
 
     # find the number of matches that are duplicates.
     # indexes returns the 1st star_system index that
@@ -2480,7 +2502,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
                                    return_index=True,
                                    return_counts=True)
     cond = counts > 1
-    logging.debug('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+    perform_pop_syn_log.debug('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
 
     # grab indicies where the first duplicate is located
     nonunique_indicies = indexes[cond]
@@ -2509,7 +2531,9 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
         
     return closest_index_arr, None
 
-def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses,
+                                 perform_pop_syn_log,
+                                 verbose=0):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2529,6 +2553,9 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
 
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
+
     Returns
     -------
     closest_index_arr : array
@@ -2542,14 +2569,14 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         is used for unmatched stars.
     """
     if verbose > 3:
-        logging.debug('memory test 0')
+        perform_pop_syn_log.debug('memory test 0')
     
     # Shorter variable names
     m_g = np.asarray(star_zams_masses)
     m_s = np.asarray(SPISEA_primary_zams_masses)
     
     if verbose > 3:
-        logging.debug('memory test 1')
+        perform_pop_syn_log.debug('memory test 1')
     
     # Pre-sort both.
     sdx_s = np.argsort(m_s)  # connection between sorted and orig position
@@ -2558,14 +2585,14 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     m_g_sorted = m_g[sdx_g]
     
     if verbose > 3:
-        logging.debug('memory test 2')
+        perform_pop_syn_log.debug('memory test 2')
 
     # Make a big 2D array of all the differences.
     # Shape is [N_g, N_s]
     diff = m_g_sorted[:, np.newaxis] - m_s_sorted
     
     if verbose > 3:
-        logging.debug('memory test 3')
+        perform_pop_syn_log.debug('memory test 3')
 
     # Append a 1000 Msun diff row so we ALWAYS have a match.
     # Matching to the last row means "no match".
@@ -2574,7 +2601,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     idx_nomatch = diff.shape[0] - 1  # index of the dummy case
     
     if verbose > 3:
-        logging.debug('memory test 4')
+        perform_pop_syn_log.debug('memory test 4')
 
     # Only allow matches where the Galaxia mass is larger than the SPISEA mass.
     diff[diff < 0] = np.nan # Set zeros (lower triangle) to nans.
@@ -2583,7 +2610,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     del diff
     
     if verbose > 3:
-        logging.debug('memory test 5')
+        perform_pop_syn_log.debug('memory test 5')
 
     # Now loop through and make sure we only have unique matches.
     # Essentially, if two spisea stars match to the same Galaxia object,
@@ -2595,15 +2622,15 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
                                    return_counts=True)
     
     if verbose > 3:
-        logging.debug('memory test 6')
+        perform_pop_syn_log.debug('memory test 6')
 
     # Count up the number of duplicates, not counting "no-matches"
     cond = (counts > 1) & (uni != idx_nomatch)
     n_dups = np.sum(cond)
     n_nomatch = np.sum(uni == idx_nomatch)
     if verbose > 3:
-        logging.info(f'match_companions: Found {n_dups} duplicates in round {k}')
-        logging.info(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+        perform_pop_syn_log.info(f'match_companions: Found {n_dups} duplicates in round {k}')
+        perform_pop_syn_log.info(f'match_companions: Found {n_nomatch} with no matches in round {k}')
 
     nonunique_indices = indexes[cond]
 
@@ -2623,8 +2650,8 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         n_dups = np.sum(cond)
         n_nomatch = np.sum(uni == idx_nomatch)
         if verbose > 3:
-            logging.info(f'match_companions: Found {n_dups} duplicates in round {k}')
-            logging.info(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+            perform_pop_syn_log.info(f'match_companions: Found {n_dups} duplicates in round {k}')
+            perform_pop_syn_log.info(f'match_companions: Found {n_nomatch} with no matches in round {k}')
 
         nonunique_indices = indexes[cond]
 
@@ -2642,7 +2669,9 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
 
     return closest_index_arr, mass_diff
 
-def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_diff=0.2, verbose=0):
+def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, perform_pop_syn_log, 
+                                    max_frac_mass_diff=0.2, 
+                                    verbose=0):
     """
     Matches galaxia stars and SPISEA stellar primaries by closest match.
     Note this is after all SPISEA stars with mass greater than the largest
@@ -2666,6 +2695,9 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
 
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
+
     Returns
     -------
     closest_index_arr : array
@@ -2684,7 +2716,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
     mz_spisea = np.expand_dims(mz_spisea_in, axis=1)
     galaxia_mass_tree = cKDTree(mz_galaxia)
     if verbose > 0:
-        logging.info(f'match_companions: {mz_galaxia.shape[0]} galaxia masses, {mz_spisea.shape[0]} spisea masses')
+        perform_pop_syn_log.info(f'match_companions: {mz_galaxia.shape[0]} galaxia masses, {mz_spisea.shape[0]} spisea masses')
 
     # Setup our output variables.
     # Note: closest_index_arr can take the following values:
@@ -2700,7 +2732,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
     # while there are un-matched stars, keep going.
     while len(unmatched_indices) > 0 and k < mz_galaxia.shape[0]:
-        if verbose > 3: logging.debug(f'match_companions: k = {k}')
+        if verbose > 3: perform_pop_syn_log.debug(f'match_companions: k = {k}')
 
         # Search the KDtree for matches
         _, new_closest_index_arr = galaxia_mass_tree.query(mz_spisea[unmatched_indices], k=k)
@@ -2715,7 +2747,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
         # Identify the good matches that have m_galaxia < m_spisea.
         new_matches = np.where(new_mass_diff >= 0)[0]
-        if verbose > 3: logging.debug(f'-- Found {len(unmatched_indices) - len(new_matches)} m_galaxia < m_spisea')
+        if verbose > 3: perform_pop_syn_log.debug(f'-- Found {len(unmatched_indices) - len(new_matches)} m_galaxia < m_spisea')
 
         # For new, good matches, assign the closest index value and mass difference.
         # Otherwise, index = -1 and mass_diff = nan to indicate negative mass diff stars.
@@ -2728,8 +2760,8 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         closest_index_arr[unmatched_indices[bad_matches]] = -1   # Declare these unmatched forever.
         mass_diff[unmatched_indices[bad_matches]] = np.nan
         if verbose > 3:
-            logging.debug(f'-- Found {len(bad_matches)} new matches with dm/m > {max_frac_mass_diff} to call unmatched.')
-            logging.debug(f'-- Fractional abs mass diff range = {new_frac_mass_diff.min():.3f} - {new_frac_mass_diff.max():.2f}')
+            perform_pop_syn_log.debug(f'-- Found {len(bad_matches)} new matches with dm/m > {max_frac_mass_diff} to call unmatched.')
+            perform_pop_syn_log.debug(f'-- Fractional abs mass diff range = {new_frac_mass_diff.min():.3f} - {new_frac_mass_diff.max():.2f}')
 
         # *** Condition *** Enforce no duplicates.
         # count the number of duplicates that remain in the whole array.
@@ -2739,7 +2771,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
                                               return_counts=True)
         
         cond_dup = np.logical_and(counts > 1, uni_vals >= 0)  # Only consider dupes among good matches.
-        if verbose > 3: logging.debug(f'-- Found {np.sum(cond_dup)} duplicates')
+        if verbose > 3: perform_pop_syn_log.debug(f'-- Found {np.sum(cond_dup)} duplicates')
     
         # grab indices where the first duplicate is located
         nonunique_indices = indexes[cond_dup]
@@ -2750,7 +2782,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
         # Fix cases where there were duplicates with >2 counts.
         tdx = np.where((counts > 2) & (uni_vals >= 0))[0]
-        if verbose > 3: logging.debug(f'-- Found {len(tdx)} duplicates with count > 2')
+        if verbose > 3: perform_pop_syn_log.debug(f'-- Found {len(tdx)} duplicates with count > 2')
         for tt in tdx:
             cdx = np.where(idx_inverse == tt)[0]
 
@@ -2775,7 +2807,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         # grab indices of all stars that remain to be matched
         # indicated by -2 closest index.
         unmatched_indices = np.where(closest_index_arr == -2)[0]
-        if verbose > 3: logging.debug(f'-- Found {len(unmatched_indices)} still unmatched after this round')
+        if verbose > 3: perform_pop_syn_log.debug(f'-- Found {len(unmatched_indices)} still unmatched after this round')
 
         # increase the search to one neighbor further away for next round.
         k += 1
@@ -2784,12 +2816,12 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         N_total = len(closest_index_arr)
         N_matched = np.sum(closest_index_arr >= 0)
         #N_unmatched = np.sum(closest_index_arr == -1)
-        logging.info(f'match_companions: Maximum k = {k-1} with {N_matched} of {N_total} matched.')
+        perform_pop_syn_log.info(f'match_companions: Maximum k = {k-1} with {N_matched} of {N_total} matched.')
 
     return closest_index_arr, mass_diff
 
 
-def _make_companions_table(cluster, star_dict, co_dict,
+def _make_companions_table(cluster, star_dict, co_dict, perform_pop_syn_log,
                            additional_photometric_systems = None, t0 = 0,
                            verbose=0):
     """
@@ -2818,6 +2850,9 @@ def _make_companions_table(cluster, star_dict, co_dict,
     co_dict : dictionary
         Keys are the same as star_dict, just for compact objects.
 
+    perform_pop_syn_log : logger
+        Log file object from logging to save log outputs to.
+
     Optional Parameters
     -------------------
     additional_photometric_systems : list of strs
@@ -2843,7 +2878,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
 
     """
     if cluster:
-        if verbose > 3: logging.debug(f'test1 {time.time() - t0:.2f} sec')
+        if verbose > 3: perform_pop_syn_log.debug(f'test1 {time.time() - t0:.2f} sec')
 
         ###########
         # Treats compact object companions
@@ -2883,7 +2918,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
             # (i.e. no duplicated if there are triples)
             co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
 
-            if verbose > 3: logging.debug(f'test2 {time.time() - t0:.2f} sec')
+            if verbose > 3: perform_pop_syn_log.debug(f'test2 {time.time() - t0:.2f} sec')
 
             del co_dict_tmp
         
@@ -2891,8 +2926,8 @@ def _make_companions_table(cluster, star_dict, co_dict,
         # Treats stellar companions and joins stellar and CO companions
         ###########
         # First matches galaxia and SPISEA primaries
-        companions_table = _add_multiples(star_zams_masses=star_dict['zams_mass'], cluster=cluster)
-        if verbose > 3: logging.debug(f'test3 {time.time() - t0:.2f} sec')
+        companions_table = _add_multiples(star_zams_masses=star_dict['zams_mass'], cluster=cluster, perform_pop_syn_log=perform_pop_syn_log)
+        if verbose > 3: perform_pop_syn_log.debug(f'test3 {time.time() - t0:.2f} sec')
         if companions_table:
             # sums mass of companions if there are triples
             grouped_companions = companions_table.group_by(['system_idx'])
@@ -2946,7 +2981,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
             if co_dict is not None:
                 companions_table = (vstack([companions_table, compact_companions], join_type='inner'))
 
-            if verbose > 3: logging.debug(f'test4 {time.time() - t0:.2f} sec')
+            if verbose > 3: perform_pop_syn_log.debug(f'test4 {time.time() - t0:.2f} sec')
     else:
         companions_table = None
             
@@ -3120,6 +3155,26 @@ def calc_events(hdf5_file, output_root2,
     _check_calc_events(hdf5_file, output_root2,
                        radius_cut, obs_time, n_obs, theta_frac,
                        blend_rad, n_proc, overwrite, hdf5_file_comp)
+    ##########
+    # Set up logging
+    ##########
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename=output_root2 + '_calc_events_verbose.log',
+                    filemode='w')
+    calc_events_log = logging.getLogger('calc_events_log')
+    # Checks if handler already exists since it persists if run in jupyter notebook
+    if not calc_events_log.handlers:
+        # define a Handler which writes INFO messages or higher to the sys.stderr
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        formatter = logging.Formatter('%(levelname)-8s %(message)s')
+        # tell the handler to use this format
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger().addHandler(console)
 
     ##########
     # Start of code
@@ -3201,7 +3256,7 @@ def calc_events(hdf5_file, output_root2,
         events_tmp = unique_events(events_tmp)
         events_final = Table(events_tmp)
         N_events = len(events_final)
-        print('Candidate events detected: ', N_events)
+        calc_events_log.info(f'Candidate events detected: {N_events}')
 
         if len(results_bl) != 0:
             blends_tmp = unique_blends(blends_tmp)
@@ -3215,7 +3270,7 @@ def calc_events(hdf5_file, output_root2,
         blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
     else:
         N_events = 0
-        print('No events!')
+        calc_events_log.info('No events!')
     t1 = time.time()
 
     ##########
@@ -3264,7 +3319,7 @@ def calc_events(hdf5_file, output_root2,
                         line12, dash_line, line13, line14, empty_line, line15,
                         dash_line, line16, line17])
 
-    print('calc_events runtime : {0:f} s'.format(t1 - t0))
+    calc_events_log.info('calc_events runtime : {0:f} s'.format(t1 - t0))
 
     return
 
@@ -3303,7 +3358,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     ll = llbb[0]
     bb = llbb[1]
 
-    print('Working on loop ll, bb = ', ll, bb)
+    calc_events_log.info(f'Working on loop ll, bb = {ll}, {bb}')
     name00 = 'l' + str(ll) + 'b' + str(bb)
     name01 = 'l' + str(ll) + 'b' + str(bb + 1)
     name10 = 'l' + str(ll + 1) + 'b' + str(bb)
@@ -3474,9 +3529,9 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     tot = len(l_t)
     dup = tot - uni
     if dup != 0:
-        print('****************** WARNING!!! ********************')
-        print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
-        print('**************************************************')
+        logging.warning('****************** WARNING!!! ********************' + '\n'
+                        + 'There are ' + str(dup) + ' duplicate (l, b) pairs.' + '\n'
+                        + '**************************************************')
 
     ##########
     # Find all objects with a nearest neighbor within an angular distance
@@ -3546,8 +3601,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     if binary_sep is not None:
         theta_frac_comp = theta_frac + binary_sep
         if np.shape(u) != np.shape(theta_frac_comp):
-            print(u, theta_frac_comp)
-        #print(np.shape(u), np.shape(theta_frac_comp), np.shape(theta_frac), np.shape(bigpatch['sep']))
+            calc_events_log.warning(f'u and theta_frac not the same length {u}, {theta_frac_comp}')
         adx = np.where(u < theta_frac_comp)[0]
     else: 
         # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
@@ -4150,7 +4204,31 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                                                                            red_law)
 
     t_0 = time.time()
+                      
+    ##########
+    # Set up logging
+    ##########
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename=output_root + '_refine_events_verbose.log',
+                    filemode='w')
+    # Checks if handler already exists since it persists if run in jupyter notebook
+    if not logging.handlers:
+        # define a Handler which writes INFO messages or higher to the sys.stderr
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        formatter = logging.Formatter('%(levelname)-8s %(message)s')
+        # tell the handler to use this format
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger().addHandler(console)
 
+    #########
+    # Start of code
+    #########
+                      
     event_fits_file = input_root + '_events.fits'
     blend_fits_file = input_root + '_blends.fits'
     galaxia_params_file = input_root + '_galaxia_params.txt'
@@ -4231,14 +4309,14 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # NOTE: calc_closest_approach modifies the event table!
     # It trims out events that peak outside the survey range!
     N_events_original = len(event_tab)
-    print('Original candidate events: ', N_events_original)
+    logging.info(f'Original candidate events: {N_events_original}')
     u0, t0 = calc_closest_approach(event_tab, obs_time)
     N_events_survey = len(event_tab)
-    print('Candidate events in survey window: ', N_events_survey)
+    logging.info(f'Candidate events in survey window: {N_events_survey}')
     event_tab['t0'] = t0  # days
     event_tab['u0'] = u0
     if len(event_tab) == 0:
-        print('No events!')
+        logging.info('No events!')
         output_file = 'NO FILE CREATED'
     else:
         ##########
@@ -4413,7 +4491,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         line8, dash_line, line9, line10, line11, empty_line,
                         line12, dash_line, line13, line14])
 
-    print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
+    logging.info('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return
 
 
@@ -4849,13 +4927,13 @@ def calculate_binary_angles(joined_table):
         #delta_mu_dec.append(np.abs(mu_dec_z1 - mu_dec_z2))
         
         if np.abs(mu_racosdec_z1 - mu_racosdec_z2) > 0.01 or np.abs(mu_dec_z1 - mu_dec_z2) > 0.01:
-            print('***************** WARNING ******************')
-            print('Discrepancy between companion and primary proper motion components > 0.01 mas/year')
-            print('********************************************')
-            print('mu_racosdec_z1', mu_racosdec_z1)
-            print('mu_racosdec_z2', mu_racosdec_z2)
-            print('mu_dec_z1', mu_dec_z1)
-            print('mu_dec_z2', mu_dec_z2)
+            logging.warning('***************** WARNING ******************' + '\n'
+                            + 'Discrepancy between companion and primary proper motion components > 0.01 mas/year' + '\n'
+                            + '********************************************' + '\n'
+                            + f'mu_racosdec_z1 {mu_racosdec_z1}' + '\n'
+                            + f'mu_racosdec_z2 {mu_racosdec_z2}' + '\n'
+                            + f'mu_dec_z1 {mu_dec_z1}' + '\n'
+                            + f'mu_dec_z2 {mu_dec_z2}')
 
         #Relative proper motion between primary and system companion not part of
         mu_racosdec_rel = mu_racosdec_not_prim - mu_racosdec_z1
@@ -5486,7 +5564,7 @@ def combo_old_refine_binary_events(events, companions, photometric_system, filte
                         line8, dash_line, line9, line10, empty_line,
                         line11, dash_line, line12, line13, line14])
 
-    print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
+    logging.info('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
 def refine_binary_events(events, companions, photometric_system, filter_name,
@@ -5569,8 +5647,32 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                          photometric_system, filter_name,
                          overwrite, output_file,
                          save_phot, phot_dir, n_proc)
+                             
+    ##########
+    # Set up logging
+    ##########
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename=output_root + '_refine_binary_events_verbose.log',
+                    filemode='w')
+    # Checks if handler already exists since it persists if run in jupyter notebook
+    if not logging.handlers:
+        # define a Handler which writes INFO messages or higher to the sys.stderr
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        formatter = logging.Formatter('%(levelname)-8s %(message)s')
+        # tell the handler to use this format
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger().addHandler(console)
         
 
+    ##########
+    # Start of code
+    ##########
+                             
     event_table = Table.read(events)
     comp_table = Table.read(companions)
 
@@ -6679,7 +6781,7 @@ def refine_bspl_events(events, companions, photometric_system, filter_name,
                         line8, dash_line, line9, line10, empty_line,
                         line11, dash_line, line12, line13, line14])
 
-    print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
+    logging.info('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
 
@@ -6723,7 +6825,7 @@ def make_ebf_log(ebf_table):
 
     return ebf_log
 
-def make_label_file(h5file_name, overwrite=False):
+def make_label_file(h5file_name, perform_pop_syn_log, overwrite=False):
     """
     Given an output root for an .h5 file, creates a table of
     dataset name, l, b, and number of objects.
@@ -6815,7 +6917,7 @@ def make_label_file(h5file_name, overwrite=False):
 
     label_file.write(h5file_name + '_label.fits', overwrite=overwrite)
     
-    print('make label file time: {0:f} s'.format(time.time() - label_file_start_time))
+    perform_pop_syn_log.info('make label file time: {0:f} s'.format(time.time() - label_file_start_time))
 
     return
 

@@ -670,7 +670,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              overwrite=overwrite,
                              legacy=False,
                              output_file='default',
-                             hdf5_file_comp=hdf5_file_comp)
+                             hdf5_file_comp=hdf5_file_comp,
+                             seed=seed)
     if not skip_refine_binary_events:
         refined_events_filename = '{0:s}_refined_events_' \
                               '{1:s}_{2:s}_{3:s}.' \

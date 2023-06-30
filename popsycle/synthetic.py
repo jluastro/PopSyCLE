@@ -18,7 +18,7 @@ import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import Angle  # Angles
-from astropy.table import Table, Column
+from astropy.table import Table, Column, MaskedColumn
 from astropy.table import vstack
 from spisea.imf import imf
 from spisea import synthetic, evolution, reddening, ifmr
@@ -4523,8 +4523,11 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    flux_N = np.nan_to_num(flux_N.filled(np.nan))
-
+    if type(flux_N) == MaskedColumn:
+        flux_N = np.nan_to_num(flux_N.filled(np.nan))
+    else:
+        flux_N = np.nan_to_num(flux_N)
+        
     # Get total flux
     flux_N_tot = np.sum(flux_N)
 
@@ -4572,8 +4575,15 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
 
-    flux_L = np.nan_to_num(flux_L.filled(np.nan))
-    flux_S = np.nan_to_num(flux_S.filled(np.nan))
+    if type(flux_L) == MaskedColumn:
+        flux_L = np.nan_to_num(flux_L.filled(np.nan))
+    else:
+        flux_L = np.nan_to_num(flux_L)
+
+    if type(flux_S) == MaskedColumn:
+        flux_S = np.nan_to_num(flux_S.filled(np.nan))
+    else:
+        flux_S = np.nan_to_num(flux_S)
 
     # Find the blends.
     LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']),

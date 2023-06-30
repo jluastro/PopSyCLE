@@ -1147,7 +1147,7 @@ def test_single_CO_frac(srun_popsyn):
     """
     test_hdf5 = h5py.File(srun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.1 #Msun
-    CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
+    CO, total, CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
     
     precalc_CO_frac = 0.0822
     precalc_CO_number = 2071
@@ -1171,7 +1171,7 @@ def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
         total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
         del array
     CO_frac = CO/total
-    return  CO_frac
+    return  CO, total, CO_frac
 
 
 def test_multiplicity_properties(mrun_popsyn):

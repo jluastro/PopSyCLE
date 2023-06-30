@@ -5309,9 +5309,11 @@ def combo_old_refine_binary_events(events, companions, photometric_system, filte
     event_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='comp_idx_list') )
     event_table['comp_idx_list'][:] = []
     comp_table['comp_idx_tmp'] = np.arange(len(comp_table))
-    
-    event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name].filled(np.nan)
-    comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
+
+    if type(event_table['f_blend_%s' % filter_name]) == MaskedColumn:
+        event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name].filled(np.nan)
+    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
     
     comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='n_peaks') )
     comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='bin_delta_m') )
@@ -5564,9 +5566,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     comp_table = Table.read(companions)
 
     comp_table['companion_idx'] = np.arange(len(comp_table))
-    
+
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
-    comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
+    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
     
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='bin_delta_m') )

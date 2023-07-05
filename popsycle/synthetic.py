@@ -5638,7 +5638,11 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                     if key != 'mp_rows' and key != 'used_lightcurve':
                         event_table_df[key].loc[obj_id_L_S] = result[0][key]
             
-            lightcurve_table.add_row(result[1] | result[0])
+            try:
+                lightcurve_table.add_row(result[1] | result[0])
+            except TypeError:
+                # Fails when using python version < 3.9
+                lightcurve_table.add_row({**result[1], **result[0]})
             
             rows = result[0]['mp_rows']
             for row in rows:

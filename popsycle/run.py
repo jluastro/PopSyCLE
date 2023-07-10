@@ -452,9 +452,9 @@ def _check_slurm_config(slurm_config, walltime):
 def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
-                          n_cores_perform_pop_syn,
-                          n_cores_calc_events,
-                          walltime, 
+                          walltime,
+                          n_cores_perform_pop_syn = 1,
+                          n_cores_calc_events = 1,
                           n_cores_refine_binary_events = 1,
                           jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
@@ -497,12 +497,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    n_cores_calc_events : int
-        Number of cores for executing synthetic.perform_pop_syn
-        
-    n_cores_calc_events : int
-        Number of cores for executing synthetic.calc_events
-
     walltime : str
         Amount of walltime that the script will request from slurm.
         Format: hh:mm:ss
@@ -540,6 +534,14 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         If non-None and submitFlag is True, submitted job will only run
         after dependencyJobID is completed with no errors.
         Default is None
+
+    n_cores_perform_pop_syn : int
+        Number of cores for executing synthetic.perform_pop_syn
+        Default is 1.
+        
+    n_cores_calc_events : int
+        Number of cores for executing synthetic.calc_events
+        Default is 1.
         
     n_cores_refine_binary_events : int
         Number of cores for executing synthetic.refine_binary_events
@@ -566,6 +568,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     skip_refine_binary_events : bool
         If True, pipeline will not run refine_binary_events.
+        If specified multiplicity is None, will be True.
         Default is False
         
     verbose : int
@@ -620,10 +623,16 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         multiplicity = multiplicity(CSF_max=2, companion_max=True)
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
+        skip_refine_binary_events = True
         hdf5_file_comp = None
 
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
+    
+    # Create n_cores dict
+    n_cores_popsycle = {'n_cores_perform_pop_syn' : n_cores_perform_pop_syn,
+                        'n_cores_calc_events' : n_cores_calc_events,
+                        'n_cores_refine_binary_events' : n_cores_refine_binary_events}
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
@@ -731,11 +740,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
     run_filepath = os.path.dirname(inspect.getfile(load_config_file))
-
-    if n_cores_calc_events > n_cores_per_node:
-        raise Exception('n_cores_calc_events (%s) '
+    
+    if max(n_cores_popsycle.values()) > n_cores_per_node:
+        raise Exception(max(n_cores_popsycle, key = n_cores_popsycle.get) + ' (%s) '
                         'must be less than or equal to '
-                        'n_cores_per_node (%s)' % (n_cores_calc_events,
+                        'n_cores_per_node (%s)' % (max(n_cores_popsycle.values()),
                                                    n_cores_per_node))
 
     if memory > memory_max:
@@ -786,7 +795,7 @@ cd {path_run}
     for line in slurm_config['additional_lines']:
         slurm_template += '%s\n' % line
     slurm_template += """
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds}
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} {optional_cmds}
 exitcode=$?
  
 date
@@ -797,6 +806,15 @@ exit $exitcode
     optional_cmds = ''
 
     # Pass along optional parameters if present
+    if not skip_perform_pop_syn:
+        optional_cmds += '--n-cores-perform-pop-syn={} '.format(n_cores_perform_pop_syn)
+    
+    if not skip_calc_events:
+        optional_cmds += '--n-cores-calc-events={} '.format(n_cores_calc_events)
+    
+    if not skip_refine_binary_events:
+        optional_cmds += '--n-refine-binary-events={} '.format(n_cores_refine_binary_events)
+    
     if overwrite:
         optional_cmds += '--overwrite '
 

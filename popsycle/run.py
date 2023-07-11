@@ -1232,18 +1232,27 @@ def main():
                                'the PopSyCLE parameters. '
                                'Default: popsycle_config.yaml',
                           default='popsycle_config.yaml')
-    required.add_argument('--n-cores-calc-events', type=int,
-                          help='Number of cores to use in the calc_events '
-                               'function (the only piece of the '
-                               'PopSyCLE pipeline that uses multiprocessing). '
-                               'Default is --n-cores=1 or serial processing.',
-                          default=1)
 
     optional = parser.add_argument_group(title='Optional')
+    optial.add_argument('--n-core-perform-pop-syn', type=int,
+                          help='Number of cores to use in the perform_pop_syn '
+                               'function.'
+                               'Default is --n-cores=1 or serial processing.',
+                          default=1)
+    optial.add_argument('--n-cores-calc-events', type=int,
+                          help='Number of cores to use in the calc_events '
+                               'function. '
+                               'Default is --n-cores=1 or serial processing.',
+                          default=1)
+    optial.add_argument('--n-refine-binary-events', type=int,
+                          help='Number of cores to use in the refine_binary_events '
+                               'function. '
+                               'Default is --n-cores=1 or serial processing.',
+                          default=1)
     optional.add_argument('--seed', type=int,
                           help='Set a seed for all PopSyCLE functions with '
                                'randomness, which are running Galaxia and '
-                               'PyPopStar. Setting this flag guarantees '
+                               'SPISEA. Setting this flag guarantees '
                                'identical output and is useful for debugging.',
                           default=None)
     optional.add_argument('--overwrite',
@@ -1269,7 +1278,9 @@ def main():
     run(output_root=args.output_root,
         field_config_filename=args.field_config_filename,
         popsycle_config_filename=args.popsycle_config_filename,
+        n_cores_perform_pop_syn=args.n_cores_perform_pop_syn,
         n_cores_calc_events=args.n_cores_calc_events,
+        n_cores_refine_binary_events=args.n_cores_refine_binary_events,
         seed=args.seed,
         overwrite=args.overwrite,
         skip_galaxia=args.skip_galaxia,

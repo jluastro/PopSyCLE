@@ -4296,7 +4296,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_L['prim_type'] = "L"
                 patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
                 patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
-                # In some pandas versions name of index is maintained
+                # In newer pandas versions name of index is maintained
                 if patch_comp_L.index.name != 'system_idx':
                     patch_comp_L['system_idx'] = patch_comp_L.index
                 if len(patch_comp_L) > 0:
@@ -4305,7 +4305,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_S['prim_type'] = "S"
                 patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
                 patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
-                # In some pandas versions name of index is maintained
+                # In newer pandas versions name of index is maintained
                 if patch_comp_S.index.name != 'system_idx':
                     patch_comp_S['system_idx'] = patch_comp_S.index
                 if len(patch_comp_S) > 0:
@@ -4316,7 +4316,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     if len(patch_comp_L) > 0:
                         companion_table = patch_comp_L
                         if len(patch_comp_S) > 0:
-                            companion_table = companion_table.append(patch_comp_S)
+                            companion_table = pd.concat([companion_table, patch_comp_S], ignore_index=True)
                             #continue
                     elif len(patch_comp_S) > 0:
                         companion_table = patch_comp_S
@@ -4327,9 +4327,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     # if-statement necessary because dtype of prim_type column doesn't change
                     # if the table is empty
                     if len(patch_comp_L) > 0:
-                        companion_table = companion_table.append(patch_comp_L)
+                        companion_table = pd.concat([companion_table, patch_comp_L], ignore_index=True)
                     if len(patch_comp_S) > 0:
-                        companion_table = companion_table.append(patch_comp_S)
+                        companion_table = pd.concat([companion_table, patch_comp_S], ignore_index=True)
                  
                 # deletes patch so memory not overwhelmed
                 del patch_comp_L

@@ -1234,7 +1234,7 @@ def main():
                           default='popsycle_config.yaml')
 
     optional = parser.add_argument_group(title='Optional')
-    optional.add_argument('--n-core-perform-pop-syn', type=int,
+    optional.add_argument('--n-cores-perform-pop-syn', type=int,
                           help='Number of cores to use in the perform_pop_syn '
                                'function.'
                                'Default is --n-cores=1 or serial processing.',
@@ -1244,7 +1244,7 @@ def main():
                                'function. '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
-    optional.add_argument('--n-refine-binary-events', type=int,
+    optional.add_argument('--n-cores-refine-binary-events', type=int,
                           help='Number of cores to use in the refine_binary_events '
                                'function. '
                                'Default is --n-cores=1 or serial processing.',

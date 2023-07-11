@@ -813,7 +813,7 @@ exit $exitcode
         optional_cmds += '--n-cores-calc-events={} '.format(n_cores_calc_events)
     
     if not skip_refine_binary_events:
-        optional_cmds += '--n-refine-binary-events={} '.format(n_cores_refine_binary_events)
+        optional_cmds += '--n-cores-refine-binary-events={} '.format(n_cores_refine_binary_events)
     
     if overwrite:
         optional_cmds += '--overwrite '

@@ -4296,14 +4296,18 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_L['prim_type'] = "L"
                 patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
                 patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
-                patch_comp_L['system_idx'] = patch_comp_L.index
+                # In some pandas versions name of index is maintained
+                if patch_comp_L.index.name != 'system_idx':
+                    patch_comp_L['system_idx'] = patch_comp_L.index
                 if len(patch_comp_L) > 0:
                     patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
                 
                 patch_comp_S['prim_type'] = "S"
                 patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
                 patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
-                patch_comp_S['system_idx'] = patch_comp_S.index
+                # In some pandas versions name of index is maintained
+                if patch_comp_S.index.name != 'system_idx':
+                    patch_comp_S['system_idx'] = patch_comp_S.index
                 if len(patch_comp_S) > 0:
                     patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
 

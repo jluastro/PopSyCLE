@@ -4941,7 +4941,7 @@ def _add_multiples_parameters(companion_table, event_table):
 def _check_refine_binary_events(events, companions,
                                 photometric_system, filter_name,
                                 overwrite, output_file,
-                                save_phot, phot_dir, n_proc):
+                                save_phot, phot_dir, n_proc, multi_proc):
     """
     Checks that the inputs of refine_binary_events are valid
 
@@ -4978,6 +4978,12 @@ def _check_refine_binary_events(events, companions,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
+    
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
     """
 
     if not isinstance(events, str):
@@ -5007,6 +5013,12 @@ def _check_refine_binary_events(events, companions,
             
     if not isinstance(n_proc, int):
         raise Exception('n_proc (%s) must be an integer.' % str(seed))
+    
+    if not isinstance(multi_proc, bool):
+        raise Exception('multi_proc (%s) must be a boolean.' % str(multi_proc))
+    
+    if n_proc > 1 and multi_proc == False:
+        raise Exception('if multi_proc is False, n_proc must = 1')
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -5488,7 +5500,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
                          red_law = 'Damineli16',
                          overwrite = False, output_file = 'default',
                          save_phot = False, phot_dir = None,
-                         n_proc = 1):
+                         n_proc = 1, multi_proc = True):
     """
     Takes the output Astropy table from refine_events (both primaries and companions) and from that
     calculates the binary light curves.
@@ -5537,6 +5549,12 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
     
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
+    
     Output:
     ----------
     A file will be created named
@@ -5563,7 +5581,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     _check_refine_binary_events(events, companions, 
                          photometric_system, filter_name,
                          overwrite, output_file,
-                         save_phot, phot_dir, n_proc)
+                         save_phot, phot_dir, n_proc, multi_proc)
         
 
     event_table = Table.read(events)
@@ -5609,7 +5627,8 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     multiples_lightcurves = sum((event_table['isMultiple_S'] == 1) | (event_table['isMultiple_L'] == 1))
     
     # Set up the multiprocessing
-    pool = Pool(n_proc)
+    if multi_proc:
+        pool = Pool(n_proc)
     
     grouped_comps = comp_table.group_by(['obj_id_L', 'obj_id_S'])
     
@@ -5626,8 +5645,17 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
                      photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite]
     
-    results = pool.starmap(one_lightcurve_analysis, inputs)
+    one_lightcurve_analysis
     
+    if multi_proc:
+        results = pool.starmap(one_lightcurve_analysis, inputs)
+        # Multi-Threaded: clean up pool
+        pool.close()
+        pool.join()
+    elif multi_proc == False:
+        results = np.zeros(len(inputs), dtype=object)
+        for i, input in enumerate(inputs):
+            results[i] = one_lightcurve_analysis(*input)
     
     result_keys = list(results[0][0][0].keys())
     for i in range(len(grouped_comps.groups)):
@@ -5660,6 +5688,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     # For write issues, if mult_peaks is empty, define it without dtype
     if len(mult_peaks) == 0:
         mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
+
 
     # Writes fits file
     if output_file == 'default':
@@ -5734,27 +5763,35 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
-def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S, photometric_system, filter_name, red_law, 
+def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S,
+                            photometric_system, filter_name, red_law,
                             save_phot = False, phot_dir = None, overwrite = False):
     """
-    Find the parameters
+    Generate BAGLE model, photometry, and generate binary lightcurve parameters.
     
     Parameters
     ----------
-    comp_idx : int
-        Index into the comp_table of the companion for which the psbl is being calculated.
-     
-    model_parameter_dict : dict
-        Dictionary of the bagel model parameters   
-        
-    model_func : function
-        Function associated with generating the microlensing model (must be same as parameter_dict)
+    event_table_row : Astropy table
+        Astropy table row from event table with event parameters.
+    
+    comp_table_rows: Astropy table
+        Astropy table with row(s) associated with event row. I.e. if it's a binary source,
+        binary lens, there should be two rows.
     
     obj_id_L : int
-        Object id of the lens associated with event
+        Object id of the lens associated with event.
     
     obj_id_S : int
-        Object id of the source associated with event
+        Object id of the source associated with event.
+    
+    photometric_system : str
+        Name of the photometric system, i.e. 'ubv'.
+    
+    filter_name : str
+        Name of filter associated with photometric system, i.e. 'I'.
+    
+    red_law : str
+        Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
     
     Optional Parameters
     -------------------
@@ -5774,10 +5811,16 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     
     Output:
     ----------
-    param_dict : dict
-        Dictionary of additional parameters added to companion table
-        and one called 'mp_rows' which are the rows to be added to the multi peak
-        table.
+    lightcurve_parameters : list
+        List of two dictionaries:
+            - Dictionary of additional parameters added to the event table
+              and one called 'mp_rows' which are the rows to be
+              added to the multi peak table.
+            - Dictonary of lightcurve parameters which include both lightcurves
+              whose parameters are saved in the event table and those that are not.
+              i.e. in a triple system only the one with the highest delta_m's p
+              arameters are used for the lightcurve table. These will all be saved in
+              a separate lightcurve_table.
     """
     
     multi_L = event_table_row[0]['isMultiple_L']
@@ -5810,6 +5853,11 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx_S], 'class' : event_type}
                 lightcurve_parameters.append([param_dict, lightcurve_dict])
                 
+            del global_comp_idx_S, global_comp_idx_L, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+            
+        del comp_idxs_S, comp_idxs_L
+                
     elif event_type == 'PSBL':
         for comp_idx in range(len(comp_table_rows)):
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
@@ -5820,6 +5868,9 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx], 
                                    'companion_id_S' : np.nan, 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
+            
+            del global_comp_idx, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
     
     elif event_type == 'BSPL':
         for comp_idx in range(len(comp_table_rows)):
@@ -5831,6 +5882,9 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan, 
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
+            
+            del global_comp_idx, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
 
     # If multiple lightcurves were generated (i.e. for triples)
     # then take the lightcurve with the highest delta_m.
@@ -5846,6 +5900,12 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             #argmax ignoring nans
             max_delta_m_idx = np.nanargmax(delta_ms)
             lightcurve_parameters[max_delta_m_idx][0]['used_lightcurve'] = 1
+            
+            del max_delta_m_idx
+        del delta_ms
+    
+    del multi_L, multi_S
+    
     return lightcurve_parameters
 
         
@@ -5875,22 +5935,80 @@ def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
                 hdr[key] = model_parameter_dict[key]
             except ValueError:
                 hdr[key] = str(model_parameter_dict[key])
+
     return
 
-def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite):
+def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, obj_id_S,
+                             name=None, save_phot=False, phot_dir=None, overwrite=False):
+    """
+    Find the parameters
+    
+    Parameters
+    ----------
+    model : function
+        Function associated with generating the microlensing model (must be same as parameter_dict)
+     
+    model_parameter_dict : dict
+        Dictionary of the bagel model parameters
+    
+    comp_idx : list
+        List of indices into the comp_table of the companion(s) for which the
+        binary event is being calculated.
+    
+    obj_id_L : int
+        Object id of the lens associated with event
+    
+    obj_id_S : int
+        Object id of the source associated with event
+    
+    Optional Parameters
+    --------------------
+    
+    name : str or None
+        Name of fits file to be saved.
+        Default is None.
+        
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str or None
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+        
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    
+    Output:
+    ----------
+    param_dict : dict
+        Dictionary of additional parameters added to companion table
+        and one called 'mp_rows' which are the rows to be added to the multi peak
+        table.
+    """
+    
     
     param_dict = {'n_peaks' : 0, 'bin_delta_m' : np.nan, 'tE_sys' : np.nan, 
                   'tE_primary' : np.nan, 'primary_t' : np.nan, 'avg_t' : np.nan, 
                   'std_t' : np.nan, 'asymmetry' : np.nan, 'mp_rows' : [], 'used_lightcurve' : 0}
-    
-    # Handles the case of modeling a triple source as a binary source, 
+
+    # Handles the case of modeling a triple source as a binary source,
     # But it's CO + CO + star and you're modeling the CO + CO pair (so no flux)
     if 'mag_src_sec' in list(model_parameter_dict.keys()):
         if np.isnan(model_parameter_dict['mag_src_sec']) and np.isnan(model_parameter_dict['mag_src_pri']):
             return param_dict
         
+    # These covers extreme cases that will never
+    # be detectable with such far t0s that jplephem
+    # does not cover their date range
+    jplephem_lower_mjd = 2287184.5 - 2400000.5
+    jplephem_upper_mjd = 2688976.5 - 2400000.5
+    if model.t0 < jplephem_lower_mjd or model.t0 > jplephem_upper_mjd:
+        return param_dict
     
-
     # Calculate the photometry 
     duration=1000 # days
     time_steps=5000
@@ -5911,7 +6029,6 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
         foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
         model_param_dict2fits_header(model_parameter_dict, phot_dir, name)
 
-
     #because this is magnitudes max(phot) is baseline and min(phot) is peak
     #baseline 2000tE away get_photometry
     bin_delta_m = max(phot) - min(phot)
@@ -5930,11 +6047,11 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     param_dict['n_peaks'] = len(peaks)
     if len(peaks) == 0:
         return param_dict
-
+        
     param_dict['primary_t'] = dt[peaks][np.argmin(phot[peaks])]
     param_dict['avg_t'] = np.average(dt[peaks])
     param_dict['std_t'] = np.std(dt[peaks])
-
+    
     # Find asymmetry (0 if symmetric, larger if asymmetric)
     # Uses 50 degree chebyshev polynomial (see eq 7 in Night et al. 2010)
     indices = np.arange(0,51)
@@ -5943,7 +6060,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     even_cheb = cheb_fit[indices%2==0]
     asymm = np.sqrt(np.sum(odd_cheb**2)/np.sum(even_cheb**2))
     param_dict['asymmetry'] = asymm
-
+    
     # Split up peaks by minima between peaks
     # Note since it's magnitudes all the np.min and such are maxima
     split_data = []
@@ -5956,7 +6073,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
             start_idx = end_idx
     split_data.append([dt[start_idx:], phot[start_idx:]])
     split_data = np.array(split_data, dtype='object')
-
+    
     highest_peak = np.argmin(phot[peaks])
 
     if len(split_data[highest_peak][1]) != 0:
@@ -5966,7 +6083,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
         if len(highest_half) != 0:
             tE_primary = max(dt[highest_half]) - min(dt[highest_half])
             param_dict['tE_primary'] = tE_primary
-
+            
     # For events with more than one peak, add them to the multi peak table
     rows = []
     if len(peaks) > 1:
@@ -5996,7 +6113,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
             rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
             
         param_dict['mp_rows'] = rows
-    
+        
     return param_dict
 
 def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, event_id = None):

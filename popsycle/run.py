@@ -456,6 +456,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           n_cores_perform_pop_syn = 1,
                           n_cores_calc_events = 1,
                           n_cores_refine_binary_events = 1,
+                          multi_proc_refine_binary_events = True,
                           jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
                           returnJobID=False, dependencyJobID=None,
@@ -546,6 +547,12 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     n_cores_refine_binary_events : int
         Number of cores for executing synthetic.refine_binary_events
         Default is 1.
+
+    multi_proc_refine_binary_events : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
 
     skip_galaxia : bool
         If True, pipeline will not run Galaxia and assume that the
@@ -697,7 +704,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
-                                    phot_dir=phot_dir)
+                                    phot_dir=phot_dir, multi_proc=multi_proc_refine_binary_evnets)
 
 
     # Make a run directory for the PopSyCLE output
@@ -814,7 +821,8 @@ exit $exitcode
     
     if not skip_refine_binary_events:
         optional_cmds += '--n-cores-refine-binary-events={} '.format(n_cores_refine_binary_events)
-    
+        optional_cmds += '--multi-proc-refine-binary-events={}'.format(multi_proc_refine_binary_events)
+
     if overwrite:
         optional_cmds += '--overwrite '
 
@@ -958,6 +966,7 @@ def run(output_root='root0',
         n_cores_perform_pop_syn=1,
         n_cores_calc_events=1,
         n_cores_refine_binary_events=1,
+        multi_proc_refine_binary_events=True,
         verbose=0,
         seed=None,
         overwrite=False,
@@ -1080,7 +1089,7 @@ def run(output_root='root0',
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
-                                    phot_dir=phot_dir)
+                                    phot_dir=phot_dir, multi_proc=multi_proc_refine_binary_events)
 
     if not skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True
@@ -1200,7 +1209,8 @@ def run(output_root='root0',
                                        n_proc=n_cores_refine_binary_events,
                                        overwrite=overwrite,
                                        output_file='default', save_phot=True,
-                                       phot_dir=phot_dir)
+                                       phot_dir=phot_dir,
+                                       multi_proc=multi_prof_refine_binary_events)
 
     t1 = time.time()
     print('run.py runtime : {0:f} s'.format(t1 - t0))
@@ -1251,6 +1261,10 @@ def main():
                                'function. '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
+    optional.add_argument('--multi-proc-refine-binary-events', type=int,
+                          help='Controls multi processing for refine bianry events '
+                          'even if n-cores=1',
+                          default=True)
     optional.add_argument('--seed', type=int,
                           help='Set a seed for all PopSyCLE functions with '
                                'randomness, which are running Galaxia and '
@@ -1283,6 +1297,7 @@ def main():
         n_cores_perform_pop_syn=args.n_cores_perform_pop_syn,
         n_cores_calc_events=args.n_cores_calc_events,
         n_cores_refine_binary_events=args.n_cores_refine_binary_events,
+        multi_proc_refine_binary_events=args.multi_proc_refine_binary_events,
         seed=args.seed,
         overwrite=args.overwrite,
         skip_galaxia=args.skip_galaxia,

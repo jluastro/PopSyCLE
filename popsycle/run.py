@@ -704,7 +704,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
-                                    phot_dir=phot_dir, multi_proc=multi_proc_refine_binary_evnets)
+                                    phot_dir=phot_dir, multi_proc=multi_proc_refine_binary_events)
 
 
     # Make a run directory for the PopSyCLE output

@@ -1210,7 +1210,7 @@ def run(output_root='root0',
                                        overwrite=overwrite,
                                        output_file='default', save_phot=True,
                                        phot_dir=phot_dir,
-                                       multi_proc=multi_prof_refine_binary_events)
+                                       multi_proc=multi_proc_refine_binary_events)
 
     t1 = time.time()
     print('run.py runtime : {0:f} s'.format(t1 - t0))

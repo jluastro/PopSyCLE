@@ -821,7 +821,7 @@ exit $exitcode
     
     if not skip_refine_binary_events:
         optional_cmds += '--n-cores-refine-binary-events={} '.format(n_cores_refine_binary_events)
-        optional_cmds += '--multi-proc-refine-binary-events={}'.format(multi_proc_refine_binary_events)
+        optional_cmds += '--multi-proc-refine-binary-events={} '.format(multi_proc_refine_binary_events)
 
     if overwrite:
         optional_cmds += '--overwrite '

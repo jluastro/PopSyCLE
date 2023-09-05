@@ -49,6 +49,27 @@ def add_precision64(input_array, power):
     return output_array
 
 
+def make_symlinks(input_root, output_root):
+    """
+    Makes symlinks for galaxia_params.txt and
+    perform_pop_syn.log files which are required for refine_events()
+    
+    Parameters
+    ----------
+    input_root : str
+        Input root of galaxia_params.txt and perform_pop_syn.log.
+        (Assumes they have the same input root).
+    
+    output_root : str
+        Output root of galaxia_params.txt and perform_pop_syn.log.
+    """
+    links = ['_galaxia_params.txt', '_perform_pop_syn.log']
+    for link in links:
+        try:
+            os.symlink(input_root + link, output_root + link)
+        except:
+            continue
+
 def sample_spherical(npoints, speed, ndim=3):
     """
     Randomly sample points on a sphere.

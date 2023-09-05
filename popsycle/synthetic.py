@@ -3870,7 +3870,7 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
     return
 
 
-def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
+def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'default', overwrite=False):
     """
     Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
@@ -3888,6 +3888,18 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     output_root : str
         The name for the new blend table
         (and corresponding event table)
+        
+    Optional Parameters
+    ------------------
+    input_root : str
+        The input root of the old blend table.
+        If 'default', takes root of blend_tab.
+    
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+        
 
     Return
     ------
@@ -3895,7 +3907,8 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
         New table with smaller blend radius.
 
     """
-    input_root = blend_tab.rstrip('_blends.fits')
+    if input_root == 'default':
+        input_root = blend_tab.rstrip('_blends.fits')
 
     event_tab_name = input_root + '_events.fits'
     event_log_name = input_root + '_calc_events.log'

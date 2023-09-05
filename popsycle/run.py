@@ -1210,7 +1210,7 @@ def run(output_root='root0',
                                        overwrite=overwrite,
                                        output_file='default', save_phot=True,
                                        phot_dir=phot_dir,
-                                       multi_proc=multi_prof_refine_binary_events)
+                                       multi_proc=multi_proc_refine_binary_events)
 
     t1 = time.time()
     print('run.py runtime : {0:f} s'.format(t1 - t0))
@@ -1261,7 +1261,7 @@ def main():
                                'function. '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
-    optional.add_argument('--multi-proc-refine-binary-events', type=int,
+    optional.add_argument('--multi-proc-refine-binary-events', type=bool,
                           help='Controls multi processing for refine bianry events '
                           'even if n-cores=1',
                           default=True)

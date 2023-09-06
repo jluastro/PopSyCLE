@@ -4603,9 +4603,9 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
         flux_S = np.nan_to_num(flux_S)
 
     # Find the blends.
-    LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']),
+    LS_pairs = np.stack((event_tab['obj_id_L'].data, event_tab['obj_id_S'].data),
                         axis=-1)
-    blend_pairs = np.stack((blend_tab['obj_id_L'], blend_tab['obj_id_S']),
+    blend_pairs = np.stack((blend_tab['obj_id_L'].data, blend_tab['obj_id_S'].data),
                            axis=-1)
 
     flux_N = np.zeros(len(app_L))

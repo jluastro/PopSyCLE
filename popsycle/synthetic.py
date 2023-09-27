@@ -121,7 +121,18 @@ multiplicity_list = {'None': None,
 
 def write_galaxia_params(output_root,
                          longitude, latitude, area,
-                         seed=None):
+                         seed=None,
+                         output_dir='./',
+                         photo_sys='UBV',
+                         mag_color_names='V,B-V',
+                         app_mag_limits=[-1000, 1000],
+                         abs_mag_limits=[-1000, 1000],
+                         color_limits=[-1000, 1000],
+                         geometry_option=1,
+                         f_sample=1,
+                         pop_ID=-1,
+                         warp_flare_on=1,
+                         r_max=30):
     """
     Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running. User can also specify a seed for
@@ -131,10 +142,10 @@ def write_galaxia_params(output_root,
     ----------
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include
+        ``myout``,
+        ``/some/path/to/myout``,
+        ``../back/to/some/path/myout``.
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -145,9 +156,7 @@ def write_galaxia_params(output_root,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
          identical results.
@@ -164,24 +173,24 @@ def write_galaxia_params(output_root,
 
     params = [
         "outputFile %s" % output_root,
-        "outputDir ./",
-        "photoSys UBV",
-        "magcolorNames V,B-V",
-        "appMagLimits[0] -1000",
-        "appMagLimits[1] 1000",
-        "absMagLimits[0] -1000",
-        "absMagLimits[1] 1000",
-        "colorLimits[0] -1000",
-        "colorLimits[1] 1000",
-        "geometryOption 1",
+        "outputDir %s" % output_dir,
+        "photoSys %s" % photo_sys,
+        "magcolorNames %s" % mag_color_names,
+        "appMagLimits[0] %s" % app_mag_limits[0],
+        "appMagLimits[1] %s" % app_mag_limits[1],
+        "absMagLimits[0] %s" % abs_mag_limits[0],
+        "absMagLimits[1] %s" % abs_mag_limits[1],
+        "colorLimits[0] %s" % color_limits[0],
+        "colorLimits[1] %s" % color_limits[1],
+        "geometryOption %s" % geometry_option,
         "longitude %f" % longitude,
         "latitude %f" % latitude,
         "surveyArea %.5f" % area,
-        "fSample 1",
-        "popID -1",
-        "warpFlareOn 1",
+        "fSample %s" % f_sample,
+        "popID %s" % pop_ID,
+        "warpFlareOn %s" % warp_flare_on,
         "seed %i" % seed,
-        "r_max 30",
+        "r_max %s" % r_max,
         "starType 0",
         "photoError 0"
     ]
@@ -282,7 +291,18 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
 def run_galaxia(output_root, longitude, latitude, area,
                 galaxia_galaxy_model_filename,
-                seed=None):
+                seed=None,
+                output_dir='./',
+                photo_sys='UBV',
+                mag_color_names='V,B-V',
+                app_mag_limits=[-1000, 1000],
+                abs_mag_limits=[-1000, 1000],
+                color_limits=[-1000, 1000],
+                geometry_option=1,
+                f_sample=1,
+                pop_ID=-1,
+                warp_flare_on=1,
+                r_max=30):
     """
     Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running and executes Galaxia.
@@ -292,10 +312,10 @@ def run_galaxia(output_root, longitude, latitude, area,
     ----------
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include
+        ``myout``,
+        ``/some/path/to/myout``,
+        ``../back/to/some/path/myout``.
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -310,9 +330,7 @@ def run_galaxia(output_root, longitude, latitude, area,
         Name of the galaxia galaxy model parameter file,
         as outlined at https://github.com/jluastro/galaxia
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
          identical results.
@@ -327,7 +345,18 @@ def run_galaxia(output_root, longitude, latitude, area,
                          longitude=longitude,
                          latitude=latitude,
                          area=area,
-                         seed=seed)
+                         seed=seed,
+                         output_dir=output_dir,
+                         photo_sys=photo_sys,
+                         mag_color_names=mag_color_names,
+                         app_mag_limits=app_mag_limits,
+                         abs_mag_limits=abs_mag_limits,
+                         color_limits=color_limits,
+                         geometry_option=geometry_option,
+                         f_sample=f_sample,
+                         pop_ID=pop_ID,
+                         warp_flare_on=warp_flare_on,
+                         r_max=r_max)
 
     # Execute Galaxia
     cmd = 'galaxia -r %s_galaxia_params.txt %s' % (output_root, galaxia_galaxy_model_filename)
@@ -566,10 +595,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include 
+        ``myout``, 
+        ``/some/path/to/myout``
+        ``../back/to/some/path/myout``.
 
     iso_dir : filepath
         Where are the isochrones stored (for SPISEA)
@@ -581,29 +610,28 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         'Spera15' = IFMR_Spera15
         'SukhboldN20' = IFMR_N20_Sukhbold
 
-    Optional Parameters
-    -------------------
-    bin_edges_number : int
-        Number of edges for the bins
-            bins = bin_edges_number - 1
-        Total number of bins is
-            N_bins = (bin_edges_number - 1)**2
+    bin_edges_number : int, optional
+        Number of edges for the bins such that
+        ``bins = bin_edges_number - 1``.
+        The Total number of bins is
+        ``N_bins = (bin_edges_number - 1)**2``.
         If set to None (default), then number of bins is
-            bin_edges_number = int(60 * 2 * radius) + 1
+        ``bin_edges_number = int(60 * 2 * radius) + 1``
 
-    BH_kick_speed_mean : float
+    BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
+    NS_kick_speed_mean : float, optional
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
+
 
     multiplicity: object
         If a resovled multiplicity object is specified, 
@@ -614,13 +642,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-    
-    overwrite : bool
+
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
-    seed : int
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
@@ -910,13 +938,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 unmade_cluster_mass += sum(list(zip(*results))[2])
             # Multi-threaded version. - STOP
 
+
             del kdt_star_p, exbv_arr4kdt
             gc.collect()
 
     # Multi-Threaded: clean up pool
     mp_pool.close()
     mp_pool.join()
-
+    
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
@@ -976,7 +1005,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line20 = 'FILES CREATED' + '\n'
     line21 = output_root + '.h5 : HDF5 file' + '\n'
     line22 = output_root + '_label.fits : label file' + '\n'
-    if multiplicity != None:
+    if multiplicity is not None:
         line23 = output_root + '_companions.h5 : HDF5 file' + '\n'
     else:
         line23 = 'No companions h5 file as multiplicity = None' + '\n'
@@ -1106,8 +1135,8 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-        
-    seed : int
+
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
@@ -1138,7 +1167,6 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         The current mass in the unmade clusters (<= 100 M_sun)
     
     """
-
     # Load up our global (thread-safe) variables.
     global lock, next_id_stars_val, next_id_co_val
 
@@ -1265,6 +1293,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     # Garbage collect in order to save space.
     ##########
     del star_dict
+
 
     return n_co_new, unmade_cluster_counter_new, unmade_cluster_mass_new
 
@@ -1840,6 +1869,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=compound_dtype)
+
                 if companion_obj_arr is None:
                     for colname in obj_arr:
                         save_data[colname] = obj_arr[colname][id_lb]
@@ -3054,13 +3084,11 @@ def calc_events(hdf5_file, output_root2,
         Stars within this distance of the lens are said to be blended.
         Units are in ARCSECONDS.
 
-    Optional Parameters
-    -------------------
-    n_proc : int
+    n_proc : int, optional
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
 
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -3139,7 +3167,7 @@ def calc_events(hdf5_file, output_root2,
 
     inputs = zip(llbb, hd, ot, no, rc, tf, br)
     
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hdc = itertools.repeat(hdf5_file_comp, reps)
         inputs = zip(llbb, hd, ot, no, rc, tf, br, hdc)
     
@@ -3293,7 +3321,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     hf.close()
 
     # Adds separation in mas between primary and furthest companion if there are companions
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hfc = h5py.File(hdf5_file_comp, 'r')
         bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
         hfc.close()
@@ -3743,7 +3771,7 @@ def unique_events(event_table):
     lens separation.
 
     Parameters
-    ---------
+    ----------
     event_table : numpy array 
         A table with all the events. There are equal numbers of columns
         containing info about the source and the lens, and four additional
@@ -3795,7 +3823,7 @@ def unique_blends(blend_table):
     is picked to be the first occurence.
 
     Parameters
-    ---------
+    ----------
     blend_table : blend array 
         A table with all the events. There is 1 column with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
@@ -3938,6 +3966,14 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'defaul
     new_blends = old_blends[good_idx]
 
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
+    
+    # Makes simlinks for necessary unchanged files
+    links = ['_galaxia_params.txt', '_perform_pop_syn.log']
+    for link in links:
+        try:
+            os.symlink(input_root + link, output_root + link)
+        except:
+            continue
 
     return
 
@@ -4069,7 +4105,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     Parameters
     ----------
     input_root : str
-        The root path and name of the *_events.fits and *_blends.fits.
+        The root path and name of the \*_events.fits and \*_blends.fits.
         Don't include those suffixes yet.
 
     filter_name : str
@@ -4083,9 +4119,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     red_law : str
         The name of the reddening law to use from SPISEA.
 
-    Optional Parameters
-    -------------------
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -4265,7 +4299,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     
     
     # If Multiples
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         companion_table = []
         
@@ -4399,7 +4433,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line13 = output_file + ' : refined events'
     line14 = '\n' #By default no companion file created
     
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
 
@@ -6111,7 +6145,7 @@ def make_label_file(h5file_name, overwrite=False):
         The path and name of the input h5file containing the
         population synthesis results. We will read this in and
         make a new output file entitled:
-        <h5file_name>_label.fits (after removing the *.h5).
+        <h5file_name>_label.fits (after removing the \*.h5).
 
     Return
     ------
@@ -6304,7 +6338,7 @@ def galactic_to_heliocentric(r, b, l):
     Converts from galactic coordinates to heliocentric coordinates.
 
     Parameters
-    ---------
+    ----------
     r, b, l : float or array
         Galactic coordinates r, b and l (in kpc and degrees)
 
@@ -6429,7 +6463,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     Calculate the "bump" amplitude, given the minimum separation and the fluxes
     of the (unmagnified) source, lens, and neighbors.
     The bump amplitude (mags) is:
-    |m_peak - m_base| = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
+    abs(m_peak - m_base) = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
 
     Parameters
     ----------

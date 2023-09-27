@@ -7,6 +7,7 @@ Including:
 - perform_pop_syn
 - calc_events
 - refine_events
+- refine_binary_events
 """
 import numpy as np
 import h5py
@@ -17,12 +18,11 @@ import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import Angle  # Angles
-from astropy.table import Table, Column
+from astropy.table import Table, Column, MaskedColumn
 from astropy.table import vstack
 from spisea.imf import imf
 from spisea import synthetic, evolution, reddening, ifmr
 from spisea.imf.multiplicity import MultiplicityResolvedDK
-from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 import time
 import datetime
@@ -31,7 +31,7 @@ import subprocess
 import os
 from sklearn import neighbors
 import itertools
-from multiprocessing import Pool
+from multiprocessing import Pool, Value, Lock, Manager
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
@@ -40,16 +40,14 @@ from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
 import astropy.units as unit
-import astropy.constants as const
-from astropy.io import fits
-from spisea.imf.multiplicity import MultiplicityResolvedDK
 from popsycle import orbits
 import pandas as pd
 from bagle import model
 from scipy.signal import find_peaks
-import pdb
-
-
+from collections import Counter
+from operator import itemgetter
+from popsycle import binary_utils
+from astropy.io import fits
 
 ##########
 # Conversions.
@@ -163,9 +161,9 @@ def write_galaxia_params(output_root,
          generate a seed from the current time. Setting this seed guarantees
          identical results.
 
-    Outputs
+    Returns
     -------
-    <output_root>_galaxia_params.txt : text file
+    <output_root>_galaxia_params.txt : str
         A text file with the parameters that Galaxia requires to run.
     """
 
@@ -275,7 +273,7 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
     GalaxiaData = None
     for line in open(galaxia_galaxy_model_filename, 'r'):
         if 'GalaxiaData' in line:
-            GalaxiaData = line.replace('\n','').split()[1]
+            GalaxiaData = line.replace('\n', '').split()[1]
             break
 
     if GalaxiaData is None:
@@ -418,7 +416,9 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           overwrite, seed, multiplicity):
+                           multiplicity, binning,
+                           overwrite, seed,
+                           n_proc, verbose):
     """
     Checks that the inputs of perform_pop_syn are valid
 
@@ -466,6 +466,16 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
+    
     overwrite : bool
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
@@ -475,7 +485,17 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
+        
+    n_proc : int
+        Number of processors to use in the parallel processing. Note that
+        calculations are memory intensive and n_proc > few should likely not be
+        used to avoid memory overruns that may result in data corruption.
+        Default is 1.
 
+    verbose : int
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
     """
 
     if not isinstance(ebf_file, str):
@@ -518,6 +538,13 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         if not isinstance(NS_kick_speed_mean, float):
             raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
 
+    if multiplicity is not None:
+        if not isinstance(multiplicity, MultiplicityResolvedDK):
+            raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
+    
+    if not isinstance(binning, bool):
+        raise Exception('binning (%s) must be a boolean.' % str(binning))
+    
     if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
 
@@ -525,9 +552,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
     
-    if multiplicity is not None:
-        if not isinstance(multiplicity, MultiplicityResolvedDK):
-            raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
+    if not isinstance(n_proc, int):
+        raise Exception('n_proc (%s) must be an integer.' % str(seed))
+    
+    if not isinstance(verbose, int):
+        raise Exception('verbose (%s) must be an integer.' % str(seed))
+    
 
     if additional_photometric_systems is not None:
         if not isinstance(additional_photometric_systems, list):
@@ -550,7 +580,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    overwrite=False, seed=None, multiplicity=None):
+                    multiplicity=None, binning = True,
+                    overwrite=False, seed=None,
+                    n_proc=1, verbose=0):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -600,6 +632,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
+
+    multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
+
     overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
@@ -609,14 +652,20 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
-        
-    multiplicity: object
-        If a resovled multiplicity object is specified, 
-        the table will be generated with resolved multiples.
-        Default is None.
 
-    Outputs
-    -------
+    n_proc : int
+        Number of processors to use in the parallel processing. Note that
+        calculations are memory intensive and n_proc > few should likely not be
+        used to avoid memory overruns that may result in data corruption.
+        Default is 1.
+
+    verbose : int
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
+
+    Output Files
+    ------------
     <output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
         A compund type hdf5 file with datasets that correspond to the longitude bin edges,
@@ -629,7 +678,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         latitude, longitude, and number of objects in that bin.
     """
     # Check whether files exist
-
     if not overwrite:
         # Check if HDF5 file exists already. If it does, throw an error message
         # to complain and exit.
@@ -650,7 +698,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           overwrite, seed, multiplicity)
+                           multiplicity, binning,
+                           overwrite, seed,
+                           n_proc, verbose)
 
     ##########
     # Start of code
@@ -673,55 +723,36 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     # Just some counting/error checking things
     n_stars = len(popid_array)  # How many stars from Galaxia
-    comp_counter = 0  # Number of compact objects made
+    co_counter = 0  # Number of compact objects made
     unmade_cluster_counter = 0 # Number of clusters that are too small and get skipped over
-    unmade_cluster_mass = 0 # Mass in the unmade clsuters
+    unmade_cluster_mass = 0 # Current mass in the unmade clusters
 
     # Convert log to useful dictionary.
     ebf_log = make_ebf_log(t)
 
     ##########
-    ###  Fetch the center point and area of the survey.
+    #  Fetch the center point and area of the survey.
     ##########
     b = float(ebf_log['latitude'])
     l = float(ebf_log['longitude'])
     surveyArea = float(ebf_log['surveyArea'])
 
     ##########
-    ### Make the bins for the latitude and longitude. All the information
-    ### will be sorted into each of these bins in order to
+    # Make the bins for the latitude and longitude. All the information
+    # will be sorted into each of these bins in order to
     # handle large arrays, etc.
     ##########
-    # Extend the edges a bit, that's what the * 1.1 is for
-    # (to potentially catch any edge cases.)
-    # make bins of size ~1/2 arcmin
-    radius = np.sqrt(surveyArea / np.pi)  # degrees
-
-    # Define bin_edges_number, if not given in input.
-    if bin_edges_number is None:
-        # set the widths to 1/2 arcmin
-        bin_edges_number = int(60 * 2 * radius) + 1
-
-    # Make sure we have enough bin edges (min is 3)
-    bin_edges_number = max(bin_edges_number, 3)
-    # Make sure we have don't have too many bin edges (max is 40)
-    bin_edges_number = min(bin_edges_number, 40)
-    
-    lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
-                                bin_edges_number)
-    long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
-                                 bin_edges_number)
-    # Angle wrapping for longitude
-    wrap_id = np.where(long_bin_edges > 180)[0]
-    long_bin_edges[wrap_id] -= 360
-
+    bin_edges_number, lat_bin_edges, long_bin_edges = _get_bin_edges(l, b,
+                                                                     surveyArea,
+                                                                     bin_edges_number)
 
     ##########
     # Create h5py file to store lat/long binned output
     ##########
     h5file = h5py.File(output_root + '.h5', 'w')
-    h5file['lat_bin_edges'] = lat_bin_edges
-    h5file['long_bin_edges'] = long_bin_edges
+    if binning == True:
+        h5file['lat_bin_edges'] = lat_bin_edges
+        h5file['long_bin_edges'] = long_bin_edges
     if 'galaxyModelFile' in ebf_log:
         h5file['galaxyModelFile'] = ebf_log['galaxyModelFile']
     h5file.close()
@@ -729,8 +760,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # Make one for companions if multiplicity
     if multiplicity is not None:
         h5file_comp = h5py.File(output_root + '_companions' + '.h5', 'w')
-        h5file_comp['lat_bin_edges'] = lat_bin_edges
-        h5file_comp['long_bin_edges'] = long_bin_edges
+        if binning:
+            h5file_comp['lat_bin_edges'] = lat_bin_edges
+            h5file_comp['long_bin_edges'] = long_bin_edges
         if 'galaxyModelFile' in ebf_log:
             h5file_comp['galaxyModelFile'] = ebf_log['galaxyModelFile']
         h5file_comp.close()
@@ -745,9 +777,21 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     old_id = np.where(age_array >= 10.14)[0]
     age_array[old_id] = 10.1399
 
-    # Initialize a running counter for the "unique ID".
-    next_id = n_stars  # for compact objects...
-    n_binned_stars = 0  # for stars...
+    # Initialize a running counter for the "unique ID" for both
+    # stars and compact objects. Note these must be globals to work
+    # across processes.
+    next_id_stars_val_in = Value('i', 0)
+    next_id_co_val_in = Value('i', n_stars)
+
+    # Single-Threaded
+    # _mp_init_worker(mp_lock, next_id_stars_val_in, next_id_co_val_in)
+
+    # Multi-Threaded
+    # Setup up a pool for multiprocessing.
+    mp_lock = Lock()
+    mp_pool = Pool(processes=n_proc,
+                   initializer=_mp_init_worker,
+                   initargs=(mp_lock, next_id_stars_val_in, next_id_co_val_in))
 
     ##########
     # Loop through population ID (i.e. bulge, disk, halo, ...) in order to
@@ -756,14 +800,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     # age ranges and radius ranges.
     ##########
     for pid in range(10):
-        print('*********************** Starting popid ' + str(pid))
+        print('******************** Starting popid ' + str(pid))
         if np.sum(popid_array == pid) == 0:
             print('No stars with this pid. Skipping!')
             continue
+
         popid_idx = np.where(popid_array == pid)[0]
-        if len(popid_idx) == 0:
-            print('No stars with this pid. Skipping!')
-            continue
 
         logage_min = np.min(age_array[popid_idx])
         logage_max = np.max(age_array[popid_idx])
@@ -788,7 +830,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         #   duplicated things carried in memory.
         ##########
         for aa in range(len(logt_bins) - 1):
-            print('Starting age bin ', logt_bins[aa])
+            print(f'********** Starting log age bin {logt_bins[aa]:.1f}')
             # Mid-point age of bin.
             age_of_bin = (logt_bins[aa] + logt_bins[aa + 1]) / 2.0
 
@@ -796,8 +838,19 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             age_idx = np.where((age_array[popid_idx] >= logt_bins[aa]) &
                                (age_array[popid_idx] < logt_bins[aa + 1]))[0]
 
-            
-            
+            # Create a KDTree from randomly selected stars in the
+            # pop_id / age_bin used for calculating extinction to luminous
+            # white dwarfs. Because the same KDTree is used for each age-bin,
+            # two compact objects randomly selected to have nearly identical
+            # positions would have identical extinctions. This low
+            # probability event is a reasonable trade-off for the reduced
+            # compute time gained by only constructing the KDTree once.
+            # The size of this KDtree is set by the need to sample the
+            # spatial volume densly enough. We estimate ~2 million stars per box
+            # should suffice; however, whole-sky runs might need more and currently
+            # may have less accurate extinctions.
+            exbv_arr4kdt, kdt_star_p = _make_extinction_kdtree(ebf_file, popid_idx[age_idx])
+
             if IFMR == 'Raithel18':
                 # Only run at solar metallicity for Raithel18
                 # -99 to 99 will capture all possible values of metallicity, but the Galaxia range is closer to -2 to 2
@@ -810,8 +863,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 feh_bins = [-99, -1.279, -0.500, 0.00, 99]
                 feh_vals = [-1.39, -0.89, -0.25, 0.30]
 
+            mp_proc = [] # This will hold the multiprocessing task results for this age bin.
+
+            ##########
+            # Loop through metallicity bins
+            ##########
             for bb in range(len(feh_bins) - 1):
-                print('Starting metallicity bin ', feh_vals[bb])
+                print('***** Starting metallicity bin ', feh_vals[bb])
                 # Value of the metallicity bin
                 metallicity_of_bin = feh_vals[bb]
 
@@ -821,226 +879,73 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 len_adx = len(feh_idx)
 
                 # Figure out how many bins we will need.
-                #   -- breaking up into managable chunks of 2 million stars each.
-                num_stars_in_bin = 2e6
+                #   -- breaking up into managable chunks of 50,000 stars each.
+                #   -- https://docs.google.com/document/d/1Q2i5I7s-tZYH0lsWOEb1RH6_sv76cDm7TtPN6c7RSII/edit#
+                #      for detailed notes on this choice.
+                num_stars_in_bin = 5e4
                 num_bins = int(math.ceil(len_adx / num_stars_in_bin))
 
-                # Create a KDTree from randomly selected stars in the
-                # pop_id / age_bin / feh_bin used for calculating extinction to luminous
-                # white dwarfs. Because the same KDTree is used for each sub-bin,
-                # two compact objects randomly selected to have nearly identical
-                # positions would have identical extinctions. This low
-                # probability event is a reasonable trade-off for the reduced
-                # compute time gained by only constructing the KDTree once.
-                kdt_star_p = None
-                exbv_arr4kdt = None
-                if len_adx > 0:
-                    num_kdtree_samples = int(min(len_adx, num_stars_in_bin))
-                    kdt_idx = np.random.choice(np.arange(len_adx),
-                                               size=num_kdtree_samples,
-                                               replace=False)
-                    bin_idx = popid_idx[age_idx[feh_idx[kdt_idx]]]
-                    star_px = ebf.read_ind(ebf_file, '/px', bin_idx) 
-                    star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
-                    star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
-                    star_xyz = np.array([star_px, star_py, star_pz]).T
-                    kdt_star_p = cKDTree(star_xyz)
-                    exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-                    del bin_idx, star_px, star_py, star_pz
-
-              
-
                 ##########
-                # Loop through bins of 2 million stars at a time.
+                # Loop through bins of 50,000 stars at a time.
                 ##########
                 for nn in range(num_bins):
-                    print('Starting sub-bin ', nn)
                     n_start = int(nn * num_stars_in_bin)
                     n_stop = int((nn + 1) * num_stars_in_bin)
 
                     bin_idx = popid_idx[age_idx[feh_idx[n_start:n_stop]]]
+                    print(f'** Starting sub-bin {nn:2d} with {len(bin_idx)} stars in bin')
 
-                    ##########
-                    # Fill up star_dict
-                    ##########
-                    star_dict = {}
-                    star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
-                    star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
-                    star_dict['systemMass'] = copy.deepcopy(star_dict['mass'])
-                    star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
-                    star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
-                    star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
-                    star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
-                    star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
-                    star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
-                    star_dict['age'] = age_array[bin_idx]
-                    star_dict['popid'] = popid_array[bin_idx]
-                    star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
-                    star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
-                    star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
-                    star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
-                    star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
-                    star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
-                    star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
-                    star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
-                    star_dict['isMultiple'] = np.zeros(len(bin_idx), dtype=int)
-                    star_dict['rem_id'] = np.zeros(len(bin_idx))
-                    star_dict['obj_id'] = np.arange(len(bin_idx)) + n_binned_stars
-                    n_binned_stars += len(bin_idx)
+                    # # Single-threaded version. - START
+                    # count_out = _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
+                    #                                          popid_array, age_array, lat_bin_edges, long_bin_edges,
+                    #                                          ebf_file,
+                    #                                          kdt_star_p, exbv_arr4kdt,
+                    #                                          iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
+                    #                                          multiplicity,
+                    #                                          additional_photometric_systems,
+                    #                                          t0, binning, seed, output_root, verbose=verbose)
+                    #
+                    # co_count_new, unmade_cluster_count_new, unmade_cluster_mass_new = count_out
+                    #
+                    # # Update running counters.
+                    # co_counter += co_count_new
+                    # unmade_cluster_counter += unmade_cluster_count_new
+                    # unmade_cluster_mass += unmade_cluster_mass_new
+                    # # Single-threaded version. - STOP
 
-                    ##########
-                    # Angle wrapping for longitude
-                    ##########
-                    wrap_idx = np.where(star_dict['glon'] > 180)[0]
-                    star_dict['glon'][wrap_idx] -= 360
+                    # Multi-threaded version. - START
+                    args = (bin_idx, age_of_bin, metallicity_of_bin,
+                            popid_array, age_array, lat_bin_edges, long_bin_edges,
+                            ebf_file,
+                            kdt_star_p, exbv_arr4kdt,
+                            iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
+                            multiplicity,
+                            additional_photometric_systems,
+                            t0, binning, seed, output_root, verbose)
 
-                    ##########
-                    # Add UBV magnitudes
-                    ##########
-                    star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
-                    star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
-                    star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
-                    star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
-                    star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
-                    star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
-                    star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
-                    star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
+                    # proc_tmp = Process(target=_process_popsyn_stars_in_bin, args=args)
+                    mp_res_tmp = mp_pool.apply_async(_process_popsyn_stars_in_bin, args=args)
 
-                    ##########
-                    # Add ztf magnitudes
-                    ##########
-                    if additional_photometric_systems is not None:
-                        if 'ztf' in additional_photometric_systems:
-                            # Pull out ubv magnitudes needed for photometric conversions
-                            ubv_b = star_dict['ubv_B']
-                            ubv_v = star_dict['ubv_V']
-                            ubv_r = star_dict['ubv_R']
-                            ubv_i = star_dict['ubv_I']
+                    mp_proc.append(mp_res_tmp)
 
-                            ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
-                            ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
-                            ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
-                            star_dict['ztf_g'] = ztf_g
-                            star_dict['ztf_r'] = ztf_r
-                            star_dict['ztf_i'] = ztf_i
+            # Complete this age bin.
+            # Gather results from parallel runs over this whole age_bin
+            results = [proc.get() for proc in mp_proc]
+            
+            if len(results) > 0:
+                co_counter += sum(list(zip(*results))[0])
+                unmade_cluster_counter += sum(list(zip(*results))[1])
+                unmade_cluster_mass += sum(list(zip(*results))[2])
+            # Multi-threaded version. - STOP
 
-                            del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
 
-                    ##########
-                    # Add spherical velocities vr, mu_b, mu_lcosb
-                    ##########
-                    vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
-                                                     star_dict['vy'],
-                                                     star_dict['vz'],
-                                                     star_dict['rad'],
-                                                     star_dict['glat'],
-                                                     star_dict['glon'])
+            del kdt_star_p, exbv_arr4kdt
+            gc.collect()
 
-                    #########
-                    # Add precision to r, b, l, vr, mu_b, mu_lcosb
-                    #########
-                    star_dict['rad'] = utils.add_precision64(star_dict['rad'], -4)
-                    star_dict['glat'] = utils.add_precision64(star_dict['glat'], -4)
-                    star_dict['glon'] = utils.add_precision64(star_dict['glon'], -4)
-                    star_dict['vr'] = utils.add_precision64(vr, -4)
-                    star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
-                    star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
-
-                    ##########
-                    # Perform population synthesis.
-                    ##########
-                    mass_in_bin = np.sum(star_dict['zams_mass'])
-
-                    stars_in_bin = {}
-                    for key, val in star_dict.items():
-                        stars_in_bin[key] = val
-                        
-                    cluster_tmp, unmade_cluster_counter_tmp, unmade_cluster_mass_tmp = _make_cluster(iso_dir=iso_dir, log_age=age_of_bin, 
-                                                                                             currentClusterMass=mass_in_bin,
-                                                                                             multiplicity=multiplicity, IFMR = IFMR, 
-                                                                                             feh = metallicity_of_bin, seed=seed,
-                                                                                             additional_photometric_systems=additional_photometric_systems)
-                    unmade_cluster_counter += unmade_cluster_counter_tmp
-                    unmade_cluster_mass += unmade_cluster_mass_tmp
-                    
-                    comp_dict, next_id = _make_comp_dict(age_of_bin,
-                                                     cluster_tmp,
-                                                     stars_in_bin, next_id,
-                                                     kdt_star_p, exbv_arr4kdt,
-                                                     BH_kick_speed_mean=BH_kick_speed_mean,
-                                                     NS_kick_speed_mean=NS_kick_speed_mean,
-                                                     additional_photometric_systems=additional_photometric_systems,
-                                                     seed=seed)
- 
-                
-                    #########
-                    # If there are multiples add them in
-                    #########
-
-                    if multiplicity is not None:
-                        if cluster_tmp:
-                            # Makes a separate companion table with primaries as compact objects
-                            # Points the system_idx to obj_id instead of idx
-                            if comp_dict is not None and cluster_tmp.companions:
-                                # Build a list of systems for every companion (will be repeat systems). Shape = N_companions
-                                # We will call this the "dup_sys" table for duplicate systems (duplicated x N_companions)
-                                clust_dup_sys = cluster_tmp.star_systems[cluster_tmp.companions['system_idx']]
-                                # Filter the dup_sys table to just those with CO primaries.
-                                co_idx_in_dup_sys_table = np.where(clust_dup_sys['phase'] > 100)[0]
-                                compact_companions = cluster_tmp.companions[co_idx_in_dup_sys_table]
-
-                                # Make a new comp_dict table that still preserves N_companions.
-                                co_idx_in_sys_table = np.where(cluster_tmp.star_systems['phase'] > 100)[0]
-                                comp_dict_tmp = cluster_tmp.star_systems[co_idx_in_sys_table]
-
-                                # Repeat the indices into comp_dict times the number of companions
-                                co_idx = np.arange(0, len(comp_dict_tmp))
-                                co_idx_for_dup_sys_table = np.repeat(co_idx, comp_dict_tmp['N_companions'])
-
-                                # Reset the companion system_idx to be the correct obj_id
-                                compact_companions['system_idx'] = comp_dict['obj_id'][co_idx_for_dup_sys_table]
-
-                            companions_table = _add_multiples(star_masses=star_dict['mass'], cluster=cluster_tmp)
-                            if companions_table:
-                                star_dict['systemMass'][companions_table['system_idx']] += companions_table['mass']
-                                star_dict['isMultiple'][companions_table['system_idx']] = 1
-
-                                # Switch companion table to point to obj_id instead of idx
-                                companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
-
-                                # Makes companions with stellar and compact primaries into one table
-                                if comp_dict is not None:
-                                    companions_table = (vstack([companions_table, compact_companions], join_type='inner'))
-
-                                # Bin in l, b all companions
-                                if comp_dict is not None:
-                                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                         comp_dict, output_root + '_companions', 
-                                         companion_obj_arr = companions_table) 
-                                _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                         stars_in_bin, output_root + '_companions', 
-                                         companion_obj_arr = companions_table)
-
-                    del cluster_tmp
-                    ##########
-                    #  Bin in l, b all stars and compact objects.
-                    ##########
-                    if comp_dict is not None:
-                        comp_counter += len(comp_dict['mass'])
-                        _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                                     comp_dict, output_root)
-                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
-                             stars_in_bin,
-                             output_root)
-                    
-                    ##########
-                    # Done with galaxia output in dictionary t and ebf_log.
-                    # Garbage collect in order to save space.
-                    ##########
-                    del star_dict
-                del kdt_star_p, exbv_arr4kdt
-                gc.collect()
-
+    # Multi-Threaded: clean up pool
+    mp_pool.close()
+    mp_pool.join()
+    
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
@@ -1056,7 +961,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Make label file containing information about l,b bins
     ##########
-    make_label_file(output_root, overwrite=overwrite)
+    if binning == True:
+        make_label_file(output_root, overwrite=overwrite)
+    else:
+        make_label_file_no_bins(output_root, overwrite=overwrite)
 
     ##########
     # Make log file
@@ -1089,7 +997,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line13 = 'OTHER INFORMATION' + '\n'
     line14 = str(t1 - t0) + ' : total runtime (s)' + '\n'
     line15 = str(n_stars) + ' : total stars from Galaxia' + '\n'
-    line16 = str(comp_counter) + ' : total compact objects made' + '\n'
+    line16 = str(co_counter) + ' : total compact objects made' + '\n'
     line17 = str(binned_counter) + ' : total things binned' + '\n'
     line18 = str(unmade_cluster_counter) + ' : # of unmade clusters (< 100 M_sun)' + '\n'
     line19 = str(unmade_cluster_mass) + ' : # mass in unmade clusters (M_sun)' + '\n'
@@ -1112,202 +1020,516 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ##########
     # Informative print statements.
     ##########
-    if (n_stars + comp_counter) != binned_counter:
+    if (n_stars + co_counter) != binned_counter:
         print('***************** WARNING ******************')
         print('Number of things in != number of things out.')
         print('********************************************')
 
     print('******************** INFO **********************')
     print('Total number of stars from Galaxia: ' + str(n_stars))
-    print('Total number of compact objects made: ' + str(comp_counter))
+    print('Total number of compact objects made: ' + str(co_counter))
     print('Total number of things binned: ' + str(binned_counter))
 
     return
 
-
-def calc_current_initial_ratio(iso_dir,
-                               out_file='current_initial_stellar_mass_ratio.txt',
-                               seed=None):
+def _mp_init_worker(lock_in, next_id_stars_val_in, next_id_co_val_in):
     """
-    Makes 10**7 M_sun clusters in SPISEA at various ages, to calculate the
-    ratio of current to initial cluster mass. The range of ages goes
-    from 6 to 10.089 log(age/yr). Creates a text file, the first column is
-    the ages, and second column is the ratio.
+    Initialize the multiprocessing pool and save global tracking variables.
+    Saves global variables: lock, next_id_stars_val, next_id_co_val
 
     Parameters
-    -------------------
-    out_file : string
-        Full name of the file to store the output columns:
-        log(age/yr), current_to_initial_mass_ratio
-
-    iso_dir : filepath
-        Where you are storing isochrones
-
-    seed : int, optional
-        If set to non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for SPISEA and PopSyCLE.
-        Default None.
-
-    Output
-    ------
-    out_file : txt file
-         File of the initial-final cluster mass.
+    ----------
+    lock_in : multiprocessing.Lock object
+    next_id_stars_val_in : multiprocessing.Value object
+    next_id_co_val_in : multiprocessing.Value object
 
     """
-    # Set up the input information for SPISEA to make a cluster.
-    # age in log(age/yr)
-    logage_vec = np.concatenate((np.arange(5.01, 10.01 + 0.005, 0.2),
-                                 np.array([10.04, 10.14])))
-    cluster_mass = 10 ** 7  # mass in m_sol
-    # IMF power law boundaries. changed start from 0.08 to 0.1 because of MIST.
-    mass_limits = np.array([0.1, 0.5, 120])
-    # IMF powers
-    powers = np.array([-1.3, -2.3])
-    # initialize current-initial ratio vector
-    current_initial_ratio_array = np.zeros(len(logage_vec))
+    global lock, next_id_stars_val, next_id_co_val
 
-    # Run all the clusters for the different ages in logage_vec
-    for i in range(len(logage_vec)):
-        # make isochrone
-        my_iso = synthetic.IsochronePhot(logage_vec[i], 0, 10,
-                                         evo_model=evolution.MISTv1(),
-                                         filters=all_filt_list,
-                                         iso_dir=iso_dir)
-
-        # define IMF
-        trunc_kroupa = imf.IMF_broken_powerlaw(mass_limits, powers)
-        # make cluster
-        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa, cluster_mass,
-                                            seed=seed)
-        output = cluster.star_systems
-
-        # Find the stars in MIST not in Galaxia (i.e. WDs)
-        # and figure out how much mass they contribute
-        bad_idx = np.where(output['phase'] == 101)[0]
-        bad_mass = np.sum(output['mass'][bad_idx])  # in m_sol
-
-        # Figure out the current mass (stars + post-AGB stars)
-        current_mass = np.sum(output['mass'])  # in m_sol
-
-        # Figure out the current STELLAR mass (no post-AGB stars)
-        # This is what we want for the ratio
-        # since Galaxia does NOT have white dwarfs.
-        current_stellar_mass = current_mass - bad_mass
-
-        # Calculate the ratio of initial to final stellar mass.
-        current_initial_mass_ratio = current_stellar_mass / cluster_mass
-        current_initial_ratio_array[i] = current_initial_mass_ratio
-        print(current_initial_mass_ratio)
-
-    # Reshape vectors so they can be concatenated into two columns
-    logage_vec = logage_vec.reshape((len(logage_vec), 1))
-    current_initial_ratio_array = current_initial_ratio_array.reshape((len(logage_vec), 1))
-    tab = np.concatenate((logage_vec, current_initial_ratio_array), axis=1)
-    np.savetxt(out_file, tab)
+    lock = lock_in
+    next_id_stars_val = next_id_stars_val_in
+    next_id_co_val = next_id_co_val_in
 
     return
 
 
-def current_initial_ratio(logage, ratio_file, iso_dir, seed=None):
+def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
+                                 popid_array, age_array, lat_bin_edges, long_bin_edges,
+                                 ebf_file, kdt_star_p, exbv_arr4kdt,
+                                 iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
+                                 multiplicity, additional_photometric_systems, t0,
+                                 binning, seed,
+                                 output_root, verbose=0):
+    
     """
-    Calculates the ratio of the current cluster mass to the initial
-    mass of the cluster.
-
+    Processess the objects in a bin including 
+    creating the star dict, generating the compact objects
+    and companions (if applicable) and writing to hdf5 file.
+    
     Parameters
-    ----------
-    logage : float
-        The age of the cluster, given in log(age/yr)
+    -----------
+    bin_idx : array
+        Array of indices of stars that are in the bin
+    
+    age_of_bin : float
+        Mid-point age of bin
+        
+    metallicity_of_bin : float
+        Value of the metallicity bin
+        
+    pop_id_array : array
+        Array of population ids (i.e. 0-9) of Galaxia stars
+    
+    age_array : array
+        Array of ages of Galaxia stars
+    
+    lat_bin_edges : array
+        Edges for the latitude binning (deg)
 
-    ratio_file : txt file
-        The name of the text file that contains the
-        current-initial cluster mass ratio.
-
+    long_bin_edges : array
+        Edges for the longitude binning (deg)
+    
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+        
+    kdt_star_p : scipy KDTree
+        KDTree of the momenta of a random selection of Galaxia stars.
+        
+    exbv_arr4kdt : array
+        Exteniction of the stars in the KD Tree.
+    
     iso_dir : filepath
         Where are the isochrones stored (for SPISEA)
+        
+    IFMR : string
+        The name of the IFMR object from SPISEA. For additional information on these objects see ifmr.py
+        in SPISEA. 
+        'Raithel18' = IFMR_Raithel18
+        'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
+        
+    NS_kick_speed_mean : float
+        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
+        Defaults to 400 km/s based on distributions found by
+        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
+        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+        
+    BH_kick_speed_mean : float
+        Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
+        Defaults to 50 km/s.
+        
+    multiplicity : multiplicity: object
+        If a resovled multiplicity object is specified, 
+        the table will be generated with resolved multiples.
+        Default is None.
+        
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+    
+    t0 : float
+        Start time for timing purposes
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
 
     seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
+        
+    output_root :str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+    
+    Optional Parameters
+    --------------------
+    verbose : int
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
+    
+    Returns
+    --------
+    n_co_new : int
+        Number of new compact objects generated per bin.
+    
+    unmade_cluster_counter_new : int
+        Updated number of unmade clusters (<= 100 M_sun)
 
-    Return
-    ------
-        The current-initial cluster mass ratio (float)
-
+    unmade_cluster_mass_new: float
+        The current mass in the unmade clusters (<= 100 M_sun)
+    
     """
-    global _Mclust_v_age_func
+    # Load up our global (thread-safe) variables.
+    global lock, next_id_stars_val, next_id_co_val
 
-    if _Mclust_v_age_func is None:
-        try:
-            boop = np.loadtxt(ratio_file)
-        except Exception as e:
-            calc_current_initial_ratio(iso_dir=iso_dir, out_file=ratio_file,
-                                       seed=seed)
-            boop = np.loadtxt(ratio_file)
+    ##########
+    # Fill up star_dict
+    ##########
+    star_dict = {}
 
-        logage_vec = boop[:, 0]
-        current_initial_mass_ratio = boop[:, 1]
-        _Mclust_v_age_func = interp1d(logage_vec, current_initial_mass_ratio)
-
-    return _Mclust_v_age_func(logage)
+    # Multi-Threaded (works in Single-Threaded too)
+    with lock:
+        star_dict['obj_id'] = np.arange(len(bin_idx)) + next_id_stars_val.value
+        next_id_stars_val.value += len(bin_idx)
 
 
+    star_dict['age'] = age_array[bin_idx]
+    star_dict['popid'] = popid_array[bin_idx]
 
-def _make_comp_dict(log_age,
-                    cluster,
-                    star_dict, next_id,
-                    kdt_star_p, exbv_arr4kdt,
-                    BH_kick_speed_mean=50, NS_kick_speed_mean=400,
-                    additional_photometric_systems=None,
-                    seed=None):
+    _load_galaxia_into_star_dict(star_dict,
+                                 bin_idx,
+                                 ebf_file,
+                                 additional_photometric_systems)
+    ##########
+    # Add spherical velocities vr, mu_b, mu_lcosb
+    ##########
+    vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'],
+                                         star_dict['vy'],
+                                         star_dict['vz'],
+                                         star_dict['rad'],
+                                         star_dict['glat'],
+                                         star_dict['glon'])
+    #########
+    # Add precision to r, b, l, vr, mu_b, mu_lcosb
+    #########
+    star_dict['rad'] = utils.add_precision64(star_dict['rad'], -4)
+    star_dict['glat'] = utils.add_precision64(star_dict['glat'], -4)
+    star_dict['glon'] = utils.add_precision64(star_dict['glon'], -4)
+    star_dict['vr'] = utils.add_precision64(vr, -4)
+    star_dict['mu_b'] = utils.add_precision64(mu_b, -4)
+    star_dict['mu_lcosb'] = utils.add_precision64(mu_lcosb, -4)
+
+    ##########
+    # Perform population synthesis.
+    ##########
+    mass_in_bin = np.sum(star_dict['mass'])
+    stars_in_bin = {}
+    for key, val in star_dict.items():
+        stars_in_bin[key] = val
+    cluster_tmp, unmade_cluster_counter_new, unmade_cluster_mass_new = _make_cluster(iso_dir=iso_dir,
+                                                                                     log_age=age_of_bin,
+                                                                                     currentClusterMass=mass_in_bin,
+                                                                                     multiplicity=multiplicity,
+                                                                                     IFMR=IFMR,
+                                                                                     feh=metallicity_of_bin, seed=seed,
+                                                                                     additional_photometric_systems=additional_photometric_systems)
+    # Make a temporary table of the compact object primaries. Will eventually be appended to star_dict.
+    co_dict, next_id_co = _make_co_dict(age_of_bin,
+                                        cluster_tmp,
+                                        stars_in_bin,
+                                        kdt_star_p, exbv_arr4kdt,
+                                        BH_kick_speed_mean=BH_kick_speed_mean,
+                                        NS_kick_speed_mean=NS_kick_speed_mean,
+                                        additional_photometric_systems=additional_photometric_systems,
+                                        multiplicity=multiplicity,
+                                        seed=seed)
+
+    #########
+    # If there are multiples make companions table
+    #########
+    if multiplicity is not None:
+        star_dict, companions_table = _make_companions_table(cluster=cluster_tmp,
+                                                             star_dict=star_dict,
+                                                             co_dict=co_dict,
+                                                             additional_photometric_systems=additional_photometric_systems,
+                                                             t0=t0, verbose=verbose)
+
+        # Save companion table
+        with lock:
+            if companions_table is not None:
+                # Save and bin in l, b all companions
+                # Or just save if binning = False
+                if binning == True:
+                    if co_dict is not None:
+                        _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                     co_dict, output_root + '_companions',
+                                     companion_obj_arr=companions_table)
+                    _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                                 stars_in_bin, output_root + '_companions',
+                                 companion_obj_arr=companions_table)
+
+                else:
+                    if co_dict is not None:
+                        _no_bins_hdf5(co_dict, output_root + '_companions',
+                                      companion_obj_arr=companions_table)
+                    _no_bins_hdf5(stars_in_bin, output_root + '_companions',
+                                  companion_obj_arr=companions_table)
+
+    if verbose > 3: print(f'test5 {time.time() - t0:.2f} sec')
+    del cluster_tmp
+
+    ##########
+    #  Save and bin in in l, b all stars and compact objects.
+    #  Or just save if binning = False
+    ##########
+    n_co_new = 0
+    with lock:
+        if binning == True:
+            if co_dict is not None:
+                n_co_new = len(co_dict['mass'])
+                _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                             co_dict, output_root)
+            _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
+                         stars_in_bin, output_root)
+
+        else:
+            if co_dict is not None:
+                n_co_new = len(co_dict['mass'])
+                _no_bins_hdf5(co_dict, output_root)
+            _no_bins_hdf5(stars_in_bin, output_root)
+
+    if verbose > 1: print(f'test6 {time.time() - t0:.2f} sec')
+
+    ##########
+    # Done with galaxia output in dictionary t and ebf_log.
+    # Garbage collect in order to save space.
+    ##########
+    del star_dict
+
+
+    return n_co_new, unmade_cluster_counter_new, unmade_cluster_mass_new
+
+
+def _make_extinction_kdtree(ebf_file, indices, max_num_stars_in_kdt_p=int(2e6)):
+    """
+    Using the stars at the specified indices (but not more than
+    2 million of them), construct a KD tree on px, py, pz and also
+    note the extinction for each of these same stars. Later,
+    we will use this to make a new star at some position,
+    query for the nearest star in position in the KD tree and
+    assign the associated extinction.
+
+    Parameters
+    ----------
+    ebf_file : str
+        The EBF file from Galaxia that contains all the stars.
+
+    indices : array
+        The indices of the stars in this EBF file used to construct
+        the KD tree. Note, if the indices array is too large, then
+        we will randomly choose a smaller subset of these indices for
+        KDTree construction.
+
+    Returns
+    -------
+    kdt_star_p : KDTree
+        The KDTree of Galaxia stars on position [px, py, pz].
+    exbv_arr4kdt : numpy.array
+        The array of associated extinction values for the stars
+        in the KDTree.
+    """
+    kdt_star_p = None
+    exbv_arr4kdt = None
+
+    len_idx = len(indices)
+
+    if len_idx > 0:
+        num_kdtree_samples = int(min(len_idx, max_num_stars_in_kdt_p))
+        kdt_idx = np.random.choice(np.arange(len_idx),
+                                   size=num_kdtree_samples,
+                                   replace=False)
+        bin_idx = indices[kdt_idx]
+        star_px = ebf.read_ind(ebf_file, '/px', bin_idx)
+        star_py = ebf.read_ind(ebf_file, '/py', bin_idx)
+        star_pz = ebf.read_ind(ebf_file, '/pz', bin_idx)
+        star_xyz = np.array([star_px, star_py, star_pz]).T
+        kdt_star_p = cKDTree(star_xyz)
+        exbv_arr4kdt = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+        del bin_idx, star_px, star_py, star_pz
+
+    return exbv_arr4kdt, kdt_star_p
+
+
+def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photometric_systems):
+    """
+    The dictionary is edited in place, so nothing is returned.
+    
+    Parameters
+    ----------
+    star_dict : dictionary
+        The number of entries for each key is the number of stars.
+    
+    bin_idx : array
+        Array of indices of stars that are in the bin
+        
+    ebf_file : str or ebf file
+        str : name of the ebf file from Galaxia
+        ebf file : actually the ebf file from Galaxia
+        
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+    """
+    star_dict['zams_mass'] = ebf.read_ind(ebf_file, '/smass', bin_idx)
+    star_dict['mass'] = ebf.read_ind(ebf_file, '/mact', bin_idx)
+    star_dict['systemMass'] = copy.deepcopy(star_dict['mass'])
+    star_dict['px'] = ebf.read_ind(ebf_file, '/px', bin_idx)
+    star_dict['py'] = ebf.read_ind(ebf_file, '/py', bin_idx)
+    star_dict['pz'] = ebf.read_ind(ebf_file, '/pz', bin_idx)
+    star_dict['vx'] = ebf.read_ind(ebf_file, '/vx', bin_idx)
+    star_dict['vy'] = ebf.read_ind(ebf_file, '/vy', bin_idx)
+    star_dict['vz'] = ebf.read_ind(ebf_file, '/vz', bin_idx)
+    star_dict['exbv'] = ebf.read_ind(ebf_file, '/exbv_schlegel', bin_idx)
+    star_dict['glat'] = ebf.read_ind(ebf_file, '/glat', bin_idx)
+    star_dict['glon'] = ebf.read_ind(ebf_file, '/glon', bin_idx)
+    star_dict['mbol'] = ebf.read_ind(ebf_file, '/lum', bin_idx)
+    star_dict['grav'] = ebf.read_ind(ebf_file, '/grav', bin_idx)
+    star_dict['teff'] = ebf.read_ind(ebf_file, '/teff', bin_idx)
+    star_dict['feh'] = ebf.read_ind(ebf_file, '/feh', bin_idx)
+    star_dict['rad'] = ebf.read_ind(ebf_file, '/rad', bin_idx)
+    star_dict['isMultiple'] = np.zeros(len(bin_idx), dtype=int)
+    star_dict['N_companions'] = np.zeros(len(bin_idx), dtype=int)
+    star_dict['rem_id'] = np.zeros(len(bin_idx))
+    ##########
+    # Angle wrapping for longitude
+    ##########
+    wrap_idx = np.where(star_dict['glon'] > 180)[0]
+    star_dict['glon'][wrap_idx] -= 360
+    ##########
+    # Add UBV magnitudes
+    ##########
+    star_dict['ubv_J'] = ebf.read_ind(ebf_file, '/ubv_J', bin_idx)
+    star_dict['ubv_H'] = ebf.read_ind(ebf_file, '/ubv_H', bin_idx)
+    star_dict['ubv_K'] = ebf.read_ind(ebf_file, '/ubv_K', bin_idx)
+    star_dict['ubv_U'] = ebf.read_ind(ebf_file, '/ubv_U', bin_idx)
+    star_dict['ubv_I'] = ebf.read_ind(ebf_file, '/ubv_I', bin_idx)
+    star_dict['ubv_B'] = ebf.read_ind(ebf_file, '/ubv_B', bin_idx)
+    star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
+    star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
+    ##########
+    # Add ztf magnitudes
+    ##########
+    if additional_photometric_systems is not None:
+        if 'ztf' in additional_photometric_systems:
+            # Pull out ubv magnitudes needed for photometric conversions
+            ubv_b = star_dict['ubv_B']
+            ubv_v = star_dict['ubv_V']
+            ubv_r = star_dict['ubv_R']
+            ubv_i = star_dict['ubv_I']
+
+            ztf_g = transform_ubv_to_ztf('g', ubv_b, ubv_v, ubv_r, ubv_i)
+            ztf_r = transform_ubv_to_ztf('r', ubv_b, ubv_v, ubv_r, ubv_i)
+            ztf_i = transform_ubv_to_ztf('i', ubv_b, ubv_v, ubv_r, ubv_i)
+            star_dict['ztf_g'] = ztf_g
+            star_dict['ztf_r'] = ztf_r
+            star_dict['ztf_i'] = ztf_i
+
+            del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
+
+
+def _get_bin_edges(l, b, surveyArea, bin_edges_number):
+    """
+    
+    Parameters
+    -----------    
+    l : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+        
+    b : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+        
+    surveyArea : float
+        Area of the sky that will be generated, in square degrees
+        
+    bin_edges_number :int
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default in perform_pop_syn), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
+    
+    Returns
+    --------
+    bin_edges_number : int
+        Modified number of edges for the bins.
+        If bin_edges_number = None
+            The widths fo the bins are set to 1/2 an arcmin
+        Bin numbers are set to at least 3 bins.
+        
+    lat_bin_edges : array
+        Edges for the latitude binning (deg)
+
+    long_bin_edges : array
+        Edges for the longitude binning (deg)
+    """
+    # Extend the edges a bit, that's what the * 1.1 is for
+    # (to potentially catch any edge cases.)
+    # make bins of size ~1/2 arcmin
+    radius = np.sqrt(surveyArea / np.pi)  # degrees
+    # Define bin_edges_number, if not given in input.
+    if bin_edges_number is None:
+        # set the widths to 1/2 arcmin
+        bin_edges_number = int(60 * 2 * radius) + 1
+    # Make sure we have enough bin edges (min is 3)
+    bin_edges_number = max(bin_edges_number, 3)
+    # Make sure we have don't have too many bin edges (max is 40)
+    bin_edges_number = min(bin_edges_number, 40)
+    lat_bin_edges = np.linspace(b - 1.1 * radius, b + 1.1 * radius,
+                                bin_edges_number)
+    long_bin_edges = np.linspace(l - 1.1 * radius, l + 1.1 * radius,
+                                 bin_edges_number)
+    # Angle wrapping for longitude
+    wrap_id = np.where(long_bin_edges > 180)[0]
+    long_bin_edges[wrap_id] -= 360
+    return bin_edges_number, lat_bin_edges, long_bin_edges
+
+
+def _make_co_dict(log_age,
+                  cluster,
+                  star_dict,
+                  kdt_star_p, exbv_arr4kdt,
+                  BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                  additional_photometric_systems=None,
+                  multiplicity=None,
+                  seed=None):
+    
     """
     Perform population synthesis.
 
     Parameters
     ----------
-    iso_dir : filepath
-        Where are the isochrones stored (for SPISEA)
-
     log_age : float
         log(age/yr) of the cluster you want to make, rounds to nearest 0.01
 
-    feh : float
-        metallicity [Fe/H] of the cluster you want to make, rounds to nearest value in this list for MIST.
-        [-4.0, -3.5, -3.0, -2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.50, -0.25, 0, 0.25, 0.5]
-        The IFMR object will run at exactly the specified value.
-
-    currentClusterMass : float
-        Mass of the cluster you want to make (M_sun)
+    cluster : SPISEA.ResolvedCluster
+        A SPISEA cluster to use to inject compact objects.
 
     star_dict : dictionary
         The number of entries for each key is the number of stars.
-
-    next_id : int
-        The next unique ID number (int) that will be assigned to
-        the new compact objects created.
 
     kdt_star_p : scipy cKDTree
         KDTree constructed from the positions of randomly selected stars
         that all share the same popid and similar log_age.
 
-    exbv_arr4kdt : numpy
+    exbv_arr4kdt : numpy array
         Array of galactic extinctions for the stars in kdt_star_p
 
-    BH_kick_speed_mean : float, optional
+    Optional Parameters
+    -------------------
+    BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float, optional
+    NS_kick_speed_mean : float
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    additional_photometric_systems : list of strs, optional
+    additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
-    seed : int, optional
+    seed : int
          Seed used to sample the kde tree. If set to any number,
          SPISEA will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
@@ -1320,15 +1542,17 @@ def _make_comp_dict(log_age,
 
     Returns
     -------
-    comp_dict : dictionary
+    co_dict : dictionary
         Keys are the same as star_dict, just for compact objects.
 
-    next_id : int
+    next_id_co : int
         Updated next unique ID number (int) that will be assigned to
         the new compact objects created.
 
     """
-    comp_dict = None
+    global lock, next_id_co_val
+
+    co_dict = None
 
     if cluster:
         output = cluster.star_systems
@@ -1343,28 +1567,33 @@ def _make_comp_dict(log_age,
         compact_ID = np.where((output['phase'] == 101) |
                               (output['phase'] == 102) |
                               (output['phase'] == 103))[0]
-        comp_table = output[compact_ID]
+        co_table = output[compact_ID]
 
         # Removes unused columns to conserve memory.
-        keep_columns = ['mass', 'isMultiple','systemMass','phase', 'mass_current', 'm_ubv_I', 'm_ubv_R',
+        keep_columns = ['zams_mass', 'isMultiple','systemMass', 'phase', 'mass', 'm_ubv_I', 'm_ubv_R',
                         'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H',
                         'm_ukirt_J', 'm_ukirt_K']
+        if multiplicity is not None:
+            keep_columns.append('N_companions')
+            
         if additional_photometric_systems is not None:
             if 'ztf' in additional_photometric_systems:
                 keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
-        comp_table.keep_columns(keep_columns)
+        co_table.keep_columns(keep_columns)
 
-        # Fill out the rest of comp_dict
-        if len(comp_table['mass']) > 0:
+        # Fill out the rest of co_dict
+        if len(co_table['zams_mass']) > 0:
 
             # Turn astropy table into dictionary to conserve memory.
-            comp_dict = {}
-            comp_dict['mass'] = comp_table['mass_current'].data
-            comp_dict['rem_id'] = comp_table['phase'].data
-            comp_dict['zams_mass'] = comp_table['mass'].data
-            comp_dict['isMultiple'] = comp_table['isMultiple'].data
-            #makes sure the system mass is the companions + compact object mass instead of companions + initial primary mass
-            comp_dict['systemMass'] = comp_table['systemMass'].data - comp_dict['zams_mass'] + comp_dict['mass']
+            co_dict = {}
+            co_dict['mass'] = co_table['mass'].data
+            co_dict['rem_id'] = co_table['phase'].data
+            co_dict['zams_mass'] = co_table['zams_mass'].data
+            co_dict['isMultiple'] = co_table['isMultiple'].data
+            # makes sure the system mass is current mass
+            co_dict['systemMass'] = copy.deepcopy(co_dict['mass'])
+            if multiplicity is not None:
+                co_dict['N_companions'] = co_table['N_companions'].data
 
             ##########
             # Assign spherical positions and velocities to all compact objects.
@@ -1379,22 +1608,22 @@ def _make_comp_dict(log_age,
             kde = neighbors.KernelDensity(bandwidth=0.0001)
             kde.fit(kde_in_data)
 
-            kde_out_data = kde.sample(len(comp_dict['mass']),
+            kde_out_data = kde.sample(len(co_dict['mass']),
                                       random_state=seed)
-            comp_dict['rad'] = kde_out_data[:, 0]
-            comp_dict['glat'] = kde_out_data[:, 1]
-            comp_dict['glon'] = kde_out_data[:, 2]
-            comp_dict['vx'] = kde_out_data[:, 3]
-            comp_dict['vy'] = kde_out_data[:, 4]
-            comp_dict['vz'] = kde_out_data[:, 5]
+            co_dict['rad'] = kde_out_data[:, 0]
+            co_dict['glat'] = kde_out_data[:, 1]
+            co_dict['glon'] = kde_out_data[:, 2]
+            co_dict['vx'] = kde_out_data[:, 3]
+            co_dict['vy'] = kde_out_data[:, 4]
+            co_dict['vz'] = kde_out_data[:, 5]
 
             ##########
             # Assign x, y, z position.
             ##########
-            comp_helio = galactic_to_heliocentric(comp_dict['rad'],
-                                                  comp_dict['glat'],
-                                                  comp_dict['glon'])
-            comp_dict['px'], comp_dict['py'], comp_dict['pz'] = comp_helio
+            co_helio = galactic_to_heliocentric(co_dict['rad'],
+                                                  co_dict['glat'],
+                                                  co_dict['glon'])
+            co_dict['px'], co_dict['py'], co_dict['pz'] = co_helio
 
             ##########
             # Add kicks to NSs and BHs.
@@ -1406,129 +1635,132 @@ def _make_comp_dict(log_age,
             # Here we calculate the scipy.stats `scale` by dividing the
             # user defined mean by the Maxwellian mean.
 
-            NS_idx = np.where(comp_dict['rem_id'] == 102)[0]
+            NS_idx = np.where(co_dict['rem_id'] == 102)[0]
             NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
                 NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
                 NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
-                comp_dict['vx'][NS_idx] += NS_kick[0]
-                comp_dict['vy'][NS_idx] += NS_kick[1]
-                comp_dict['vz'][NS_idx] += NS_kick[2]
+                co_dict['vx'][NS_idx] += NS_kick[0]
+                co_dict['vy'][NS_idx] += NS_kick[1]
+                co_dict['vz'][NS_idx] += NS_kick[2]
 
-            BH_idx = np.where(comp_dict['rem_id'] == 103)[0]
+            BH_idx = np.where(co_dict['rem_id'] == 103)[0]
             BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(BH_idx) > 0:
                 BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
                 BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
-                comp_dict['vx'][BH_idx] += BH_kick[0]
-                comp_dict['vy'][BH_idx] += BH_kick[1]
-                comp_dict['vz'][BH_idx] += BH_kick[2]
+                co_dict['vx'][BH_idx] += BH_kick[0]
+                co_dict['vy'][BH_idx] += BH_kick[1]
+                co_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
-            comp_dict['rad'] = utils.add_precision64(comp_dict['rad'], -4)
-            comp_dict['glat'] = utils.add_precision64(comp_dict['glat'], -4)
-            comp_dict['glon'] = utils.add_precision64(comp_dict['glon'], -4)
+            co_dict['rad'] = utils.add_precision64(co_dict['rad'], -4)
+            co_dict['glat'] = utils.add_precision64(co_dict['glat'], -4)
+            co_dict['glon'] = utils.add_precision64(co_dict['glon'], -4)
 
             # Assign vr, mu_b, mu_lcosb.
-            comp_sph = calc_sph_motion(comp_dict['vx'],
-                                       comp_dict['vy'],
-                                       comp_dict['vz'],
-                                       comp_dict['rad'],
-                                       comp_dict['glat'],
-                                       comp_dict['glon'])
-            comp_dict['vr'], comp_dict['mu_b'], comp_dict['mu_lcosb'] = comp_sph
+            co_sph = calc_sph_motion(co_dict['vx'],
+                                       co_dict['vy'],
+                                       co_dict['vz'],
+                                       co_dict['rad'],
+                                       co_dict['glat'],
+                                       co_dict['glon'])
+            co_dict['vr'], co_dict['mu_b'], co_dict['mu_lcosb'] = co_sph
 
             # Add precision to vr, mu_b, mu_lcosb
-            comp_dict['vr'] = utils.add_precision64(comp_dict['vr'], -4)
-            comp_dict['mu_b'] = utils.add_precision64(comp_dict['mu_b'], -4)
-            comp_dict['mu_lcosb'] = utils.add_precision64(comp_dict['mu_lcosb'], -4)
+            co_dict['vr'] = utils.add_precision64(co_dict['vr'], -4)
+            co_dict['mu_b'] = utils.add_precision64(co_dict['mu_b'], -4)
+            co_dict['mu_lcosb'] = utils.add_precision64(co_dict['mu_lcosb'], -4)
 
             # Assign age.
-            comp_dict['age'] = log_age * np.ones(len(comp_dict['vx']))
+            co_dict['age'] = log_age * np.ones(len(co_dict['vx']))
 
             ##########
             # Initialize values for compact object photometry.
             # All of the values are np.nan
             # These are all the outputs from the IFMR object in SPISEA.
             ##########
-            comp_dict['exbv'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_I'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_K'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_J'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_U'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_R'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_B'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_V'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['ubv_H'] = np.full(len(comp_dict['vx']), np.nan)
+            co_dict['exbv'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_I'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_K'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_J'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_U'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_R'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_B'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_V'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['ubv_H'] = np.full(len(co_dict['vx']), np.nan)
 
             if additional_photometric_systems is not None:
                 if 'ztf' in additional_photometric_systems:
-                    comp_dict['ztf_g'] = np.full(len(comp_dict['vx']), np.nan)
-                    comp_dict['ztf_r'] = np.full(len(comp_dict['vx']), np.nan)
-                    comp_dict['ztf_i'] = np.full(len(comp_dict['vx']), np.nan)
+                    co_dict['ztf_g'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['ztf_r'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['ztf_i'] = np.full(len(co_dict['vx']), np.nan)
 
             #########
             # Initialize values for compact object teff, specific gravity and bolometric luminosity
             # All of the values are np.nan
             #########
-            comp_dict['teff'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['grav'] = np.full(len(comp_dict['vx']), np.nan)
-            comp_dict['mbol'] = np.full(len(comp_dict['vx']), np.nan)
+            co_dict['teff'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['grav'] = np.full(len(co_dict['vx']), np.nan)
+            co_dict['mbol'] = np.full(len(co_dict['vx']), np.nan)
 
             #########
             # Assign feh values to the SPISEA compact objects, drawing randomly from the feh of the Galaxia stars
             #########
-            comp_dict['feh'] = np.random.choice(star_dict['feh'], size=len(comp_dict['vx']), replace=True)
+            co_dict['feh'] = np.random.choice(star_dict['feh'], size=len(co_dict['vx']), replace=True)
 
             ##########
             # FIX THE BAD PHOTOMETRY FOR LUMINOUS WHITE DWARFS
-            # For non-dark WDs only (the ones from MIST):
+            # AND COMPACT OBJECTS WITH COMPANIONS (mags in SPISEA are system magnitudes)
+            # For non-dark WDs (the ones from MIST) and compact objects with companions:
             # Approximate extinction from the nearest (in 3-D space) star.
-            # Get WD photometry from MIST models.
+            # Get WD and system photometry from MIST models.
             ##########
-            lum_WD_idx = np.argwhere(~np.isnan(comp_table['m_ubv_I']))
+            lum_co_sys_idx = np.argwhere(~np.isnan(co_table['m_ubv_I']))
 
-            if len(lum_WD_idx) > 0:
-                # The extinction to the luminous white dwarfs is calculated
+            if len(lum_co_sys_idx) > 0:
+                # The extinction to the luminous white dwarfs/luminous systems is calculated
                 # by finding the nearest star in the pop_id / age_bin KDTree
                 # to the compact object and copying that star's extinction.
-                comp_xyz = np.array([comp_dict['px'][lum_WD_idx],
-                                     comp_dict['py'][lum_WD_idx],
-                                     comp_dict['pz'][lum_WD_idx]]).T
-                dist, indices = kdt_star_p.query(comp_xyz)
-                comp_dict['exbv'][lum_WD_idx] = exbv_arr4kdt[indices.T]
+                co_xyz = np.array([co_dict['px'][lum_co_sys_idx],
+                                     co_dict['py'][lum_co_sys_idx],
+                                     co_dict['pz'][lum_co_sys_idx]]).T
+                dist, indices = kdt_star_p.query(co_xyz)
+                co_dict['exbv'][lum_co_sys_idx] = exbv_arr4kdt[indices.T]
 
-                comp_dict['ubv_I'][lum_WD_idx] = comp_table['m_ubv_I'][lum_WD_idx].data
-                comp_dict['ubv_K'][lum_WD_idx] = comp_table['m_ukirt_K'][lum_WD_idx].data
-                comp_dict['ubv_J'][lum_WD_idx] = comp_table['m_ukirt_J'][lum_WD_idx].data
-                comp_dict['ubv_U'][lum_WD_idx] = comp_table['m_ubv_U'][lum_WD_idx].data
-                comp_dict['ubv_R'][lum_WD_idx] = comp_table['m_ubv_R'][lum_WD_idx].data
-                comp_dict['ubv_B'][lum_WD_idx] = comp_table['m_ubv_B'][lum_WD_idx].data
-                comp_dict['ubv_V'][lum_WD_idx] = comp_table['m_ubv_V'][lum_WD_idx].data
-                comp_dict['ubv_H'][lum_WD_idx] = comp_table['m_ukirt_H'][lum_WD_idx].data
+                co_dict['ubv_I'][lum_co_sys_idx] = co_table['m_ubv_I'][lum_co_sys_idx].data
+                co_dict['ubv_K'][lum_co_sys_idx] = co_table['m_ukirt_K'][lum_co_sys_idx].data
+                co_dict['ubv_J'][lum_co_sys_idx] = co_table['m_ukirt_J'][lum_co_sys_idx].data
+                co_dict['ubv_U'][lum_co_sys_idx] = co_table['m_ubv_U'][lum_co_sys_idx].data
+                co_dict['ubv_R'][lum_co_sys_idx] = co_table['m_ubv_R'][lum_co_sys_idx].data
+                co_dict['ubv_B'][lum_co_sys_idx] = co_table['m_ubv_B'][lum_co_sys_idx].data
+                co_dict['ubv_V'][lum_co_sys_idx] = co_table['m_ubv_V'][lum_co_sys_idx].data
+                co_dict['ubv_H'][lum_co_sys_idx] = co_table['m_ukirt_H'][lum_co_sys_idx].data
                 if additional_photometric_systems is not None:
                     if 'ztf' in additional_photometric_systems:
-                        comp_dict['ztf_g'][lum_WD_idx] = comp_table['m_ztf_g'][lum_WD_idx].data
-                        comp_dict['ztf_r'][lum_WD_idx] = comp_table['m_ztf_r'][lum_WD_idx].data
-                        comp_dict['ztf_i'][lum_WD_idx] = comp_table['m_ztf_i'][lum_WD_idx].data
+                        co_dict['ztf_g'][lum_co_sys_idx] = co_table['m_ztf_g'][lum_co_sys_idx].data
+                        co_dict['ztf_r'][lum_co_sys_idx] = co_table['m_ztf_r'][lum_co_sys_idx].data
+                        co_dict['ztf_i'][lum_co_sys_idx] = co_table['m_ztf_i'][lum_co_sys_idx].data
 
                 # Memory cleaning
-                del comp_table
+                del co_table
                 gc.collect()
 
             # Assign population and object ID.
-            comp_dict['popid'] = star_dict['popid'][0] * np.ones(len(comp_dict['vx']))
-            comp_dict['obj_id'] = np.arange(len(comp_dict['vx'])) + next_id
-            
-            next_id += len(comp_dict['vx'])
+            co_dict['popid'] = star_dict['popid'][0] * np.ones(len(co_dict['vx']))
+
+            # Multi-Threaded (works in Single-Threaded too)
+            with lock:
+                co_dict['obj_id'] = np.arange(len(co_dict['vx'])) + next_id_co_val.value
+                next_id_co_val.value += len(co_dict['vx'])
 
     else:
-        comp_dict = None
+        co_dict = None
 
-    return comp_dict, next_id
+    return co_dict, next_id_co_val
 
 
-def _generate_comp_dtype(obj_arr):
+def _generate_compound_dtype(obj_arr):
     """
     Create compound datatype by looping over the keys of the obj_arr.
     Assigns integers as datatypes where reasonable, and float64 to the rest
@@ -1538,15 +1770,15 @@ def _generate_comp_dtype(obj_arr):
     ----------
     obj_arr : array or None
         Array of stars or compact objects to be binned
-        (either comp_dict or star_dict)
+        (either co_dict or star_dict)
 
     Returns
     ------
-    comp_dtype : np.dtype
+    compound_dtype : np.dtype
         Numpy datatype with all of the keys of obj_arr
     """
 
-    comp_dtype_arr = []
+    compound_dtype_arr = []
     for key in obj_arr:
         if key in ['rem_id', 'popid']:  # int16 (up to 32767)
             d = (key, 'i2')
@@ -1554,9 +1786,9 @@ def _generate_comp_dtype(obj_arr):
             d = (key, 'i4')
         else:
             d = (key, 'f8')  # float64
-        comp_dtype_arr.append(d)
-    comp_dtype = np.dtype(comp_dtype_arr)
-    return comp_dtype
+        compound_dtype_arr.append(d)
+    compound_dtype = np.dtype(compound_dtype_arr)
+    return compound_dtype
 
 
 def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_obj_arr = None):
@@ -1575,23 +1807,21 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
 
     obj_arr : array or None
         Array of stars or compact objects to be binned
-        (either comp_dict or star_dict)
+        (either co_dict or star_dict)
 
     output_root : str
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
 
-    additional_photometric_systems : list of strs, optional
-        The name of the photometric systems which should be calculated from
-        Galaxia / SPISEA's ubv photometry and appended to the output files.
-    
+    Optional Parameters
+    -------------------
     companion_obj_arr : astropy table
         Companion table from the ResolvedCluster object. 
         To be used if creating a companion hdf5 file.
         Default None.
         
-    Output
-    ------
+    Output Files
+    ------------
     output_root.h5 : hdf5 file
         An compoud type hdf5 file with datasets that correspond to the longitude bin edges,
         latitude bin edges, and the compact objects and stars sorted into
@@ -1599,9 +1829,9 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
     """
     if companion_obj_arr is None:
         # Create compound datatype from obj_arr
-        comp_dtype = _generate_comp_dtype(obj_arr)
+        compound_dtype = _generate_compound_dtype(obj_arr)
     else:
-        comp_dtype = np.dtype(companion_obj_arr)
+        compound_dtype = np.dtype(companion_obj_arr)
 
     ##########
     # Loop through the latitude and longitude bins.
@@ -1620,7 +1850,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 dataset = hf.create_dataset(dset_name, shape=(0,),
                                             chunks=(1e4,),
                                             maxshape=(None,),
-                                            dtype=comp_dtype)
+                                            dtype=compound_dtype)
             else:
                 dataset = hf[dset_name]
 
@@ -1638,7 +1868,8 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
-                save_data = np.empty(len(id_lb), dtype=comp_dtype)
+                save_data = np.empty(len(id_lb), dtype=compound_dtype)
+
                 if companion_obj_arr is None:
                     for colname in obj_arr:
                         save_data[colname] = obj_arr[colname][id_lb]
@@ -1663,7 +1894,89 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
 
     return
 
-def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR = 'Raithel18', feh = 0, seed=None, additional_photometric_systems=None):
+def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
+    """
+    Given stars and compact objects save into a compound type hdf5 file.
+    No bins, only one dataset (used if doing full sky downsampled)
+
+    Parameters
+    ----------
+    obj_arr : array or None
+        Array of stars or compact objects to be binned
+        (either co_dict or star_dict)
+
+    output_root : str
+        The path and name of the hdf5 file,
+        without suffix (will be saved as output_root.h5)
+
+    Optional Parameters
+    -------------------
+    companion_obj_arr : astropy table
+        Companion table from the ResolvedCluster object. 
+        To be used if creating a companion hdf5 file.
+        Default None.
+        
+    Output Files
+    ------------
+    output_root.h5 : hdf5 file
+        An compoud type hdf5 file with datasets that correspond to the longitude bin edges,
+        latitude bin edges, and the compact objects and stars sorted into
+        those bins.
+    """
+    if companion_obj_arr is None:
+        # Create compound datatype from obj_arr
+        compound_dtype = _generate_compound_dtype(obj_arr)
+    else:
+        compound_dtype = np.dtype(companion_obj_arr)
+
+    ##########
+    # Loop through the latitude and longitude bins.
+    ##########
+    # Open our HDF5 file for reading and appending.
+    # Create as necessary.
+    hf = h5py.File(output_root + '.h5', 'r+')
+    # HDF5 dataset name
+    dset_name = 'objects'
+
+    # Create data set the first time
+    if dset_name not in hf:
+        dataset = hf.create_dataset(dset_name, shape=(0,),
+                                    chunks=(1e4,),
+                                    maxshape=(None,),
+                                    dtype=compound_dtype)
+    else:
+        dataset = hf[dset_name]
+    
+    ##########
+    # Saving the stars and/or compact objects or companions
+    ##########
+    if obj_arr is not None:
+        # Loop over the obj_arr and add all columns into save_data
+        save_data = np.empty(len(obj_arr['mass']), dtype=compound_dtype)
+        if companion_obj_arr is None:
+            for colname in obj_arr:
+                save_data[colname] = obj_arr[colname]
+        # If making a companion hd5f file, finds corresponding companions and save them
+        else:
+            save_data = np.array(companion_obj_arr['system_idx'])
+        
+        # Resize the dataset and add data.
+        old_size = dataset.shape[0]
+        if companion_obj_arr is None:
+            new_size = old_size + len(obj_arr['mass'])                
+        else:
+            new_size = old_size + len(companion_obj_arr['system_idx'])                     
+        dataset.resize((new_size, ))
+        dataset[old_size:new_size] = save_data
+
+    hf.close()
+
+    return
+
+
+def _make_cluster(iso_dir, log_age, currentClusterMass,
+                  multiplicity=None, IFMR = 'Raithel18',
+                  feh = 0, seed=None, additional_photometric_systems=None):
     """
     Creates SPISEA ResolvedCluster() object.
 
@@ -1713,10 +2026,10 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
     cluster : object
         Resolved cluster object from SPISEA.
         
-    unmade_cluster_counter : int
+    unmade_cluster_counter_new : int
         Updated number of unmade clusters (<= 100 M_sun)
 
-    unmade_cluster_mass: float
+    unmade_cluster_mass_new: float
         The current mass in the unmade clusters (<= 100 M_sun)
 
     """
@@ -1730,29 +2043,23 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
             my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
 
     # Calculate the initial cluster mass
-    # changed from 0.08 to 0.1 at start because MIST can't handle.
-    massLimits = np.array([0.1, 0.5, 120])
+    # changed from 0.08 to 0.11 at start because MIST can't handle.
+    massLimits = np.array([0.11, 0.5, 120])
     powers = np.array([-1.3, -2.3])
-    ratio_file = '%s/current_initial_stellar_mass_ratio.txt' % iso_dir
-    ratio = current_initial_ratio(logage=log_age,
-                                  ratio_file=ratio_file,
-                                  iso_dir=iso_dir,
-                                  seed=seed)
-    initialClusterMass = currentClusterMass / ratio
-    
     
 
     ##########
     # Create the SPISEA table (stars and compact objects).
     #    - it is only sensible to do this for a decent sized cluster.
     ##########
-    if initialClusterMass <= 100:
+    if currentClusterMass <= 80:
         unmade_cluster_counter = 1
-        unmade_cluster_mass = initialClusterMass
+        unmade_cluster_mass = currentClusterMass
                     
     else:
         unmade_cluster_counter = 0
         unmade_cluster_mass = 0
+        
         # MAKE isochrone
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
@@ -1778,24 +2085,113 @@ def _make_cluster(iso_dir, log_age, currentClusterMass, multiplicity=None, IFMR 
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!
-        trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers,multiplicity=multiplicity)
+        trunc_kroupa = imf.IMF_broken_powerlaw(massLimits, powers, multiplicity=multiplicity)
 
-        # MAKE cluster
-        cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
-                                            initialClusterMass, ifmr=IFMR_dict[IFMR],
-                                            seed=seed)
+        # MAKE cluster in chunks of currentClusterMass to match 
+        # the SPISEA primary star matches to the galaxia mass
+        cluster = None
+        SPISEA_present_day_star_mass = 0
+        while SPISEA_present_day_star_mass < currentClusterMass:
+            cluster_chunk_mass = currentClusterMass
+            if cluster is None:
+                cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
+                                            cluster_chunk_mass, ifmr=IFMR_dict[IFMR],
+                                            seed=seed, verbose=False)
+                _rename_mass_columns_from_spisea(cluster, multiplicity)
+
+            elif cluster is not None:
+                cluster_addition = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
+                                            cluster_chunk_mass, ifmr=IFMR_dict[IFMR],
+                                            seed=seed, verbose=False)
+                _rename_mass_columns_from_spisea(cluster_addition, multiplicity)
+
+                if multiplicity is not None:
+                    # index of companion assocaited with row of primary, so bump it down the length
+                    # of the rest of the cluster
+                    cluster_addition.companions['system_idx'] += len(cluster.star_systems)
+                    cluster.companions = vstack([cluster.companions, cluster_addition.companions])
+
+                cluster.star_systems = vstack([cluster.star_systems, cluster_addition.star_systems])
+
+            # Note, from here on, mass = current mass, zams_mass = initial mass.
+            SPISEA_present_day_star_mass = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
+            SPISEA_total_mass = np.sum(cluster.star_systems['mass'])
+        
+        
+        # When it overshoots loop through the stars until we get to the appropriate mass
+        # since it's in a random order this should be fine
+        # this will keep the compact objects that are interspursed along the way, 
+        # but their mass is intentionally not counted since we're matching the star mass
+        SPISEA_present_day_star_mass_fix = 0
+        cluster.star_systems['counting_index'] = np.arange(0, len(cluster.star_systems))
+        for idx, object_mass, object_phase in cluster.star_systems.iterrows('counting_index', 'mass', 'phase'):
+            if object_phase < 100:
+                SPISEA_present_day_star_mass_fix += object_mass
+            if SPISEA_present_day_star_mass_fix > currentClusterMass:
+                last_index = idx
+                break                
+        #+1 for difference in index definitions
+        cluster.star_systems = cluster.star_systems[:last_index + 1]
+        if multiplicity is not None:
+            last_multiple_idx = np.where(cluster.star_systems['isMultiple'] == 1)[0][-1]
+            # take the last matching index so triples aren't separated
+            companion_cutoff_index = np.where(cluster.companions['system_idx'] == last_multiple_idx)[0][-1] + 1
+            cluster.companions = cluster.companions[:companion_cutoff_index]
+        
+        # Only check for clusters greater than 5,000 Msun since
+        # 1% of cluster mass could be one star for smaller clusters
+        if currentClusterMass > 5*10**4:
+            SPISEA_present_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
+            assert(np.abs((SPISEA_present_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
+
+        # Removes companions with unnassigned masses being not massive enough for
+        # their isochrone (often high metallicity and old)
+        if multiplicity is not None:
+            bad_companions = np.where(np.isnan(cluster.companions['mass']) == True)
+            bad_companions_primaries = cluster.companions['system_idx'][bad_companions]
+            unique_bad_companions_primaries = np.unique(bad_companions_primaries, return_counts = True)
+            # Subtract number of companions that are bad
+            cluster.star_systems['N_companions'][unique_bad_companions_primaries[0]] -= unique_bad_companions_primaries[1]
+            # Set those that have no companions left to non-multiples
+            cluster.star_systems['isMultiple'][cluster.star_systems['N_companions'] == 0] = 0
+            # Drop companions
+            cluster.companions.remove_rows(bad_companions)
+        
+        
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
 
-def _add_multiples(star_masses, cluster):
+def _rename_mass_columns_from_spisea(cluster, multiplicity):
+    """Rename SPISEA columns:
+         SPISEA mass column (initial mass) --> zams_mass
+         SPISEA mass_current (current mass) --> mass
+
+    Parameters
+    ----------
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    multiplicity: object
+        If a resovled multiplicity object is specified,
+        the table will be generated with resolved multiples.
+    """
+    cluster.star_systems.rename_column('mass', 'zams_mass')
+    cluster.star_systems.rename_column('mass_current', 'mass')
+    if multiplicity is not None:
+        cluster.companions.rename_column('mass', 'zams_mass')
+        cluster.companions.rename_column('mass_current', 'mass')
+
+    return
+
+def _add_multiples(star_zams_masses, cluster, verbose=0):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
 
     Parameters
     ----------
-    star_masses : list
-        Galaxia star mass column form the star_dict.
+    star_zams_masses : list
+        Galaxia star zams_mass column form the star_dict.
 
     cluster : object
         Resolved cluster object from SPISEA.
@@ -1804,42 +2200,283 @@ def _add_multiples(star_masses, cluster):
     -------
     modified_companions : astropy table
         cluster companion table modified to point at Galaxia stars.
-        Deleted companions of compact objects and with primary masses too large.
+        Deleted companions of compact objects and with primary zams masses too large.
 
     """
+    return _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=verbose)
+
+def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
+    """
+    Modifies companion table of cluster object to point to Galaxia stars.
+    Effectively adds multiple systems with stellar primaries.
+
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams_mass column form the star_dict.
+
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    Returns
+    -------
+    modified_companions : astropy table
+        cluster companion table modified to point at Galaxia stars.
+        Deleted companions of compact objects and with primary zams masses too large.
+
+    """
+    # FIXME could join table above to improve memory instead of modifying the ss
+    # and multiple tables separately
+
+    # Define a timer to keep track of runtimes in this function.
+    if verbose > 2:
+        t0 = time.time()
+        print(f'\t Timer _add_multiples: start {t0:.5f} sec')
+
     # populate an index column into cluster_ss to preserve original index
     cluster_ss = cluster.star_systems
-    cluster_ss['index'] = np.arange(len(cluster_ss))
+    cluster_ss['system_idx'] = np.arange(len(cluster_ss))
+
+    # cut down primaries table with the following conditions:
+    #  - only multiples
+    #  - only stellar primaries (no dark compact objects)
+    #  - only spisea stars less massive than the most massive Galaxia star.
+    # These conditions are applied successively.
+    cond_multiple = cluster_ss['isMultiple'] == True
+    cond_stellar_prim = cond_multiple & (cluster_ss['phase'] < 100)
+    cond_not_too_massive = cond_stellar_prim & (cluster_ss['zams_mass'] <= np.max(star_zams_masses))
+    if verbose > 3:
+        print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries.')
+        print(f'  {np.sum(cond_multiple)} are multiple')
+        print(f'  {np.sum(cond_stellar_prim)} are multiple and stars')
+        print(f'  {np.sum(cond_not_too_massive)} are multiple, stars, and not too massive')
+    cluster_ss = cluster_ss[cond_not_too_massive]
+    
+    
+    # For each primary, find the closest, higher-mass Galaxia star.
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+    closest_index_arr, closest_mass_diff = match_companions(star_zams_masses,
+                                                            cluster_ss['zams_mass'].data,
+                                                            verbose=verbose)
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+
+    # Add columns for the matched galaxia ID and primary zams mass difference.
+    cluster_ss['galaxia_id'] = closest_index_arr
+    cluster_ss['zams_mass_match_diff'] = closest_mass_diff
+
+    # Trim out the non-matches
+    cond_matched = closest_index_arr != -1
+    if verbose > 3:
+        print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
+        print(f'  {np.sum(cond_matched)} are matched')
+    cluster_ss = cluster_ss[cond_matched]
+
+    # join tables to keep only those companions that pass our cuts.
+    companion_tmp_df = cluster.companions.to_pandas().set_index(['system_idx'])
+    event_table_df = cluster_ss.to_pandas().set_index(['system_idx'])
+    companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='', rsuffix='_prim', how='inner')
+    
+    # for cc in range(len(companion_tmp_df_joined)):
+    #     print(cc)
+    #     print(companion_tmp_df_joined['zams_mass_match_diff'].values[cc])
+    #     print(star_zams_masses[companion_tmp_df_joined['galaxia_id'].values[cc]])
+    #     print(companion_tmp_df_joined['zams_mass_prim'].values[cc])
+    #     print(star_zams_masses[companion_tmp_df_joined['galaxia_id'].values[cc]] - companion_tmp_df_joined['zams_mass_prim'].values[cc])
+    #     np.testing.assert_almost_equal(companion_tmp_df_joined['zams_mass_match_diff'].values[cc],
+    #                                star_zams_masses[companion_tmp_df_joined['galaxia_id'].values[cc]] - companion_tmp_df_joined['zams_mass_prim'].values[cc],
+    #                                decimal=2)
+
+    # defines the companion Table as the new cut down table
+    # reset index adds system_idx back as its own column
+    # doing list(cluster.companions.columns) means that it only takes columns that were in cluster.companions
+    # all values that were nan were switched to None in pandas, so .filled(np.nan) switches them back to nan.
+    final_columns = list(cluster.companions.columns) + ['galaxia_id', 'zams_mass_match_diff', 'zams_mass_prim']
+    modified_companions = Table.from_pandas(
+        companion_tmp_df_joined.reset_index()[final_columns]).filled(np.nan)
+    
+    # confirm all compnions were assigned to a popsycle primary
+    assert np.sum(np.isnan(modified_companions['galaxia_id'])) == 0
+    assert np.sum(modified_companions['galaxia_id'] < 0) == 0
+
+    # Reorganize the columns
+    modified_companions['spisea_idx'] = modified_companions['system_idx']
+    #modified_companions['spisea_idx'] = copy.deepcopy(modified_companions['system_idx'])
+    modified_companions['system_idx'] = modified_companions['galaxia_id'].astype(int)
+    del modified_companions['galaxia_id']
+    #del cluster.star_systems['system_idx']
+
+    if modified_companions is None:
+        return None
+
+    return modified_companions
+
+def _add_multiples_all(star_zams_masses, cluster, verbose=0):
+    """
+    Modifies companion table of cluster object to point to Galaxia stars.
+    Effectively adds multiple systems with stellar primaries.
+
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams_mass column form the star_dict.
+
+    cluster : object
+        Resolved cluster object from SPISEA.
+
+    Returns
+    -------
+    modified_companions : astropy table
+        cluster companion table modified to point at Galaxia stars.
+        Deleted companions of compact objects and with primary zams masses too large.
+
+    """
+    # FIXME could join table above to improve memory instead of modifying the ss
+    # and multiple tables separately
+
+    # Define a timer to keep track of runtimes in this function.
+    t0 = time.time()
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: start {t0:.5f} sec')
+
+    # populate an index column into cluster_ss to preserve original index
+    cluster_ss = cluster.star_systems
+    cluster_ss['system_idx'] = np.arange(len(cluster_ss))
 
     # cut down table to only multiples
     cond_multiple = cluster_ss['isMultiple'] == True
     cluster_ss = cluster_ss[cond_multiple]
+    
+    # join tables to cut on companions table
+    companion_tmp_df = cluster.companions.to_pandas().set_index(['system_idx'])
+    event_table_df = cluster_ss.to_pandas().set_index(['system_idx'])
+    companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='', rsuffix='_prim', how='inner')
 
     # cut down table to only stellar primaries
-    cond_phase = cluster_ss['phase'] > 100
-    for index in cluster_ss['index'][cond_phase]:
-        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
-        cluster.companions.remove_rows(companion_indicies)
-    cluster_ss = cluster_ss[~cond_phase]
+    companion_tmp_df_joined = companion_tmp_df_joined[companion_tmp_df_joined['phase_prim'] < 100]
+    cluster_ss = cluster_ss[cluster_ss['phase'] < 100]
 
-    # ALL SPISEA SYSTEMS THAT ARE MORE MASSIVE THAN THE MOST MASSIVE GALAXIA
-    # SYSTEM ARE DROPPED!!!!!!!!! (0-2% of systems)
-    cond_too_massive = cluster_ss['mass'] > np.max(star_masses)
-    too_big = np.sum(cond_too_massive)
-    for index in cluster_ss['index'][cond_too_massive]:
-        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
-        cluster.companions.remove_rows(companion_indicies)
-    cluster_ss = cluster_ss[~cond_too_massive]
+    # ALL SPISEA SYSTEMS WITH PRIMARIES MORE MASSIVE THAN THE MOST MASSIVE GALAXIA
+    # SYSTEM ARE DROPPED!!!!!!!!! (0-2% of systems).
+    companion_tmp_df_joined = companion_tmp_df_joined[companion_tmp_df_joined['zams_mass_prim'] <= np.max(star_zams_masses)]
+    cluster_ss = cluster_ss[cluster_ss['zams_mass'] <= np.max(star_zams_masses)]
+    too_big = np.sum(cluster_ss['zams_mass'] > np.max(star_zams_masses))
+    
+    # defines the companion Table as the new cut down table
+    # reset index adds system_idx back as its own column
+    # doing list(cluster.companions.columns) means that it only takes columns that were in cluster.companions
+    # all values that were nan were switched to None in pandas, so .filled(np.nan) switches them back to nan.
+    modified_companions = Table.from_pandas(companion_tmp_df_joined.reset_index()[list(cluster.companions.columns)]).filled(np.nan)
 
     # Place new system_idx into temporary column initiated with NaN
-    cluster.companions['system_idx_tmp'] = np.nan
+    modified_companions['system_idx_tmp'] = np.nan
+    modified_companions['zams_mass_match_diff'] = np.nan
+
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: test1 {time.time() - t0:.5f} sec')
+    closest_index_arr, mass_diff = _match_companions_kdtree(star_zams_masses, cluster_ss['zams_mass'])
+    if verbose > 2:
+        print(f'\t Timer _add_multiples: test2 {time.time() - t0:.5f} sec')
+
+    # loop through each of the SPISEA cluster and match them to a galaxia star
+    for ii, index in enumerate(cluster_ss['system_idx']):
+        closest_index = closest_index_arr[ii]
+        companion_indicies = np.where(modified_companions['system_idx'] == index)[0]
+        # points companions to nearest-in-mass Galaxia primary to SPISEA primary
+        for jj in companion_indicies:
+            modified_companions[jj]['system_idx_tmp'] = closest_index
+            modified_companions[jj]['zams_mass_match_diff'] = star_zams_masses[closest_index] - cluster_ss[ii]['zams_mass']
+    
+    # confirm all compnions were assigned to a popsycle primary
+    assert np.sum(np.isnan(modified_companions['system_idx_tmp'])) == 0
+    assert len(set(modified_companions['system_idx_tmp'])) == len(closest_index_arr)
+    modified_companions['system_idx'] = modified_companions['system_idx_tmp'].astype(int)
+    del modified_companions['system_idx_tmp']
+    del cluster.star_systems['system_idx']
+
+    if modified_companions is None:
+        return None
+
+    num_companions = len(cluster.companions)
+    if verbose > 1:
+        print("Total companions, too big, too big fraction:", num_companions,
+              too_big, too_big / num_companions)
+
+    return modified_companions
+
+def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+    """
+    Matches galaxia stars and SPISEA stellar primaries by closest match.
+    Note this is after all SPISEA stars with mass greater than the largest
+    galaxia mass have been dropped.
+
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams mass column form the star_dict.
+
+    SPISEA_primary_zams_masses : object
+        Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
+        primaries with companions less massive than the most massive galaxia star.
+
+    Returns
+    -------
+    closest_index_arr : array
+        Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
+        with the length of mz_spisea. Note that an index of -1 indicates this star
+        cannot be matched within 20% of the desired mass.
+    mass_diff : array
+        The difference between the galaxia star mass and the spisea primary mass
+        (m_galaxia - m_spisea) for every input spisea star.  Note that a value of np.nan
+        is used for unmatched stars.
+    """
+
+    closest_index_arr, mass_diff = _match_companions_kdtree_nonneg(star_zams_masses,
+                                                                   SPISEA_primary_zams_masses,
+                                                                   verbose=verbose)
+
+    return closest_index_arr, mass_diff
+
+def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+    """
+    Matches galaxia stars and SPISEA stellar primaries by closest match.
+    Note this is after all SPISEA stars with mass greater than the largest
+    galaxia mass have been dropped.
+
+    This algorithm utilizes a KDTree with a euclidean distance on mass.
+    It is the fastest approach and all stars will return masses. However, it
+    will return matches such that m_galaxia < m_spisea, which is not correct.
+    Matches may also have very large mass differences.  Duplicates are not
+    allowed and the search continues until all matches are unduplicated.
+
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams mass column form the star_dict.
+
+    SPISEA_primary_zams_masses : object
+        Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
+        primaries with companions less massive than the most massive galaxia star.
+
+    Returns
+    -------
+    closest_index_arr : array
+        Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
+        with the length of mz_spisea. Note that an index of -1 indicates this star
+        cannot be matched within 20% of the desired mass.
+    mass_diff : array
+        The difference between the galaxia star mass and the spisea primary mass
+        (m_galaxia - m_spisea) for every input spisea star.  Note that a value of np.nan
+        is used for unmatched stars.  This function does not return mass_diff (=None).
+    """
 
     # prepare KDTree of Galaxia masses for mass matching
-    star_mass_tree = np.expand_dims(star_masses, axis=1)
+    star_mass_tree = np.expand_dims(star_zams_masses, axis=1)
     galaxia_mass_tree = cKDTree(star_mass_tree)
-
+    
     # search the tree with SPISEA masses for their nearest match
-    cluster_search_mass = np.expand_dims(cluster_ss['mass'], axis=1)
+    cluster_search_mass = np.expand_dims(SPISEA_primary_zams_masses, axis=1)
     k = 1
     _, closest_index_arr = galaxia_mass_tree.query(cluster_search_mass, k=k)
     print('Starting with %i SPISEA to Galaxia mass matches' % len(closest_index_arr))
@@ -1875,33 +2512,458 @@ def _add_multiples(star_masses, cluster):
                                        return_index=True,
                                        return_counts=True)
         cond = counts > 1
-        print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
+        #print('-- Found %i duplicates at k = %i' % (np.sum(cond), k))
         nonunique_indicies = indexes[cond]
+    
+        
+    return closest_index_arr, None
 
-    # loop through each of the SPISEA cluster and match them to a galaxia star
-    for ii, index in enumerate(cluster_ss['index']):
-        closest_index = closest_index_arr[ii]
-        companion_indicies = np.where(cluster.companions['system_idx'] == index)[0]
-        # points companions to nearest-in-mass Galaxia primary to SPISEA primary
-        for jj in companion_indicies:
-            cluster.companions[jj]['system_idx_tmp'] = closest_index
+def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
+    """
+    Matches galaxia stars and SPISEA stellar primaries by closest match.
+    Note this is after all SPISEA stars with mass greater than the largest
+    galaxia mass have been dropped.
 
-    # confirm all compnions were assigned to a popsycle primary
-    assert np.sum(np.isnan(cluster.companions['system_idx_tmp'])) == 0
-    assert len(set(cluster.companions['system_idx_tmp'])) == len(cluster_search_mass)
-    cluster.companions['system_idx'] = cluster.companions['system_idx_tmp'].astype(int)
-    del cluster.companions['system_idx_tmp']
-    del cluster.star_systems['index']
+    This algorithm utilizes a 2D array to calculate mass differences for every pair
+    of stars. It also only allows matching for stars where m_galaxia >= m_spisea.
+    Duplicates are not allowed and the search continues until all matches are unduplicated.
+    The algorithm is somewhat slower and consumes too much memory for our purposes.
 
-    modified_companions = cluster.companions
-    if modified_companions is None:
-        return None
+    Parameters
+    ----------
+    star_zams_masses : list
+        Galaxia star zams mass column form the star_dict.
 
-    num_companions = len(cluster.companions)
-    print("Total companions, too big, too big fraction:", num_companions,
-          too_big, too_big / num_companions)
+    SPISEA_primary_zams_masses : object
+        Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
+        primaries with companions less massive than the most massive galaxia star.
 
-    return modified_companions
+    Returns
+    -------
+    closest_index_arr : array
+        Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
+        with the length of mz_spisea. Note that an index of -1 indicates this star
+        cannot be matched within 20% of the desired mass.
+
+    mass_diff : array
+        The difference between the galaxia star mass and the spisea primary mass
+        (m_galaxia - m_spisea) for every input spisea star.  Note that a value of np.nan
+        is used for unmatched stars.
+    """
+    if verbose > 3:
+        print('memory test 0')
+    
+    # Shorter variable names
+    m_g = np.asarray(star_zams_masses)
+    m_s = np.asarray(SPISEA_primary_zams_masses)
+    
+    if verbose > 3:
+        print('memory test 1')
+    
+    # Pre-sort both.
+    sdx_s = np.argsort(m_s)  # connection between sorted and orig position
+    sdx_g = np.argsort(m_g)
+    m_s_sorted = m_s[sdx_s]
+    m_g_sorted = m_g[sdx_g]
+    
+    if verbose > 3:
+        print('memory test 2')
+
+    # Make a big 2D array of all the differences.
+    # Shape is [N_g, N_s]
+    diff = m_g_sorted[:, np.newaxis] - m_s_sorted
+    
+    if verbose > 3:
+        print('memory test 3')
+
+    # Append a 1000 Msun diff row so we ALWAYS have a match.
+    # Matching to the last row means "no match".
+    dummy_diffs = np.array([[1000] * len(m_s), ])
+    diff = np.append(diff, dummy_diffs, axis=0)
+    idx_nomatch = diff.shape[0] - 1  # index of the dummy case
+    
+    if verbose > 3:
+        print('memory test 4')
+
+    # Only allow matches where the Galaxia mass is larger than the SPISEA mass.
+    diff[diff < 0] = np.nan # Set zeros (lower triangle) to nans.
+    closest_index_arr_sorted = np.nanargmin(diff, axis=0)
+    assert closest_index_arr_sorted.shape[0] == len(m_s)
+    del diff
+    
+    if verbose > 3:
+        print('memory test 5')
+
+    # Now loop through and make sure we only have unique matches.
+    # Essentially, if two spisea stars match to the same Galaxia object,
+    # we will take the higher-mass spisea star and walk up in mass in the Galaxia
+    # table until we find a unique match.
+    k = 0
+    uni, indexes, counts = np.unique(closest_index_arr_sorted,
+                                   return_index=True,
+                                   return_counts=True)
+    
+    if verbose > 3:
+        print('memory test 6')
+
+    # Count up the number of duplicates, not counting "no-matches"
+    cond = (counts > 1) & (uni != idx_nomatch)
+    n_dups = np.sum(cond)
+    n_nomatch = np.sum(uni == idx_nomatch)
+    if verbose > 3:
+        print(f'match_companions: Found {n_dups} duplicates in round {k}')
+        print(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+
+    nonunique_indices = indexes[cond]
+
+    # loop through until all duplicates are matched uniquely or we run out
+    # of galaxia stars at the highest mass. These become "no matches".
+    while n_dups > 0:
+        # increment up to the next most-massive galaxia star for the duplicates.
+        k += 1
+        closest_index_arr_sorted[nonunique_indices] += 1
+
+        # Update duplicates check.
+        uni, indexes, counts = np.unique(closest_index_arr_sorted,
+                                       return_index=True,
+                                       return_counts=True)
+
+        cond = (counts > 1) & (uni != idx_nomatch)
+        n_dups = np.sum(cond)
+        n_nomatch = np.sum(uni == idx_nomatch)
+        if verbose > 3:
+            print(f'match_companions: Found {n_dups} duplicates in round {k}')
+            print(f'match_companions: Found {n_nomatch} with no matches in round {k}')
+
+        nonunique_indices = indexes[cond]
+
+
+    # Fix up the non-matches.
+    good_matches = np.argwhere(closest_index_arr_sorted != idx_nomatch)
+
+    # The final indices are still on the sorted array. Reverse to index on original input arrays.
+    # Note that index = -1 means no match.
+    closest_index_arr = np.ones_like(sdx_s) * -1
+    closest_index_arr[sdx_s[good_matches]] = sdx_g[closest_index_arr_sorted[good_matches]]
+
+    mass_diff = np.full_like(m_s, np.nan)
+    mass_diff[sdx_s[good_matches]] = m_g_sorted[closest_index_arr_sorted[good_matches]] - m_s_sorted[good_matches]
+
+    return closest_index_arr, mass_diff
+
+def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_diff=0.2, verbose=0):
+    """
+    Matches galaxia stars and SPISEA stellar primaries by closest match.
+    Note this is after all SPISEA stars with mass greater than the largest
+    galaxia mass have been dropped.
+
+    This algorithm utilizes a KDTree for matching; but then properly disallows
+    the case where m_galaxia < m_spisea. Duplicates are not allowed and the search
+    continues until all matches are unduplicated. However, there is a stopping
+    criteria set for the maximum allowed fractional mass difference:
+        (m_galaxia - m_spisea) / m_galaxia
+    Once all remaining unmatched stars have a fractiona mass difference value
+    that exceeds 0.2 (default), the search is stopped and all remaining stars are
+    declared unmatched. This can amount to ~10% of stars.
+    
+    Parameters
+    ----------
+    mz_galaxia_in : list
+        Galaxia star zams mass column form the star_dict.
+
+    mz_spisea_in : object
+        Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
+        primaries with companions less massive than the most massive galaxia star.
+
+    Returns
+    -------
+    closest_index_arr : array
+        Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
+        with the length of mz_spisea. Note that an index of -1 indicates this star
+        cannot be matched within 20% of the desired mass.
+
+    mass_diff : array
+        The difference between the galaxia star mass and the spisea primary mass
+        (m_galaxia - m_spisea) for every input spisea star.  Note that a value of np.nan
+        is used for unmatched stars.
+    
+    """
+    # prepare KDTree of Galaxia masses for mass matching. KDtree requires 2d arrays (N_stars, 1)
+    mz_galaxia = np.expand_dims(mz_galaxia_in, axis=1)
+    mz_spisea = np.expand_dims(mz_spisea_in, axis=1)
+    galaxia_mass_tree = cKDTree(mz_galaxia)
+    if verbose > 0:
+        print(f'match_companions: {mz_galaxia.shape[0]} galaxia masses, {mz_spisea.shape[0]} spisea masses')
+
+    # Setup our output variables.
+    # Note: closest_index_arr can take the following values:
+    #    -2     not yet declared matched or unmatched
+    #    -1     unmatched and not to be searched further (e.g. dm/m > 0.2)
+    #    >= 0   matched
+    closest_index_arr = np.full(mz_spisea.shape[0], -2, dtype=int)
+    mass_diff = np.full(mz_spisea.shape[0], np.nan, dtype=np.float16)
+
+    # Start with everything unmatched
+    unmatched_indices = np.arange(mz_spisea.shape[0])
+    k = 1  # Start with the first nearest neighbor.
+
+    # while there are un-matched stars, keep going.
+    while len(unmatched_indices) > 0 and k < mz_galaxia.shape[0]:
+        if verbose > 3: print(f'match_companions: k = {k}')
+
+        # Search the KDtree for matches
+        _, new_closest_index_arr = galaxia_mass_tree.query(mz_spisea[unmatched_indices], k=k)
+        
+        # extract the neighbor that is furthest away within k-neighbors
+        if len(new_closest_index_arr.shape) > 1:
+            new_closest_index_arr = np.array([i[-1] for i in new_closest_index_arr])
+
+        # *** Condition *** Enforce positive mass difference.
+        # Calculate the current mass difference.
+        new_mass_diff = mz_galaxia[new_closest_index_arr, 0] - mz_spisea[unmatched_indices, 0]
+
+        # Identify the good matches that have m_galaxia < m_spisea.
+        new_matches = np.where(new_mass_diff >= 0)[0]
+        if verbose > 3: print(f'-- Found {len(unmatched_indices) - len(new_matches)} m_galaxia < m_spisea')
+
+        # For new, good matches, assign the closest index value and mass difference.
+        # Otherwise, index = -1 and mass_diff = nan to indicate negative mass diff stars.
+        closest_index_arr[unmatched_indices[new_matches]] = new_closest_index_arr[new_matches]
+        mass_diff[unmatched_indices[new_matches]] = new_mass_diff[new_matches]
+
+        # *** Condition *** Enforce mass-matching within dm/m < 0.2.
+        new_frac_mass_diff = np.abs(new_mass_diff / mz_galaxia[new_closest_index_arr, 0])
+        bad_matches = np.where(new_frac_mass_diff > max_frac_mass_diff)[0]
+        closest_index_arr[unmatched_indices[bad_matches]] = -1   # Declare these unmatched forever.
+        mass_diff[unmatched_indices[bad_matches]] = np.nan
+        if verbose > 3:
+            print(f'-- Found {len(bad_matches)} new matches with dm/m > {max_frac_mass_diff} to call unmatched.')
+            print(f'-- Fractional abs mass diff range = {new_frac_mass_diff.min():.3f} - {new_frac_mass_diff.max():.2f}')
+
+        # *** Condition *** Enforce no duplicates.
+        # count the number of duplicates that remain in the whole array.
+        uni_vals, indexes, idx_inverse, counts = np.unique(closest_index_arr,
+                                              return_index=True,
+                                              return_inverse=True,
+                                              return_counts=True)
+        
+        cond_dup = np.logical_and(counts > 1, uni_vals >= 0)  # Only consider dupes among good matches.
+        if verbose > 3: print(f'-- Found {np.sum(cond_dup)} duplicates')
+    
+        # grab indices where the first duplicate is located
+        nonunique_indices = indexes[cond_dup]
+
+        # reset the duplicates to unmatched (need for stopping condition below).
+        closest_index_arr[nonunique_indices] = -2
+        mass_diff[nonunique_indices] = np.nan
+
+        # Fix cases where there were duplicates with >2 counts.
+        tdx = np.where((counts > 2) & (uni_vals >= 0))[0]
+        if verbose > 3: print(f'-- Found {len(tdx)} duplicates with count > 2')
+        for tt in tdx:
+            cdx = np.where(idx_inverse == tt)[0]
+
+            # print(f'tt={tt}: cnt={counts[tt]} idx={indexes[tt]}')
+            # print(f'         cdx={cdx}')
+
+            # We have already corrected one of them. So for count=3, there should be 2 left.
+            # For count=4, there should be 3 left. But we want to keep one of the matches around.
+            # Arbitrarily choose the last one to keep around.
+            if len(cdx) > 1:
+                closest_index_arr[cdx[:-1]] = -2
+                mass_diff[cdx[:-1]] = np.nan
+
+        # # temporary to verify that no duplicates remain (except for unmatched -1).
+        # uni_vals2, indexes2, idx_inverse2, counts2 = np.unique(closest_index_arr,
+        #                                                    return_index=True,
+        #                                                    return_inverse=True,
+        #                                                    return_counts=True)
+        # pdb.set_trace()
+        # assert np.max(counts2[1:]) == 1
+
+        # grab indices of all stars that remain to be matched
+        # indicated by -2 closest index.
+        unmatched_indices = np.where(closest_index_arr == -2)[0]
+        if verbose > 3: print(f'-- Found {len(unmatched_indices)} still unmatched after this round')
+
+        # increase the search to one neighbor further away for next round.
+        k += 1
+
+    if verbose > 0:
+        N_total = len(closest_index_arr)
+        N_matched = np.sum(closest_index_arr >= 0)
+        #N_unmatched = np.sum(closest_index_arr == -1)
+        print(f'match_companions: Maximum k = {k-1} with {N_matched} of {N_total} matched.')
+
+    return closest_index_arr, mass_diff
+
+
+def _make_companions_table(cluster, star_dict, co_dict,
+                           additional_photometric_systems = None, t0 = 0,
+                           verbose=0):
+    """
+    Makes companions table by:
+        1. Taking companions of compact objects and pointing their 
+        system_idx to the co_dict obj_id (so not dependent on position in list)
+        2. Matching SPISEA stellar primaries to galaxia primaries by mass
+        and pointing the companion system_idx to the galaxia obj_id
+        3. Combining those two tables into companions_table.
+
+    Also modifies the following star_dict columns:
+        1. systemMass = primary mass + companion masses (current mass)
+        2. Sets isMultiple = 1 for all systems with companions
+        3. Sets N_companions column based on duplication of system_idx
+        in companions table
+        4. Changes magnitudes to system magnitudes
+
+    Parameters
+    ----------
+    cluster : object
+        Resolved cluster object from SPISEA.
+    
+    star_dict : dictionary
+        The number of entries for each key is the number of (primary) stars.
+    
+    co_dict : dictionary
+        Keys are the same as star_dict, just for compact objects.
+
+    Optional Parameters
+    -------------------
+    additional_photometric_systems : list of strs
+        The name of the photometric systems which should be calculated from
+        Galaxia / SPISEA's ubv photometry and appended to the output files.
+        
+    t0 : float
+        Initial time for timing purposes. Default is 0.
+
+    verbose : int
+        Print out more verbose statements for higher numbers. Coarse timing reported
+        with verbose=2. Fine timing reported for verbose=4.
+
+    Returns
+    -------
+    star_dict : dictionary
+        The number of entries for each key is the number of (primary) stars.
+        Modified systemMass, isMultiple, and N_companion columns.
+        
+    companions_table : astropy table
+        Companions table with columns from SPISEA, but points system_idx to
+        galaxia obj_id.
+
+    """
+    if cluster:
+        if verbose > 3: print(f'test1 {time.time() - t0:.2f} sec')
+
+        ###########
+        # Treats compact object companions
+        ###########
+        
+        # Makes a separate companion table with primaries as compact objects
+        # Points the system_idx to obj_id instead of idx
+        if co_dict is not None and cluster.companions:
+            
+            # Build a list of systems for every companion (will be repeat systems). Shape = N_companions
+            # We will call this the "dup_sys" table for duplicate systems (duplicated x N_companions)
+            clust_dup_sys = cluster.star_systems[cluster.companions['system_idx']]
+            # Filter the dup_sys table to just those with CO primaries.
+            co_idx_in_dup_sys_table = np.where(clust_dup_sys['phase'] > 100)[0]
+            compact_companions = cluster.companions[co_idx_in_dup_sys_table]
+
+            # Make a new co_dict table that still preserves N_companions.
+            co_idx_in_sys_table = np.where(cluster.star_systems['phase'] > 100)[0]
+            co_dict_tmp = cluster.star_systems[co_idx_in_sys_table]
+
+            # Repeat the indices into co_dict times the number of companions
+            co_idx = np.arange(0, len(co_dict_tmp))
+            co_idx_for_dup_sys_table = np.repeat(co_idx, co_dict_tmp['N_companions'])
+
+            # Reset the companion system_idx to be the correct obj_id
+            compact_companions['system_idx'] = co_dict['obj_id'][co_idx_for_dup_sys_table]
+
+            # sums mass of companions if there are triples
+            grouped_co_companions = compact_companions.group_by(['system_idx'])
+            CO_companions_system_mass = grouped_co_companions['mass'].groups.aggregate(np.sum)
+            grouped_system_idxs = np.array(grouped_co_companions.groups.keys['system_idx'])
+            # Returns the intersecting obj_ids/system_idxs, indices in CO_table that correspond with the overlap, 
+            # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
+            CO_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id']), grouped_system_idxs, return_indices = True)
+            
+            # indexes on grouped_companions.groups.keys since this is one system_idx per system 
+            # (i.e. no duplicated if there are triples)
+            co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
+
+            if verbose > 3: print(f'test2 {time.time() - t0:.2f} sec')
+
+            del co_dict_tmp
+        
+        ###########
+        # Treats stellar companions and joins stellar and CO companions
+        ###########
+        # First matches galaxia and SPISEA primaries
+        companions_table = _add_multiples(star_zams_masses=star_dict['zams_mass'], cluster=cluster)
+        if verbose > 3: print(f'test3 {time.time() - t0:.2f} sec')
+        if companions_table:
+            # sums mass of companions if there are triples
+            grouped_companions = companions_table.group_by(['system_idx'])
+            companions_system_mass = grouped_companions['mass'].groups.aggregate(np.sum)
+            group_companions_system_idxs = grouped_companions.groups.keys['system_idx']
+            # indexes on grouped_companions.groups.keys since this is one system_idx per system 
+            # (i.e. no duplicated if there are triples)
+            star_dict['systemMass'][group_companions_system_idxs] += companions_system_mass
+            star_dict['isMultiple'][group_companions_system_idxs] = 1
+
+            # Adds N companions column to star_dict
+            # this column already existed in the main cluster
+            # but remaking due to indexing changes
+            N_companions_dictionary = Counter(companions_table['system_idx'])
+            star_dict['N_companions'][companions_table['system_idx']] = itemgetter(*companions_table['system_idx'])(N_companions_dictionary)
+            
+            # Changes luminosities to be system luminosities
+            companions_system_m_ubv_I = grouped_companions['m_ubv_I'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_K = grouped_companions['m_ukirt_K'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_J = grouped_companions['m_ukirt_J'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_U = grouped_companions['m_ubv_U'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_R = grouped_companions['m_ubv_R'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_B = grouped_companions['m_ubv_B'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_V = grouped_companions['m_ubv_V'].groups.aggregate(binary_utils.add_magnitudes)
+            companions_system_m_ubv_H = grouped_companions['m_ukirt_H'].groups.aggregate(binary_utils.add_magnitudes)
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(binary_utils.add_magnitudes)
+                    
+            
+            star_dict['ubv_I'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
+            star_dict['ubv_K'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_K'][group_companions_system_idxs], companions_system_m_ubv_K])
+            star_dict['ubv_J'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_J'][group_companions_system_idxs], companions_system_m_ubv_J])
+            star_dict['ubv_U'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_U'][group_companions_system_idxs], companions_system_m_ubv_U])
+            star_dict['ubv_R'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_R'][group_companions_system_idxs], companions_system_m_ubv_R])
+            star_dict['ubv_B'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_B'][group_companions_system_idxs], companions_system_m_ubv_B])
+            star_dict['ubv_V'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_V'][group_companions_system_idxs], companions_system_m_ubv_V])
+            star_dict['ubv_H'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_H'][group_companions_system_idxs], companions_system_m_ubv_H])
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    star_dict['ztf_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
+                    star_dict['ztf_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
+                    star_dict['ztf_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
+            
+            # Switch companion table to point to obj_id instead of idx
+            companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
+
+            # Makes companions with stellar and compact primaries into one table
+            if co_dict is not None:
+                companions_table = (vstack([companions_table, compact_companions], join_type='inner'))
+
+            if verbose > 3: print(f'test4 {time.time() - t0:.2f} sec')
+    else:
+        companions_table = None
+            
+    return star_dict, companions_table
+            
+        
+
+    
     
 
 ############################################################################
@@ -2118,13 +3180,11 @@ def calc_events(hdf5_file, output_root2,
     ##########
     # Should I use starmap_async?
     results = pool.starmap(_calc_event_time_loop, inputs)
-    #pdb.set_trace()
     pool.close()
     pool.join()
 
     # Remove all the None values
     # (occurs for patches with less than 10 objects)
-    #results = [i for i in results.get() if i is not None]
     results = [i for i in results if i is not None]
 
     results_ev = []
@@ -2143,7 +3203,6 @@ def calc_events(hdf5_file, output_root2,
             blends_tmp = np.array([])
         else:
             blends_tmp = np.concatenate(results_bl, axis=0)
-        #pdb.set_trace()
         # Convert the events numpy recarray into an
         # Astropy Table for easier consumption.
         events_tmp = unique_events(events_tmp)
@@ -2272,16 +3331,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
 
-            # Filling in number of companions column to primaries
-            N_companions = ((bigpatch_comp_df.groupby(['system_idx']).count()['mass']).to_frame()).reset_index()
-            N_companions = N_companions.rename(columns={'mass':'N_comp'})
-            # Cross referencing between N_companions from companions table and the primaries
-            N_companions = N_companions.set_index("system_idx")
-            bigpatch_df = bigpatch_df.set_index('obj_id')
-            bigpatch_df = bigpatch_df.join(N_companions)
-            bigpatch_df['N_comp'] = bigpatch_df['N_comp'].fillna(0) # Make nans from lack of companions to zeros
-            bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
-            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_comp']))
+            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_companions']))
 
             a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
 
@@ -2348,7 +3398,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # Note 1: We are centering on the lens.
             # Note 2: We don't want to include the lens itself,
             # or the source, in the table.
-            # Note 3: PROPER BLENDING FOR BINARIES IS NOT PROPERLY TAKEN INTO ACCOUNT
+            # Note 3: Assumes all binaries are blended
             ##########
             blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
 
@@ -2848,7 +3898,7 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
     return
 
 
-def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
+def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'default', overwrite=False):
     """
     Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
@@ -2866,6 +3916,18 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     output_root : str
         The name for the new blend table
         (and corresponding event table)
+        
+    Optional Parameters
+    ------------------
+    input_root : str
+        The input root of the old blend table.
+        If 'default', takes root of blend_tab.
+    
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+        
 
     Return
     ------
@@ -2873,7 +3935,8 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
         New table with smaller blend radius.
 
     """
-    input_root = blend_tab.rstrip('_blends.fits')
+    if input_root == 'default':
+        input_root = blend_tab.rstrip('_blends.fits')
 
     event_tab_name = input_root + '_events.fits'
     event_log_name = input_root + '_calc_events.log'
@@ -2931,7 +3994,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
 
 def _check_refine_events(input_root, filter_name,
                          photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp):
+                         output_file, hdf5_file_comp, legacy, seed):
     """
     Checks that the inputs of refine_events are valid
 
@@ -2960,6 +4023,16 @@ def _check_refine_events(input_root, filter_name,
     hdf5_file_comp: str
         String of hdf5 file of companion events created in perform_pop_syn().
         Default is None.
+        
+    legacy : bool
+        For running on files created before ~2020 when the filter system was changed
+        to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
+        Default is False.
+
+    seed : None or int
+        If not None, this forces the random orbit time for binaries to be fixed every time.
+        If seed is added but there are no binaries, the seed will have no consequence.
+        Default is None.
     """
 
     if not isinstance(input_root, str):
@@ -2983,6 +4056,13 @@ def _check_refine_events(input_root, filter_name,
     if not isinstance(hdf5_file_comp, str):
         if not isinstance(hdf5_file_comp, type(None)):
             raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
+            
+    if not isinstance(legacy, bool):
+        raise Exception('legacy (%s) must be a boolean.' % str(legacy))
+
+    if seed is not None:
+        if not isinstance(seed, int):
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -3016,7 +4096,7 @@ def _check_refine_events(input_root, filter_name,
 
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
-                  output_file='default', hdf5_file_comp=None):
+                  output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -3052,6 +4132,16 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     hdf5_file_comp: str
         String of hdf5 file of companion events created in perform_pop_syn().
         Default is None.
+    
+    legacy : bool
+        For running on files created before ~2020 when the filter system was changed
+        to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
+        Default is False.
+        
+    seed : None or int
+        If not None, this forces the random orbit time for binaries to be fixed every time.
+        If seed is added but there are no binaries, the seed will have no consequence.
+        Default is None.
 
     Output:
     ----------
@@ -3065,6 +4155,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     that contains the same objects as a the companion file with extra columns of data.
 
     """
+    # Set random seed
+    np.random.seed(seed)
+                      
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.
     if not overwrite and os.path.isfile(output_file):
@@ -3074,7 +4167,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Error handling/complaining if input types are not right.
     _check_refine_events(input_root, filter_name,
                          photometric_system, red_law,
-                         overwrite, output_file, hdf5_file_comp)
+                         overwrite, output_file, hdf5_file_comp, legacy, seed)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
@@ -3100,6 +4193,15 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
+    
+    # In legacy files set filters to upper case (i.e. ubv_r to ubv_R)
+    if legacy == True:
+        lowercase_ubv_filter_list = ['u', 'b', 'v', 'r', 'i', 'j', 'k', 'h']
+        for ubv_filter in lowercase_ubv_filter_list:
+            event_tab.rename_column('ubv_{}_S'.format(ubv_filter), 'ubv_{}_S'.format(ubv_filter.upper()))
+            event_tab.rename_column('ubv_{}_L'.format(ubv_filter), 'ubv_{}_L'.format(ubv_filter.upper()))
+            blend_tab.rename_column('ubv_{}_N'.format(ubv_filter), 'ubv_{}_N'.format(ubv_filter.upper()))
+            
         
 
     # If photometric fields contain -99, convert to nan
@@ -3136,6 +4238,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 except:
                     pps_seed = np.nan
                 break
+    
+    # Sets random seed to nan for legacy files unless
+    #  some value was set manually
+    if legacy == True:
+        try:
+            gal_seed
+        except NameError:
+            gal_seed = np.nan
+        
+        try:
+            pps_seed
+        except NameError:
+            pps_seed = np.nan
+            
 
     # Calculate time and separation at closest approach, add to table
     # NOTE: calc_closest_approach modifies the event table!
@@ -3177,22 +4293,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+    
+    
 
     
     
-    
     # If Multiples
-    start_time_test = time.time()
     if hdf5_file_comp is not None:
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         companion_table = []
         
         #sets up event table to be indexed
         event_table = event_tab.to_pandas()
-        event_tab_L = copy.deepcopy(event_table)
-        event_tab_S = copy.deepcopy(event_table)
-        event_tab_L = event_tab_L.set_index('obj_id_L')
-        event_tab_S = event_tab_S.set_index('obj_id_S')
+        event_tab_L = copy.deepcopy(event_table).set_index('obj_id_L')
+        event_tab_S = copy.deepcopy(event_table).set_index('obj_id_S')
         # Loops through the non-metadata parts of hf_comp square by square
         # so the memory isn't overwhelmed
         for ii in np.hstack((hf_comp)):
@@ -3206,6 +4320,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     
                 patch_comp_df = pd.DataFrame(data = patch_comp, columns = np.dtype(patch_comp[0]).names)
                 
+                # deletes patch so memory not overwhelmed
+                del patch_comp
+                
                 #set the table to be indexed on system_idx
                 #so that they can be joined based on those indices
                 #event tables set to be indexed on obj_id_L, and obj_id_S above loop
@@ -3217,56 +4334,62 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_L = patch_comp_df.join(event_tab_L, lsuffix='_comp', rsuffix='_prim', how='inner')
                 patch_comp_S = patch_comp_df.join(event_tab_S, lsuffix='_comp', rsuffix='_prim', how='inner')
                 
+                # deletes patch so memory not overwhelmed
+                del patch_comp_df
+                
+                # FIX ME: Memory could potentially be cleaned up here.
+                # Reset index adds obj_id_L back as its own column
+                # indexing on patch_comp_df_columns means that it only takes columns that were in the primary event table
                 patch_comp_L['prim_type'] = "L"
                 patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
                 patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
-                patch_comp_L['system_idx'] = patch_comp_L.index
-                patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
+                # In newer pandas versions name of index is maintained
+                if patch_comp_L.index.name != 'system_idx':
+                    patch_comp_L['system_idx'] = patch_comp_L.index
+                if len(patch_comp_L) > 0:
+                    patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
                 
                 patch_comp_S['prim_type'] = "S"
                 patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
                 patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
-                patch_comp_S['system_idx'] = patch_comp_S.index
-                patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
-                
+                # In newer pandas versions name of index is maintained
+                if patch_comp_S.index.name != 'system_idx':
+                    patch_comp_S['system_idx'] = patch_comp_S.index
+                if len(patch_comp_S) > 0:
+                    patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
+
                 #For first time companion table is being created
                 if len(companion_table) == 0:
                     if len(patch_comp_L) > 0:
                         companion_table = patch_comp_L
                         if len(patch_comp_S) > 0:
-                            companion_table = companion_table.append(patch_comp_S)
-                        continue
+                            companion_table = pd.concat([companion_table, patch_comp_S], ignore_index=True)
+                            #continue
                     elif len(patch_comp_S) > 0:
                         companion_table = patch_comp_S
-                        continue
-                        
-                
-                # Appends them to companion table
-                # if-statement necessary because dtype of prim_type column doesn't change
-                # if the table is empty
-                if len(patch_comp_L) > 0:
-                    companion_table = companion_table.append(patch_comp_L)
-                if len(patch_comp_S) > 0:
-                    companion_table = companion_table.append(patch_comp_S)
-                
-                    
+                        #continue
+                # For not first-time, appending       
+                else:
+                    # Appends them to companion table
+                    # if-statement necessary because dtype of prim_type column doesn't change
+                    # if the table is empty
+                    if len(patch_comp_L) > 0:
+                        companion_table = pd.concat([companion_table, patch_comp_L], ignore_index=True)
+                    if len(patch_comp_S) > 0:
+                        companion_table = pd.concat([companion_table, patch_comp_S], ignore_index=True)
+                 
                 # deletes patch so memory not overwhelmed
-                del patch_comp
-                del patch_comp_df
+                del patch_comp_L
+                del patch_comp_S
         hf_comp.close()
-        print(time.time() - start_time_test)
-        
         
         
         if len(companion_table) > 0:
             
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
-            companion_table = _calculate_binary_angles(companion_table, event_tab)
-            #pdb.set_trace()
-            #companion_table = Table(companion_table)
+            companion_table = _add_binary_angles(companion_table, event_tab)
             companion_table = Table.from_pandas(companion_table).filled(np.nan)
-            #pdb.set_trace()
             
             # Adds metadata
             companion_table['i'].description = 'w/rt galactic galactic north'
@@ -3437,6 +4560,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     Given the absolute magnitudes of a bunch of things,
     calculate their blended apparent magnitude and flux.
     Also calculate the centroid of these things.
+    Assumes all binaries are blended.
 
     Filter name is 'j', 'i', etc.
     red_law is Damineli16, Schlegel99, etc.
@@ -3450,8 +4574,11 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    flux_N = np.nan_to_num(flux_N.filled(np.nan))
-
+    if type(flux_N) == MaskedColumn:
+        flux_N = np.nan_to_num(flux_N.filled(np.nan))
+    else:
+        flux_N = np.nan_to_num(flux_N)
+        
     # Get total flux
     flux_N_tot = np.sum(flux_N)
 
@@ -3499,13 +4626,20 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
 
-    flux_L = np.nan_to_num(flux_L.filled(np.nan))
-    flux_S = np.nan_to_num(flux_S.filled(np.nan))
+    if type(flux_L) == MaskedColumn:
+        flux_L = np.nan_to_num(flux_L.filled(np.nan))
+    else:
+        flux_L = np.nan_to_num(flux_L)
+
+    if type(flux_S) == MaskedColumn:
+        flux_S = np.nan_to_num(flux_S.filled(np.nan))
+    else:
+        flux_S = np.nan_to_num(flux_S)
 
     # Find the blends.
-    LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']),
+    LS_pairs = np.stack((event_tab['obj_id_L'].data, event_tab['obj_id_S'].data),
                         axis=-1)
-    blend_pairs = np.stack((blend_tab['obj_id_L'], blend_tab['obj_id_S']),
+    blend_pairs = np.stack((blend_tab['obj_id_L'].data, blend_tab['obj_id_S'].data),
                            axis=-1)
 
     flux_N = np.zeros(len(app_L))
@@ -3570,14 +4704,16 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     return
 
 
-def _calculate_binary_angles(companion_table, event_table):
+def _add_binary_angles(companion_table, event_table):
     """
-    Calculates and adds the following angles to the companion array:
-    - alpha: angle between North and binary axis (East of North)
-    - phi_pi_E: angle between North and proper motion vector (East of North)
-    - phi: angle between the proper motion and the binary axis
-    Binary parameters established in a galactic spherical coordinate systems.
-    Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
+    -Adds the following angles to the companion array:
+        - alpha: angle between North and binary axis (East of North)
+        - phi_pi_E: angle between North and proper motion vector (East of North)
+        - phi: angle between the proper motion and the binary axis
+    -Each set of angles is for the source if the companion is 
+    assocaited with the source or the lens if the companion is associated with the lens.
+    -Binary parameters established in a galactic spherical coordinate systems.
+    -Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
     
     Parameters
     ----------
@@ -3594,27 +4730,76 @@ def _calculate_binary_angles(companion_table, event_table):
     
     
     """
-    companion_tmp_df = copy.deepcopy(companion_table)
-    
+    companion_tmp_df = copy.deepcopy(companion_table)    
     event_table_df = event_table.to_pandas()
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
     event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
-    
-    del event_table_df
         
+    del event_table_df
+    
+    start_time_bin_angles = time.time()    
+    alphas, phi_pi_Es, phis = calculate_binary_angles(companion_tmp_df_joined)
+        
+    companion_tmp_df_joined['alpha'] = alphas
+    companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
+    companion_tmp_df_joined['phi'] = phis
+    
+    # reset index adds obj_id_L and obj_id_S back as their own columns
+    # doing list(cluster.companions.columns) + those other names means that it only takes columns 
+    # that were in cluster.companions and obj_id_L, obj_id_S, alpha,...
+    companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi']]
+    #print('full bin angles loop', time.time() - start_time_bin_angles)
+    
+    del companion_tmp_df_joined
+    return companion_tmp_df
+
+def calculate_binary_angles(joined_table):
+    """
+    -Calculates the following angles to the companion array:
+        - alpha: angle between North and binary axis (East of North)
+        - phi_pi_E: angle between North and proper motion vector (East of North)
+        - phi: angle between the proper motion and the binary axis
+    -Each set of angles is for the source if the companion is 
+    assocaited with the source or the lens if the companion is associated with the lens.
+    -Binary parameters established in a galactic spherical coordinate systems.
+    -Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
+    
+    Parameters
+    ----------
+    joined_table : pandas table
+        Joined companion and event table on obj_id_L and obj_id_S
+
+    Returns
+    -------
+    alphas : list
+        Angle between North and binary axis (East of North)
+    phi_pi_Es : list
+        Angle between North and proper motion vector (East of North)
+    phis : list
+        Angle between the proper motion and the binary axis (phi_pi_E - alpha)
+    
+    
+    """
     alphas = []
     phi_pi_Es = []
     phis = []
     
-    #delta_mu_racosdec = []
-    #delta_mu_dec = []
-    start_time_bin_angles = time.time()
-    loop_time_bin = time.time()
-    for index, row in companion_tmp_df_joined.iterrows():
-        loop_time_bin = time.time()
+    for index, row in joined_table.iterrows():
+        
+        # At the end of refine events prim_type is encoded in bytes
+        # so we need to decode it to strings
+        # if we feed in a table from and alternate location
+        prim_type = row['prim_type']
+        if type(prim_type) == bytes:
+            prim_type = prim_type.decode("utf-8") 
+            
+        if prim_type == 'L':
+            not_prim_type = 'S'
+        else:
+            not_prim_type = 'L'
         
         # First calculate binary axis
         orb = orbits.Orbit()
@@ -3624,7 +4809,8 @@ def _calculate_binary_angles(companion_table, event_table):
         orb.e = row['e'] # float between 0 and 1
         orb.p = row['P'] # [years]
         orb.t0 = np.random.rand()*row['P'] + row['t0'] # [years] This is initial
-        orb.mass = row['mass_{}'.format(row['prim_type'])] # [Msun]
+        orb.mass = row['systemMass_{}'.format(prim_type)] # [Msun]
+        
         
         # Position of the companion when primary at origin
         # r[0][0] is galactic east
@@ -3636,45 +4822,57 @@ def _calculate_binary_angles(companion_table, event_table):
 
         r_kpc = np.array([(ii*unit.AU).to('kpc').value for ii in r[0]])
         
-        r_mas = (np.arcsin(r_kpc[0:2]/row['rad_{}'.format(row['prim_type'])])*unit.radian).to('mas').value
+        r_mas = (np.arcsin(r_kpc[0:2]/row['rad_{}'.format(prim_type)])*unit.radian).to('mas').value
         
-        # Change in b and lcosb from companion to the primary pointing to companion (assuming primary at 0,0)
+        # Change in positional offset (b and lcosb) from companion to the primary 
+        # pointing to companion (assuming primary at 0,0)
         deltaz_lcosb = r_mas[0]
         deltaz_b = r_mas[1]
-        deltaz_l = deltaz_lcosb/np.cos(deltaz_b) #Need to find the spherical l instead of projected for SkyCoord
         
         #b and l of primary
-        z1_b = row['glat_L']*unit.degree
-        z1_l = row['glon_L']*unit.degree
+        z1_b = row['glat_{}'.format(prim_type)]*unit.degree
+        z1_l = row['glon_{}'.format(prim_type)]*unit.degree
+        
+        
+        deltaz_l = deltaz_lcosb/np.cos(np.deg2rad(z1_b)) #Need to find the spherical l instead of projected for SkyCoord
         
         #add positions of the primary to the deltas to find b and l of companion
-        z2_b = deltaz_b*unit.mas + z1_b.to('mas')
-        z2_l = deltaz_l*unit.mas + z1_l.to('mas')
+        z2_b = (deltaz_b*unit.mas + z1_b.to('mas')).to('degree')
+        z2_l = (deltaz_l*unit.mas + z1_l.to('mas')).to('degree')
         
-        #b and l of source
-        source_b = row['glat_S']*unit.degree
-        source_l = row['glon_S']*unit.degree
+        #b and l of primary of system companion not part of
+        not_prim_b = row['glat_{}'.format(not_prim_type)]*unit.degree
+        not_prim_l = row['glon_{}'.format(not_prim_type)]*unit.degree
         
-        #SkyCoord objects for the primary, companion, and source
-        coord_object_z1 = SkyCoord(l = z1_l, b = z1_b, pm_l_cosb = row['mu_lcosb_L']*unit.mas/unit.year, pm_b = row['mu_b_L']*unit.mas/unit.year, frame ='galactic')
+        #SkyCoord objects for the primary, companion, and primary of system companion not part of
+        coord_object_z1 = SkyCoord(l = z1_l, b = z1_b, 
+                                   pm_l_cosb = row['mu_lcosb_{}'.format(prim_type)]*unit.mas/unit.year, 
+                                   pm_b = row['mu_b_{}'.format(prim_type)]*unit.mas/unit.year, 
+                                   frame ='galactic')
         
-        coord_object_z2 = SkyCoord(l = z2_l, b = z2_b, pm_l_cosb = row['mu_lcosb_L']*unit.mas/unit.year, pm_b = row['mu_b_L']*unit.mas/unit.year, frame ='galactic')
+        coord_object_z2 = SkyCoord(l = z2_l, b = z2_b, 
+                                   pm_l_cosb = row['mu_lcosb_{}'.format(prim_type)]*unit.mas/unit.year, 
+                                   pm_b = row['mu_b_{}'.format(prim_type)]*unit.mas/unit.year, 
+                                   frame ='galactic')
         
-        coord_object_source = SkyCoord(l = source_l, b = source_b, pm_l_cosb = row['mu_lcosb_S']*unit.mas/unit.year, pm_b = row['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+        coord_object_not_prim = SkyCoord(l = not_prim_l, b = not_prim_b, 
+                                         pm_l_cosb = row['mu_lcosb_{}'.format(not_prim_type)]*unit.mas/unit.year, 
+                                         pm_b = row['mu_b_{}'.format(not_prim_type)]*unit.mas/unit.year, frame ='galactic')
 
         #ra and dec of primary, find racosdec to find projected coords
         z1_ra = coord_object_z1.icrs.ra.value
         z1_dec = coord_object_z1.icrs.dec.value
-        z1_racosdec = z1_ra*np.cos(z1_dec)
+        z1_racosdec = z1_ra*np.cos(np.deg2rad(z1_dec))
         
         #ra and dec of companion, find racosdec to find projected coords
         z2_ra = coord_object_z2.icrs.ra.value
         z2_dec = coord_object_z2.icrs.dec.value
-        z2_racosdec = z2_ra*np.cos(z2_dec)
+        z2_racosdec = z2_ra*np.cos(np.deg2rad(z2_dec))
         
         #Find change in dec and racosdec companion - primary (so vector is pointed at companion)
         deltaz_dec = z2_dec - z1_dec
-        deltaz_racosdec = z2_racosdec - z1_racosdec
+        deltaz_racosdec = (z2_ra - z1_ra)*np.cos(np.deg2rad(z1_dec)) #z2_racosdec - z1_racosdec
+        
         
         #Proper motions of the primary, comanion, and source in racosdec and dec
         mu_racosdec_z1 = coord_object_z1.icrs.pm_ra_cosdec.value
@@ -3683,8 +4881,8 @@ def _calculate_binary_angles(companion_table, event_table):
         mu_racosdec_z2 = coord_object_z2.icrs.pm_ra_cosdec.value
         mu_dec_z2 = coord_object_z2.icrs.pm_dec.value
         
-        mu_racosdec_source = coord_object_source.icrs.pm_ra_cosdec.value
-        mu_dec_source = coord_object_source.icrs.pm_dec.value
+        mu_racosdec_not_prim = coord_object_not_prim.icrs.pm_ra_cosdec.value
+        mu_dec_not_prim = coord_object_not_prim.icrs.pm_dec.value
         
         #Relative proper motion between the primary and companion
         #delta_mu_racosdec.append(np.abs(mu_racosdec_z1 - mu_racosdec_z2))
@@ -3699,31 +4897,24 @@ def _calculate_binary_angles(companion_table, event_table):
             print('mu_dec_z1', mu_dec_z1)
             print('mu_dec_z2', mu_dec_z2)
 
-        #Relative proper motion between source and primary
-        mu_racosdec_rel = mu_racosdec_source - mu_racosdec_z1
-        mu_dec_rel = mu_dec_source - mu_dec_z1
+        #Relative proper motion between primary and system companion not part of
+        mu_racosdec_rel = mu_racosdec_not_prim - mu_racosdec_z1
+        mu_dec_rel = mu_dec_not_prim - mu_dec_z1
+        
         
         # Since deltaz is pointed toward the companion, subtract 180 degrees mod 360 to find alpha
         alpha = (np.rad2deg(np.arctan2(deltaz_racosdec,deltaz_dec)) - 180) % 360
         
-        phi_pi_E = np.rad2deg(np.arctan2(mu_racosdec_rel,mu_dec_rel))
+        # Mod 360 so it'll be in the same range as alpha
+        phi_pi_E = np.rad2deg(np.arctan2(mu_racosdec_rel,mu_dec_rel)) % 360
         
-        phi = phi_pi_E - alpha
+        phi = (alpha - phi_pi_E) % 360
         
         alphas.append(alpha)
         phi_pi_Es.append(phi_pi_E)
         phis.append(phi)
     
-    companion_tmp_df_joined['alpha'] = alphas
-    companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
-    companion_tmp_df_joined['phi'] = phis
-    
-    companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi']]
-    print('full bin angles loop', start_time_bin_angles - time.time())
-    
-    del companion_tmp_df_joined
-    return companion_tmp_df
-
+    return alphas, phi_pi_Es, phis
 
 def _add_multiples_parameters(companion_table, event_table):
     """
@@ -3745,8 +4936,8 @@ def _add_multiples_parameters(companion_table, event_table):
 
     """
     companion_tmp_df = copy.deepcopy(companion_table)
-    
     event_table_df = event_table.to_pandas()
+    
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
@@ -3756,16 +4947,35 @@ def _add_multiples_parameters(companion_table, event_table):
     del event_table_df
     
     a_kpc = (np.array(10**companion_tmp_df_joined['log_a'])*unit.AU).to('kpc').value
-    event_prim_masses = np.diagonal(companion_tmp_df_joined['mass_' + companion_tmp_df_joined['prim_type']])
-    event_prim_distances = np.diagonal(companion_tmp_df_joined['rad_' + companion_tmp_df_joined['prim_type']])
     
+    event_prim_masses = np.zeros(len(companion_tmp_df_joined))
+    event_system_masses = np.zeros(len(companion_tmp_df_joined))
+    event_prim_distances = np.zeros(len(companion_tmp_df_joined))
+    counter = np.arange(len(companion_tmp_df_joined))
+    for row, count in zip(companion_tmp_df_joined.iterrows(), counter):
+        # indexing row[1] is because row[0] is the row's index
+        prim_type = row[1]['prim_type']
+        
+        # this is activated only for testing, since prim_type is saved
+        # as a byte in the final fits file
+        if type(prim_type) == bytes:
+            prim_type = prim_type.decode("utf-8") 
+            
+        event_prim_masses[count] = row[1]['mass_' + prim_type]
+        event_system_masses[count] = row[1]['systemMass_' + prim_type]
+        event_prim_distances[count] = row[1]['rad_' + prim_type]
+        
     companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass']/event_prim_masses #mass ratio
     #abs(acos(i))
-    companion_tmp_df_joined['sep'] = np.abs(np.cos(list(companion_tmp_df_joined['i'])))*(np.arcsin(a_kpc/event_prim_distances)*unit.radian).to('mas').value #separation in mas
-    companion_tmp_df_joined['P'] = orbits.a_to_P(event_prim_masses, 10**companion_tmp_df_joined['log_a']) #period
-    
+    abs_cos_i = np.abs(np.cos(list(companion_tmp_df_joined['i'])))
+    a_mas = (np.arcsin(a_kpc/event_prim_distances)*unit.radian).to('mas').value
+    companion_tmp_df_joined['sep'] = abs_cos_i*a_mas #separation in mas
+    companion_tmp_df_joined['P'] = orbits.a_to_P(event_system_masses, 10**companion_tmp_df_joined['log_a']) #period
+    # reset index adds obj_id_L and obj_id_S back as their own columns
+    # doing list(cluster.companions.columns) + those other names means that it only takes columns 
+    # that were in cluster.companions and obj_id_L, obj_id_S, q,...
     companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['q', 'sep', 'P']]
-    
+
     del companion_tmp_df_joined
     return companion_tmp_df
 
@@ -3778,7 +4988,7 @@ def _add_multiples_parameters(companion_table, event_table):
 def _check_refine_binary_events(events, companions,
                                 photometric_system, filter_name,
                                 overwrite, output_file,
-                                save_phot, phot_dir):
+                                save_phot, phot_dir, n_proc, multi_proc):
     """
     Checks that the inputs of refine_binary_events are valid
 
@@ -3811,6 +5021,16 @@ def _check_refine_binary_events(events, companions,
     phot_dir : str
         Name of the directory photometry is saved if save_phot = True.
         This parameters is NOT optional if save_phot = True.
+        
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
+    
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
     """
 
     if not isinstance(events, str):
@@ -3837,6 +5057,15 @@ def _check_refine_binary_events(events, companions,
     if not isinstance(phot_dir, str):
         if not isinstance(phot_dir, type(None)):
             raise Exception('phot_dir (%s) must be a string or None.' % str(phot_dir))
+            
+    if not isinstance(n_proc, int):
+        raise Exception('n_proc (%s) must be an integer.' % str(seed))
+    
+    if not isinstance(multi_proc, bool):
+        raise Exception('multi_proc (%s) must be a boolean.' % str(multi_proc))
+    
+    if n_proc > 1 and multi_proc == False:
+        raise Exception('if multi_proc is False, n_proc must = 1')
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -3857,10 +5086,11 @@ def _check_refine_binary_events(events, companions,
         exception_str = exception_str[:-2]
         raise Exception(exception_str)
 
-
 def refine_binary_events(events, companions, photometric_system, filter_name,
+                         red_law = 'Damineli16',
                          overwrite = False, output_file = 'default',
-                         save_phot = False, phot_dir = None):
+                         save_phot = False, phot_dir = None,
+                         n_proc = 1, multi_proc = True):
     """
     Takes the output Astropy table from refine_events (both primaries and companions) and from that
     calculates the binary light curves.
@@ -3883,6 +5113,9 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     Optional Parameters
     -------------------
+    red_law : str
+        Reddening law. Default is Damineli16
+        
     overwrite : bool
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
@@ -3901,6 +5134,16 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         Name of the directory photometry is saved if save_phot = True.
         This parameters is NOT optional if save_phot = True.
         Default is None.
+        
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
+    
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
     
     Output:
     ----------
@@ -3928,28 +5171,38 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     _check_refine_binary_events(events, companions, 
                          photometric_system, filter_name,
                          overwrite, output_file,
-                         save_phot, phot_dir)
+                         save_phot, phot_dir, n_proc, multi_proc)
         
-    
+
     event_table = Table.read(events)
     comp_table = Table.read(companions)
+
+    comp_table['companion_idx'] = np.arange(len(comp_table))
+
+    event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
+    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
     
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='n_peaks') )
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='bin_delta_m') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='tE_sys') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='tE_primary') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='primary_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='avg_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='std_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='asymmetry') )
+    event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
+    event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='bin_delta_m') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='tE_sys') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='tE_primary') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='primary_t') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='avg_t') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='std_t') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='asymmetry') )
     
-    comp_table['bin_delta_m'][:] = np.nan
-    comp_table['tE_sys'][:] = np.nan
-    comp_table['tE_primary'][:] = np.nan
-    comp_table['primary_t'][:] = np.nan
-    comp_table['avg_t'][:] = np.nan
-    comp_table['std_t'][:] = np.nan
-    comp_table['asymmetry'][:] = np.nan
+    event_table['bin_delta_m'][:] = np.nan
+    event_table['tE_sys'][:] = np.nan
+    event_table['tE_primary'][:] = np.nan
+    event_table['primary_t'][:] = np.nan
+    event_table['avg_t'][:] = np.nan
+    event_table['std_t'][:] = np.nan
+    event_table['asymmetry'][:] = np.nan
+    
+    lightcurve_table = Table(names=('obj_id_L', 'obj_id_S', 'companion_id_L', 'companion_id_S', 'class', 'n_peaks', 'bin_delta_m', 
+                                     'tE_sys', 'tE_primary', 'primary_t', 'avg_t', 'std_t', 'asymmetry', 'mp_rows', 'used_lightcurve'),
+                            dtype = (float, float, float, float, str, float, float, float, float, float, float, float, float, dict, bool))
     
     # This table is for events with more than one peak to characterize those peaks
     # comp_id is position of companion in companion table for reference
@@ -3958,153 +5211,86 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     # tE is Einstein crossing time of peak defined by times of 0.5*(max(peak mag) - min(peak mag))
     # delta m is the change in magnitude between the peak and baseline
     # ratio is the magnitude ratio between min peak/max peak
-    mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
-
-    L_idxs = np.where(comp_table['prim_type'] == "L")[0]
+    mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'),
+                       dtype = (object, float, float, float, float, float, float, float))
     
-    for comp_idx in L_idxs:
-        name = "{}".format(comp_idx)
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == comp_table[comp_idx]['obj_id_L']), (event_table['obj_id_S'] == comp_table[comp_idx]['obj_id_S'])))[0])[0]
-        L_coords = SkyCoord(l = event_table[event_id]['glat_L']*unit.degree, b = event_table[event_id]['glon_L']*unit.degree, 
-                                pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
-                                pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
-        S_coords = SkyCoord(l = event_table[event_id]['glat_S']*unit.degree, b = event_table[event_id]['glon_S']*unit.degree, 
-                                pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
-                                  pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
-
-
-        ##########
-        # Calculate binary model and photometry
-        ##########
-        raL = L_coords.icrs.ra.value # Lens R.A.
-        decL = L_coords.icrs.dec.value # Lens dec
-        mL1 = event_table[event_id]['mass_L'] # msun (Primary lens mass)
-        mL2 = comp_table[comp_idx]['mass'] # msun (Companion lens mass)
-        t0 = event_table[event_id]['t0'] # mjd
-        xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
-        beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
-        muL = np.array([L_coords.icrs.pm_ra_cosdec.value, L_coords.icrs.pm_dec.value]) #lens proper motion mas/year
-        muS = np.array([S_coords.icrs.pm_ra_cosdec.value, S_coords.icrs.pm_dec.value]) #source proper motion mas/year
-        dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
-        dS = event_table[event_id]['rad_S']*10**3 #Distance to source
-        sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
-        alpha = comp_table[comp_idx]['alpha']
-        mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
-        b_sff = event_table[event_id]['f_blend_%s' % filter_name]
-
-        psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
-                                   beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
-                                   sep, alpha, [b_sff], [mag_src], 
-                                   raL=raL, decL=decL, 
-                                   root_tol = 0.00000001)
-        
-
-        # Calculate the photometry 
-        duration=1000 # days
-        time_steps=5000
-        tmin = psbl.t0 - (duration / 2.0)
-        tmax = psbl.t0 + (duration / 2.0)
-        dt = np.linspace(tmin, tmax, time_steps)
-        
-        img, amp = psbl.get_all_arrays(dt)
-        phot = psbl.get_photometry(dt, amp_arr=amp)
-        
-        if save_phot == True:
-            if not os.path.exists(phot_dir):
-                os.makedirs(phot_dir)
-            foo = Table((dt, phot), names=['time', 'phot'])
-            foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
-        
-        #because this is magnitudes max(phot) is baseline and min(phot) is peak
-        #baseline 2000tE away get_photometry
-        comp_table[comp_idx]['bin_delta_m'] = max(phot) - min(phot)
-        tenp = np.where(phot < (max(phot) - 0.1*comp_table[comp_idx]['bin_delta_m']))[0]
-        if len(tenp) == 0:
-            continue
-        comp_table[comp_idx]['tE_sys'] = max(dt[tenp]) - min(dt[tenp])
-        
-        # Find peaks
-        peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
-                
-        if len(peaks) == 0:            
-            continue
-        
-        comp_table[comp_idx]['n_peaks'] = len(peaks)
-        comp_table[comp_idx]['primary_t'] = dt[peaks][np.argmin(phot[peaks])]
-        comp_table[comp_idx]['avg_t'] = np.average(dt[peaks])
-        comp_table[comp_idx]['std_t'] = np.std(dt[peaks])
-        
-        # Find asymmetry (0 if symmetric, larger if asymmetric)
-        # Uses 50 degree chebyshev polynomial (see eq 7 in Night et al. 2010)
-        indices = np.arange(0,51)
-        cheb_fit = np.polynomial.chebyshev.Chebyshev.fit(dt, phot, 50).coef
-        odd_cheb = cheb_fit[indices%2==1]
-        even_cheb = cheb_fit[indices%2==0]
-        asymm = np.sqrt(np.sum(odd_cheb**2)/np.sum(even_cheb**2))
-        comp_table[comp_idx]['asymmetry'] = asymm
-        
-        # Split up peaks by minima between peaks
-        # Note since it's magnitudes all the np.min and such are maxima
-        split_data = []
-        start_idx = 0
-        if len(peaks) > 1:
-            for i in range(len(peaks) - 1):
-                min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
-                end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
-                split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
-                start_idx = end_idx
-        split_data.append([dt[start_idx:], phot[start_idx:]])
-        split_data = np.array(split_data, dtype='object')
-        
-        highest_peak = np.argmin(phot[peaks])
-        
-        if len(split_data[highest_peak][1]) == 0:
-            continue
-        
-        highest_bump_mag = max(split_data[highest_peak][1]) - min(split_data[highest_peak][1])
-        highest_half = np.where(split_data[highest_peak][1] < (max(split_data[highest_peak][1]) - 0.5*highest_bump_mag))[0]
-        if len(highest_half) == 0:
-            continue
-        comp_table[comp_idx]['tE_primary'] = max(dt[highest_half]) - min(dt[highest_half])
-        
-        # For events with more than one peak, add them to the multi peak table
-        if len(peaks) > 1:
-            n_peaks = len(peaks)
-            obj_id_L = comp_table[comp_idx]['obj_id_L']
-            obj_id_S = comp_table[comp_idx]['obj_id_S']
-            for i in range(len(peaks)):
-                t = dt[peaks[i]]
-                delta_m = max(phot) - phot[peaks[i]]
-                ratio = np.min(phot[peaks])/phot[peaks[i]]
-                
-                # Don't log primary peak
-                if ratio == 1:
-                    continue
-                
-                if len(split_data[i][1]) == 0:
-                    tE = np.nan
-                    mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
-                    continue
-                    
-                split_bump_mag = max(split_data[i][1]) - min(split_data[i][1])
-                split_half = np.where(split_data[i][1] < (max(split_data[i][1]) - 0.5*split_bump_mag))[0]
-                if len(split_half) == 0:
-                    tE = np.nan
-                    mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
-                    continue
-                    
-                tE = max(dt[split_half]) - min(dt[split_half])
-                
-                mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+    multiples_lightcurves = sum((event_table['isMultiple_S'] == 1) | (event_table['isMultiple_L'] == 1))
+    
+    # Set up the multiprocessing
+    if multi_proc:
+        pool = Pool(n_proc)
+    
+    grouped_comps = comp_table.group_by(['obj_id_L', 'obj_id_S'])
+    
+    event_table_df = event_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
+    empty_lists = [ [] for _ in range(len(event_table_df)) ]
+    event_table_df['companion_idx_list'] = empty_lists
+    
+    inputs = np.empty(multiples_lightcurves, dtype = object)
+    for i in range(len(grouped_comps.groups)):
+        obj_id_L = grouped_comps.groups.keys[i][0]
+        obj_id_S = grouped_comps.groups.keys[i][1]
+        obj_id_L_S = (obj_id_L, obj_id_S)
+        event_table_df['companion_idx_list'].loc[obj_id_L_S] = list(grouped_comps.groups[i]['companion_idx'])
+        inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
+                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite]
+    
+    one_lightcurve_analysis
+    
+    if multi_proc:
+        results = pool.starmap(one_lightcurve_analysis, inputs)
+        # Multi-Threaded: clean up pool
+        pool.close()
+        pool.join()
+    elif multi_proc == False:
+        results = np.zeros(len(inputs), dtype=object)
+        for i, input in enumerate(inputs):
+            results[i] = one_lightcurve_analysis(*input)
+    
+    result_keys = list(results[0][0][0].keys())
+    for i in range(len(grouped_comps.groups)):
+        obj_id_L = grouped_comps.groups.keys[i][0]
+        obj_id_S = grouped_comps.groups.keys[i][1]
+        obj_id_L_S = (obj_id_L, obj_id_S)
+        for result in results[i]:
+            if result[0]['used_lightcurve'] == 1:
+                for key in result_keys:
+                    # only lightcurves with highest delta m (if there were triples and
+                    # multiple were simulated) go into event_table
+                    if key != 'mp_rows' and key != 'used_lightcurve':
+                        event_table_df[key].loc[obj_id_L_S] = result[0][key]
             
-        
+            try:
+                lightcurve_table.add_row(result[1] | result[0])
+            except TypeError:
+                # Fails when using python version < 3.9
+                lightcurve_table.add_row({**result[1], **result[0]})
+            
+            rows = result[0]['mp_rows']
+            for row in rows:
+                mult_peaks.add_row(row)
+    
+    event_table_df['companion_idx_list'] = event_table_df['companion_idx_list'].astype(str)
+    event_table = Table.from_pandas(event_table_df.reset_index()).filled(np.nan)
+    
+    lightcurve_table.remove_column('mp_rows')
+
+    # For write issues, if mult_peaks is empty, define it without dtype
+    if len(mult_peaks) == 0:
+        mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
+
+
     # Writes fits file
     if output_file == 'default':
+        event_table.write(events[:-5] + "_rb.fits", overwrite=overwrite)
         comp_table.write(companions[:-5] + "_rb.fits", overwrite=overwrite)
         mult_peaks.write(companions[:-5] + "_rb_multi_peaks.fits", overwrite=overwrite)
+        lightcurve_table.write(events[:-5] + "_rb_lightcurves.fits", overwrite=overwrite)
     else:
-        comp_table.write(output_file + ".fits", overwrite=overwrite)
+        event_table.write(output_file + ".fits", overwrite=overwrite)
+        comp_table.write(output_file + "_companions.fits", overwrite=overwrite)
         mult_peaks.write(output_file + "_multi_peaks.fits", overwrite=overwrite)
+        lightcurve_table.write(output_file + "_lightcurves.fits", overwrite=overwrite)
         
         
         
@@ -4128,6 +5314,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     line1 = 'event_file : ' + events + '\n'
     line2 = 'companion_file : ' + companions + '\n'
     line3 = 'save_phot : ' + str(save_phot) + '\n'
+    line3p5 = 'n_proc : ' + str(n_proc) + '\n'
 
     line4 = 'VERSION INFORMATION' + '\n'
     line5 = str(now) + ' : creation date' + '\n'
@@ -4136,16 +5323,20 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(end_time - start_time) + ' : total runtime (s)' + '\n'
-    line10 = str(len(L_idxs)) + ' : number of simulated lightcurves' + '\n'
+    line10 = str(len(lightcurve_table)) + ' : number of simulated lightcurves' + '\n'
 
     line11 = 'FILES CREATED' + '\n'
     if output_file == 'default':
-        line12 = companions[:-5] + "_rb.fits" + ' : binary refined events' + '\n'
+        line11p1 = events[:-5] + "_rb.fits" + ' : event table w/ binary params' + '\n'
+        line12 = companions[:-5] + "_rb.fits" + ' : companion table w/ idx' + '\n'
         line13 = companions[:-5] + "_rb_multi_peaks.fits" + ' : multiple peak events table' + '\n'
+        line13p5 = events[:-5] + "_rb_lightcurves.fits" + ' : lightcurve file w/ included+non-included lightcurves' + '\n'
         log_name = companions[:-5] + "_rb.log"
     else:
-        line12 = output_file + ".fits" + ' : refined events' + '\n'
+        line11p1 = output_file + ".fits" + ' : event table w/ binary params' + '\n'
+        line12 = output_file + "_companions.fits" + ' : companion table w/ idx' + '\n'
         line13 = output_file + "_multi_peaks.fits" + ' : multiple peak events table' + '\n'
+        line13p5 = output_file + "_lightcurves.fits" + ' : lightcurve file w/ included+non-included lightcurves' + '\n'
         log_name = output_file + '.log'
      
     line14 = '\n'
@@ -4154,15 +5345,753 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
        
     
     with open(log_name, 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, empty_line,
+        out.writelines([line0, dash_line, line1, line2, line3, line3p5, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, line10, empty_line,
-                        line11, dash_line, line12, line13, line14])
+                        line11, dash_line, line11p1, line12, line13, line13p5, line14])
 
     print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
+def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S,
+                            photometric_system, filter_name, red_law,
+                            save_phot = False, phot_dir = None, overwrite = False):
+    """
+    Generate BAGLE model, photometry, and generate binary lightcurve parameters.
+    
+    Parameters
+    ----------
+    event_table_row : Astropy table
+        Astropy table row from event table with event parameters.
+    
+    comp_table_rows: Astropy table
+        Astropy table with row(s) associated with event row. I.e. if it's a binary source,
+        binary lens, there should be two rows.
+    
+    obj_id_L : int
+        Object id of the lens associated with event.
+    
+    obj_id_S : int
+        Object id of the source associated with event.
+    
+    photometric_system : str
+        Name of the photometric system, i.e. 'ubv'.
+    
+    filter_name : str
+        Name of filter associated with photometric system, i.e. 'I'.
+    
+    red_law : str
+        Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
+    
+    Optional Parameters
+    -------------------
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+        
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    
+    Output:
+    ----------
+    lightcurve_parameters : list
+        List of two dictionaries:
+            - Dictionary of additional parameters added to the event table
+              and one called 'mp_rows' which are the rows to be
+              added to the multi peak table.
+            - Dictonary of lightcurve parameters which include both lightcurves
+              whose parameters are saved in the event table and those that are not.
+              i.e. in a triple system only the one with the highest delta_m's p
+              arameters are used for the lightcurve table. These will all be saved in
+              a separate lightcurve_table.
+    """
+    
+    multi_L = event_table_row[0]['isMultiple_L']
+    multi_S = event_table_row[0]['isMultiple_S']
+    if multi_L == 1 and multi_S == 1:
+        event_type = 'BSBL'
+    elif multi_L == 1 and multi_S == 0:
+        event_type = 'PSBL'
+    elif multi_L == 0 and multi_S == 1:
+        event_type = 'BSPL'
+    else:
+        raise Exception('one_lightcurve_analysis() only analyizes binary events')
 
+    lightcurve_parameters = []
+    max_delta_m = np.nan
+    if event_type == 'BSBL':
+        comp_idxs_S = np.where(comp_table_rows['prim_type'] == b"S")[0]
+        comp_idxs_L = np.where(comp_table_rows['prim_type'] == b"L")[0]
+        for comp_idx_S in comp_idxs_S:
+            global_comp_idx_S = comp_table_rows['companion_idx'][comp_idx_S]
+            for comp_idx_L in comp_idxs_L:
+                global_comp_idx_L = comp_table_rows['companion_idx'][comp_idx_L]
+                name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(global_comp_idx_L, global_comp_idx_S)
+                model_parameter_dict, _, _ = get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
+                                                                      photometric_system, filter_name, red_law, event_id = 0)
+                model = bsbl_model_gen(model_parameter_dict)
+                param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx_L, global_comp_idx_S]), 
+                                                      obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+                lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx_L], 
+                                   'companion_id_S' : comp_table_rows['companion_idx'][comp_idx_S], 'class' : event_type}
+                lightcurve_parameters.append([param_dict, lightcurve_dict])
+                
+            del global_comp_idx_S, global_comp_idx_L, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+            
+        del comp_idxs_S, comp_idxs_L
+                
+    elif event_type == 'PSBL':
+        for comp_idx in range(len(comp_table_rows)):
+            global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(global_comp_idx)
+            model_parameter_dict, _, _ = get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, event_id = 0)
+            model = psbl_model_gen(model_parameter_dict)
+            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx], 
+                                   'companion_id_S' : np.nan, 'class' : event_type}
+            lightcurve_parameters.append([param_dict, lightcurve_dict])
+            
+            del global_comp_idx, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+    
+    elif event_type == 'BSPL':
+        for comp_idx in range(len(comp_table_rows)):
+            global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(global_comp_idx)
+            model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
+            model = bspl_model_gen(model_parameter_dict)
+            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan, 
+                                   'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
+            lightcurve_parameters.append([param_dict, lightcurve_dict])
+            
+            del global_comp_idx, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+
+    # If multiple lightcurves were generated (i.e. for triples)
+    # then take the lightcurve with the highest delta_m.
+    # If all the delta_ms are nan, take the first one
+    if len(lightcurve_parameters) == 1:
+        lightcurve_parameters[0][0]['used_lightcurve'] = 1
+    else:
+        delta_ms = [x[0]['bin_delta_m'] for x in lightcurve_parameters]
+        # if delta m is nan for all lightcurves, take the first one arbitrarily
+        if np.all(np.isnan(delta_ms)):
+            lightcurve_parameters[0][0]['used_lightcurve'] = 1
+        else:
+            #argmax ignoring nans
+            max_delta_m_idx = np.nanargmax(delta_ms)
+            lightcurve_parameters[max_delta_m_idx][0]['used_lightcurve'] = 1
+            
+            del max_delta_m_idx
+        del delta_ms
+    
+    del multi_L, multi_S
+    
+    return lightcurve_parameters
+
+        
+def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
+    """
+    If photometry is being saved, saves the parameters
+    of the model to generate the lightcurve in the first header
+    
+    Parameters
+    ----------
+    model_parameter_dict : dictionary
+        Dictionary of the bagel model parameters 
+        
+    phot_dir : str
+        Name of the directory photometry
+    
+    name : str
+        Base name of fits file of photometry without the _phot 
+        (i.e. L_{obj_id_L}_S_{obj_id_S}).
+    """
+    
+    fits_file = phot_dir + '/' + name + '_phot.fits'
+    with fits.open(fits_file, 'update') as f:
+        hdr = f[0].header
+        for key in list(model_parameter_dict.keys()):
+            try:
+                hdr[key] = model_parameter_dict[key]
+            except ValueError:
+                hdr[key] = str(model_parameter_dict[key])
+
+    return
+
+def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, obj_id_S,
+                             name=None, save_phot=False, phot_dir=None, overwrite=False):
+    """
+    Find the parameters
+    
+    Parameters
+    ----------
+    model : function
+        Function associated with generating the microlensing model (must be same as parameter_dict)
+     
+    model_parameter_dict : dict
+        Dictionary of the bagel model parameters
+    
+    comp_idx : list
+        List of indices into the comp_table of the companion(s) for which the
+        binary event is being calculated.
+    
+    obj_id_L : int
+        Object id of the lens associated with event
+    
+    obj_id_S : int
+        Object id of the source associated with event
+    
+    Optional Parameters
+    --------------------
+    
+    name : str or None
+        Name of fits file to be saved.
+        Default is None.
+        
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str or None
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+        
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    
+    Output:
+    ----------
+    param_dict : dict
+        Dictionary of additional parameters added to companion table
+        and one called 'mp_rows' which are the rows to be added to the multi peak
+        table.
+    """
+    
+    
+    param_dict = {'n_peaks' : 0, 'bin_delta_m' : np.nan, 'tE_sys' : np.nan, 
+                  'tE_primary' : np.nan, 'primary_t' : np.nan, 'avg_t' : np.nan, 
+                  'std_t' : np.nan, 'asymmetry' : np.nan, 'mp_rows' : [], 'used_lightcurve' : 0}
+
+    # Handles the case of modeling a triple source as a binary source,
+    # But it's CO + CO + star and you're modeling the CO + CO pair (so no flux)
+    if 'mag_src_sec' in list(model_parameter_dict.keys()):
+        if np.isnan(model_parameter_dict['mag_src_sec']) and np.isnan(model_parameter_dict['mag_src_pri']):
+            return param_dict
+        
+    # These covers extreme cases that will never
+    # be detectable with such far t0s that jplephem
+    # does not cover their date range
+    jplephem_lower_mjd = 2287184.5 - 2400000.5
+    jplephem_upper_mjd = 2688976.5 - 2400000.5
+    if model.t0 < jplephem_lower_mjd or model.t0 > jplephem_upper_mjd:
+        return param_dict
+    
+    # Calculate the photometry 
+    duration=1000 # days
+    time_steps=5000
+    tmin = model.t0 - (duration / 2.0)
+    tmax = model.t0 + (duration / 2.0)
+    dt = np.linspace(tmin, tmax, time_steps)
+    
+    if 'get_all_arrays' in dir(model):
+        img, amp = model.get_all_arrays(dt)
+        phot = model.get_photometry(dt, amp_arr=amp)
+    else: #BSPL
+        phot = model.get_photometry(dt)
+
+    if save_phot == True:
+        if not os.path.exists(phot_dir):
+            os.makedirs(phot_dir)
+        foo = Table((dt, phot), names=['time', 'phot'])
+        foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
+        model_param_dict2fits_header(model_parameter_dict, phot_dir, name)
+
+    #because this is magnitudes max(phot) is baseline and min(phot) is peak
+    #baseline 2000tE away get_photometry
+    bin_delta_m = max(phot) - min(phot)
+    param_dict['bin_delta_m'] = bin_delta_m
+
+    # system tE is the time between where the event is first above 10% of it's base mag
+    # to the last time. This may not happen for some events
+    tenp = np.where(phot < (max(phot) - 0.1*bin_delta_m))[0]
+    if len(tenp) == 0:
+        param_dict['tE_sys'] = np.nan
+    else:
+        param_dict['tE_sys'] = max(dt[tenp]) - min(dt[tenp])
+
+    # Find peaks
+    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+    param_dict['n_peaks'] = len(peaks)
+    if len(peaks) == 0:
+        return param_dict
+        
+    param_dict['primary_t'] = dt[peaks][np.argmin(phot[peaks])]
+    param_dict['avg_t'] = np.average(dt[peaks])
+    param_dict['std_t'] = np.std(dt[peaks])
+    
+    # Find asymmetry (0 if symmetric, larger if asymmetric)
+    # Uses 50 degree chebyshev polynomial (see eq 7 in Night et al. 2010)
+    indices = np.arange(0,51)
+    cheb_fit = np.polynomial.chebyshev.Chebyshev.fit(dt, phot, 50).coef
+    odd_cheb = cheb_fit[indices%2==1]
+    even_cheb = cheb_fit[indices%2==0]
+    asymm = np.sqrt(np.sum(odd_cheb**2)/np.sum(even_cheb**2))
+    param_dict['asymmetry'] = asymm
+    
+    # Split up peaks by minima between peaks
+    # Note since it's magnitudes all the np.min and such are maxima
+    split_data = []
+    start_idx = 0
+    if len(peaks) > 1:
+        for i in range(len(peaks) - 1):
+            min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
+            end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
+            split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
+            start_idx = end_idx
+    split_data.append([dt[start_idx:], phot[start_idx:]])
+    split_data = np.array(split_data, dtype='object')
+    
+    highest_peak = np.argmin(phot[peaks])
+
+    if len(split_data[highest_peak][1]) != 0:
+        highest_bump_mag = max(split_data[highest_peak][1]) - min(split_data[highest_peak][1])
+        highest_half = np.where(split_data[highest_peak][1] < (max(split_data[highest_peak][1]) - 0.5*highest_bump_mag))[0]
+        
+        if len(highest_half) != 0:
+            tE_primary = max(dt[highest_half]) - min(dt[highest_half])
+            param_dict['tE_primary'] = tE_primary
+            
+    # For events with more than one peak, add them to the multi peak table
+    rows = []
+    if len(peaks) > 1:
+        n_peaks = len(peaks)
+        for i in range(len(peaks)):
+            t = dt[peaks[i]]
+            delta_m = max(phot) - phot[peaks[i]]
+            ratio = np.min(phot[peaks])/phot[peaks[i]]
+
+            # Don't log primary peak
+            if np.min(phot[peaks]) == phot[peaks[i]]:
+                continue
+
+            if len(split_data[i][1]) == 0:
+                tE = np.nan
+                rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+                continue
+
+            split_bump_mag = max(split_data[i][1]) - min(split_data[i][1])
+            split_half = np.where(split_data[i][1] < (max(split_data[i][1]) - 0.5*split_bump_mag))[0]
+            if len(split_half) == 0:
+                tE = np.nan
+                rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+                continue
+
+            tE = max(dt[split_half]) - min(dt[split_half])
+            rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+            
+        param_dict['mp_rows'] = rows
+        
+    return param_dict
+
+def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, event_id = None):
+    """
+    Find the parameters for PSBL_PhotAstrom_Par_Param7 from 
+    event_table and comp_table.
+
+    Parameters
+    ----------
+    event_table : Astropy table
+        Table containing the events calculated from refine_events.
+    
+    comp_table : Astropy table
+        Table containing the companions calculated from refine_events.
+    
+    comp_idx : int
+        Index into the comp_table of the companion for which the psbl is being calculated.
+    
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+    
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+    
+    Optional Parameters
+    --------------------
+    event_id : float
+        Corresponding event_id in event_table to companion id
+        
+    Output:
+    ----------
+    psbl_parameter_dict : dict
+        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters
+        
+    obj_id_L : int
+        Object id of the lens associated with event
+        
+    obj_id_S : int
+        Object id of the source associated with event
+        
+    """
+    obj_id_L = comp_table['obj_id_L'][comp_idx]
+    obj_id_S = comp_table['obj_id_S'][comp_idx]
+    
+    if event_id is None:
+        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
+        
+    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
+                            pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
+                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
+    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
+                            pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
+                              pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+    raL = L_coords.icrs.ra.value # Lens R.A.
+    decL = L_coords.icrs.dec.value # Lens dec
+    mL1 = event_table[event_id]['mass_L'] # msun (Primary lens current mass)
+    mL2 = comp_table['mass'][comp_idx] # msun (Companion lens current mass)
+    t0 = event_table[event_id]['t0'] # mjd
+    xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
+    beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
+    muL = np.array([L_coords.icrs.pm_ra_cosdec.value, L_coords.icrs.pm_dec.value]) #lens proper motion mas/year
+    muS = np.array([S_coords.icrs.pm_ra_cosdec.value, S_coords.icrs.pm_dec.value]) #source proper motion mas/year
+    dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
+    dS = event_table[event_id]['rad_S']*10**3 #Distance to source
+    sep = comp_table['sep'][comp_idx] #mas (separation between primary and companion)
+    alpha = comp_table['alpha'][comp_idx]
+    mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
+    b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    model_name = 'PSBL_PhotAstrom_Par_Param7'
+    
+    psbl_parameter_dict = {'raL': raL, 'decL': decL, 'mL1': mL1, 'mL2': mL2, 
+                           't0': t0, 'xS0': xS0, 'beta': beta, 'muL': muL, 
+                           'muS': muS, 'dL': dL, 'dS': dS, 'sep': sep, 
+                           'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff, 
+                           'model': model_name}
+    return psbl_parameter_dict, obj_id_L, obj_id_S
+    
+
+def psbl_model_gen(psbl_parameter_dict):
+    """
+    Generate psbl_photastrom_par_param1 model from parameter dict
+    
+    Parameters:
+    -----------
+    psbl_parameter_dict : dict
+        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters 
+        
+    Output:
+    --------
+    psbl model
+    """
+    ##########
+    # Calculate binary model and photometry
+    ##########
+    raL = psbl_parameter_dict['raL'] # Lens R.A.
+    decL = psbl_parameter_dict['decL'] # Lens dec
+    mL1 = psbl_parameter_dict['mL1'] # msun (Primary lens current mass)
+    mL2 = psbl_parameter_dict['mL2'] # msun (Companion lens current mass)
+    t0 = psbl_parameter_dict['t0'] # mjd
+    xS0 = psbl_parameter_dict['xS0'] #arbitrary offset (arcsec)
+    beta = psbl_parameter_dict['beta']
+    muL = psbl_parameter_dict['muL'] #lens proper motion mas/year
+    muS = psbl_parameter_dict['muS'] #source proper motion mas/year
+    dL = psbl_parameter_dict['dL'] #Distance to lens
+    dS = psbl_parameter_dict['dS'] #Distance to source
+    sep = psbl_parameter_dict['sep'] #mas (separation between primary and companion)
+    alpha = psbl_parameter_dict['alpha']
+    mag_src = psbl_parameter_dict['mag_src']
+    b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+
+    psbl = model.PSBL_PhotAstrom_Par_Param7(mL1, mL2, t0, xS0[0], xS0[1],
+                               beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
+                               sep, alpha, [b_sff], [mag_src], 
+                               raL=raL, decL=decL, 
+                               root_tol = 0.00000001)
+    return psbl
+
+
+def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, red_law, event_id = None):
+    """
+    Find the parameters for BSPL_PhotAstrom_Par_Param1 from 
+    event_table and comp_table.
+
+    Parameters
+    ----------
+    event_table : Astropy table
+        Table containing the events calculated from refine_events.
+    
+    comp_table : Astropy table
+        Table containing the companions calculated from refine_events.
+    
+    comp_idx : int
+        Index into the comp_table of the companion for which the psbl is being calculated.
+    
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+    
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+    
+    red_law : str
+        Redenning law
+    
+    Optional Parameters
+    --------------------
+    event_id : float
+        Corresponding event_id in event_table to companion id
+        
+    Output:
+    ----------
+    bspl_parameter_dict : dict
+        Dictionary of the BSPL_PhotAstrom_Par_Param1 parameters
+        
+    obj_id_L : int
+        Object id of the lens associated with event
+        
+    obj_id_S : int
+        Object id of the source associated with event
+        
+    """
+    obj_id_L = comp_table['obj_id_L'][comp_idx]
+    obj_id_S = comp_table['obj_id_S'][comp_idx]
+    
+    if event_id is None:
+        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
+    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
+                            pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
+                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
+    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
+                            pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
+                              pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
+    
+    raL = L_coords.icrs.ra.value # Lens R.A.
+    decL = L_coords.icrs.dec.value # Lens dec
+    mL = event_table[event_id]['mass_L'] # msun (Lens current mass)
+    t0 = event_table[event_id]['t0'] # mjd
+    beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
+    dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
+    dL_dS = dL/(event_table[event_id]['rad_S']*10**3) #Distance to lens/Distance to source
+    xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
+    muL_E = L_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
+    muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
+    muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
+    muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
+    sep = comp_table['sep'][comp_idx] #mas (separation between primary and companion)
+    alpha = comp_table['alpha'][comp_idx]
+    mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
+    mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
+    b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    model_name = 'BSPL_PhotAstrom_Par_Param1'
+    
+    bspl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mL': mL,
+                           't0': t0, 'xS0': xS0, 'beta': beta, 
+                           'muL_E': muL_E, 'muL_N': muL_N, 'muS_E': muS_E, 'muS_N': muS_N,
+                           'dL': dL, 'dL_dS': dL_dS, 'sep': sep, 
+                           'alpha': alpha, 'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 
+                           'b_sff': b_sff}
+    
+    return bspl_parameter_dict, obj_id_L, obj_id_S
+
+def bspl_model_gen(bspl_parameter_dict):
+    """
+    Generate bspl_photastrom_par_param1 model from parameter dict
+    
+    Parameters:
+    -----------
+    bspl_parameter_dict : dict
+        Dictionary of the BSPL_PhotAstrom_Par_Param1 parameters 
+        
+    Output:
+    --------
+    bspl model
+    """
+    ##########
+    # Calculate binary model and photometry
+    ##########
+    raL = bspl_parameter_dict['raL'] # Lens R.A.
+    decL = bspl_parameter_dict['decL'] # Lens dec
+    mL = bspl_parameter_dict['mL'] # msun (Lens current mass)
+    t0 = bspl_parameter_dict['t0'] # mjd
+    beta = bspl_parameter_dict['beta']
+    dL = bspl_parameter_dict['dL'] #Distance to lens
+    dL_dS = bspl_parameter_dict['dL_dS'] #Distance to lens/Distance to source
+    xS0 = bspl_parameter_dict['xS0'] #arbitrary offset (arcsec)
+    muL_E = bspl_parameter_dict['muL_E'] #lens proper motion mas/year
+    muL_N = bspl_parameter_dict['muL_N'] #lens proper motion mas/year
+    muS_E = bspl_parameter_dict['muS_E'] #lens proper motion mas/year
+    muS_N = bspl_parameter_dict['muS_N'] #lens proper motion mas/year
+    sep = bspl_parameter_dict['sep'] #mas (separation between primary and companion)
+    alpha = bspl_parameter_dict['alpha']
+    mag_src_sec = bspl_parameter_dict['mag_src_sec']
+    mag_src_pri = bspl_parameter_dict['mag_src_pri']
+    b_sff = bspl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+
+    bspl = model.BSPL_PhotAstrom_Par_Param1(mL, t0, beta, dL, dL_dS, 
+                                   xS0[0], xS0[1], muL_E, muL_N, muS_E, muS_N,
+                                   sep, alpha, [mag_src_pri], [mag_src_sec], [b_sff],
+                                   raL=raL, decL=decL)
+    
+    return bspl
+
+def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law, event_id = None):
+    """
+    Find the parameters for BSPL_PhotAstrom_Par_Param2 from 
+    event_table and comp_table.
+
+    Parameters
+    ----------
+    event_table : Astropy table
+        Table containing the events calculated from refine_events.
+    
+    comp_table : Astropy table
+        Table containing the companions calculated from refine_events.
+    
+    comp_idx_L : int
+        Index into the comp_table of the lens companion for which the model is being calculated.
+        
+    comp_idx_S : int
+        Index into the comp_table of the source companion for which the model is being calculated.
+    
+    photometric_system : str
+        The name of the photometric system in which the filter exists.
+    
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+    
+    red_law : str
+        Redenning law
+        
+    Optional Parameters
+    --------------------
+    event_id : float
+        Corresponding event_id in event_table to companion id
+        
+    Output:
+    ----------
+    bsbl_parameter_dict : dict
+        Dictionary of the BSBL_PhotAstrom_Par_Param2 parameters
+        
+    obj_id_L : int
+        Object id of the lens associated with event
+        
+    obj_id_S : int
+        Object id of the source associated with event
+        
+    """
+    obj_id_L = comp_table['obj_id_L'][comp_idx_L] # This is equivalent to doing comp_idx_S
+    obj_id_S = comp_table['obj_id_S'][comp_idx_S]
+
+    if event_id is None:
+        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
+    
+    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
+                            pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
+                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')    
+    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
+                            pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
+                              pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+
+    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
+
+    raL = L_coords.icrs.ra.value # Lens R.A.
+    decL = L_coords.icrs.dec.value # Lens dec
+    mLp = event_table[event_id]['mass_L'] # msun (Lens current mass)
+    mLs = comp_table['mass'][comp_idx_L] # msun (Companion lens current mass)
+    t0 = event_table[event_id]['t0'] # mjd
+    beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
+    dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
+    dS = event_table[event_id]['rad_S']*10**3 #Distance to source
+    xS0_E = 0.0 #arbitrary offset (arcsec)
+    xS0_N = 0.0 #arbitrary offset (arcsec)
+    muL_E = L_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
+    muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
+    muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
+    muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
+    sepL = comp_table['sep'][comp_idx_L] #mas (separation between primary and companion)
+    alphaL = comp_table['alpha'][comp_idx_L] # PA of binary on the sky
+    sepS = comp_table['sep'][comp_idx_S] #mas (separation between primary and companion)
+    alphaS = comp_table['alpha'][comp_idx_S] # PA of source binary on the sky
+    mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
+    mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
+    b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    model_name = 'BSBL_PhotAstrom_Par_Param2'
+    
+    bsbl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
+                           't0': t0, 'xS0_E': xS0_E, 'xS0_N': xS0_N, 'beta': beta, 
+                           'muL_E': muL_E, 'muL_N': muL_N, 'muS_E': muS_E, 'muS_N': muS_N,
+                           'dL': dL, 'dS': dS, 'sepL': sepL, 'alphaL': alphaL, 
+                           'sepS': sepS, 'alphaS': alphaS,
+                           'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 
+                           'b_sff': b_sff}
+        
+    return bsbl_parameter_dict, obj_id_L, obj_id_S
+
+def bsbl_model_gen(bsbl_parameter_dict):
+    """
+    Generate bsbl_photastrom_par_param1 model from parameter dict
+    
+    Parameters:
+    -----------
+    bspl_parameter_dict : dict
+        Dictionary of the BSBL_PhotAstrom_Par_Param1 parameters 
+        
+    Output:
+    --------
+    bsbl model
+    """
+    ##########
+    # Calculate binary model and photometry
+    ##########
+    raL = bsbl_parameter_dict['raL'] # Lens R.A.
+    decL = bsbl_parameter_dict['decL'] # Lens dec
+    mLp = bsbl_parameter_dict['mLp'] # msun (Lens current mass)
+    mLs = bsbl_parameter_dict['mLs'] # msun (Lens companion current mass)
+    t0 = bsbl_parameter_dict['t0'] # mjd
+    beta = bsbl_parameter_dict['beta']
+    dL = bsbl_parameter_dict['dL'] #Distance to lens
+    dS = bsbl_parameter_dict['dS'] #Distance to source
+    xS0_E = bsbl_parameter_dict['xS0_E'] #arbitrary offset (arcsec)
+    xS0_N = bsbl_parameter_dict['xS0_N'] #arbitrary offset (arcsec)
+    muL_E = bsbl_parameter_dict['muL_E'] #lens proper motion mas/year
+    muL_N = bsbl_parameter_dict['muL_N'] #lens proper motion mas/year
+    muS_E = bsbl_parameter_dict['muS_E'] #lens proper motion mas/year
+    muS_N = bsbl_parameter_dict['muS_N'] #lens proper motion mas/year
+    sepL = bsbl_parameter_dict['sepL'] #mas (separation between primary and companion)
+    alphaL = bsbl_parameter_dict['alphaL']
+    sepS = bsbl_parameter_dict['sepS'] #mas (separation between primary and companion)
+    alphaS = bsbl_parameter_dict['alphaS']
+    mag_src_sec = bsbl_parameter_dict['mag_src_sec']
+    mag_src_pri = bsbl_parameter_dict['mag_src_pri']
+    b_sff = bsbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+
+    bsbl = model.BSBL_PhotAstrom_Par_Param2(mLp, mLs, t0, xS0_E, xS0_N,
+                                              beta, muL_E, muL_N, muS_E, muS_N,
+                                              dL, dS, sepL, alphaL, sepS, alphaS,
+                                              mag_src_pri, mag_src_sec, b_sff,
+                                              raL=raL, decL=decL,
+                                              root_tol=1e-4)
+    return bsbl
 
 ##################################################################
 ############ Reading/writing and format functions  ###############
@@ -4204,7 +6133,6 @@ def make_ebf_log(ebf_table):
 
     return ebf_log
 
-
 def make_label_file(h5file_name, overwrite=False):
     """
     Given an output root for an .h5 file, creates a table of
@@ -4225,14 +6153,20 @@ def make_label_file(h5file_name, overwrite=False):
         Table containing the dataset name, and corresponding l, b, and number of objects.
 
     """
-    data_dict = {'file_name': [], 'long_start': [], 'long_end': [],
-                 'lat_start': [], 'lat_end': [], 'objects': [],
-                 'N_stars': [], 'N_WD': [], 'N_NS': [], 'N_BH': []}
-
+    label_file_start_time = time.time()
+    
     hf = h5py.File(h5file_name + '.h5', 'r')
     l_array = hf['long_bin_edges']
     b_array = hf['lat_bin_edges']
-
+    
+    dset_num = (len(l_array)-1)*(len(b_array)-1)
+    
+    data_dict = {'file_name': np.chararray(dset_num,itemsize=20), 'long_start': np.empty(dset_num), 'long_end': np.empty(dset_num),
+                 'lat_start': np.empty(dset_num), 'lat_end': np.empty(dset_num), 'objects': np.empty(dset_num, dtype = int),
+                 'N_stars': np.empty(dset_num, dtype = int), 'N_WD': np.empty(dset_num, dtype = int),
+                 'N_NS': np.empty(dset_num, dtype = int), 'N_BH': np.empty(dset_num, dtype = int)}
+    
+    dset_num = 0
     for ll in range(len(l_array) - 1):
         for bb in range(len(b_array) - 1):
             dset_name = 'l' + str(ll) + 'b' + str(bb)
@@ -4244,21 +6178,37 @@ def make_label_file(h5file_name, overwrite=False):
                 N_NS = 0
                 N_BH = 0
             else:
-                N_stars = np.sum(dataset['rem_id'] == 0)
-                N_WD = np.sum(dataset['rem_id'] == 101)
-                N_NS = np.sum(dataset['rem_id'] == 102)
-                N_BH = np.sum(dataset['rem_id'] == 103)
-
-            data_dict['file_name'].append(dset_name)
-            data_dict['long_start'].append(l_array[ll])
-            data_dict['long_end'].append(l_array[ll + 1])
-            data_dict['lat_start'].append(b_array[bb])
-            data_dict['lat_end'].append(b_array[bb + 1])
-            data_dict['objects'].append(dataset.shape[0])
-            data_dict['N_stars'].append(N_stars)
-            data_dict['N_WD'].append(N_WD)
-            data_dict['N_NS'].append(N_NS)
-            data_dict['N_BH'].append(N_BH)
+                values, counts = np.unique(dataset['rem_id'], return_counts = True)
+                if 0 in values:
+                    N_stars = counts[values == 0][0]
+                else:
+                    N_stars = 0
+                if 101 in values:
+                    N_WD = counts[values == 101][0]
+                else:
+                    N_WD = 0
+                if 102 in values:
+                    N_NS = counts[values == 102][0]
+                else:
+                    N_NS = 0
+                if 103 in values:
+                    N_BH = counts[values == 103][0]
+                else:
+                    N_BH = 0
+            
+            data_dict['file_name'][dset_num] = dset_name
+            data_dict['long_start'][dset_num] = l_array[ll]
+            data_dict['long_end'][dset_num] = l_array[ll + 1]
+            data_dict['lat_start'][dset_num] = b_array[bb]
+            data_dict['lat_end'][dset_num] = b_array[bb + 1]
+            data_dict['objects'][dset_num] = len(dataset)
+            data_dict['N_stars'][dset_num] = N_stars
+            data_dict['N_WD'][dset_num] = N_WD
+            data_dict['N_NS'][dset_num] = N_NS
+            data_dict['N_BH'][dset_num] = N_BH
+            
+            dset_num += 1
+            del dataset
 
     hf.close()
 
@@ -4269,6 +6219,79 @@ def make_label_file(h5file_name, overwrite=False):
     label_file['long_end'].format = '08.3f'
     label_file['lat_start'].format = '07.3f'
     label_file['lat_end'].format = '07.3f'
+
+    now = datetime.datetime.now()
+    label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
+
+    label_file.write(h5file_name + '_label.fits', overwrite=overwrite)
+    
+    print('make label file time: {0:f} s'.format(time.time() - label_file_start_time))
+
+    return
+
+def make_label_file_no_bins(h5file_name, overwrite=False):
+    """
+    Given an output root for an .h5 file, creates a table of
+    dataset name and number of objects.
+    Writes out the Astropy table as a .fits file.
+    Used when binning = False (when simulating full sky)
+
+    Parameters
+    ----------
+    h5file_name : string
+        The path and name of the input h5file containing the
+        population synthesis results. We will read this in and
+        make a new output file entitled:
+        <h5file_name>_label.fits (after removing the *.h5).
+
+    Return
+    ------
+    label_file : Astropy table
+        Table containing the dataset name, and corresponding l, b, and number of objects.
+
+    """
+    data_dict = {'file_name': [], 'objects': [],
+                 'N_stars': [], 'N_WD': [], 'N_NS': [], 'N_BH': []}
+
+    hf = h5py.File(h5file_name + '.h5', 'r')
+
+    dataset = hf['objects']
+
+    if len(dataset) == 0:
+        N_stars = 0
+        N_WD = 0
+        N_NS = 0
+        N_BH = 0
+    else:
+        values, counts = np.unique(dataset['rem_id'], return_counts = True)
+        if 0 in values:
+            N_stars = counts[values == 0][0]
+        else:
+            N_stars = 0
+        if 101 in values:
+            N_WD = counts[values == 101][0]
+        else:
+            N_WD = 0
+        if 102 in values:
+            N_NS = counts[values == 102][0]
+        else:
+            N_NS = 0
+        if 103 in values:
+            N_BH = counts[values == 103][0]
+        else:
+            N_BH = 0
+
+    data_dict['file_name'].append('object')
+    data_dict['objects'].append(dataset.shape[0])
+    data_dict['N_stars'].append(N_stars)
+    data_dict['N_WD'].append(N_WD)
+    data_dict['N_NS'].append(N_NS)
+    data_dict['N_BH'].append(N_BH)
+
+    hf.close()
+
+    label_file = Table(data_dict, names=('file_name', 'objects',
+                                         'N_stars', 'N_WD', 'N_NS', 'N_BH'))
 
     now = datetime.datetime.now()
     label_file.meta['label'] = 'label.fits file creation time: ' + str(now)
@@ -4343,7 +6366,7 @@ def einstein_radius(M, d_L, d_S):
     Parameters
     ----------
     M : float
-        Lens mass, in solar masses
+        Lens current mass, in solar masses
 
     d_L : float
         Distance to lens, in kpc
@@ -4564,6 +6587,4 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Alambda_AKs = red_law_method(lambda_eff, 1)
 
     return Alambda_AKs
-
-
 

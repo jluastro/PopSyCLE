@@ -327,7 +327,7 @@ def add_mult_positions(companions, ss_pos, logAge, add_velocities = False):
         orb.o = i['Omega'] #degrees
         orb.i = i['i'] #degrees
         orb.e = i['e'] #between 0 and 1
-        orb.p = a_to_P(ss_pos[i['system_idx']]['mass'],10**i['log_a']) #year
+        orb.p = a_to_P(ss_pos[i['system_idx']]['systemMass'],10**i['log_a']) #year
         orb.t0 = (10**logAge)*np.random.rand() #year
         orb.mass = ss_pos[i['system_idx']]['mass']
         

@@ -10,7 +10,7 @@ Welcome to PopSyCLE's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   modules
+   source/modules
 
 
 

@@ -632,7 +632,6 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
-
     multiplicity: object
         If a resovled multiplicity object is specified, 
         the table will be generated with resolved multiples.

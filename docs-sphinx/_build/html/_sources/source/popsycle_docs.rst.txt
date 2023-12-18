@@ -1,0 +1,2375 @@
+popsycle_docs
+========
+.. contents::
+   :depth: 3
+..
+
+.. container:: _kqswh2mm
+
+   .. container::
+
+      .. container::
+
+         .. container:: 
+            :name: content
+
+            .. container::
+
+               .. container::
+
+                  .. container:: highlighter-context page view
+                     :name: main-content
+
+                     .. container:: renderer-overrides
+
+                         -  1 \ \ `1
+                            Installation <#1-Installation>`__
+                         -  2 \ \ `2 Reading
+                            Files <#2-Reading-Files>`__
+
+                            -  2.1 \ \ `2.1 How to
+                               read HDF5
+                               files <#2.1-How-to-read-HDF5-files>`__
+                            -  2.2 \ \ `2.2 How to
+                               read EBF
+                               files <#2.2-How-to-read-EBF-files>`__
+                            -  2.3 \ \ `2.3 How to
+                               read FITS table
+                               files <#2.3-How-to-read-FITS-table-files>`__
+
+                         -  3 \ \ `3 Description of
+                            Pipeline <#3-Description-of-Pipeline>`__
+
+                            -  3.1 \ \ `3.1 Pipeline
+                               without multiple
+                               systems <#3.1-Pipeline-without-multiple-systems>`__
+                            -  3.2 \ \ `3.2 Pipeline
+                               with multiple
+                               systems <#3.2-Pipeline-with-multiple-systems>`__
+
+                         -  4 \ \ `4
+                            Outputs <#4-Outputs>`__
+
+                            -  4.1 \ \ `4.1
+                               perform_pop_syn <#4.1-perform_pop_syn>`__
+
+                               -  4.1.1 \ \ `4.1.1
+                                  Label/summary file
+                                  (Astropy FITS
+                                  Table) <#4.1.1-Label/summary-file-(Astropy-FITS-Table)>`__
+                               -  4.1.2 \ \ `4.1.2
+                                  Stars and Compact
+                                  Objects
+                                  (primaries)
+                                  (HDF5) <#4.1.2-Stars-and-Compact-Objects-(primaries)-(HDF5)>`__
+                               -  4.1.3 \ \ `4.1.3
+                                  Stars and Compact
+                                  Objects Companions
+                                  (HDF5) <#4.1.3-Stars-and-Compact-Objects-Companions-(HDF5)>`__
+
+                            -  4.2 \ \ `4.2
+                               calc_events <#4.2-calc_events>`__
+
+                               -  4.2.1 \ \ `4.2.1
+                                  Event candidates
+                                  table (Astropy
+                                  FITS
+                                  table) <#4.2.1-Event-candidates-table-(Astropy-FITS-table)>`__
+                               -  4.2.2 \ \ `4.2.2
+                                  Blends table
+                                  (Astropy FITS
+                                  table) <#4.2.2-Blends-table-(Astropy-FITS-table)>`__
+
+                            -  4.3 \ \ `4.3
+                               refine_events <#4.3-refine_events>`__
+
+                               -  4.3.1 \ \ `4.3.1
+                                  Events table
+                                  (Astropy FITS
+                                  table) <#4.3.1-Events-table-(Astropy-FITS-table)>`__
+                               -  4.3.2 \ \ `4.3.2
+                                  Companions table
+                                  (Astropy FITS
+                                  table) <#4.3.2-Companions-table-(Astropy-FITS-table)>`__
+
+                            -  4.4 \ \ `4.4
+                               refine_binary_events <#4.4-refine_binary_events>`__
+
+                               -  4.4.1 \ \ `4.4.1
+                                  Events table
+                                  (Astropy FITS
+                                  table) <#4.4.1-Events-table-(Astropy-FITS-table)>`__
+                               -  4.4.2 \ \ `4.4.2
+                                  Companions table
+                                  (Astropy FITS
+                                  table) <#4.4.2-Companions-table-(Astropy-FITS-table)>`__
+                               -  4.4.3 \ \ `4.4.3
+                                  Multi-peak table
+                                  (Astropy FITS
+                                  table) <#4.4.3-Multi-peak-table-(Astropy-FITS-table)>`__
+                               -  4.4.4 \ \ `4.4.4
+                                  Lightcurve table
+                                  (Astropy FITS
+                                  table) <#4.4.4-Lightcurve-table-(Astropy-FITS-table)>`__
+
+                            -  4.5 \ \ `4.5
+                               Additional
+                               descriptions of
+                               tags <#4.5-Additional-descriptions-of-tags>`__
+
+                         -  5 \ \ `5 Coordinate
+                            Systems <#5-Coordinate-Systems>`__
+
+                                  
+
+                         .. rubric:: 1 Installation
+                            :name: 1-Installation
+
+                         For now, see
+                         https://github.com/jluastro/PopSyCLE/blob/dev/docs/Documentation__PopSyCLE.pdf
+
+                         .. rubric:: 2 Reading Files
+                            :name: 2-Reading-Files
+
+                         ``PopSyCLE`` uses all sorts of
+                         different file formats. It can easily
+                         get confusing, so here is a short guide
+                         to the basics.
+
+                         .. rubric:: 2.1 How to read HDF5 files
+                            :name: 2.1-How-to-read-HDF5-files
+
+                         Within the HDF5 file are datasets that
+                         store the information. It is kind of
+                         like a dictionary in python-- the
+                         dataset can be manipulated just like a
+                         numpy array.
+
+                         First, go to the directory containing
+                         the HDF5 file you want to open. Next,
+                         start ipython. Then type the following:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``import``\ ``h5py``\ ``hf``\ ``=``\ ``h5py``\ ``.``\ ``File``\ ``(``\ ``'filename.h5'``\ ``,``\ ````\ ``'r'``\ ``)``
+
+                         If you want to see the names of all the
+                         datasets in an HDF5 file, type the
+                         following:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``list(hf.keys())``
+
+                         Suppose you want to work with the
+                         dataset named ``dname``
+
+                         To access the dataset, type:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``dset = hf['dname']``
+
+                         To view the columns of the dset, you
+                         can type:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``dset.dtype.names``
+
+                         To access a column in the database, you
+                         can use the column names listed below.
+                         i.e. for mass of all the objects in a
+                         dataset you can use:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``dset_masses = hf['dname']['mass']``
+
+                         Note that only one person at a time can
+                         work on an open HDF5 file. Thus, at the
+                         end, you need to close the file:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``hf.close()``
+
+                         .. rubric:: 2.2 How to read EBF files
+                            :name: 2.2-How-to-read-EBF-files
+
+                         The EBF file is basically a dictionary
+                         in python. The output of ``Galaxia`` is
+                         in the EBF format.
+
+                         First, go to the directory containing
+                         the EBF file you want to open. Next,
+                         start ipython. Then type the following:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``from popsycle import ebf``\ ``ef = ebf.read('filename.ebf', '/')``
+
+                         If you want to see the names of all the
+                         keys in the EBF file, type the
+                         following:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``ef.keys()``
+
+                         Suppose you want to work with the key
+                         ``xkey``. To access that part of the
+                         file, type:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``x = ef['xkey']``
+
+                         Now ``x`` is just a numpy array and can
+                         manipulated as such
+
+                         You can also access just that key from
+                         the beginning instead of loading in the
+                         entire ebf file by:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``ef = ebf.read('filename.ebf', '/xkey')``
+
+                         .. rubric:: 2.3 How to read FITS table
+                            files
+                            :name: 2.3-How-to-read-FITS-table-files
+
+                         First, go to the directory containing
+                         the fits file you want to open. Next,
+                         start ipython, Then type the following:
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``from astropy.table import Table``\ ``tab = Table.read('table.fits')``
+
+                         To view the entire table, just type
+                         ``tab``. The table works similar to a
+                         python dictionary or like a pandas
+                         dataframe. The column names are the
+                         keys of the dictionary, and the
+                         dictionary name in this case is
+                         ``tab``.
+
+                         To view the header
+                         information/metadata, type
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``tab.meta``
+
+                         To view the column names type
+
+                         .. container::
+                         code-block confluence-ssr-app-qswx85
+
+                            .. container::
+                            confluence-ssr-app-9n57oc
+
+                               .. container::
+                               confluence-ssr-app-ygvpeu
+
+                                  .. container::
+
+                                  .. container::
+
+                                     .. container::
+
+                            ``tab.columns``
+
+                         .. rubric:: 3 Description of Pipeline
+                            :name: 3-Description-of-Pipeline
+
+                         .. rubric:: 3.1 Pipeline without
+                            multiple systems
+                            :name: 3.1-Pipeline-without-multiple-systems
+
+                         To run without companions, first, run
+                         ``Galaxia`` to create an EBF file,
+                         which produces a synthetic survey, i.e.
+                         a bunch of stars. Next, run population
+                         synthesis (perform_pop_syn) to inject
+                         compact objects into the synthetic
+                         survey; both the compact objects and
+                         stars are saved in an HDF5 file. Then
+                         run a synthetic survey (calc_events and
+                         refine_events) that will produce a list
+                         of microlensing events, which are
+                         listed in a FITS file.
+
+                         .. container::
+                         rich-media-item mediaSingleView-content-wrap image-center confluence-ssr-app-1yfy69r
+
+                            .. container::
+                            confluence-ssr-app-vzbpdg
+
+                               .. container::
+
+                                  .. container::
+                                  new-file-experience-wrapper confluence-ssr-app-3ikfki
+                                     :name: newFileExperienceWrapper
+
+                                     .. container::
+                                     media-file-card-view confluence-ssr-app-1yn77bd
+
+                                        |image1|
+
+                         .. rubric:: 3.2 Pipeline with multiple
+                            systems
+                            :name: 3.2-Pipeline-with-multiple-systems
+
+                         To run with companions (with changed
+                         steps marked in **blue**), first, run
+                         ``Galaxia``\ to create an EBF file,
+                         which produces a synthetic survey, i.e.
+                         a bunch of stars. Next, run population
+                         synthesis (perform_pop_syn) to inject
+                         compact objects **and companions**\ 
+                         into the synthetic survey. Both the
+                         compact objects and stars are saved in
+                         an HDF5 file **and the companions are
+                         stored in a separate hdf5 file**. Then
+                         run a synthetic survey (calc_events and
+                         refine_events) that will produce a list
+                         of microlensing events, which are
+                         listed in a FITS file **with a separate
+                         FITS file for associated companions
+                         after refine_events**. **Then model the
+                         binary lens events
+                         (refine_binary_events) which will
+                         produce some additional characteristics
+                         from the lightcurves and a description
+                         of all the peaks, which are listed in
+                         two FITS files.**
+
+                         .. container::
+                         rich-media-item mediaSingleView-content-wrap image-center confluence-ssr-app-s4x2uz
+
+                            .. container::
+                            confluence-ssr-app-10vafs6
+
+                               .. container::
+
+                                  .. container::
+                                  new-file-experience-wrapper confluence-ssr-app-1lh6w2g
+                                     :name: newFileExperienceWrapper
+
+                                     .. container::
+                                     media-file-card-view confluence-ssr-app-1yn77bd
+
+                                        |image2|
+
+                          
+
+                         .. rubric:: 4 Outputs
+                            :name: 4-Outputs
+
+                         In addition to the outputs described
+                         below, each function produces a text
+                         log file that lists the input
+                         parameters
+
+                         .. rubric:: 4.1 perform_pop_syn
+                            :name: 4.1-perform_pop_syn
+
+                         .. rubric:: 4.1.1 Label/summary file
+                            (Astropy FITS Table)
+                            :name: 4.1.1-Label/summary-file-(Astropy-FITS-Table)
+
+                         For now see
+                         https://github.com/jluastro/PopSyCLE/blob/dev/docs/Documentation__PopSyCLE.pdf
+
+                         .. rubric:: 4.1.2 Stars and Compact
+                            Objects (primaries) (HDF5)
+                            :name: 4.1.2-Stars-and-Compact-Objects-(primaries)-(HDF5)
+
+                         The data output contained in the HDF5
+                         datasets are a combination of outputs
+                         that come directly from Galaxia, and
+                         outputs we ourselves have calculated or
+                         defined.
+
+                         Default name: *root*.h5
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | zams_mass            | ZAMS mass            | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | mass                 | Current mass         | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | systemMass           | Sum of mass of       | M\ :sub:`⊙`          |
+                               |                      | primary and          |                      |
+                               |                      | companions (if       |                      |
+                               |                      | existent)            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | px                   | Heliocentric x       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | py                   | Heliocentric y       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | pz                   | Heliocentric z       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vx                   | Heliocentric x       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vy                   | Heliocentric y       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vz                   | Heliocentric z       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | age                  | Age                  | log(age/yr)          |
+                               +----------------------+----------------------+----------------------+
+                               | popid                | Population ID -      | N/A                  |
+                               |                      | integer indicating   |                      |
+                               |                      | the population type  |                      |
+                               |                      | ranging from 0 to 9  |                      |
+                               |                      | (see Additional      |                      |
+                               |                      | Descriptions below)  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | exbv                 | Extinction E(B-V) at | mag                  |
+                               |                      | the location of star |                      |
+                               |                      | given by 3-D         |                      |
+                               |                      | Schlegel extinction  |                      |
+                               |                      | maps                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | glat                 | Galactic latitude    | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | glon                 | Galactic longitude   | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | mbol                 | Bolometric magnitude | log(L/L\ :sub:`⊙`)   |
+                               +----------------------+----------------------+----------------------+
+                               | grav                 | Surface gravity      | log(gravity)         |
+                               +----------------------+----------------------+----------------------+
+                               | teff                 | Effective            | Log(T/Kelvin)        |
+                               |                      | temperature          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | feh                  | Metallicity          | [Fe/H]               |
+                               +----------------------+----------------------+----------------------+
+                               | rad                  | Galactic radial      | kpc                  |
+                               |                      | distance             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | isMultiple           | True if the system   | N/A                  |
+                               |                      | has companions,      |                      |
+                               |                      | False if the system  |                      |
+                               |                      | does not             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | N_companions         | Number of companions | N/A                  |
+                               +----------------------+----------------------+----------------------+
+                               | rem_id               | Integer indicating   | N/A                  |
+                               |                      | the remnant object   |                      |
+                               |                      | type (see Additional |                      |
+                               |                      | Descriptions below)  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id               | Object ID-- unique   | N/A                  |
+                               |                      | integer to identify  |                      |
+                               |                      | star/compact object  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ubv_J, H, K, U, I,   | UBV photometric      | mag                  |
+                               | B, V, R              | system, J, H, K, U,  |                      |
+                               |                      | I, B, V, R system    |                      |
+                               |                      | absolute magnitude   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ztf_g, r, i          | ztf photometric      | mag                  |
+                               | (optional)           | system g, r, i       |                      |
+                               |                      | absoltue magnitude   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vr                   | Galactic radial      | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_b                 | Galactic proper      | mas/yr               |
+                               |                      | motion, b component  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_lcosb             | Galactic proper      | mas/yr               |
+                               |                      | motion, l component  |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         Note that the tag names can be used to
+                         access HDF5 files (see “How to read
+                         HDF5 files” above)
+
+                         For stars (which are generated by
+                         ``Galaxia``), the following outputs are
+                         taken directly from ``Galaxia`` and
+                         just reformatted into the HDF5 format;
+                         parenthetical names correspond to the
+                         tag name from ``Galaxia``, if
+                         different: zams_mass (smass), mass
+                         (mact), px, py, pz, vx, vy, vz, age,
+                         popid, ubv_k, ubv_i, ubv_u, ubv_b,
+                         ubv_v, ubv_r, ubv_j, ubv_h, exbv
+                         (exbv_schlegel), teff, grav, mbol
+                         (lum), feh. Note that the lum key from
+                         ``Galaxia`` is referred to as mbol in
+                         the ``Galaxia``\ documentation.
+
+                         For compact objects (which we generated
+                         with our population synthesis code,
+                         ``SPISEA``), we must assign these
+                         values ourselves.
+
+                         For both stars and compact objects, the
+                         following are things we have directly
+                         calculated or assigned ourselves:
+                         rem_id, rad, glat, glon, vr, mu_b,
+                         mu_lcosb, obj_id. (For reasons relating
+                         to managing RAM, we calculate rad,
+                         glat, and glon although they are an
+                         output given directly from Galaxia, and
+                         we could have just read in the value.
+                         However, it can be calculated directly
+                         from knowledge of px, py, and pz.)
+
+                         .. rubric:: 4.1.3 Stars and Compact
+                            Objects Companions (HDF5)
+                            :name: 4.1.3-Stars-and-Compact-Objects-Companions-(HDF5)
+
+                         The data output contained in the HDF5
+                         datasets are a combination of outputs
+                         that come directly from ``SPISEA``, and
+                         outputs we ourselves have calculated or
+                         defined.
+
+                         Default name: *root*\ \_companions.h5
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | system_idx           | System index         | N/A                  |
+                               |                      | corresponding to the |                      |
+                               |                      | obj_idx of the       |                      |
+                               |                      | primary              |                      |
+                               +----------------------+----------------------+----------------------+
+                               | zams_mass            | ZAMS mass            | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | Teff                 | Effective            | K                    |
+                               |                      | Temperature          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | L                    | Luminosity           | W                    |
+                               +----------------------+----------------------+----------------------+
+                               | logg                 | Surface gravity      | cgs                  |
+                               +----------------------+----------------------+----------------------+
+                               | isWR                 | Is star a            | N/A                  |
+                               |                      | Wolf-Rayet?          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mass                 | Current mass         | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | phase                | Evolution phase      | N/A                  |
+                               |                      | (equivalent to       |                      |
+                               |                      | rem_id in primary    |                      |
+                               |                      | table)               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | metallicity          | Companion            | [Fe/H]               |
+                               |                      | metallicity          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | m_ubv_U, B, V, I, R  | System magnitude in  | mag                  |
+                               |                      | filters from         |                      |
+                               |                      | ``SPISEA`` system    |                      |
+                               +----------------------+----------------------+----------------------+
+                               | m_ukirt_H, K, J      | System magnitude in  | mag                  |
+                               |                      | filters from         |                      |
+                               |                      | ``SPISEA`` system    |                      |
+                               +----------------------+----------------------+----------------------+
+                               | m_ztf_g, r, i        | System magnitude in  | mag                  |
+                               |                      | filters from         |                      |
+                               |                      | ``SPISEA`` system    |                      |
+                               +----------------------+----------------------+----------------------+
+                               | log_a                | Log of the system    | log(AU)              |
+                               |                      | semimajor axis       |                      |
+                               +----------------------+----------------------+----------------------+
+                               | e                    | Eccentricity         | N/A                  |
+                               +----------------------+----------------------+----------------------+
+                               | i                    | Inclination          | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | Omega                | Longitude of         | deg                  |
+                               |                      | ascending node       |                      |
+                               +----------------------+----------------------+----------------------+
+                               | omega                | Argument of          | deg                  |
+                               |                      | periapsis            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | zams_mass_match_diff | Difference between   | ΔM\ :sub:`⊙`         |
+                               |                      | mass of ``SPISEA``   |                      |
+                               |                      | primary and matched  |                      |
+                               |                      | ``Galaxia`` primary  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | zams_mass_prim       | ZAMS mass of         | M\ :sub:`⊙`          |
+                               |                      | original SPISEA      |                      |
+                               |                      | priamry              |                      |
+                               +----------------------+----------------------+----------------------+
+                               | spisea_idx           | System index in      | N/A                  |
+                               |                      | original SPISEA      |                      |
+                               |                      | systems table        |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.2 calc_events
+                            :name: 4.2-calc_events
+
+                         .. rubric:: 4.2.1 Event candidates
+                            table (Astropy FITS table)
+                            :name: 4.2.1-Event-candidates-table-(Astropy-FITS-table)
+
+                         The event candidates table is very
+                         similar to the HDF5 file created in
+                         perform_pop_syn. (In fact, the top part
+                         is completely duplicated; it's here for
+                         completeness.)
+
+                         However, the main difference is that
+                         there is a LOT less of the output, so
+                         instead of writing it in arrays in an
+                         HDF5 file, we use an Astropy table.
+
+                         Each row in this table is associated
+                         with a microlensing event, each of
+                         which has a lens-source pair
+
+                         Default name: *root*\ \_events.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | zams_mass (_L, \_S)  | ZAMS mass            | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | mass (_L, \_S)       | Current mass         | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | systemMass (_L, \_S) | Sum of mass of       | M\ :sub:`⊙`          |
+                               |                      | primary and          |                      |
+                               |                      | companions (if       |                      |
+                               |                      | existent)            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | px (_L, \_S)         | Heliocentric x       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | py (_L, \_S)         | Heliocentric y       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | pz (_L, \_S)         | Heliocentric z       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vx (_L, \_S)         | Heliocentric x       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vy (_L, \_S)         | Heliocentric y       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vz (_L, \_S)         | Heliocentric z       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | age (_L, \_S)        | Age                  | log(age/yr)          |
+                               +----------------------+----------------------+----------------------+
+                               | popid (_L, \_S)      | Population ID -      | N/A                  |
+                               |                      | integer indicating   |                      |
+                               |                      | the population type  |                      |
+                               |                      | ranging from 0 to 9  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | exbv (_L, \_S)       | Extinction E(B-V) at | mag                  |
+                               |                      | the location of star |                      |
+                               |                      | given by 3-D         |                      |
+                               |                      | Schlegel extinction  |                      |
+                               |                      | maps                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | glat (_L, \_S)       | Galactic latitude    | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | glon (_L, \_S)       | Galactic longitude   | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | mbol (_L, \_S)       | Bolometric magnitude | log(L/L\ :sub:`⊙`)   |
+                               +----------------------+----------------------+----------------------+
+                               | grav (_L, \_S)       | Surface gravity      | log(gravity)         |
+                               +----------------------+----------------------+----------------------+
+                               | teff (_L, \_S)       | Effective            | Log(T/Kelvin)        |
+                               |                      | temperature          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | feh (_L, \_S)        | Metallicity          | [Fe/H]               |
+                               +----------------------+----------------------+----------------------+
+                               | rad (_L, \_S)        | Galactic radial      | kpc                  |
+                               |                      | distance             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | isMultiple (_L, \_S) | True if the system   | N/A                  |
+                               |                      | has companions,      |                      |
+                               |                      | False if the system  |                      |
+                               |                      | does not             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | N_companions (_L,    | Number of companions | N/A                  |
+                               | \_S)                 |                      |                      |
+                               +----------------------+----------------------+----------------------+
+                               | rem_id (_L, \_S)     | Integer indicating   | N/A                  |
+                               |                      | the remnant object   |                      |
+                               |                      | type (more details   |                      |
+                               |                      | in tag description)  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id (_L, \_S)     | Object ID-- unique   | N/A                  |
+                               |                      | integer to identify  |                      |
+                               |                      | star/compact object  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ubv_J, H, K, U, I,   | UBV photometric      | mag                  |
+                               | B, V, R (_L, \_S)    | system, J, H, K, U,  |                      |
+                               |                      | I, B, V, R absolute  |                      |
+                               |                      | magnitude            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ztf_g, r, i (_L,     | ztf photometric      | mag                  |
+                               | \_S)(optional)       | system g, r, i       |                      |
+                               |                      | absoltue magnitude   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vr (_L, \_S)         | Galactic radial      | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_b (_L, \_S)       | Galactic proper      | mas/yr               |
+                               |                      | motion, b component  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_lcosb (_L, \_S)   | Galactic proper      | mas/yr               |
+                               |                      | motion, l component  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | theta_E              | (Angular) Einstein   | mas                  |
+                               |                      | radius               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_rel               | Relative source-lens | mas/yr               |
+                               |                      | proper motion        |                      |
+                               +----------------------+----------------------+----------------------+
+                               | u0                   | (Unitless) minimum   | dimensionless        |
+                               |                      | source-lens          | (normalized to       |
+                               |                      | separation, *during* | θ\ :sub:`E`)         |
+                               |                      | the survey           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | t0                   | Time at which        | days                 |
+                               |                      | minimum source-lens  |                      |
+                               |                      | separation occurs    |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         Tag names ARE used for the Astropy
+                         table. You will see a lot of the tag
+                         names have a parenthetical after (_L,
+                         \_S). That is to indicate there is one
+                         tag for the lens (L) and one for the
+                         source (S), since for a given event,
+                         you need to have both a lens and a
+                         source, and each of these things has a
+                         mass, a velocity, a position, etc. For
+                         example, zams_mass_L is the ZAMS mass
+                         of the lens, and age_S is the
+                         log(age/yr) of the source.
+
+                         .. rubric:: 4.2.2 Blends table (Astropy
+                            FITS table)
+                            :name: 4.2.2-Blends-table-(Astropy-FITS-table)
+
+                         For each candidate microlensing event,
+                         associated with it are blended stars,
+                         which we call neighbors. Given the
+                         blend radius chosen when running
+                         calc_events, the blend table saves all
+                         neighbor stars that fall within that
+                         distance from the lenses in the
+                         candidate events table. The blends
+                         table is again almost identical to the
+                         HDF5 output, but is has three
+                         additional items. For each neighbor
+                         star, it lists the object ID of the
+                         lens and source it is associated with,
+                         and the distance between itself and the
+                         lens. Note that there can be multiple
+                         neighbor stars associated with a single
+                         lens and source (microlensing event).
+
+                         Default name: *root*\ \_blends.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | zams_mass_N          | ZAMS mass            | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | mass_N               | Current mass         | M\ :sub:`⊙`          |
+                               +----------------------+----------------------+----------------------+
+                               | systemMass_N         | Sum of mass of       | M\ :sub:`⊙`          |
+                               |                      | primary and          |                      |
+                               |                      | companions (if       |                      |
+                               |                      | existent)            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | px_N                 | Heliocentric x       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | py_N                 | Heliocentric y       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | pz_N                 | Heliocentric z       | kpc                  |
+                               |                      | position             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vx_N                 | Heliocentric x       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vy_N                 | Heliocentric y       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vz_N                 | Heliocentric z       | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | age_N                | Age                  | log(age/yr)          |
+                               +----------------------+----------------------+----------------------+
+                               | popid_N              | Population ID -      | N/A                  |
+                               |                      | integer indicating   |                      |
+                               |                      | the population type  |                      |
+                               |                      | ranging from 0 to 9  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | exbv_N               | Extinction E(B-V) at | mag                  |
+                               |                      | the location of star |                      |
+                               |                      | given by 3-D         |                      |
+                               |                      | Schlegel extinction  |                      |
+                               |                      | maps                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | glat_N               | Galactic latitude    | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | glon_N               | Galactic longitude   | deg                  |
+                               +----------------------+----------------------+----------------------+
+                               | mbol_N               | Bolometric magnitude | log(L/L\ :sub:`⊙`)   |
+                               +----------------------+----------------------+----------------------+
+                               | grav_N               | Surface gravity      | log(gravity)         |
+                               +----------------------+----------------------+----------------------+
+                               | teff_N               | Effective            | Log(T/Kelvin)        |
+                               |                      | temperature          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | feh_N                | Metallicity          | [Fe/H]               |
+                               +----------------------+----------------------+----------------------+
+                               | rad_N                | Galactic radial      | kpc                  |
+                               |                      | distance             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | isMultiple_N         | True if the system   | N/A                  |
+                               |                      | has companions,      |                      |
+                               |                      | False if the system  |                      |
+                               |                      | does not             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | N_companions_N       | Number of companions | N/A                  |
+                               +----------------------+----------------------+----------------------+
+                               | rem_id_N             | Integer indicating   | N/A                  |
+                               |                      | the remnant object   |                      |
+                               |                      | type (more details   |                      |
+                               |                      | in tag description)  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_N             | Object ID-- unique   | N/A                  |
+                               |                      | integer to identify  |                      |
+                               |                      | star/compact object  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ubv_J, H, K, U, I,   | UBV photometric      | mag                  |
+                               | B, V, R_N            | system, J, H, K, U,  |                      |
+                               |                      | I, B, V, R absolute  |                      |
+                               |                      | magnitude            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ztf_g, r, i_N        | ztf photometric      | mag                  |
+                               | (optional)           | system g, r, i       |                      |
+                               |                      | absoltue magnitude   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | vr_N                 | Galactic radial      | km/s                 |
+                               |                      | velocity             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_b_N               | Galactic proper      | mas/yr               |
+                               |                      | motion, b component  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | mu_lcosb_N           | Galactic proper      | mas/yr               |
+                               |                      | motion, l component  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_L             | Object ID of the     | N/A                  |
+                               |                      | lens                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_S             | Object ID of the     | N/A                  |
+                               |                      | source               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | sep_LN               | Separation between   | arcsec               |
+                               |                      | lens and neighbor    |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                          
+
+                         Note that there is no additional
+                         companions table associated with
+                         calc_events. In order to cross
+                         reference between the events and
+                         companions, refine_events must be run
+                         first
+
+                         .. rubric:: 4.3 refine_events
+                            :name: 4.3-refine_events
+
+                         .. rubric:: 4.3.1 Events table (Astropy
+                            FITS table)
+                            :name: 4.3.1-Events-table-(Astropy-FITS-table)
+
+                         The output here is very similar to the
+                         candidate events table. In fact, part
+                         of it is completely duplicated. All
+                         tags listed in the event candidates
+                         table are also part of the events
+                         table. However, the following columns
+                         are also appended. NOTE: the entries
+                         for u0 and t0 are *overwritten*; the
+                         values for u0 and t0 returned from
+                         calc_events is different from that
+                         returned in refine_events. Each
+                         refine_events file requires you to
+                         choose a filter and extinction law; in
+                         this table we suppose filter *x* is
+                         chosen.
+
+                         Default name:
+                         *root*\ \_refine_events\_\ *filter_reddeninglaw*.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag Name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag Name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | u0                   | (Unitless) minimum   | dimensionless        |
+                               |                      | source-lens          |                      |
+                               |                      | separation, *during* |                      |
+                               |                      | the survey           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | t0                   | Time at which        | days                 |
+                               |                      | minimum source-lens  |                      |
+                               |                      | separation occurs    |                      |
+                               +----------------------+----------------------+----------------------+
+                               | delta_m\_\ *x*       | Bump amplitude       | mag                  |
+                               |                      | (difference in       |                      |
+                               |                      | baseline and maximum |                      |
+                               |                      | magnification        |                      |
+                               |                      | magnitude) in        |                      |
+                               |                      | *x*-band             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | pi_rel               | Relative parallax    | mas                  |
+                               +----------------------+----------------------+----------------------+
+                               | pi_E                 | Microlensing         | dimensionless        |
+                               |                      | parallax             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | t_E                  | Einstein crossing    | days                 |
+                               |                      | time                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ubv\_\ *x*\ \_app    | UBV photometric      | mag                  |
+                               | (_L, \_S)            | system, *x*-band     |                      |
+                               |                      | apparent magnitude,  |                      |
+                               |                      | with extinction      |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ubv\_\ *x*\ \_LSN    | Blended magnitude in | mag                  |
+                               |                      | *x*-band (Apparent   |                      |
+                               |                      | magnitude of source  |                      |
+                               |                      | + lens + neighbors → |                      |
+                               |                      | “baseline mag”)      |                      |
+                               +----------------------+----------------------+----------------------+
+                               | f_blend\_\ *x*       | Source flux fraction | dimensionless        |
+                               |                      | (unlensed source     |                      |
+                               |                      | flux divided by      |                      |
+                               |                      | baseline) in         |                      |
+                               |                      | *x*-band             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | c                    | Galactic longitude l | deg                  |
+                               | ent_glon\_\ *x*\ \_N | of neighbor stars'   |                      |
+                               |                      | centroid             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | c                    | Galactic latitude l  | deg                  |
+                               | ent_glat\_\ *x*\ \_N | of neighbor stars'   |                      |
+                               |                      | centroid             |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ubv\_\ *x*\ \_app_N  | Apparent magnitude   | mag                  |
+                               |                      | of neighbor stars,   |                      |
+                               |                      | *x*-band apparent    |                      |
+                               |                      | magnitude            |                      |
+                               +----------------------+----------------------+----------------------+
+                               | pps_seed             | Seed used in         | N/A                  |
+                               |                      | perform_pop_syn      |                      |
+                               +----------------------+----------------------+----------------------+
+                               | gal_seed             | Seed used in         | N/A                  |
+                               |                      | run_galaxia          |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.3.2 Companions table
+                            (Astropy FITS table)
+                            :name: 4.3.2-Companions-table-(Astropy-FITS-table)
+
+                         This table is very similar to the
+                         companion HDF5 file created in
+                         perform_pop_syn. In fact, part of it is
+                         completely duplicated. There is some
+                         additional information to index between
+                         this table and the events table and
+                         additional binary properties below.
+                         There is also no mass_match_diff
+                         column. Each row in this table is a
+                         companion associated with an event. So,
+                         if a system is lensed twice, its
+                         companions will be duplicated in this
+                         table.
+
+                         Default name:
+                         *root*\ \_refine_events\_\ *filter_reddeninglaw\_*\ companions.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | prim_type            | Type of primary      | N/A                  |
+                               |                      | associated with      |                      |
+                               |                      | companion: ‘S' if    |                      |
+                               |                      | source or 'L’ if     |                      |
+                               |                      | lens                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | q                    | Companion            | dimensionless        |
+                               |                      | mass/primary mass    |                      |
+                               +----------------------+----------------------+----------------------+
+                               | sep                  | Projected angular    | mas                  |
+                               |                      | separation between   |                      |
+                               |                      | companion and        |                      |
+                               |                      | primary              |                      |
+                               +----------------------+----------------------+----------------------+
+                               | P                    | Period of companion  | years                |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_L             | Object ID of the     | N/A                  |
+                               |                      | lens                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_S             | Object ID of the     | N/A                  |
+                               |                      | source               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | alpha                | Angle between binary | deg                  |
+                               |                      | axis and North       |                      |
+                               +----------------------+----------------------+----------------------+
+                               | phi_pi_E             | Angle between North  | deg                  |
+                               |                      | and relative proper  |                      |
+                               |                      | motion between the   |                      |
+                               |                      | source and the lens  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | phi                  | Angle between the    | deg                  |
+                               |                      | relative proper      |                      |
+                               |                      | motion and the       |                      |
+                               |                      | binary axis          |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.4 refine_binary_events
+                            :name: 4.4-refine_binary_events
+
+                         In this section we simulate lightcurves
+                         for all the binary events that contain
+                         a binary and store the parameters. In
+                         the case of triple lenses/sources we
+                         simulate multiple lightcurves and
+                         choose the one with the largest
+                         amplitude. The following are the
+                         examples of systems we simulate:
+
+                         -  Binary lens and binary source:
+
+                            -  Primary lens + companion lens +
+                               primary source + companion source
+
+                         -  Triple lens and single source:
+
+                            -  Primary lens + companion lens 1 +
+                               source
+
+                            -  Primary lens + companion lens 2 +
+                               source
+
+                         -  Triple lens and binary source
+
+                            -  Primary lens + companion lens 1 +
+                               primary source + companion source
+
+                            -  Primary lens + companion lens 2 +
+                               primary source + companion source
+
+                         -  Triple lens and triple source
+
+                            -  Primary lens + companion lens 1 +
+                               primary source + companion source
+                               1
+
+                            -  Primary lens + companion lens 1 +
+                               primary source + companion source
+                               2
+
+                            -  Primary lens + companion lens 2 +
+                               primary source + companion source
+                               1
+
+                            -  Primary lens + companion lens 2 +
+                               primary source + companion source
+                               2
+
+                         The parameters for all these
+                         lightcurves are stored in the
+                         lightcurves.fits table (see 4.4.5)
+                         where each bullet point would be an
+                         entry in that file. We then choose the
+                         lightcurve with the largest Δm as the
+                         microlensing event whose parameters are
+                         used in other tables. Whether it was
+                         used or not is indicated in the
+                         lightcurve.fits table.
+
+                         .. rubric:: 4.4.1 Events table (Astropy
+                            FITS table)
+                            :name: 4.4.1-Events-table-(Astropy-FITS-table)
+
+                         This table is a duplicate version of
+                         the events table from refine_events
+                         with some additional properties below
+                         from the simulated lightcurves.
+
+                         Default name:
+                         *root*\ \_refine_events\_\ *filter_reddeninglaw*\ \_rb.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | n_peaks              | Number of peaks in   | N/A                  |
+                               |                      | lightcurve           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | bin_delta_m          | Bump amplitude       | mag                  |
+                               |                      | (difference in       |                      |
+                               |                      | baseline and maximum |                      |
+                               |                      | magnification        |                      |
+                               |                      | magnitude)           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | tE_sys               | Empirical Einstein   | days                 |
+                               |                      | crossing time (when  |                      |
+                               |                      | the system magnitude |                      |
+                               |                      | is at least 10% the  |                      |
+                               |                      | maximum magnitude)   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | tE_primary           | Empirical Einstein   | days                 |
+                               |                      | crossing time of the |                      |
+                               |                      | peak of max mag      |                      |
+                               |                      | (when the system     |                      |
+                               |                      | magnitude is at      |                      |
+                               |                      | least 50% the        |                      |
+                               |                      | maximum magnitude of |                      |
+                               |                      | peak)                |                      |
+                               +----------------------+----------------------+----------------------+
+                               | primary_t            | Time at which        | days                 |
+                               |                      | maximum peak occurs  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | avg_t                | Average time the     | days                 |
+                               |                      | peaks occur          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | std_t                | Standard deviation   | days                 |
+                               |                      | of times peaks occur |                      |
+                               +----------------------+----------------------+----------------------+
+                               | asymmetry            | Asymmetry as defined | dimensionless        |
+                               |                      | by Chebyshev         |                      |
+                               |                      | Polynomials (see     |                      |
+                               |                      | Additional           |                      |
+                               |                      | Descriptions below)  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | companion_idx_list   | List of companion    | N/A                  |
+                               |                      | indices associated   |                      |
+                               |                      | with events          |                      |
+                               |                      | (corresponds with    |                      |
+                               |                      | companion_idx in the |                      |
+                               |                      | companions table)    |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.4.2 Companions table
+                            (Astropy FITS table)
+                            :name: 4.4.2-Companions-table-(Astropy-FITS-table)
+
+                         This table is a duplicate version of
+                         the companions table from refine_events
+                         with an additional id
+
+                         Default name:
+                         *root*\ \_refine_events\_\ *filter_reddeninglaw\_*\ companions_rb.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | companion_idx        | Companion index      | N/A                  |
+                               |                      | which corresponds to |                      |
+                               |                      | position in the      |                      |
+                               |                      | array                |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.4.3 Multi-peak table
+                            (Astropy FITS table)
+                            :name: 4.4.3-Multi-peak-table-(Astropy-FITS-table)
+
+                         This table describes properties of each
+                         of the peaks in a binary lens
+                         microlensing event lightcurve that
+                         passed a significance threshold of
+                         10\ :sup:`-5` (by default).
+
+                         Default name:
+                         *root*\ \_refine_events\_\ *filter_reddeninglaw\_*\ companions_rb_mp.fits
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | comp_id              | Companion ID - the   | N/A                  |
+                               |                      | position of          |                      |
+                               |                      | associated companion |                      |
+                               |                      | in companion table   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_L             | Object ID of the     | N/A                  |
+                               |                      | lens                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_S             | Object ID of the     | N/A                  |
+                               |                      | source               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | n_peaks              | Number of peaks in   | N/A                  |
+                               |                      | lightcurve           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | t                    | Time at which peak   | days                 |
+                               |                      | occurs               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | tE                   | Empirical Einstein   | days                 |
+                               |                      | crossing time of the |                      |
+                               |                      | peak (when the       |                      |
+                               |                      | system magnitude is  |                      |
+                               |                      | at least 50% the     |                      |
+                               |                      | maximum magnitude of |                      |
+                               |                      | peak)                |                      |
+                               +----------------------+----------------------+----------------------+
+                               | delta_m              | Bump amplitude       | mag                  |
+                               |                      | (difference in       |                      |
+                               |                      | baseline and maximum |                      |
+                               |                      | magnification        |                      |
+                               |                      | magnitude of peak)   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | ratio                | Magnitude ratio      | dimensionless        |
+                               |                      | between peak of the  |                      |
+                               |                      | maximum mag and this |                      |
+                               |                      | peak                 |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.4.4 Lightcurve table
+                            (Astropy FITS table)
+                            :name: 4.4.4-Lightcurve-table-(Astropy-FITS-table)
+
+                         This table has the parameters of all
+                         the lightcurves simulated. In any cases
+                         involving a binary lens or source but
+                         no triples, there will be only one
+                         lightcurve for that event. However, in
+                         triple lens or triple source cases
+                         there will be 2 lightcurves in the
+                         TSBL, TSPL, BSTL, and PSTL cases and 4
+                         lightcurves in the TSTL case.
+
+                         .. container::
+                         pm-table-container with-shadow-observer
+
+                            .. container::
+                            confluence-ssr-app-12efcmn
+
+                               .. container::
+                               confluence-ssr-app-1pf2a2l
+
+                                  .. container::
+                                  pm-table-container is-sticky with-shadow-observer
+
+                                     .. container::
+                                     pm-table-sticky-wrapper
+
+                                        +----------------------+----------------------+----------------------+
+                                        | .. container::       | .. container::       | .. container::       |
+                                        | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                                        | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                                        |                      |                      |                      |
+                                        |    **Tag name**      |    **Brief           |    **Units**         |
+                                        |                      |    Description**     |                      |
+                                        |    .. container::    |                      |    .. container::    |
+                                        |                      |    .. container::    |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |       ak             |       .. container:: |       ak             |
+                                        | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                                        | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                                        | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                                        |                      | uence-ssr-app-gls7uu |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |                      |       .. container:: |                      |
+                                        |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                                        | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                                        | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                                        | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                                        | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                                        |                      | uence-ssr-app-37qivc |                      |
+                                        |                      |                      |                      |
+                                        |       .. container:: |                      |       .. container:: |
+                                        |             conflu   |       .. container:: |             conflu   |
+                                        | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                                        |                      | ence-ssr-app-1h55k8m |                      |
+                                        +----------------------+----------------------+----------------------+
+
+                            .. container:: pm-table-wrapper
+
+                               .. container:: sentinel-left
+
+                               +----------------------+----------------------+----------------------+
+                               | .. container::       | .. container::       | .. container::       |
+                               | ak-renderer-tableHe  | ak-renderer-tableHe  | ak-renderer-tableHe  |
+                               | ader-sortable-column | ader-sortable-column | ader-sortable-column |
+                               |                      |                      |                      |
+                               |    **Tag name**      |    **Brief           |    **Units**         |
+                               |                      |    Description**     |                      |
+                               |    .. container::    |                      |    .. container::    |
+                               |                      |    .. container::    |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |       ak             |       .. container:: |       ak             |
+                               | -renderer-tableHeade |       ak             | -renderer-tableHeade |
+                               | r-sorting-icon confl | -renderer-tableHeade | r-sorting-icon confl |
+                               | uence-ssr-app-gls7uu | r-sorting-icon confl | uence-ssr-app-gls7uu |
+                               |                      | uence-ssr-app-gls7uu |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |                      |       .. container:: |                      |
+                               |   sorting-icon-svg__ |                      |   sorting-icon-svg__ |
+                               | no_order ak-renderer |   sorting-icon-svg__ | no_order ak-renderer |
+                               | -tableHeader-sorting | no_order ak-renderer | -tableHeader-sorting |
+                               | -icon-inactive confl | -tableHeader-sorting | -icon-inactive confl |
+                               | uence-ssr-app-37qivc | -icon-inactive confl | uence-ssr-app-37qivc |
+                               |                      | uence-ssr-app-37qivc |                      |
+                               |                      |                      |                      |
+                               |       .. container:: |                      |       .. container:: |
+                               |             conflu   |       .. container:: |             conflu   |
+                               | ence-ssr-app-1h55k8m |             conflu   | ence-ssr-app-1h55k8m |
+                               |                      | ence-ssr-app-1h55k8m |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_L             | Object ID of the     | N/A                  |
+                               |                      | lens                 |                      |
+                               +----------------------+----------------------+----------------------+
+                               | obj_id_S             | Object ID of the     | N/A                  |
+                               |                      | source               |                      |
+                               +----------------------+----------------------+----------------------+
+                               | companion_L          | Companion ID of the  | N/A                  |
+                               |                      | lens (blank if BSPL) |                      |
+                               +----------------------+----------------------+----------------------+
+                               | companion_S          | Companion ID of the  | N/A                  |
+                               |                      | source (blank if     |                      |
+                               |                      | PSBL)                |                      |
+                               +----------------------+----------------------+----------------------+
+                               | class                | Type of microlensing | N/A                  |
+                               |                      | event simulated      |                      |
+                               |                      | (PSBL, BSPL, or      |                      |
+                               |                      | BSBL)                |                      |
+                               +----------------------+----------------------+----------------------+
+                               | n_peaks              | Number of peaks in   | N/A                  |
+                               |                      | lightcurve           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | bin_delta_m          | Bump amplitude       | mag                  |
+                               |                      | (difference in       |                      |
+                               |                      | baseline and maximum |                      |
+                               |                      | magnification        |                      |
+                               |                      | magnitude)           |                      |
+                               +----------------------+----------------------+----------------------+
+                               | tE_sys               | Empirical Einstein   | days                 |
+                               |                      | crossing time (when  |                      |
+                               |                      | the system magnitude |                      |
+                               |                      | is at least 10% the  |                      |
+                               |                      | maximum magnitude)   |                      |
+                               +----------------------+----------------------+----------------------+
+                               | tE_primary           | Empirical Einstein   | days                 |
+                               |                      | crossing time of the |                      |
+                               |                      | peak of max mag      |                      |
+                               |                      | (when the system     |                      |
+                               |                      | magnitude is at      |                      |
+                               |                      | least 50% the        |                      |
+                               |                      | maximum magnitude of |                      |
+                               |                      | peak)                |                      |
+                               +----------------------+----------------------+----------------------+
+                               | primary_t            | Time at which        | days                 |
+                               |                      | maximum peak occurs  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | avg_t                | Average time the     | days                 |
+                               |                      | peaks occur          |                      |
+                               +----------------------+----------------------+----------------------+
+                               | std_t                | Standard deviation   | days                 |
+                               |                      | of times peaks occur |                      |
+                               +----------------------+----------------------+----------------------+
+                               | asymmetry            | Asymmetry as defined | dimensionless        |
+                               |                      | by Chebyshev         |                      |
+                               |                      | Polynomials (see     |                      |
+                               |                      | Additional           |                      |
+                               |                      | Descriptions below)  |                      |
+                               +----------------------+----------------------+----------------------+
+                               | used_lightcurve      | If this lightcurve   | N/A (bool)           |
+                               |                      | had the largest      |                      |
+                               |                      | bin_delta_m of the   |                      |
+                               |                      | set, it will be used |                      |
+                               |                      | in the other tables  |                      |
+                               |                      | corresponding to     |                      |
+                               |                      | this event (True).   |                      |
+                               |                      | If not, False.       |                      |
+                               +----------------------+----------------------+----------------------+
+
+                               .. container:: sentinel-right
+
+                         .. rubric:: 4.5 Additional descriptions
+                            of tags
+                            :name: 4.5-Additional-descriptions-of-tags
+
+                         **rem_id/phase:** These label the
+                         different types of remnant objects
+                         (star, black hole, neutron star, or
+                         white dwarf.) They are identified as
+                         following:
+
+                         -  0: Star
+
+                         -  101: White Dwarf
+
+                         -  102: Neutron Star
+
+                         -  103: Black Hole
+
+                         **pop_id:** Describes which population
+                         is generated.
+
+                         -  0: Thin disk, ≤ 0.15 Gyr
+
+                         -  1: Thin disk, 0.15-1 Gyr
+
+                         -  2: Thin disk, 1-2 Gyr
+
+                         -  3: Thin disk, 2-3 Gyr
+
+                         -  4: Thin disk, 3-5 Gyr
+
+                         -  5: Thin disk, 5-7 Gyr
+
+                         -  6: Thin disk, 7-10 Gyr
+
+                         -  7: Thick disk, 11 Gyr (single-age)
+
+                         -  8: Stellar halo, 14 Gyr (single-age)
+
+                         -  9: Bulge, 10 Gyr (single-age)
+
+                         -  In Galaxia there is an option for a
+                            10th population type; the Bullock
+                            and Johnston stellar halos. We have
+                            chosen not use it, and the code is
+                            not written to include it.
+
+                         **px, py, pz; vx, vy, vz:** These are
+                         given in heliocentric coordinates (i.e.
+                         Cartesian coordinates with the sun at
+                         the origin.) See subsection on
+                         coordinate systems for more
+                         information.
+
+                         **rad, glat, glon; vr, mu_b,
+                         mu_lcosb:** These are given in galactic
+                         coordinates (i.e. spherical coordinates
+                         with the sun at the origin.) See
+                         subsection on coordinate systems for
+                         more information.
+
+                         **ubv_U, B, V, R, I, J, H, K; exbv:**
+                         Photometry information is given in
+                         absolute magnitude. For NSs and BHs,
+                         all these values are \\texttt{nan} to
+                         indicate they are dark. Note that for
+                         dark primaries with luminous
+                         companions, these values will be the
+                         system luminosity.
+
+                         **t0:** Note that you can have a
+                         negative day (this just means time
+                         before the “zero" time, which is
+                         defined as the state of the system that
+                         is generated by ``Galaxia`` and the
+                         population synthesis. Since we are
+                         assuming everything moves in straight
+                         lines, we can propagate either forward
+                         or backwards.) This can also be the
+                         case for **primary_t** and **t** in the
+                         output of refine_binary_events.
+
+                         **asymmetry:** Asymmetry as defined by
+                         (`Night et al.
+                         2008 <https://iopscience.iop.org/article/10.1086/590320>`__)
+                         where the light curve is fit by a
+                         Chebyshev polynomial to the 50th degree
+                         (`Khakpash et al.
+                         2021 <https://ui.adsabs.harvard.edu/abs/2021AJ....161..132K/abstract>`__)
+                         and
+
+                         .. container::
+
+                         .. container::
+
+                         . Here the T's are the coefficients of
+                         the Chebyshev polynomial. A light curve
+                         is symmetric when k = 0.
+                         .. rubric:: 5 Coordinate Systems
+                            :name: 5-Coordinate-Systems
+
+                         For now see
+                         https://github.com/jluastro/PopSyCLE/blob/dev/docs/Documentation__PopSyCLE.pdf
+

@@ -12,6 +12,7 @@ Welcome to PopSyCLE's documentation!
 
    source/modules
    source/popsycle_docs
+   source/changelog
 
 
 Indices and tables

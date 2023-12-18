@@ -11,7 +11,7 @@ Welcome to PopSyCLE's documentation!
    :caption: Contents:
 
    source/modules
-   popsycle_docs_pdf
+   source/popsycle_docs
 
 
 Indices and tables

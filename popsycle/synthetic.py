@@ -1147,9 +1147,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
            '/some/path/to/myout'
            '../back/to/some/path/myout'
     
-    Optional Parameters
-    --------------------
-    verbose : int
+    verbose : int, optional
         Level of debugging information to print to stderr. Set to 0 for minimal
         information. Coarse timing at 2 and fine timing at 4.
         Default is 0.
@@ -1512,29 +1510,27 @@ def _make_co_dict(log_age,
     exbv_arr4kdt : numpy array
         Array of galactic extinctions for the stars in kdt_star_p
 
-    Optional Parameters
-    -------------------
-    BH_kick_speed_mean : float
+    BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
+    NS_kick_speed_mean : float, optional
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs or None, optional
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
-    seed : int
+    seed : int or None, optional
          Seed used to sample the kde tree. If set to any number,
          SPISEA will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
          Default is None.
          
-    multiplicity: object
+    multiplicity: object or None, optional
         If a resovled multiplicity object is specified, 
         the table will be generated with resolved multiples.
         Default is None.
@@ -1812,9 +1808,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
 
-    Optional Parameters
-    -------------------
-    companion_obj_arr : astropy table
+    companion_obj_arr : astropy table or None, optional
         Companion table from the ResolvedCluster object. 
         To be used if creating a companion hdf5 file.
         Default None.
@@ -1908,9 +1902,7 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
         The path and name of the hdf5 file,
         without suffix (will be saved as output_root.h5)
 
-    Optional Parameters
-    -------------------
-    companion_obj_arr : astropy table
+    companion_obj_arr : astropy table or None, optional
         Companion table from the ResolvedCluster object. 
         To be used if creating a companion hdf5 file.
         Default None.
@@ -1990,19 +1982,17 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
     currentClusterMass : float
         Mass of the cluster you want to make (M_sun)
 
-    Optional Parameters
-    -------------------
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs or None, optional
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
 
-    seed : int
+    seed : int or None, optional
          Seed used to sample the kde tree. If set to any number,
          SPISEA will also be forced to use 42 as a
          random seed for calls to ResolvedCluster.
          Default is None.
          
-    multiplicity: object
+    multiplicity: object or None, optional
         If a resovled multiplicity object is specified, 
         the table will be generated with resolved multiples.
         Default is None.
@@ -2826,18 +2816,16 @@ def _make_companions_table(cluster, star_dict, co_dict,
     co_dict : dictionary
         Keys are the same as star_dict, just for compact objects.
 
-    Optional Parameters
-    -------------------
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs or None, optional
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
         
-    t0 : float
+    t0 : float, optional
         Initial time for timing purposes. Default is 0.
 
-    verbose : int
+    verbose : int, optional
         Print out more verbose statements for higher numbers. Coarse timing reported
-        with verbose=2. Fine timing reported for verbose=4.
+        with verbose=2. Fine timing reported for verbose=4. Default is 0.
 
     Returns
     -------
@@ -3916,13 +3904,11 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'defaul
         The name for the new blend table
         (and corresponding event table)
         
-    Optional Parameters
-    ------------------
-    input_root : str
+    input_root : str, optional
         The input root of the old blend table.
         If 'default', takes root of blend_tab.
     
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
@@ -4123,21 +4109,21 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         function if output files are already on disk.
         Default is False.
 
-    output_file : str
+    output_file : str, optional
         The name of the final refined_events file.
         If set to 'default', the format will be:
             <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
             
-    hdf5_file_comp: str
+    hdf5_file_comp: str or None, optional
         String of hdf5 file of companion events created in perform_pop_syn().
         Default is None.
     
-    legacy : bool
+    legacy : bool, optional
         For running on files created before ~2020 when the filter system was changed
         to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
         Default is False.
         
-    seed : None or int
+    seed : int or None, optional
         If not None, this forces the random orbit time for binaries to be fixed every time.
         If seed is added but there are no binaries, the seed will have no consequence.
         Default is None.
@@ -5110,35 +5096,33 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
 
-    Optional Parameters
-    -------------------
-    red_law : str
+    red_law : str, optional
         Reddening law. Default is Damineli16
         
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
 
-    output_file : str
+    output_file : str, optional
         The name of the final refined_events file.
         If set to 'default', the format will be:
             <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
             
-    save_phot : bool
+    save_phot : bool, optional
         If set to True, saves the photometry generated instead of just parameters.
-        Default is False
+        Default is False.
     
-    phot_dir : str
+    phot_dir : str or None, optional
         Name of the directory photometry is saved if save_phot = True.
         This parameters is NOT optional if save_phot = True.
         Default is None.
         
-    n_proc : int
+    n_proc : int, optional
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
     
-    multi_proc : bool
+    multi_proc : bool, optional
         Even if n_proc = 1, a pool is still created. If multi_proc = False,
         instead there is just a for-loop to generate and analyze the lightcurves.
         If multi_proc == False, n_proc must = 1.
@@ -5382,18 +5366,16 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     red_law : str
         Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
     
-    Optional Parameters
-    -------------------
-    save_phot : bool
+    save_phot : bool, optional
         If set to True, saves the photometry generated instead of just parameters.
-        Default is False
+        Default is False.
     
-    phot_dir : str
+    phot_dir : str or None, optional
         Name of the directory photometry is saved if save_phot = True.
         This parameters is NOT optional if save_phot = True.
         Default is None.
         
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -5550,18 +5532,15 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     obj_id_S : int
         Object id of the source associated with event
     
-    Optional Parameters
-    --------------------
-    
-    name : str or None
+    name : str or None, optional
         Name of fits file to be saved.
         Default is None.
         
-    save_phot : bool
+    save_phot : bool, optional
         If set to True, saves the photometry generated instead of just parameters.
-        Default is False
+        Default is False.
     
-    phot_dir : str or None
+    phot_dir : str or None, optional
         Name of the directory photometry is saved if save_phot = True.
         This parameters is NOT optional if save_phot = True.
         Default is None.
@@ -5729,10 +5708,9 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
     
-    Optional Parameters
-    --------------------
-    event_id : float
-        Corresponding event_id in event_table to companion id
+    event_id : float or None, optional
+        Corresponding event_id in event_table to companion id.
+        Default is None.
         
     Output:
     ----------
@@ -5955,7 +5933,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     Find the parameters for BSPL_PhotAstrom_Par_Param2 from 
     event_table and comp_table.
 
-    Parameters
+    Parameters:
     ----------
     event_table : Astropy table
         Table containing the events calculated from refine_events.
@@ -5980,10 +5958,9 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     red_law : str
         Redenning law
         
-    Optional Parameters
-    --------------------
-    event_id : float
-        Corresponding event_id in event_table to companion id
+    event_id : float or None, optional
+        Corresponding event_id in event_table to companion id.
+        Default is None.
         
     Output:
     ----------

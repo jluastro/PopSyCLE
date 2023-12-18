@@ -218,7 +218,7 @@ confusing, so here is a short guide to the basics.
    refine_events) that will produce a list of microlensing events, which
    are listed in a FITS file.
 
-.. image:: ../../popsycle_docs_images/media/pipeline.png
+.. image:: popsycle_docs_images/media/pipeline.png
    :width: 3.2375in
    :height: 3.26528in
    :align: center
@@ -240,7 +240,7 @@ confusing, so here is a short guide to the basics.
    characteristics from the lightcurves and a description of all the
    peaks, which are listed in two FITS files.**
 
-.. image:: ../../popsycle_docs_images/media/pipeline_w_multiples.png
+.. image:: popsycle_docs_images/media/pipeline_w_multiples.png
    :align: center
 
 ==========
@@ -1256,7 +1256,7 @@ Going from Heliocentric to Galactic (units are degrees):
 
 Note: be careful with the branch of arctangent. Practically, use ``numpy.arctan2`` if using Python.
 
-.. image:: ../../popsycle_docs_images/media/coords.png
+.. image:: popsycle_docs_images/media/coords.png
    :align: center
 
 Diagram of Heliocentric and Galactic coordinate systems. The red dot is the sun.

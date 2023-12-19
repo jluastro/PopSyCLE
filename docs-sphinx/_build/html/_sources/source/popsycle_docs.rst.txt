@@ -46,7 +46,7 @@ popsycle_docs
         You can then run the following instead:
             .. code-block:: bash
                 
-                ./configure --prefix=/Users/casey/sw --datadir=/Users/casey/GalaxiaData/
+                ./configure --prefix=/your/home/directory/sw --datadir=/your/home/directory/GalaxiaData/
                 make
                 make install
                 cp -r GalaxiaData/ /your/home/directory/GalaxiaData/

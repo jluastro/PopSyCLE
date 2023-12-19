@@ -83,10 +83,4 @@ popsycle.utils module
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
 
-.. automodule:: popsycle
-   :members:
-   :undoc-members:
-   :show-inheritance:

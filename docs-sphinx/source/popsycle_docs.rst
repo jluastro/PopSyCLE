@@ -1190,7 +1190,6 @@ a text log file that lists the input parameters
     
     **pop_id:** Describes which population is generated.
     
-        .. role:: grey
         * 0: Thin disk, ≤0.15 Gyr
         * 1: Thin disk, 0.15-1 Gyr
         * 2: Thin disk, 1-2 Gyr
@@ -1201,7 +1200,7 @@ a text log file that lists the input parameters
         * 7: Thick disk, 11 Gyr (single-age)
         * 8: Stellar halo, 14 Gyr (single-age)
         * 9: Bulge, 10 Gyr (single-age)
-        * :grey:In Galaxia there is an option for a 10th population type; the Bullock and Johnston stellar halos. We have chosen not use it, and the code is not written to include it.
+        * In Galaxia there is an option for a 10th population type; the Bullock and Johnston stellar halos. We have chosen not use it, and the code is not written to include it.
     
     **px, py, pz; vx, vy, vz:** These are given in heliocentric coordinates
     (i.e. Cartesian coordinates with the sun at the origin.) See subsection

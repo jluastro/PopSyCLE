@@ -217,16 +217,20 @@ what follows is a very explicit version of that.</p>
 <li><p>Move to the galaxia-0.7.2 directory (i.e. <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">galaxia-0.7.2</span></code>), and in there, do the following
 (replacing <code class="docutils literal notranslate"><span class="pre">/your/home/directory/</span></code> with your home directory as appropriate):</p>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">./configure</span> <span class="pre">--datadir=/your/home/directory/GalaxiaData/</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">make</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">make</span> <span class="pre">install</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">cp</span> <span class="pre">-r</span> <span class="pre">GalaxiaData/</span> <span class="pre">/your/home/directory/GalaxiaData/</span></code></p>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./configure<span class="w"> </span>--datadir<span class="o">=</span>/your/home/directory/GalaxiaData/
+make
+sudo<span class="w"> </span>make<span class="w"> </span>install
+cp<span class="w"> </span>-r<span class="w"> </span>GalaxiaData/<span class="w"> </span>/your/home/directory/GalaxiaData/
+</pre></div>
+</div>
 </div></blockquote>
 </li>
-<li><p>Move back into your home directory (i.e. <code class="docutils literal notranslate"><span class="pre">cd</span></code>), then run the following:</p>
-<blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">galaxia</span> <span class="pre">-s</span> <span class="pre">warp</span></code></p>
-</div></blockquote>
+<li><dl>
+<dt>Move back into your home directory (i.e. <code class="docutils literal notranslate"><span class="pre">cd</span></code>), then run the following:</dt><dd><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>galaxia<span class="w"> </span>-s<span class="w"> </span>warp
+</pre></div>
+</div>
+</dd>
+</dl>
 </li>
 </ol>
 </div></blockquote>
@@ -237,10 +241,12 @@ If you want to do a local install, you need to have a folder for the software to
 For example, in my home directory I made a <cite>sw</cite> directory (/your/home/directory/sw) for Galaxia to be installed in.
 You can then run the following instead:</p>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">./configure</span> <span class="pre">--prefix=/Users/casey/sw</span> <span class="pre">--datadir=/Users/casey/GalaxiaData/</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">make</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">cp</span> <span class="pre">-r</span> <span class="pre">GalaxiaData/</span> <span class="pre">/your/home/directory/GalaxiaData/</span></code></p>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./configure<span class="w"> </span>--prefix<span class="o">=</span>/Users/casey/sw<span class="w"> </span>--datadir<span class="o">=</span>/Users/casey/GalaxiaData/
+make
+make<span class="w"> </span>install
+cp<span class="w"> </span>-r<span class="w"> </span>GalaxiaData/<span class="w"> </span>/your/home/directory/GalaxiaData/
+</pre></div>
+</div>
 </div></blockquote>
 <p>You also need to export Galaxia to your path.
 In your .bash_profile or .zshenv add the line <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PATH=\$PATH:/your/home/directory/sw/bin</span></code>.
@@ -299,22 +305,30 @@ of like a dictionary in python– the dataset can be manipulated just
 like a numpy array.</p>
 <p>First, go to the directory containing the HDF5 file you want to open.
 Next, start ipython. Then type the following:</p>
-<p><code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">h5py</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">hf</span> <span class="pre">=</span> <span class="pre">h5py.File('filename.h5',</span> <span class="pre">'r')</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">h5py</span>
+<span class="n">hf</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;filename.h5&#39;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 <p>If you want to see the names of all the datasets in an HDF5 file, type
 the following:</p>
-<p><code class="docutils literal notranslate"><span class="pre">list(hf.keys())</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">list</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</pre></div>
+</div>
 <p>Suppose you want to work with the dataset named dname</p>
 <blockquote>
 <div><p>To access the dataset, type:</p>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">dset</span> <span class="pre">=</span> <span class="pre">hf['dname']</span></code></p>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dset</span> <span class="o">=</span> <span class="n">hf</span><span class="p">[</span><span class="s1">&#39;dname&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
 </div></blockquote>
 </div></blockquote>
 <blockquote>
 <div><p>To view the columns of the dset, you can type:</p>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">dset.dtype.names</span></code></p>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dset</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span>
+</pre></div>
+</div>
 </div></blockquote>
 </div></blockquote>
 <blockquote>
@@ -322,14 +336,18 @@ the following:</p>
 listed below. i.e. for mass of all the objects in a dataset you can
 use:</p>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">dset_masses</span> <span class="pre">=</span> <span class="pre">hf['dname']['mass']</span></code></p>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dset_masses</span> <span class="o">=</span> <span class="n">hf</span><span class="p">[</span><span class="s1">&#39;dname&#39;</span><span class="p">][</span><span class="s1">&#39;mass&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
 </div></blockquote>
 </div></blockquote>
 <blockquote>
 <div><p>Note that only one person at a time can work on an open HDF5 file.
 Thus, at the end, you need to close the file:</p>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">hf.close()</span></code></p>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hf</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
 </div></blockquote>
 </div></blockquote>
 </div></blockquote>
@@ -341,18 +359,26 @@ Thus, at the end, you need to close the file:</p>
 Galaxia is in the EBF format.</p>
 <p>First, go to the directory containing the EBF file you want to open.
 Next, start ipython. Then type the following:</p>
-<p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">popsycle</span> <span class="pre">import</span> <span class="pre">ebf</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">ef</span> <span class="pre">=</span> <span class="pre">ebf.read('filename.ebf',</span> <span class="pre">'/')</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">popsycle</span> <span class="kn">import</span> <span class="n">ebf</span>
+<span class="n">ef</span> <span class="o">=</span> <span class="n">ebf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;filename.ebf&#39;</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 <p>If you want to see the names of all the keys in the EBF file, type
 the following:</p>
-<p><code class="docutils literal notranslate"><span class="pre">ef.keys()</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ef</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+</pre></div>
+</div>
 <p>Suppose you want to work with the key xkey . To access that part of
 the file, type:</p>
-<p><code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">=</span> <span class="pre">ef['xkey']</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">ef</span><span class="p">[</span><span class="s1">&#39;xkey&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
 <p>Now x is just a numpy array and can manipulated as such</p>
 <p>You can also access just that key from the beginning instead of
 loading in the entire ebf file by:</p>
-<p><code class="docutils literal notranslate"><span class="pre">ef</span> <span class="pre">=</span> <span class="pre">ebf.read('filename.ebf',</span> <span class="pre">'/xkey')</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ef</span> <span class="o">=</span> <span class="n">ebf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;filename.ebf&#39;</span><span class="p">,</span> <span class="s1">&#39;/xkey&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </div></blockquote>
 </section>
 <section id="how-to-read-fits-table-files">
@@ -360,16 +386,22 @@ loading in the entire ebf file by:</p>
 <blockquote>
 <div><p>First, go to the directory containing the fits file you want to
 open. Next, start ipython, Then type the following:</p>
-<p><code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">astropy.table</span> <span class="pre">import</span> <span class="pre">Table</span></code>
-<code class="docutils literal notranslate"><span class="pre">tab</span> <span class="pre">=</span> <span class="pre">Table.read('table.fits')</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">astropy.table</span> <span class="kn">import</span> <span class="n">Table</span>
+<span class="n">tab</span> <span class="o">=</span> <span class="n">Table</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;table.fits&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 <p>To view the entire table, just type tab . The table works similar to
 a python dictionary or like a pandas dataframe. The column names are
 the keys of the dictionary, and the dictionary name in this case is
 tab .</p>
 <p>To view the header information/metadata, type</p>
-<p><code class="docutils literal notranslate"><span class="pre">tab.meta</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tab</span><span class="o">.</span><span class="n">meta</span>
+</pre></div>
+</div>
 <p>To view the column names type</p>
-<p><code class="docutils literal notranslate"><span class="pre">tab.columns</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tab</span><span class="o">.</span><span class="n">columns</span>
+</pre></div>
+</div>
 </div></blockquote>
 </section>
 </section>

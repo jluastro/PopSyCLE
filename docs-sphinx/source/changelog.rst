@@ -43,4 +43,4 @@ Misc:
 ==================
 v1.0.0 (1-22-2020)
 ==================
-* Initial release (Lam et al. 2020 <https://ui.adsabs.harvard.edu/abs/2020ApJ...889...31L/abstract>`_).
+* Initial release (`Lam et al. 2020 <https://ui.adsabs.harvard.edu/abs/2020ApJ...889...31L/abstract>`_).

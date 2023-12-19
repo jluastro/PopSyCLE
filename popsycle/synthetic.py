@@ -4102,7 +4102,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     output_file : str, optional
         The name of the final refined_events file.
         If set to 'default', the format will be:
-            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+        <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
             
     hdf5_file_comp: str or None, optional
         String of hdf5 file of companion events created in perform_pop_syn().
@@ -4736,6 +4736,7 @@ def calculate_binary_angles(joined_table):
         * alpha: angle between North and binary axis (East of North)
         * phi_pi_E: angle between North and proper motion vector (East of North)
         * phi: angle between the proper motion and the binary axis
+    
     * Each set of angles is for the source if the companion is 
     assocaited with the source or the lens if the companion is associated with the lens.
     * Binary parameters established in a galactic spherical coordinate systems.
@@ -5098,7 +5099,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     output_file : str, optional
         The name of the final refined_events file.
         If set to 'default', the format will be:
-            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
+        <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
             
     save_phot : bool, optional
         If set to True, saves the photometry generated instead of just parameters.

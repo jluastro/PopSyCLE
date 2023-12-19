@@ -1,5 +1,5 @@
 popsycle_docs
-========
+=============
 
 .. contents:: Table of Contents
    :backlinks: none
@@ -25,17 +25,17 @@ popsycle_docs
             #. In your home directory, make a directory called GalaxiaData (i.e. ``mkdir GalaxiaData``).
             #. Move to the galaxia-0.7.2 directory (i.e. ``cd galaxia-0.7.2``), and in there, do the following 
                (replacing ``/your/home/directory/`` with your home directory as appropriate):
-                ``./configure --datadir=/your/home/directory/GalaxiaData/``
-    
-                ``make``
-    
-                ``sudo make install``
-    
-                ``cp -r GalaxiaData/ /your/home/directory/GalaxiaData/``
+                .. code-block:: bash
+
+                    ./configure --datadir=/your/home/directory/GalaxiaData/
+                    make
+                    sudo make install
+                    cp -r GalaxiaData/ /your/home/directory/GalaxiaData/
     
             #. Move back into your home directory (i.e. ``cd``), then run the following:
+                .. code-block:: bash
 
-                ``galaxia -s warp``
+                    galaxia -s warp
     
         That should be it! 
         You don't have to install ebf if you just download PopSyCLE!
@@ -44,13 +44,13 @@ popsycle_docs
         If you want to do a local install, you need to have a folder for the software to be installed in.
         For example, in my home directory I made a `sw` directory (/your/home/directory/sw) for Galaxia to be installed in.
         You can then run the following instead:
-                ``./configure --prefix=/Users/casey/sw --datadir=/Users/casey/GalaxiaData/``
-    
-                ``make``
-    
-                ``make install``
-    
-                ``cp -r GalaxiaData/ /your/home/directory/GalaxiaData/``
+            .. code-block:: bash
+                
+                ./configure --prefix=/Users/casey/sw --datadir=/Users/casey/GalaxiaData/
+                make
+                make install
+                cp -r GalaxiaData/ /your/home/directory/GalaxiaData/
+
         You also need to export Galaxia to your path. 
         In your .bash_profile or .zshenv add the line ``export PATH=\$PATH:/your/home/directory/sw/bin``.
         Then proceed with step 6 in the installation instructions.
@@ -100,42 +100,53 @@ confusing, so here is a short guide to the basics.
     
     First, go to the directory containing the HDF5 file you want to open.
     Next, start ipython. Then type the following:
+
+    .. code-block:: python
     
-    ``import h5py``
-    
-    ``hf = h5py.File('filename.h5', 'r')`` 
+        import h5py
+        hf = h5py.File('filename.h5', 'r') 
     
     If you want to see the names of all the datasets in an HDF5 file, type
     the following:
     
-    ``list(hf.keys())``
+    .. code-block:: python
+    
+        list(hf.keys())
     
     Suppose you want to work with the dataset named dname
     
        To access the dataset, type:
+
+        .. code-block:: python
     
-        ``dset = hf['dname']``
+            dset = hf['dname']
     
     ..
     
        To view the columns of the dset, you can type:
     
-        ``dset.dtype.names``
+        .. code-block:: python    
+            
+            dset.dtype.names
     
     ..
     
        To access a column in the database, you can use the column names
        listed below. i.e. for mass of all the objects in a dataset you can
        use:
+
+        .. code-block:: python 
     
-        ``dset_masses = hf['dname']['mass']`` 
+            dset_masses = hf['dname']['mass']
     
     ..
     
        Note that only one person at a time can work on an open HDF5 file.
        Thus, at the end, you need to close the file:
     
-        ``hf.close()``
+        .. code-block:: python 
+            
+            hf.close()
     
     ..
 
@@ -147,23 +158,28 @@ confusing, so here is a short guide to the basics.
     First, go to the directory containing the EBF file you want to open.
     Next, start ipython. Then type the following:
     
-    ``from popsycle import ebf``
-    
-    ``ef = ebf.read('filename.ebf', '/')``
+    .. code-block:: python
+        
+        from popsycle import ebf
+        ef = ebf.read('filename.ebf', '/')
     
     ..
     
     If you want to see the names of all the keys in the EBF file, type
     the following:
     
-    ``ef.keys()``
+    .. code-block:: python
+       
+        ef.keys()
     
     ..
     
     Suppose you want to work with the key xkey . To access that part of
     the file, type:
     
-    ``x = ef['xkey']``
+    .. code-block:: python    
+
+        x = ef['xkey']
     
     ..
     
@@ -172,7 +188,9 @@ confusing, so here is a short guide to the basics.
     You can also access just that key from the beginning instead of
     loading in the entire ebf file by:
     
-    ``ef = ebf.read('filename.ebf', '/xkey')``
+    .. code-block:: python     
+        
+        ef = ebf.read('filename.ebf', '/xkey')
     
     ..
 
@@ -181,8 +199,10 @@ confusing, so here is a short guide to the basics.
     First, go to the directory containing the fits file you want to
     open. Next, start ipython, Then type the following:
     
-    ``from astropy.table import Table``
-    ``tab = Table.read('table.fits')``
+    .. code-block:: python
+
+        from astropy.table import Table
+        tab = Table.read('table.fits')
     
     ..
     
@@ -193,13 +213,17 @@ confusing, so here is a short guide to the basics.
     
     To view the header information/metadata, type
     
-    ``tab.meta``
+    .. code-block:: python
+        
+        tab.meta
     
     ..
     
     To view the column names type
     
-    ``tab.columns``
+    .. code-block:: python
+        
+        tab.columns
     
     ..
 

@@ -138,7 +138,7 @@ def write_galaxia_params(output_root,
     file that Galaxia requires for running. User can also specify a seed for
     Galaxia to use in its object generation.
 
-    Parameters:
+    Parameters
     -----------
     output_root : str
         The thing you want the output files to be named
@@ -161,7 +161,7 @@ def write_galaxia_params(output_root,
          generate a seed from the current time. Setting this seed guarantees
          identical results.
 
-    Output:
+    Returns
     -------
     <output_root>_galaxia_params.txt : str
         A text file with the parameters that Galaxia requires to run.
@@ -210,7 +210,7 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
     """
     Check that the inputs to run_galaxia are valid
 
-    Parameters:
+    Parameters
     -----------
     output_root : str
         The thing you want the output files to be named
@@ -308,7 +308,7 @@ def run_galaxia(output_root, longitude, latitude, area,
     file that Galaxia requires for running and executes Galaxia.
     User can also specify a seed for Galaxia to use in its object generation.
 
-    Parameters:
+    Parameters
     -----------
     output_root : str
         The thing you want the output files to be named
@@ -422,7 +422,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     """
     Checks that the inputs of perform_pop_syn are valid
 
-    Parameters:
+    Parameters
     -----------
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
@@ -581,7 +581,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
 
-    Parameters:
+    Parameters
     -----------
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
@@ -657,7 +657,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         information. Coarse timing at 2 and fine timing at 4.
         Default is 0.
 
-    Output:
+    Returns
     -------
     <output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
@@ -1030,7 +1030,7 @@ def _mp_init_worker(lock_in, next_id_stars_val_in, next_id_co_val_in):
     Initialize the multiprocessing pool and save global tracking variables.
     Saves global variables: lock, next_id_stars_val, next_id_co_val
 
-    Parameters:
+    Parameters
     -----------
     lock_in : multiprocessing.Lock object
     next_id_stars_val_in : multiprocessing.Value object
@@ -1059,7 +1059,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     creating the star dict, generating the compact objects
     and companions (if applicable) and writing to hdf5 file.
     
-    Parameters:
+    Parameters
     -----------
     bin_idx : array
         Array of indices of stars that are in the bin
@@ -1146,7 +1146,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         information. Coarse timing at 2 and fine timing at 4.
         Default is 0.
     
-    Output:
+    Returns
     --------
     n_co_new : int
         Number of new compact objects generated per bin.
@@ -1298,7 +1298,7 @@ def _make_extinction_kdtree(ebf_file, indices, max_num_stars_in_kdt_p=int(2e6)):
     query for the nearest star in position in the KD tree and
     assign the associated extinction.
 
-    Parameters:
+    Parameters
     -----------
     ebf_file : str
         The EBF file from Galaxia that contains all the stars.
@@ -1309,7 +1309,7 @@ def _make_extinction_kdtree(ebf_file, indices, max_num_stars_in_kdt_p=int(2e6)):
         we will randomly choose a smaller subset of these indices for
         KDTree construction.
 
-    Output:
+    Returns
     -------
     kdt_star_p : KDTree
         The KDTree of Galaxia stars on position [px, py, pz].
@@ -1343,7 +1343,7 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
     """
     The dictionary is edited in place, so nothing is returned.
     
-    Parameters:
+    Parameters
     -----------
     star_dict : dictionary
         The number of entries for each key is the number of stars.
@@ -1419,7 +1419,7 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
 def _get_bin_edges(l, b, surveyArea, bin_edges_number):
     """
     
-    Parameters:
+    Parameters
     -----------    
     l : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -1438,7 +1438,7 @@ def _get_bin_edges(l, b, surveyArea, bin_edges_number):
         If set to None (default in perform_pop_syn), then number of bins is
             bin_edges_number = int(60 * 2 * radius) + 1
     
-    Output:
+    Returns
     --------
     bin_edges_number : int
         Modified number of edges for the bins.
@@ -1486,7 +1486,7 @@ def _make_co_dict(log_age,
     """
     Perform population synthesis.
 
-    Parameters:
+    Parameters
     -----------
     log_age : float
         log(age/yr) of the cluster you want to make, rounds to nearest 0.01
@@ -1529,7 +1529,7 @@ def _make_co_dict(log_age,
         the table will be generated with resolved multiples.
         Default is None.
 
-    Output:
+    Returns
     -------
     co_dict : dictionary
         Keys are the same as star_dict, just for compact objects.
@@ -1755,13 +1755,13 @@ def _generate_compound_dtype(obj_arr):
     Assigns integers as datatypes where reasonable, and float64 to the rest
     of the columns
 
-    Parameters:
+    Parameters
     -----------
     obj_arr : array or None
         Array of stars or compact objects to be binned
         (either co_dict or star_dict)
 
-    Output:
+    Returns
     -------
     compound_dtype : np.dtype
         Numpy datatype with all of the keys of obj_arr
@@ -1786,7 +1786,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
     longitude bins. Save each latitude and longitude bin, and the edges that
     define the latitude and longitude bins, as datasets in a compound type hdf5 file.
 
-    Parameters:
+    Parameters
     -----------
     lat_bin_edges : array
         Edges for the latitude binning (deg)
@@ -1807,7 +1807,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
         To be used if creating a companion hdf5 file.
         Default None.
         
-    Output:
+    Returns
     ------------
     output_root.h5 : hdf5 file
         An compoud type hdf5 file with datasets that correspond to the longitude bin edges,
@@ -1886,7 +1886,7 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
     Given stars and compact objects save into a compound type hdf5 file.
     No bins, only one dataset (used if doing full sky downsampled)
 
-    Parameters:
+    Parameters
     -----------
     obj_arr : array or None
         Array of stars or compact objects to be binned
@@ -1901,7 +1901,7 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
         To be used if creating a companion hdf5 file.
         Default None.
         
-    Output:
+    Returns
     -------
     output_root.h5 : hdf5 file
         An compoud type hdf5 file with datasets that correspond to the longitude bin edges,
@@ -1965,7 +1965,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
     """
     Creates SPISEA ResolvedCluster() object.
 
-    Parameters:
+    Parameters
     -----------
     iso_dir : filepath
         Where are the isochrones stored (for SPISEA)
@@ -2004,7 +2004,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         The IFMR object will run at exactly the specified value.
 
 
-    Output:
+    Returns
     -------
     cluster : object
         Resolved cluster object from SPISEA.
@@ -2149,7 +2149,7 @@ def _rename_mass_columns_from_spisea(cluster, multiplicity):
          SPISEA mass column (initial mass) --> zams_mass
          SPISEA mass_current (current mass) --> mass
 
-    Parameters:
+    Parameters
     -----------
     cluster : object
         Resolved cluster object from SPISEA.
@@ -2171,7 +2171,7 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
 
-    Parameters:
+    Parameters
     -----------
     star_zams_masses : list
         Galaxia star zams_mass column form the star_dict.
@@ -2193,7 +2193,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
 
-    Parameters:
+    Parameters
     -----------
     star_zams_masses : list
         Galaxia star zams_mass column form the star_dict.
@@ -2201,7 +2201,7 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
     cluster : object
         Resolved cluster object from SPISEA.
 
-    Output:
+    Returns
     -------
     modified_companions : astropy table
         cluster companion table modified to point at Galaxia stars.
@@ -2300,7 +2300,7 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
 
-    Parameters:
+    Parameters
     -----------
     star_zams_masses : list
         Galaxia star zams_mass column form the star_dict.
@@ -2308,7 +2308,7 @@ def _add_multiples_all(star_zams_masses, cluster, verbose=0):
     cluster : object
         Resolved cluster object from SPISEA.
 
-    Output:
+    Returns
     -------
     modified_companions : astropy table
         cluster companion table modified to point at Galaxia stars.
@@ -2394,7 +2394,7 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
     Note this is after all SPISEA stars with mass greater than the largest
     galaxia mass have been dropped.
 
-    Parameters:
+    Parameters
     -----------
     star_zams_masses : list
         Galaxia star zams mass column form the star_dict.
@@ -2403,7 +2403,7 @@ def match_companions(star_zams_masses, SPISEA_primary_zams_masses, verbose=0):
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
 
-    Output:
+    Returns
     -------
     closest_index_arr : array
         Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
@@ -2433,7 +2433,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
     Matches may also have very large mass differences.  Duplicates are not
     allowed and the search continues until all matches are unduplicated.
 
-    Parameters:
+    Parameters
     -----------
     star_zams_masses : list
         Galaxia star zams mass column form the star_dict.
@@ -2442,7 +2442,7 @@ def _match_companions_kdtree(star_zams_masses, SPISEA_primary_zams_masses, verbo
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
 
-    Output:
+    Returns
     -------
     closest_index_arr : array
         Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
@@ -2512,7 +2512,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
     Duplicates are not allowed and the search continues until all matches are unduplicated.
     The algorithm is somewhat slower and consumes too much memory for our purposes.
 
-    Parameters:
+    Parameters
     -----------
     star_zams_masses : list
         Galaxia star zams mass column form the star_dict.
@@ -2521,7 +2521,7 @@ def _match_companions_diff_array(star_zams_masses, SPISEA_primary_zams_masses, v
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
 
-    Output:
+    Returns
     -------
     closest_index_arr : array
         Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
@@ -2649,7 +2649,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
     that exceeds 0.2 (default), the search is stopped and all remaining stars are
     declared unmatched. This can amount to ~10% of stars.
     
-    Parameters:
+    Parameters
     -----------
     mz_galaxia_in : list
         Galaxia star zams mass column form the star_dict.
@@ -2658,7 +2658,7 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
         Astropy column 'zams_mass' from the cluster.star_systems cut down to stellar
         primaries with companions less massive than the most massive galaxia star.
 
-    Output:
+    Returns
     -------
     closest_index_arr : array
         Cloest index in the galaxia mz_galaxia (used to index into mz_galaxia)
@@ -2799,7 +2799,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
         in companions table
         4. Changes magnitudes to system magnitudes
 
-    Parameters:
+    Parameters
     -----------
     cluster : object
         Resolved cluster object from SPISEA.
@@ -2821,7 +2821,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
         Print out more verbose statements for higher numbers. Coarse timing reported
         with verbose=2. Fine timing reported for verbose=4. Default is 0.
 
-    Output:
+    Returns
     -------
     star_dict : dictionary
         The number of entries for each key is the number of (primary) stars.
@@ -2957,7 +2957,7 @@ def _check_calc_events(hdf5_file, output_root2,
     """
     Checks that the inputs of calc_events are valid
 
-    Parameters:
+    Parameters
     -----------
     hdf5_file : str
         Name of the HDF5 file.
@@ -3041,7 +3041,7 @@ def calc_events(hdf5_file, output_root2,
     """
     Calculate microlensing events
 
-    Parameters:
+    Parameters
     -----------
     hdf5_file : str
         Name of the HDF5 file.
@@ -3079,7 +3079,7 @@ def calc_events(hdf5_file, output_root2,
         Default is None.
 
 
-    Output:
+    Returns
     -------
     <output_root2>_events.fits : Astropy .fits table
         Table of candidate microlensing events. The number of rows
@@ -3260,7 +3260,7 @@ def calc_events(hdf5_file, output_root2,
 def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
                           theta_frac, blend_rad, hdf5_file_comp = None):
     """
-    Parameters:
+    Parameters
     -----------
     llbb : (int, int)
         Indices of (l,b) bin.
@@ -3268,7 +3268,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     obs_time, n_obs, radius_cut, theta_frac, blend_rad
     are all parameters of calc_events()
 
-    Output:
+    Returns
     -------
     events_llbb : array
         Array of the unique events for the particular (l,b) patch.
@@ -3403,7 +3403,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     """
     Get sources and lenses that pass the radius cut.
 
-    Parameters:
+    Parameters
     -----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
@@ -3415,7 +3415,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         Parameter of calc_events().
         Converted to mas
 
-    Output:
+    Returns
     -------
     lens_id : array
         Indices into bigpatch that indicate lenses
@@ -3499,7 +3499,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     """
     Get sources and lenses that pass the radius cut.
 
-    Parameters:
+    Parameters
     -----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
@@ -3523,7 +3523,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     timei : float
         Time at which to evaluate.
 
-    Output:
+    Returns
     -------
     event_lbt : array
         Lenses and sources at a particular time t.
@@ -3608,7 +3608,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     Note 2: We don't want to include the lens itself,
     or the source, in the table.
 
-    Parameters:
+    Parameters
     -----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
@@ -3622,7 +3622,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     blend_rad : float
         Parameter of calc_events().
 
-    Output:
+    Returns
     -------
     blends_lbt : array
         Array of neighbor stars for each lens-source pair.
@@ -3751,7 +3751,7 @@ def unique_events(event_table):
     is picked to be the particular observed event with the smallest source-
     lens separation.
 
-    Parameters:
+    Parameters
     -----------
     event_table : numpy array 
         A table with all the events. There are equal numbers of columns
@@ -3759,7 +3759,7 @@ def unique_events(event_table):
         columns with theta_E, u0, mu_rel, and t0. The number of rows
         corresponds to the number of events.
 
-    Output:
+    Returns
     -------
     new_event_table : numpy array
         Same as event_table, but all duplicate events have been trimmed out,
@@ -3803,7 +3803,7 @@ def unique_blends(blend_table):
     This function will eliminate duplicates, only keeping an event once. It
     is picked to be the first occurence.
 
-    Parameters:
+    Parameters
     -----------
     blend_table : blend array 
         A table with all the events. There is 1 column with the unique
@@ -3811,7 +3811,7 @@ def unique_blends(blend_table):
         separation, and the remaining columns contain info about the neighbors.
 
 
-    Output:
+    Returns
     -------
     new_blend_table : numpy array
         Same as blend_table, but all duplicate events have been trimmed out,
@@ -3885,7 +3885,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'defaul
     that is smaller than the original blend radius r_orig,
     i.e. r_new < r_orig. Also makes a corresponding log and events.
 
-    Parameters:
+    Parameters
     -----------
     blend_tab : str
         The name of the blend table.
@@ -3908,7 +3908,7 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'defaul
         Default is False.
         
 
-    Output:
+    Returns
     -------
     new_blend : .fits table
         New table with smaller blend radius.
@@ -3977,7 +3977,7 @@ def _check_refine_events(input_root, filter_name,
     """
     Checks that the inputs of refine_events are valid
 
-    Parameters:
+    Parameters
     -----------
     input_root : str
         The root path and name of the *_events.fits and *_blends.fits.
@@ -4077,7 +4077,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     calculates the time of closest approach. Will also return source-lens
     separation at this time.
 
-    Parameters:
+    Parameters
     -----------
     input_root : str
         The root path and name of the \*_events.fits and \*_blends.fits.
@@ -4118,7 +4118,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         If seed is added but there are no binaries, the seed will have no consequence.
         Default is None.
 
-    Output:
+    Returns
     -------
     <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits : fits file
         A file will be created that contains all the same objects, 
@@ -4428,7 +4428,7 @@ def calc_closest_approach(event_tab, survey_duration):
     This algorithm comes from a little writeup called
     "Point of Closest Approach for the Linear Motion of Two Particles in 2-D"
 
-    Parameters:
+    Parameters
     -----------
     event_tab : astropy table
         This should take the astropy table that comes from the
@@ -4437,7 +4437,7 @@ def calc_closest_approach(event_tab, survey_duration):
     survey_duration : int or float
         Survey duration, in days
 
-    Output:
+    Returns
     -------
     u0 : array (same length as event_tab)
         Minimum separation (normalized to Einstein radius)
@@ -4490,13 +4490,13 @@ def calc_distance(event_tab, time):
     u0 > 0 then the source is to the east of the lens
     u0 < 0 then the source is to the west of the lens
 
-    Parameters:
+    Parameters
     -----------
     event_tab : astropy table
 
     time : int/float
 
-    Output:
+    Returns
     -------
     u : array (same length as astropy table)
 
@@ -4575,7 +4575,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     """
     Calculate a bunch of observable quantities we get out from microlensing
 
-    Parameters:
+    Parameters
     -----------
     filter_name : str
 
@@ -4689,7 +4689,7 @@ def _add_binary_angles(companion_table, event_table):
     -Binary parameters established in a galactic spherical coordinate systems.
     -Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
     
-    Parameters:
+    Parameters
     -----------
     companion_table : pandas table
         Pandas table from companion events which were matched from the events table.
@@ -4697,7 +4697,7 @@ def _add_binary_angles(companion_table, event_table):
     event_table : astropy table
         Astropy table with refined events
 
-    Output:
+    Returns
     -------
     companion_tmp_df : pandas table
         Companions table modified to include alpha, phi_pi_E, phi.
@@ -4742,12 +4742,12 @@ def calculate_binary_angles(joined_table):
     * Binary parameters established in a galactic spherical coordinate systems.
     * Big Omega measured from galactic north increasing in the direction of galactic east (positive l).
     
-    Parameters:
+    Parameters
     -----------
     joined_table : pandas table
         Joined companion and event table on obj_id_L and obj_id_S
 
-    Output:
+    Returns
     -------
     alphas : list
         Angle between North and binary axis (East of North)
@@ -4896,7 +4896,7 @@ def _add_multiples_parameters(companion_table, event_table):
     Adds mass ratio, separation in mas between primary and companion,
     and period in years to companions array.
 
-    Parameters:
+    Parameters
     -----------
     companion_table : pandas table
         Pandas table from companion events which were matched from the events table.
@@ -4904,7 +4904,7 @@ def _add_multiples_parameters(companion_table, event_table):
     event_table : astropy table
         Astropy table with refined events
 
-    Output:
+    Returns
     -------
     companion_tmp_df : pandas table
         Companions table modified to include new parameters (q, sep, and P).
@@ -4967,7 +4967,7 @@ def _check_refine_binary_events(events, companions,
     """
     Checks that the inputs of refine_binary_events are valid
 
-    Parameters:
+    Parameters
     -----------
     events : str
         fits file containing the events calculated from refine_events
@@ -5072,7 +5072,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     (both primaries and companions) and from that calculates 
     the binary light curves.
 
-    Parameters:
+    Parameters
     -----------
     events : str
         fits file containing the events calculated from refine_events
@@ -5120,7 +5120,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         If multi_proc == False, n_proc must = 1.
         Default is True.
     
-    Output:
+    Returns
     -------
     <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb.fits : fits file
         A file that contains all the same objects, only now with lots of extra
@@ -5333,7 +5333,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     """
     Generate BAGLE model, photometry, and generate binary lightcurve parameters.
     
-    Parameters:
+    Parameters
     -----------
     event_table_row : Astropy table
         Astropy table row from event table with event parameters.
@@ -5371,7 +5371,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         function if output files are already on disk.
         Default is False.
     
-    Output:
+    Returns
     -----------
     lightcurve_parameters : list
         List of two dictionaries:
@@ -5476,7 +5476,7 @@ def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
     If photometry is being saved, saves the parameters
     of the model to generate the lightcurve in the first header
     
-    Parameters:
+    Parameters
     -----------
     model_parameter_dict : dictionary
         Dictionary of the bagel model parameters 
@@ -5505,7 +5505,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     """
     Find the parameters
     
-    Parameters:
+    Parameters
     -----------
     model : function
         Function associated with generating the microlensing model (must be same as parameter_dict)
@@ -5541,7 +5541,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
         function if output files are already on disk.
         Default is False.
     
-    Output:
+    Returns
     -----------
     param_dict : dict
         Dictionary of additional parameters added to companion table
@@ -5680,7 +5680,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     Find the parameters for PSBL_PhotAstrom_Par_Param7 from 
     event_table and comp_table.
 
-    Parameters:
+    Parameters
     -----------
     event_table : Astropy table
         Table containing the events calculated from refine_events.
@@ -5703,7 +5703,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
         Corresponding event_id in event_table to companion id.
         Default is None.
         
-    Output:
+    Returns
     -----------
     psbl_parameter_dict : dict
         Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters
@@ -5756,12 +5756,12 @@ def psbl_model_gen(psbl_parameter_dict):
     """
     Generate psbl_photastrom_par_param1 model from parameter dict
     
-    Parameters:
+    Parameters
     -----------
     psbl_parameter_dict : dict
         Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters 
         
-    Output:
+    Returns
     --------
     psbl model
     """
@@ -5797,7 +5797,7 @@ def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     Find the parameters for BSPL_PhotAstrom_Par_Param1 from 
     event_table and comp_table.
 
-    Parameters:
+    Parameters
     -----------
     event_table : Astropy table
         Table containing the events calculated from refine_events.
@@ -5822,7 +5822,7 @@ def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     event_id : float or None, optional
         Corresponding event_id in event_table to companion id
         
-    Output:
+    Returns
     -----------
     bspl_parameter_dict : dict
         Dictionary of the BSPL_PhotAstrom_Par_Param1 parameters
@@ -5880,12 +5880,12 @@ def bspl_model_gen(bspl_parameter_dict):
     """
     Generate bspl_photastrom_par_param1 model from parameter dict
     
-    Parameters:
+    Parameters
     -----------
     bspl_parameter_dict : dict
         Dictionary of the BSPL_PhotAstrom_Par_Param1 parameters 
         
-    Output:
+    Returns
     --------
     bspl model
     """
@@ -5922,7 +5922,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     Find the parameters for BSPL_PhotAstrom_Par_Param2 from 
     event_table and comp_table.
 
-    Parameters:
+    Parameters
     -----------
     event_table : Astropy table
         Table containing the events calculated from refine_events.
@@ -5951,7 +5951,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
         Corresponding event_id in event_table to companion id.
         Default is None.
         
-    Output:
+    Returns
     -----------
     bsbl_parameter_dict : dict
         Dictionary of the BSBL_PhotAstrom_Par_Param2 parameters
@@ -6016,12 +6016,12 @@ def bsbl_model_gen(bsbl_parameter_dict):
     """
     Generate bsbl_photastrom_par_param1 model from parameter dict
     
-    Parameters:
+    Parameters
     -----------
     bspl_parameter_dict : dict
         Dictionary of the BSBL_PhotAstrom_Par_Param1 parameters 
         
-    Output:
+    Returns
     --------
     bsbl model
     """
@@ -6066,12 +6066,12 @@ def make_ebf_log(ebf_table):
     """
     Converts log from Galaxia ebf output into dictionary
 
-    Parameters:
+    Parameters
     -----------
     ebf_table : processed ebf file
         The ebf file that galaxia outputs, AFTER it's been read
 
-    Output:
+    Returns
     -------
     ebf_log : dictionary
         The ebf file log, in dictionary form
@@ -6104,7 +6104,7 @@ def make_label_file(h5file_name, overwrite=False):
     dataset name, l, b, and number of objects.
     Writes out the Astropy table as a .fits file.
 
-    Parameters:
+    Parameters
     -----------
     h5file_name : string
         The path and name of the input h5file containing the
@@ -6112,7 +6112,7 @@ def make_label_file(h5file_name, overwrite=False):
         make a new output file entitled:
         <h5file_name>_label.fits (after removing the \*.h5).
 
-    Output:
+    Returns
     -------
     label_file : Astropy table
         Table containing the dataset name, and corresponding l, b, and number of objects.
@@ -6201,7 +6201,7 @@ def make_label_file_no_bins(h5file_name, overwrite=False):
     Writes out the Astropy table as a .fits file.
     Used when binning = False (when simulating full sky)
 
-    Parameters:
+    Parameters
     -----------
     h5file_name : string
         The path and name of the input h5file containing the
@@ -6209,7 +6209,7 @@ def make_label_file_no_bins(h5file_name, overwrite=False):
         make a new output file entitled:
         <h5file_name>_label.fits (after removing the \*.h5).
 
-    Output:
+    Returns
     -------
     label_file : Astropy table
         Table containing the dataset name, and corresponding l, b, and number of objects.
@@ -6273,12 +6273,12 @@ def heliocentric_to_galactic(x, y, z):
     """
     Converts from heliocentric coordinates to galactic coordinates.
 
-    Parameters:
+    Parameters
     -----------
     x, y, z : float or array
         Heliocentric coordinates x, y, and z (in kpc)
 
-    Output:
+    Returns
     -------
     r, b, l : float or array
         Galactic coordinates r, b, and l (in kpc and degrees)
@@ -6302,12 +6302,12 @@ def galactic_to_heliocentric(r, b, l):
     """
     Converts from galactic coordinates to heliocentric coordinates.
 
-    Parameters:
+    Parameters
     -----------
     r, b, l : float or array
         Galactic coordinates r, b and l (in kpc and degrees)
 
-    Output:
+    Returns
     -------
     x, y, z : float or array
         Heliocentric coordinates x, y, and z (in kpc)
@@ -6328,7 +6328,7 @@ def einstein_radius(M, d_L, d_S):
     """
     Calculates the einstein radius, in mas
 
-    Parameters:
+    Parameters
     -----------
     M : float
         Lens current mass, in solar masses
@@ -6339,7 +6339,7 @@ def einstein_radius(M, d_L, d_S):
     d_S : float
         Distance to source, in kpc
 
-    Output:
+    Returns
     -------
         Einstein radius, in mas
     """
@@ -6351,7 +6351,7 @@ def calc_sph_motion(vx, vy, vz, r, b, l):
     Calculate velocities in the r directions and proper motions
     in l, b directions.
 
-    Parameters:
+    Parameters
     -----------
     vx, vy, vz : float or array
         Heliocentric velocities vx, vy, and vz (in km/s)
@@ -6359,7 +6359,7 @@ def calc_sph_motion(vx, vy, vz, r, b, l):
     r, b, l : float or array
         Galactic coordinates r, b, and l (in kpc and degrees)
 
-    Output:
+    Returns
     -------
     vr, mu_b, mu_lcosb : float or array (in km/s and mas/yr)
         Radial velocity and proper motions
@@ -6398,12 +6398,12 @@ def calc_magnification(u):
     """
     Calculate the magnification factor A(u)
 
-    Parameters:
+    Parameters
     -----------
     u : float or array
         Dimensionless lens-source separation, normalized in Einstein radius units
 
-    Output:
+    Returns
     -------
     Magnification factor : float or array
 
@@ -6417,7 +6417,7 @@ def calc_delta_c(u, thetaE):
     Calculate the maximum centroid shift for a dark lens,
     no neighbors
 
-    Parameters:
+    Parameters
     -----------
     u : float or array
         Dimensionless lens-source separation, normalized in Einstein radius units.
@@ -6425,7 +6425,7 @@ def calc_delta_c(u, thetaE):
     thetaE : float
         Einstein radius of lens.
 
-    Output:
+    Returns
     -------
     delta_c : float or array
         Maximum centroid shift
@@ -6443,7 +6443,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     The bump amplitude (mags) is:
     abs(m_peak - m_base) = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
 
-    Parameters:
+    Parameters
     -----------
     u0 : float or array
         Dimensionless source-lens angular separation, closest approach
@@ -6454,7 +6454,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     f_N : float or array
         Flux from neighbors (arbitrary units)
 
-    Output:
+    Returns
     -------
     m_bump : float or array
         Bump magnitude
@@ -6470,7 +6470,7 @@ def calc_app_mag(r, M, E, f):
     Calculate the apparent magnitude (i.e. distance modulus
     plus extinction)
 
-    Parameters:
+    Parameters
     -----------
     M : float or array
         Absolute magnitude of star
@@ -6484,7 +6484,7 @@ def calc_app_mag(r, M, E, f):
     f : float or array
         Coefficient for that particular band or whatever
 
-    Output:
+    Returns
     -------
     m : float or array
         Apparent magnitude of star
@@ -6499,7 +6499,7 @@ def calc_DM(r, M):
     """
     Calculate the distance modulus: m = M + 5log10(100*r/kpc)
 
-    Parameters:
+    Parameters
     -----------
     M : float or array
         Absolute magnitude of star
@@ -6507,7 +6507,7 @@ def calc_DM(r, M):
     r : float or array
         Distance of star from sun (in kpc)
 
-    Output:
+    Returns
     -------
     m : float or array
         Apparent magnitude of star
@@ -6522,7 +6522,7 @@ def calc_ext(E, f):
     """
     Calculate the magnitude of extinction.
 
-    Parameters:
+    Parameters
     -----------
     E : float or array
         Extinction law
@@ -6530,7 +6530,7 @@ def calc_ext(E, f):
     f : float or array
         Coefficient for that particular band or whatever
 
-    Output:
+    Returns
     -------
     m_E : float or array
         Magnitude of extinction
@@ -6546,14 +6546,14 @@ def get_Alambda_AKs(red_law_name, lambda_eff):
     Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
     Naming convention is not consistent. Change SPISEA or add if statements?
 
-    Parameters:
+    Parameters
     -----------
     red_law_name : str
         The name of the reddening law
     lambda_eff : float
         Wavelength in microns
 
-    Output:
+    Returns
     -------
     Alambda_AKs : float
         Alambda/AKs

@@ -17,8 +17,8 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
     hdf5_file : str
         Name of the HDF5 file with the array datatype.
 
-    Output
-    ------
+    Returns
+    -------
     <hdf5_file>.compound_dtype.fits
         Name of the resulting HDF5 file with the compound datatype.
 

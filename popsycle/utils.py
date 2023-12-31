@@ -29,8 +29,8 @@ def add_precision64(input_array, power):
     power : float
         To what place you want the perturbation.
 
-    Return
-    ------
+    Returns
+    -------
     output_array : float or array (float64)
         Thing that has more precision.
 
@@ -87,8 +87,8 @@ def sample_spherical(npoints, speed, ndim=3):
         The dimension of the space in which the sphere is embedded
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
-    Return
-    ------
+    Returns
+    -------
     An array of the vectors.
     """
     # Check that the speed vector is either a float or an array of length npoints
@@ -126,8 +126,8 @@ def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):
     y_data : numpy array
         y-coordinate for data that will be located onto the grid
 
-    Output
-    ------
+    Returns
+    -------
     gridpoint_arr : numpy array
         list of nearest cell values on the grid at
         the location of (x_data, y_data)
@@ -170,12 +170,10 @@ def execute(cmd, shell=False):
     cmd : str
         Command line instruction, including any executables and parameters
 
-    Optional Parameters
-    -------------------
-    shell : bool
+    shell : bool, optional
         Determines if the command is run through the shell. Default is False.
 
-    Outputs
+    Returns
     -------
     stdout : str
         Contains the standard output of the executed process
@@ -205,8 +203,8 @@ def calc_normalized_counts(mag):
     ----------
     mag: float
     
-    Return
-    ------
+    Returns
+    -------
     counts: int
     
     CHANGE THIS CODE IN THE FUTURE TO TAKE IN DIFFERENT ZERO POINTS! NEEDS ADDITIONAL DOCUMENTATION
@@ -228,15 +226,12 @@ def combine_refined_events(refined_events_filenames, overwrite=False,
     refined_events_filenames : list of strs
         Filenames of refined_events tables to be combined
 
-    Optional Parameters
-    -------------------
-
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
-    output_file : str
+    output_file : str, optional
         The name of the final refined_events file.
         If set to 'default', the format will be generated from the first
         filename in refined_events_filenames following:
@@ -344,8 +339,8 @@ def get_u_from_t(u0, t0, tE, t):
     t : float or array
         Time at which you want to calculate the separation
 
-    Return
-    ------
+    Returns
+    -------
     u : float or array
         Separation of lens and source (normalized to Einstein radius)
     """
@@ -410,8 +405,8 @@ def calc_new_position(l0, b0, mu_lcosb, mu_b, t):
     t : float or array
         Time, in DAYS
 
-    Return
-    ------
+    Returns
+    -------
     l : float or array
         Latitude, in DEGREES
 
@@ -446,8 +441,8 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
     u : float or array
         Dimensionless separation
 
-    Return
-    ------
+    Returns
+    -------
     delta_c_obs : float or array
         Magnitude of observed astrometric shift, in mas
     """
@@ -515,9 +510,7 @@ def generate_isochrones(iso_dir, logAge_min=5.01, logAge_max=10.291,
     metallicity : float
         The metallicity in [M/H]
 
-    Optional Parameters
-    -------------------
-    include_ztf : bool
+    include_ztf : bool, optional
         Determines if ztf filters should be included
         in the generated isochrones. Default is True.
 
@@ -582,25 +575,23 @@ def remove_nan_companions(event_table_loc, comp_table_loc, event_output_loc = No
     comp_table_loc : string
         Location of a companion table to modify
     
-    Optional Parameters
-    -------------------
-    event_output_loc : string or None
+    event_output_loc : string or None, optional
         String of output location of companion table without nan companions
         formated as '/path/to/file.fits'.
         If none, gets saved in the input location with '_no_nan' suffix
         Default is None.
         
-    comp_output_loc : string or None
+    comp_output_loc : string or None, optional
         String of output location of companion table without nan companions
         formated as '/path/to/file.fits'.
         If none, gets saved in the input location with '_no_nan' suffix
         Default is None.
     
-    overwrite : bool
+    overwrite : bool, optional
         Whether file at output_loc should be overwritten.
         Default is False.
         
-    rewrite_old_loc : string or None
+    rewrite_old_loc : string or None, optional
         String of output location of companion table without nan companions.
         If None, does not get saved.
         Default is None.

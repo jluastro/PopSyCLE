@@ -4,35 +4,6 @@ from astropy.table import Table
 from ast import literal_eval
 
 
-def primary_mag_from_system_mag(system_mag, companion_mag):
-    return subtract_magnitudes(system_mag, companion_mag)
-
-def primary_mag_from_system_mag_hdf5(prim_hdf5, comp_hdf5, mag_colnames):
-    grouped_companions = companions_table.group_by(['system_idx'])
-    for mag_col in mag_colnames:
-        companions_mag = grouped_companions[mag_col].groups.aggregate(add_magnitudes)
-        prim_table[mag_col + '_prim'] = subtract_magnitudes(prim_table[mag_col], companions_mag)
-    return prim_table
-
-def primary_mag_from_system_mag_Table(prim_table, companions_table, mag_colnames):
-    
-    prim_df = prim_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
-    companion_df = companion_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
-    joined = companion_df.join(prim_df, lsuffix='_comp', rsuffix='_prim', how='outer')
-    
-    grouped_companions = companions_table.group_by(['system_idx'])
-    for mag_col in mag_colnames:
-        companions_mag = grouped_companions[mag_col].groups.aggregate(add_magnitudes)
-        prim_table[mag_col + '_prim'] = subtract_magnitudes(prim_table[mag_col], companions_mag)
-    return prim_table
-    
-    
-    
-    #for mag_col in mag_colnames:
-    #    joined[mag_col + '_primary'] = subtract_magnitudes(prim_df[mag_col + '_prim']
-    
-
-    
 def add_magnitudes(mags):
     """
     Adds a list of magnitudes
@@ -42,8 +13,8 @@ def add_magnitudes(mags):
     mags: array-like
         List or array of magnitudes
     
-    Return
-    ------
+    Returns
+    -------
     m_sum : float
         Sum of input magnitudes
     """
@@ -115,8 +86,8 @@ def event_table_companion_idxs_to_lists(events):
     events : Astropy Table
         Event table from refine_binary_events with 'companion_idx_list' as strs
     
-    Outputs
-    --------
+    Returns
+    -------
     events : Astropy Table
         Event table with 'companion_idx_list' as lists
     """
@@ -128,3 +99,28 @@ def event_table_companion_idxs_to_lists(events):
     events['companion_idx_list'] = lists
     
     return events
+
+
+#def primary_mag_from_system_mag(system_mag, companion_mag):
+#    return subtract_magnitudes(system_mag, companion_mag)
+
+#def primary_mag_from_system_mag_hdf5(prim_hdf5, comp_hdf5, mag_colnames):
+#    grouped_companions = companions_table.group_by(['system_idx'])
+#    for mag_col in mag_colnames:
+#        companions_mag = grouped_companions[mag_col].groups.aggregate(add_magnitudes)
+#        prim_table[mag_col + '_prim'] = subtract_magnitudes(prim_table[mag_col], companions_mag)
+#    return prim_table
+
+#def primary_mag_from_system_mag_Table(prim_table, companions_table, mag_colnames):
+    
+#    prim_df = prim_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
+#    companion_df = companion_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
+#    joined = companion_df.join(prim_df, lsuffix='_comp', rsuffix='_prim', how='outer')
+#    
+#    grouped_companions = companions_table.group_by(['system_idx'])
+#    for mag_col in mag_colnames:
+#        companions_mag = grouped_companions[mag_col].groups.aggregate(add_magnitudes)
+#        prim_table[mag_col + '_prim'] = subtract_magnitudes(prim_table[mag_col], companions_mag)
+#    return prim_table
+
+    

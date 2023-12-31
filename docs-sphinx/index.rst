@@ -18,6 +18,7 @@ Welcome to PopSyCLE's documentation!
    source/modules
    source/popsycle_docs
    source/changelog
+    source/contributers
 
 Dependencies
 ------------

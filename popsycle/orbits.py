@@ -274,7 +274,7 @@ def add_positions(ss):
         Star system table without positions
         
     Returns
-    ----------
+    -------
     ss_temp: astropy table
         Star system table with positions added
     """
@@ -307,7 +307,7 @@ def add_mult_positions(companions, ss_pos, logAge, add_velocities = False):
         Log of age of cluster with age in years
         
     Returns
-    ----------
+    -------
     companion_temp: astropy table
         Companion table with positions added
         
@@ -361,7 +361,7 @@ def distance_to_center_of_mass(ss_pos, companions_pos):
         Companion table with positions added with add_mult_positions()
         
     Results
-    ----------  
+    -------- 
     ss_pos_temp: astropy table
         Star system table with distance to center of mass in AU added
     
@@ -452,13 +452,11 @@ def plot_companion_orbit(ss, companions_pos, logAge, t0 = None, system = None):
     logAge: float or int
         Log of age of cluster with age in years
         
-    Optional Parameters
-    ----------       
-    t0: float or int
+    t0: float or int, optional
         Initial time of creation of the system in years.
         Default random.
     
-    system: int
+    system: int, optional
         Index of desired companion in companion_pos table.
         Default random.
     """

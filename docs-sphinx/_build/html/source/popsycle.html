@@ -54,6 +54,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#module-popsycle.binary_utils">popsycle.binary_utils module</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#popsycle.binary_utils.add_magnitudes"><code class="docutils literal notranslate"><span class="pre">add_magnitudes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#popsycle.binary_utils.add_observable_peaks_column"><code class="docutils literal notranslate"><span class="pre">add_observable_peaks_column()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#popsycle.binary_utils.cut_Mruns"><code class="docutils literal notranslate"><span class="pre">cut_Mruns()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#popsycle.binary_utils.event_table_companion_idxs_to_lists"><code class="docutils literal notranslate"><span class="pre">event_table_companion_idxs_to_lists()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#popsycle.binary_utils.subtract_magnitudes"><code class="docutils literal notranslate"><span class="pre">subtract_magnitudes()</span></code></a></li>
 </ul>
@@ -244,6 +246,86 @@
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
 <dt><strong>m_sum</strong><span class="classifier">float</span></dt><dd><p>Sum of input magnitudes</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="popsycle.binary_utils.add_observable_peaks_column">
+<span class="sig-prename descclassname"><span class="pre">popsycle.binary_utils.</span></span><span class="sig-name descname"><span class="pre">add_observable_peaks_column</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_prim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_comp_rb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_comp_rb_mp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_lightcurves</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_m_cutoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_m_cutoff_secondary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.02</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_by_field</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#popsycle.binary_utils.add_observable_peaks_column" title="Link to this definition"></a></dt>
+<dd><p>Adds new column to event table with the number of observable peaks</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>t_prim</strong><span class="classifier">Astropy table</span></dt><dd><p>Events table from refine_binary_events.</p>
+</dd>
+<dt><strong>t_comp_rb</strong><span class="classifier">Astropy table</span></dt><dd><p>Companion table from refine_binary_events.</p>
+</dd>
+<dt><strong>t_comp_rb_mp</strong><span class="classifier">Astropy table</span></dt><dd><p>Multi peak table from refine binary events 
+(each row corresponds to a peak in a lightcurve).</p>
+</dd>
+<dt><strong>t_lightcurves</strong><span class="classifier">Astropy table</span></dt><dd><p>Lightcurve table from refine_binary_events
+(each row corresponds to a generated lightcurve).</p>
+</dd>
+<dt><strong>delta_m_cutoff</strong><span class="classifier">float, optional</span></dt><dd><p>Bump magnitude cutoff for primary peak 
+(if primary peak &lt; delta_m_cutoff, the number of observable peaks is 0).
+Default is 0.1.</p>
+</dd>
+<dt><strong>delta_m_cutoff_secondary</strong><span class="classifier">float, optional</span></dt><dd><p>Bump magnitude cutoff for secondary peaks. 
+Default is 0.02.</p>
+</dd>
+<dt><strong>match_by_field</strong><span class="classifier">bool, optional</span></dt><dd><p>If there are multiple fields, looks for a column called “field_id”
+and requires the companions and primaries to be in the same field.
+Default is True.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>t_prim</strong><span class="classifier">Astropy table</span></dt><dd><p>Events table with additional column with the number of observable peaks.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="popsycle.binary_utils.cut_Mruns">
+<span class="sig-prename descclassname"><span class="pre">popsycle.binary_utils.</span></span><span class="sig-name descname"><span class="pre">cut_Mruns</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_prim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_comp_rb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_comp_rb_mp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_mag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_m_cut</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u0_cut</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ubv_filter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S_LSN</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#popsycle.binary_utils.cut_Mruns" title="Link to this definition"></a></dt>
+<dd><p>Make observational cuts on PopSyCLE runs with multiple systems</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>t_prim</strong><span class="classifier">Astropy table</span></dt><dd><p>Events table from refine_binary_events.
+Must contain ‘observable_n_peaks’ column.</p>
+</dd>
+<dt><strong>t_comp_rb</strong><span class="classifier">Astropy table</span></dt><dd><p>Companion table from refine_binary_events.</p>
+</dd>
+<dt><strong>t_comp_rb_mp</strong><span class="classifier">Astropy table</span></dt><dd><p>Multi peak table from refine binary events 
+(each row corresponds to a peak in a lightcurve).</p>
+</dd>
+<dt><strong>min_mag</strong><span class="classifier">float</span></dt><dd><p>Minimum baseline or source magnitude (specified by S_LSN).</p>
+</dd>
+<dt><strong>delta_m_cut</strong><span class="classifier">float or None.</span></dt><dd><p>Minimum bump magnitude.</p>
+</dd>
+<dt><strong>u0_cut</strong><span class="classifier">float</span></dt><dd><p>Maximum u0.</p>
+</dd>
+<dt><strong>ubv_filter</strong><span class="classifier">str</span></dt><dd><p>Filter name used when cutting on min_mag and delta_m_cut.</p>
+</dd>
+<dt><strong>S_LSN</strong><span class="classifier">str</span></dt><dd><p>‘S’ for source mag cut or ‘LSN’ for baseline magnitude cut.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>t_both_mcut</strong><span class="classifier">Astropy table</span></dt><dd><p>Table with specified observational cuts.</p>
+</dd>
+<dt><strong>t_both_mcut_one_peak</strong><span class="classifier">Astropy table</span></dt><dd><p>Table with specified observational cuts and only single peaked events.</p>
+</dd>
+<dt><strong>t_multiples_mcut_multi_peak</strong><span class="classifier">Astropy table</span></dt><dd><p>Table with specified observational cuts and only multipeaked events
+containing a multiple system.</p>
 </dd>
 </dl>
 </dd>

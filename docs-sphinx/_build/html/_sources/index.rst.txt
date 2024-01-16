@@ -18,6 +18,7 @@ Welcome to PopSyCLE's documentation!
    source/modules
    source/popsycle_docs
    source/changelog
+   source/development
 
 Dependencies
 ------------
@@ -27,6 +28,8 @@ user selected galaxy models. Please follow the installation instructions
 found at our galaxia GitHub repo: https://github.com/jluastro/galaxia.
 
 `SPISEA <https://spisea.readthedocs.io/en/latest/>`_
+
+`BAGLE <https://github.com/MovingUniverseLab/BAGLE_Microlensing/tree/main>`_
 
 Installation
 ------------
@@ -99,11 +102,11 @@ the errors and assumptions that seasoned contributors have glossed over.
 Note: This disclaimer was originally written by
 `Adrienne Lowe <https://github.com/adriennefriend>`_ for a
 `PyCon talk <https://www.youtube.com/watch?v=6Uj746j9Heo>`_, and was adapted by
-popsycle based on its use in the README file for the
+PopSyCLE based on its use in the README file for the
 `MetPy project <https://github.com/Unidata/MetPy>`_.
 
 We have outlined the process for developing new features, located at
-`<docs/Documentation__PopSyCLE_Development.pdf>`_.
+:ref:`development`.
 
 Indices and tables
 ==================

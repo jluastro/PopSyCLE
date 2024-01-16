@@ -77,9 +77,14 @@ popsycle_docs
 1.2 Installing SPISEA
 ----------------------
 
-    SPISEA can be installed by cloning the repository from `<https://github.com/astropy/SPISEA>`_.
+    SPISEA can be installed by cloning the repository from `<https://github.com/astropy/SPISEA>`_ and following the instructions.
 
-1.3 Installing Python libraries
+1.3 Installing BAGLE
+----------------------
+
+    BAGLE can be installed by cloning the repository from `<https://github.com/MovingUniverseLab/BAGLE_Microlensing>`_ and following the instructions.
+
+1.4 Installing Python libraries
 --------------------------------
 
     We recommend the Anaconda distribution.

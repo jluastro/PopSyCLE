@@ -46,10 +46,6 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
         The name of the filter in which to calculate all the
         microlensing events. Must be either 'g' or 'r'.
 
-    Output
-    ------
-    None
-
     """
 
     # Define isochrone parameters for calculating absolute magnitudes
@@ -214,8 +210,8 @@ def load_ubv_to_ztf_grid(filter_name):
         The name of the filter in which to calculate all the
         microlensing events. Must be either 'g' or 'r' or 'i'.
 
-    Output
-    ------
+    Returns
+    -------
     ubv_to_ztf_grid : 2D numpy array
         2D grid array of UBV colors with each cell containing the difference
         between a ztf filter and a ubv filter
@@ -264,14 +260,12 @@ def transform_ubv_to_ztf(filter_name, ubv_B, ubv_V, ubv_R, ubv_I=None):
     ubv_R : array of floats
         ubv_R photometry of galaxia / SPISEA sources
 
-    Optional Parameters
-    -------------------
-    ubv_I : array of floats
+    ubv_I : array of floats, optional
         ubv_I photometry of galaxia / SPISEA sources,
         required for converting to ztf_i
 
-    Output
-    ------
+    Returns
+    -------
     ztf_mag : array of floats
         ztf photometry of galaxia / SPISEA sources in `filter_name`
 
@@ -327,8 +321,8 @@ def ztf_mag_vega_to_AB(ztf_mag_vega, filter_name):
         The name of the filter in which to calculate all the
         microlensing events. Must be either 'g' or 'r' or 'i'.
 
-    Output
-    ------
+    Returns
+    -------
     ztf_mag_AB : float, array of floats
         ztf photometry of galaxia / SPISEA sources in AB system
 
@@ -361,8 +355,8 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
         The name of the filter in which to calculate all the
         microlensing events. Must be either 'g' or 'r' or 'i'.
 
-    Output
-    ------
+    Returns
+    -------
     ztf_mag_vega : float, array of floats
         ztf photometry of galaxia / SPISEA sources in vega system
 

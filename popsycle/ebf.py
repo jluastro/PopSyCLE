@@ -1622,17 +1622,19 @@ def rename(filename,oldkey,newkey):
     """ 
     Rename a data item in an ebf file
 
-    Args:
-        filename: string
+    Parameters
+    ----------
+    filename: string
 
-        oldkey: a string, the name of key to rename
+    oldkey: a string, the name of key to rename
 
-        newkey: a string, the new name. If new key is blank '', then  a \
-        name of the form '/.tr'+oldkey+'.X' is created. Here X is a an \ 
-        integer greater than equal to zero, which is incremented each \ 
-        time the item with same name is deleted. 
+    newkey: a string, the new name. If new key is blank '', then  a \
+    name of the form '/.tr'+oldkey+'.X' is created. Here X is a an \ 
+    integer greater than equal to zero, which is incremented each \ 
+    time the item with same name is deleted. 
 
-    Example:
+    Examples
+    --------
 
     >>> ebf.rename('check.ebf','/x1','/x2')
     >>> ebf.rename('check.ebf','/x1','')    
@@ -1678,18 +1680,20 @@ def unit(filename, dataname):
     """
     Get physical units of the data type if supplied in file or else empty string
 
-    Args:
-        filename(str):
+    Parameters
+    ----------
+    filename : str
 
-        dataname(str):
+    dataname : str
 
-   Returns:
-        str. 
+    Returns
+    -------
+    unit : str 
 
-   Example:
+    Examples
+    --------
 
-   >>> ebf.unit("check.ebf","/x")
-    
+    >>> ebf.unit("check.ebf","/x")
 
     """
     location = _EbfTable.get(filename, dataname)
@@ -1713,18 +1717,20 @@ def getHeader(filename, dataname):
     """
     Get header of the data item
 
-    Args:
-        filename(str):
+    Parameters
+    ----------
+    filename : str
 
-        dataname(str):
+    dataname : str
 
-   Returns:
-        str. 
+    Returns
+    -------
+    header : str 
 
-   Example:
+    Examples
+    --------
 
-   >>> ebf.getHeader("check.ebf","/x")
-    
+    >>> ebf.getHeader("check.ebf","/x")
 
     """
     location = _EbfTable.get(filename, dataname)
@@ -2046,18 +2052,21 @@ def containsKey(filename,dataname):
     """    
     Check if a data item is present in an ebf  file.     
     
-    Args:
+    Parameters
+    ----------
+    filename : str
+        a string specifying filename
 
-        filename : a string specifying filename
-
-        dataname : name of data item
+    dataname : str
+        name of data item
     
-    Returns:
+    Returns
+    -------
         1 if an item is present else 0
     
-    Example:
-
-    >>> ebf.containsKey('check.ebf','/x')
+    Examples
+    --------
+        >>> ebf.containsKey('check.ebf','/x')
     
     
     """
@@ -2071,26 +2080,31 @@ def read(filename, path = '/' ,recon=0,ckon=1,begin=0,end=None):
     """
     Read data from an ebf file
 
-    Args:
+    Parameters
+    ----------
 
-         filename(str) :
+    filename : str
 
-         path(str)     : tagname of data to be read from the ebf file \
-         or a path to the data items within the file. If ending with +\
-         then all arrays in the same path having same size as the 
-         specfied array are read. Useful to load tables where 
-         individual columns are written separately.  
+    path : str, optional
+        tagname of data to be read from the ebf file \
+        or a path to the data items within the file. If ending with +\
+        then all arrays in the same path having same size as the 
+        specfied array are read. Useful to load tables where 
+        individual columns are written separately.  
+        
+    recon : int, optional
+        Should be 1 if one wants to load data \
+        objects recursively. Should be 0 if one wants to load \
+        data objects only under current path.Defualt is 0.
+        
+    ckon : int, optional
+        option that determines if checksum is to be compared with \
+        checksum on file. Default is to compare, but if there is \
+        little possibility of file being externally modified then it can 
+        be set to 0.  
 
-         recon(integer): Should be 1 if one wants to load data \
-         objects recursively. Should be 0 if one wants to load \
-         data objects only under current path.Defualt is 0.
-
-         ckon  : option that determines if checksum is to be compared with \
-         checksum on file. Default is to compare, but if there is \
-         little possibility of file being externally modified then it can 
-         be set to 0.  
-
-    Returns:
+    Returns
+    -------
          numpy.ndarray or a dictionary of numpy.ndarray. If multiple \
          data items are to be read as a dictionary, the path must end \
          with '/' in the later case.    
@@ -2209,19 +2223,23 @@ def write(filename, tagname, data, mode, dataunit = ""):
     """
     Write data to a file
 
-    Args:
-        filename(str):
+    Parameters
+    ----------
+    filename : str
 
-        tagname(str) : the name of data to be written to the ebf file or \
+    tagname : str
+        the name of data to be written to the ebf file or \
         a path ending with '/' if multiple items are to be written
 
-        data(numpy.ndarray)    : data to be to be written
+    data : numpy.ndarray
+        data to be to be written
 
-        mode(str)    : writing mode, "w" to write a fresh file or "a" \
+    mode : str
+        writing mode, "w" to write a fresh file or "a" \
         to append an existing file
 
-    Kwargs:
-        dataunit(str): units of data default is a blank string
+    dataunit : str, optional
+        units of data default is a blank string
 
 
     """
@@ -2407,13 +2425,22 @@ def dict2npstruct(data,basekey=None,keylist=None):
     """
     Convert a python dict containing numpy arrays to numpy struct
 
-    Args:
-        data        :
+    Parameters
+    ----------
+    data : dict of numpy.arrays
 
-        basekey(str): Only those items in dict whose size match that of data[bsekey] will 
+    basekey : str or None, optional 
+        Only those items in dict whose size match that of data[bsekey] will 
         be used.
+        Default is None.
 
-        keylist(str): list of keys to beused when constructing npstruct
+    keylist : str or None, optional
+        list of keys to beused when constructing npstruct.
+        Default is None.
+
+    Returns
+    -------
+    data1 : numpy struct
 
     """
     if keylist is None:
@@ -2441,8 +2468,13 @@ def npstruct2dict(data):
     """
     Convert an array of numpy struct to a python dict of numpy arrays
 
-    Args:
-        data        :
+    Parameters
+    ----------
+    data : numpy struct
+
+    Returns
+    -------
+    data1 : dict of numpy arrays
     """
     data1={}
     for x in data.dtype.names:
@@ -2469,14 +2501,21 @@ def npstruct2dict(data):
 
 def read_ind(filename,tagname,ind):
     """
-    read data from specified locations in a file 
+    Read data from specified locations in a file 
 
-    Args:
-        filename(str):
+    Parameters
+    ----------
+    filename : str
 
-        tagname(str) : the name of data to be read 
+    tagname : str
+        The name of data to be read. 
 
-        ind(str)    : list or array of indices to be read
+    ind : str
+        List or array of indices to be read.
+
+    Returns
+    -------
+    data
 
     """
     ind=numpy.array(ind,dtype='int64')        
@@ -2497,15 +2536,20 @@ def update_ind(filename,dataname,data,ind=None):
     """
     Update existing data array in a file at user given index positions. 
 
-    Args:
-        filename(str):
+    Parameters
+    ----------
+    filename : str
 
-        dataname(str) : the name of data to be upated 
+    dataname : str
+        The name of data to be upated. 
 
-        data    : data to be updated
-        
-        ind    : indices of the array on file that 
+    data : array
+        Data to be updated.
+    
+    ind : array or None, optional
+        indices of the array on file that 
         needs to be  updated.
+        Default is None.
 
     """
         
@@ -2612,18 +2656,19 @@ def iterate(filename,tagname,cache):
     An iterator to read in data, part by part of a given size.
     Useful for reading big arrays which are difficult to fit in RAM.
 
-    Args:
-        filename(str):
+    Parameters
+    ----------
+    filename : str
 
-        tagname(str) : the name of data to be read.
-        Multiple items of same size can be read by appending a + sign 
+    tagname : str
+        The name of data to be read.
+        Multiple items of same size can be read by appending a + sign. 
+   
+    cache : int
+       No of data items to read at a time
         
-        
-
-        cache(int)    : no of data items to read at a time
-        
-    Example:
-    
+    Examples
+    --------
     >>> temp=0.0
     >>> for x in ebf.iterate('check.ebf','/x',1000):
     >>>     temp=temp+np.sum(x)   
@@ -2753,10 +2798,12 @@ class EbfFile():
             return None
 
     def read_ind(self, ind):
-        # This method looks for groups of contiguous indices in 'ind' and
-        # loads those blocks of memory with a single copy command.
-        # This method is ~50% faster than looping over each index and running:
-        #   data[i] = self.read(ind[i])
+        """
+        This method looks for groups of contiguous indices in 'ind' and
+        loads those blocks of memory with a single copy command.
+        This method is ~50% faster than looping over each index and running:
+           data[i] = self.read(ind[i])
+        """
         if numpy.max(ind) < self.elements:
             # Find the ascending order of indices
             ind1 = numpy.argsort(ind)
@@ -2853,11 +2900,12 @@ def initialize(filename):
     Initialize a file for writing with mode='w'.
     After this one can use mode='a' to write rest of the items.
         
-    Args:
-         filename(str):
+    Parameters
+    ----------
+    filename : str
          
-    Example:
-
+    Examples
+    --------
     >>> ebf.initialize('check.ebf')
     >>> ebf.write('check.ebf','/x',[0,1,2],'a')
     >>> ebf.write('check.ebf','/y',[0,1,2],'a')
@@ -2871,15 +2919,17 @@ def initialize(filename):
 
 def info(filename,option=0):
     """
-    Get summary of the contents of a file
+    Get summary of the contents of a file.
 
-    Args:
-         filename(str):
-         
-    Kwargs:     
+    Parameters
+    ----------
+    filename : str
 
-    Example:
+    option : int, optional
+        Default is 0.    
 
+    Examples
+    --------
     >>> ebf.info('check.ebf')
 
     """
@@ -2916,15 +2966,19 @@ def info(filename,option=0):
         
 def check(filename):
     """
-    check if the file is not corrupted
+    Check if the file is not corrupted.
 
-    Args:
-         filename(str):
-         
-    Kwargs:     
+    Parameters
+    ----------
+    filename : str
 
-    Example:
+    Returns
+    -------
+    ecode : int
+        Error code.
 
+    Examples
+    --------
     >>> ebf.check('check.ebf')
 
     """
@@ -2956,17 +3010,19 @@ def check(filename):
         
 def stat(filename, tagname,recon=0):
     """
-    Get statistics of a data item
+    Get statistics of a data item.
 
-    Args:
-         filename(str):
+    Parameters
+    ----------
+    filename : str
          
-         tagname(str):
-         
-    Kwargs:     
+    tagname : str
 
-    Example:
-
+    recon : int
+        Default is 0.
+        
+    Examples
+    --------
     >>> ebf.stat('check.ebf','/x /y ')
 
     """
@@ -3002,18 +3058,23 @@ def stat(filename, tagname,recon=0):
     
 def cat(filename, tagname,delimiter=' ',tableon=0):
     """
-    print data items in ascii format
+    Print data items in ascii format.
 
-    Args:
-         filename(str):
+    Parameters
+    ----------
+    filename : str
          
-         tagname(str):
-         
-    Kwargs:
-         delimiter(str) - ' ' or ', ' for csv
+    tagname : str
+    
+    delimiter : str, optional.
+        ' ' or ', ' for csv.
+        Default is ' '.
 
-    Example:
+    tableon : int, optional
+        Default is 0.
 
+    Examples
+    --------
     >>> ebf.cat('check.ebf','/x /y',', ')
     >>> ebf.cat('check.ebf','/x+',', ')
     >>> ebf.cat('check.ebf','/x+',', ',1)
@@ -3174,13 +3235,14 @@ def cat(filename, tagname,delimiter=' ',tableon=0):
 
 def swapEndian(filename):
     """
-    Swaps the endianess of the file. Little to Big or Big to Little
+    Swaps the endianess of the file. Little to Big or Big to Little.
 
-    Args:
-         filename(str):
+    Parameters
+    -----------
+    filename : str
 
-    Example:
-
+    Examples
+    --------
     >>> ebf.swapEndian("check.ebf")
 
     """
@@ -3252,22 +3314,29 @@ def swapEndian(filename):
         
 def copy(filename1,filename2,mode='a',tagnames='',outpath=None):
     """
-    copy data items from one file to another
+    Copy data items from one file to another.
 
-    Args:
-         filename1(str):
+    Parameters
+    ----------
+    filename1 : str
          
-         filename2(str):
+    filename2 : str
          
-         mode(str)     : 'w' or 'a'   
+    mode : str, optional
+        'w' or 'a'.
+        Default is 'a'.
          
-         tagnames(str) : if blank then copies all items or else one can \         
-         supply space separated list of data items as a single string
+    tagnames : str, optional
+        If blank then copies all items or else one can \         
+        supply space separated list of data items as a single string.
+        Default is ''.
          
-         outpath(str): Path ending with '/' into which to copy items
+    outpath : str or None, optional
+        Path ending with '/' into which to copy items.
+        Default is None.
 
-    Example:
-
+    Examples
+    --------
     >>> ebf.copy("check1.ebf",'check2.ebf','/x /y','w')
     >>> ebf.copy("check1.ebf",'check2.ebf','/x')
     >>> ebf.copy("check1.ebf",'check2.ebf')
@@ -3378,13 +3447,14 @@ def diff(filename1,filename2):
     Perform diff operation on two files. Ignores data items starting with "/." which are 
     for internal use. If file contents are same it does not print anything.
 
-    Args:
-         filename1(str):
+    Parameters
+    ----------
+    filename1 : str
          
-         filename2(str):
+    filename2 : str
 
-    Example:
-
+    Examples
+    --------
     >>> ebf.diff("check1.ebf","check2.ebf")
 
     """

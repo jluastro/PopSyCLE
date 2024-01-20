@@ -88,7 +88,7 @@ def test_h5_output(ebf_file, reference_h5_file, extra_col= False):
 
 
 
-
+"""
 synthetic.calc_events(hdf5_file = 'test.h5', 
                       output_root2 = 'test', 
                       radius_cut = 2, 
@@ -128,3 +128,4 @@ print('The col names of the trial 1 fits are:', tabr.colnames)
 print('The col names of the test fits are:', tabt.colnames)
 tabt.remove_columns(['teff_S', 'grav_S', 'lum_S', 'teff_L', 'grav_L', 'lum_L'])
 print('Check if tables differ:', tabr == tabt)
+"""

@@ -1,0 +1,1923 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>popsycle_docs &mdash; PopSyCLE 2.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=51b770b3"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="changelog" href="changelog.html" />
+    <link rel="prev" title="popsycle package" href="popsycle.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            PopSyCLE
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="modules.html">popsycle</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">popsycle_docs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">1 Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installing-galaxia">1.1 Installing Galaxia</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">1.1.1 Installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#uninstallation">1.1.2 Uninstallation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parameter-modification">1.1.3 Parameter modification</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-spisea">1.2 Installing SPISEA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-bagle">1.3 Installing BAGLE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-python-libraries">1.4 Installing Python libraries</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#reading-files">2 Reading Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#how-to-read-hdf5-files">2.1 How to read HDF5 files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#how-to-read-ebf-files">2.2 How to read EBF files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#how-to-read-fits-table-files">2.3 How to read FITS table files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#description-of-pipeline">3 Description of Pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-without-multiple-systems">3.1 Pipeline without multiple systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-with-multiple-systems">3.2 Pipeline with multiple systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#outputs">4 Outputs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#perform-pop-syn">4.1 perform_pop_syn</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#label-summary-file-astropy-fits-table">4.1.1 Label/summary file (Astropy FITS Table)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#stars-and-compact-objects-primaries-hdf5">4.1.2 Stars and Compact Objects (primaries) (HDF5)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#stars-and-compact-objects-companions-hdf5">4.1.3 Stars and Compact Objects Companions (HDF5)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#calc-events">4.2 calc_events</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#event-candidates-table-astropy-fits-table">4.2.1 Event candidates table (Astropy FITS table)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#blends-table-astropy-fits-table">4.2.2 Blends table (Astropy FITS table)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#refine-events">4.3 refine_events</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#events-table-astropy-fits-table">4.3.1 Events table (Astropy FITS table)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#companions-table-astropy-fits-table">4.3.2 Companions table (Astropy FITS table)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#refine-binary-events">4.4 refine_binary_events</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">4.4.1 Events table (Astropy FITS table)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id3">4.4.2 Companions table (Astropy FITS table)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#multi-peak-table-astropy-fits-table">4.4.3 Multi-peak table (Astropy FITS table)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lightcurve-table-astropy-fits-table">4.4.4 Lightcurve table (Astropy FITS table)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#additional-descriptions-of-tags">4.5 Additional descriptions of tags</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#coordinate-systems">5 Coordinate Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Process for PopSyCLE</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">PopSyCLE</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">popsycle_docs</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/source/popsycle_docs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="popsycle-docs">
+<h1>popsycle_docs<a class="headerlink" href="#popsycle-docs" title="Link to this heading"></a></h1>
+<nav class="contents" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#popsycle-docs" id="id4">popsycle_docs</a></p>
+<ul>
+<li><p><a class="reference internal" href="#installation" id="id5">1 Installation</a></p>
+<ul>
+<li><p><a class="reference internal" href="#installing-galaxia" id="id6">1.1 Installing Galaxia</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id1" id="id7">1.1.1 Installation</a></p></li>
+<li><p><a class="reference internal" href="#uninstallation" id="id8">1.1.2 Uninstallation</a></p></li>
+<li><p><a class="reference internal" href="#parameter-modification" id="id9">1.1.3 Parameter modification</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#installing-spisea" id="id10">1.2 Installing SPISEA</a></p></li>
+<li><p><a class="reference internal" href="#installing-bagle" id="id11">1.3 Installing BAGLE</a></p></li>
+<li><p><a class="reference internal" href="#installing-python-libraries" id="id12">1.4 Installing Python libraries</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#reading-files" id="id13">2 Reading Files</a></p>
+<ul>
+<li><p><a class="reference internal" href="#how-to-read-hdf5-files" id="id14">2.1 How to read HDF5 files</a></p></li>
+<li><p><a class="reference internal" href="#how-to-read-ebf-files" id="id15">2.2 How to read EBF files</a></p></li>
+<li><p><a class="reference internal" href="#how-to-read-fits-table-files" id="id16">2.3 How to read FITS table files</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#description-of-pipeline" id="id17">3 Description of Pipeline</a></p>
+<ul>
+<li><p><a class="reference internal" href="#pipeline-without-multiple-systems" id="id18">3.1 Pipeline without multiple systems</a></p></li>
+<li><p><a class="reference internal" href="#pipeline-with-multiple-systems" id="id19">3.2 Pipeline with multiple systems</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#outputs" id="id20">4 Outputs</a></p>
+<ul>
+<li><p><a class="reference internal" href="#perform-pop-syn" id="id21">4.1 perform_pop_syn</a></p>
+<ul>
+<li><p><a class="reference internal" href="#label-summary-file-astropy-fits-table" id="id22">4.1.1 Label/summary file (Astropy FITS Table)</a></p></li>
+<li><p><a class="reference internal" href="#stars-and-compact-objects-primaries-hdf5" id="id23">4.1.2 Stars and Compact Objects (primaries) (HDF5)</a></p></li>
+<li><p><a class="reference internal" href="#stars-and-compact-objects-companions-hdf5" id="id24">4.1.3 Stars and Compact Objects Companions (HDF5)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#calc-events" id="id25">4.2 calc_events</a></p>
+<ul>
+<li><p><a class="reference internal" href="#event-candidates-table-astropy-fits-table" id="id26">4.2.1 Event candidates table (Astropy FITS table)</a></p></li>
+<li><p><a class="reference internal" href="#blends-table-astropy-fits-table" id="id27">4.2.2 Blends table (Astropy FITS table)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#refine-events" id="id28">4.3 refine_events</a></p>
+<ul>
+<li><p><a class="reference internal" href="#events-table-astropy-fits-table" id="id29">4.3.1 Events table (Astropy FITS table)</a></p></li>
+<li><p><a class="reference internal" href="#companions-table-astropy-fits-table" id="id30">4.3.2 Companions table (Astropy FITS table)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#refine-binary-events" id="id31">4.4 refine_binary_events</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id2" id="id32">4.4.1 Events table (Astropy FITS table)</a></p></li>
+<li><p><a class="reference internal" href="#id3" id="id33">4.4.2 Companions table (Astropy FITS table)</a></p></li>
+<li><p><a class="reference internal" href="#multi-peak-table-astropy-fits-table" id="id34">4.4.3 Multi-peak table (Astropy FITS table)</a></p></li>
+<li><p><a class="reference internal" href="#lightcurve-table-astropy-fits-table" id="id35">4.4.4 Lightcurve table (Astropy FITS table)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#additional-descriptions-of-tags" id="id36">4.5 Additional descriptions of tags</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#coordinate-systems" id="id37">5 Coordinate Systems</a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="installation">
+<h2>1 Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<section id="installing-galaxia">
+<h3>1.1 Installing Galaxia<a class="headerlink" href="#installing-galaxia" title="Link to this heading"></a></h3>
+<section id="id1">
+<h4>1.1.1 Installation<a class="headerlink" href="#id1" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>Note there are also instructions from the creators of Galaxia at <a class="reference external" href="http://galaxia.sourceforge.net/Galaxia3pub.html">http://galaxia.sourceforge.net/Galaxia3pub.html</a>;
+what follows is a very explicit version of that.</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p>Go to <a class="reference external" href="https://sourceforge.net/projects/galaxia/files/">https://sourceforge.net/projects/galaxia/files/</a> and download Galaxia by clicking the big green button.</p></li>
+<li><p>Go to your Downloads folder and untar the file by double-clicking it.</p></li>
+<li><p>Move the untar’d folder (which should be called something like galaxia-0.7.2) to your home directory.
+(That’s the directory where you get sent if you <code class="docutils literal notranslate"><span class="pre">cd</span></code> and don’t put a location).</p></li>
+<li><p>In your home directory, make a directory called GalaxiaData (i.e. <code class="docutils literal notranslate"><span class="pre">mkdir</span> <span class="pre">GalaxiaData</span></code>).</p></li>
+<li><p>Move to the galaxia-0.7.2 directory (i.e. <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">galaxia-0.7.2</span></code>), and in there, do the following
+(replacing <code class="docutils literal notranslate"><span class="pre">/your/home/directory/</span></code> with your home directory as appropriate):</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./configure<span class="w"> </span>--datadir<span class="o">=</span>/your/home/directory/GalaxiaData/
+make
+sudo<span class="w"> </span>make<span class="w"> </span>install
+cp<span class="w"> </span>-r<span class="w"> </span>GalaxiaData/<span class="w"> </span>/your/home/directory/GalaxiaData/
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><dl>
+<dt>Move back into your home directory (i.e. <code class="docutils literal notranslate"><span class="pre">cd</span></code>), then run the following:</dt><dd><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>galaxia<span class="w"> </span>-s<span class="w"> </span>warp
+</pre></div>
+</div>
+</dd>
+</dl>
+</li>
+</ol>
+</div></blockquote>
+<p>That should be it!
+You don’t have to install ebf if you just download PopSyCLE!</p>
+<p>NOTE: the instructions in step 5 are assuming a root install.
+If you want to do a local install, you need to have a folder for the software to be installed in.
+For example, in my home directory I made a <cite>sw</cite> directory (/your/home/directory/sw) for Galaxia to be installed in.
+You can then run the following instead:</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./configure<span class="w"> </span>--prefix<span class="o">=</span>/your/home/directory/sw<span class="w"> </span>--datadir<span class="o">=</span>/your/home/directory/GalaxiaData/
+make
+make<span class="w"> </span>install
+cp<span class="w"> </span>-r<span class="w"> </span>GalaxiaData/<span class="w"> </span>/your/home/directory/GalaxiaData/
+</pre></div>
+</div>
+</div></blockquote>
+<p>You also need to export Galaxia to your path.
+In your .bash_profile or .zshenv add the line <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PATH=\$PATH:/your/home/directory/sw/bin</span></code>.
+Then proceed with step 6 in the installation instructions.</p>
+</div></blockquote>
+</section>
+<section id="uninstallation">
+<h4>1.1.2 Uninstallation<a class="headerlink" href="#uninstallation" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>You need to remove the compiled galaxia code (you can find where it is by typing <code class="docutils literal notranslate"><span class="pre">which</span> <span class="pre">galaxia</span></code> in the terminal),
+the GalaxiaData directory, and you might as well remove the galaxia-0.7.2 directory also.
+When you do <code class="docutils literal notranslate"><span class="pre">which</span> <span class="pre">galaxia</span></code> nothing should be returned.</p>
+</div></blockquote>
+</section>
+<section id="parameter-modification">
+<h4>1.1.3 Parameter modification<a class="headerlink" href="#parameter-modification" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>Suppose you want to change the pattern speed in Galaxia.
+To do this, follow the installation instructions up to and including step 4.
+Then do the following:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Move to the galaxia-0.7.2/src directory.</p></li>
+<li><p>Open the Population.h file with your favorite text editor.</p></li>
+<li><p>Find the pattern speed (in this case by searching for 71.62) and replace with your desired value (in this case 40.00).</p></li>
+<li><p>Save the change.</p></li>
+</ol>
+</div></blockquote>
+<p>Now return to step 5 in the installation instruction and proceed as instructed.</p>
+</div></blockquote>
+</section>
+</section>
+<section id="installing-spisea">
+<h3>1.2 Installing SPISEA<a class="headerlink" href="#installing-spisea" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>SPISEA can be installed by cloning the repository from <a class="reference external" href="https://github.com/astropy/SPISEA">https://github.com/astropy/SPISEA</a> and following the instructions.</p>
+</div></blockquote>
+</section>
+<section id="installing-bagle">
+<h3>1.3 Installing BAGLE<a class="headerlink" href="#installing-bagle" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>BAGLE can be installed by cloning the repository from <a class="reference external" href="https://github.com/MovingUniverseLab/BAGLE_Microlensing">https://github.com/MovingUniverseLab/BAGLE_Microlensing</a> and following the instructions.</p>
+</div></blockquote>
+</section>
+<section id="installing-python-libraries">
+<h3>1.4 Installing Python libraries<a class="headerlink" href="#installing-python-libraries" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>We recommend the Anaconda distribution.
+In particular, numpy v1.24 or higher is required, along with Astropy and H5py.</p>
+</div></blockquote>
+</section>
+</section>
+<section id="reading-files">
+<h2>2 Reading Files<a class="headerlink" href="#reading-files" title="Link to this heading"></a></h2>
+<p>PopSyCLE uses all sorts of different file formats. It can easily get
+confusing, so here is a short guide to the basics.</p>
+<section id="how-to-read-hdf5-files">
+<h3>2.1 How to read HDF5 files<a class="headerlink" href="#how-to-read-hdf5-files" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>Within the HDF5 file are datasets that store the information. It is kind
+of like a dictionary in python– the dataset can be manipulated just
+like a numpy array.</p>
+<p>First, go to the directory containing the HDF5 file you want to open.
+Next, start ipython. Then type the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">h5py</span>
+<span class="n">hf</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;filename.h5&#39;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you want to see the names of all the datasets in an HDF5 file, type
+the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">list</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>Suppose you want to work with the dataset named dname</p>
+<blockquote>
+<div><p>To access the dataset, type:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dset</span> <span class="o">=</span> <span class="n">hf</span><span class="p">[</span><span class="s1">&#39;dname&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</div></blockquote>
+<blockquote>
+<div><p>To view the columns of the dset, you can type:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dset</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span>
+</pre></div>
+</div>
+</div></blockquote>
+</div></blockquote>
+<blockquote>
+<div><p>To access a column in the database, you can use the column names
+listed below. i.e. for mass of all the objects in a dataset you can
+use:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dset_masses</span> <span class="o">=</span> <span class="n">hf</span><span class="p">[</span><span class="s1">&#39;dname&#39;</span><span class="p">][</span><span class="s1">&#39;mass&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</div></blockquote>
+<blockquote>
+<div><p>Note that only one person at a time can work on an open HDF5 file.
+Thus, at the end, you need to close the file:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hf</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div></blockquote>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="how-to-read-ebf-files">
+<h3>2.2 How to read EBF files<a class="headerlink" href="#how-to-read-ebf-files" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>The EBF file is basically a dictionary in python. The output of
+Galaxia is in the EBF format.</p>
+<p>First, go to the directory containing the EBF file you want to open.
+Next, start ipython. Then type the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">popsycle</span> <span class="kn">import</span> <span class="n">ebf</span>
+<span class="n">ef</span> <span class="o">=</span> <span class="n">ebf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;filename.ebf&#39;</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you want to see the names of all the keys in the EBF file, type
+the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ef</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Suppose you want to work with the key xkey . To access that part of
+the file, type:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">ef</span><span class="p">[</span><span class="s1">&#39;xkey&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Now x is just a numpy array and can manipulated as such</p>
+<p>You can also access just that key from the beginning instead of
+loading in the entire ebf file by:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ef</span> <span class="o">=</span> <span class="n">ebf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;filename.ebf&#39;</span><span class="p">,</span> <span class="s1">&#39;/xkey&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="how-to-read-fits-table-files">
+<h3>2.3 How to read FITS table files<a class="headerlink" href="#how-to-read-fits-table-files" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>First, go to the directory containing the fits file you want to
+open. Next, start ipython, Then type the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">astropy.table</span> <span class="kn">import</span> <span class="n">Table</span>
+<span class="n">tab</span> <span class="o">=</span> <span class="n">Table</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;table.fits&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To view the entire table, just type tab . The table works similar to
+a python dictionary or like a pandas dataframe. The column names are
+the keys of the dictionary, and the dictionary name in this case is
+tab .</p>
+<p>To view the header information/metadata, type</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tab</span><span class="o">.</span><span class="n">meta</span>
+</pre></div>
+</div>
+<p>To view the column names type</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tab</span><span class="o">.</span><span class="n">columns</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+</section>
+<section id="description-of-pipeline">
+<h2>3 Description of Pipeline<a class="headerlink" href="#description-of-pipeline" title="Link to this heading"></a></h2>
+<section id="pipeline-without-multiple-systems">
+<h3>3.1 Pipeline without multiple systems<a class="headerlink" href="#pipeline-without-multiple-systems" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>To run without companions, first, run Galaxia to create an EBF file,
+which produces a synthetic survey, i.e. a bunch of stars. Next, run
+population synthesis (perform_pop_syn) to inject compact objects into
+the synthetic survey; both the compact objects and stars are saved in
+an HDF5 file. Then run a synthetic survey (calc_events and
+refine_events) that will produce a list of microlensing events, which
+are listed in a FITS file.</p>
+</div></blockquote>
+<a class="reference internal image-reference" href="../_images/pipeline.png"><img alt="../_images/pipeline.png" class="align-center" src="../_images/pipeline.png" style="width: 3.2375in; height: 3.26528in;" /></a>
+</section>
+<section id="pipeline-with-multiple-systems">
+<h3>3.2 Pipeline with multiple systems<a class="headerlink" href="#pipeline-with-multiple-systems" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>To run with companions (with changed steps marked in <strong>bold</strong>),
+first, run Galaxia to create an EBF file, which produces a synthetic
+survey, i.e. a bunch of stars. Next, run population synthesis
+(perform_pop_syn) to inject compact objects <strong>and companions</strong> into
+the synthetic survey. Both the compact objects and stars are saved in
+an HDF5 file <strong>and the companions are stored in a separate hdf5
+file</strong>. Then run a synthetic survey (calc_events and refine_events)
+that will produce a list of microlensing events, which are listed in
+a FITS file <strong>with a separate FITS file for associated companions
+after refine_events</strong>. <strong>Then model the binary lens events
+(refine_binary_events) which will produce some additional
+characteristics from the lightcurves and a description of all the
+peaks, which are listed in two FITS files.</strong></p>
+</div></blockquote>
+<img alt="../_images/pipeline_w_multiples.png" class="align-center" src="../_images/pipeline_w_multiples.png" />
+</section>
+</section>
+<section id="outputs">
+<h2>4 Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<p>In addition to the outputs described below, each function produces
+a text log file that lists the input parameters</p>
+<section id="perform-pop-syn">
+<h3>4.1 perform_pop_syn<a class="headerlink" href="#perform-pop-syn" title="Link to this heading"></a></h3>
+<section id="label-summary-file-astropy-fits-table">
+<h4>4.1.1 Label/summary file (Astropy FITS Table)<a class="headerlink" href="#label-summary-file-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>For now see</p>
+</div></blockquote>
+</section>
+<section id="stars-and-compact-objects-primaries-hdf5">
+<h4>4.1.2 Stars and Compact Objects (primaries) (HDF5)<a class="headerlink" href="#stars-and-compact-objects-primaries-hdf5" title="Link to this heading"></a></h4>
+<blockquote>
+<div><blockquote>
+<div><p>The data output contained in the HDF5 datasets are a combination of
+outputs that come directly from Galaxia, and outputs we ourselves
+have calculated or defined.</p>
+</div></blockquote>
+<p>Default name: <em>root</em>.h5</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>zams_mass</p></td>
+<td><p>ZAMS mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>mass</p></td>
+<td><p>Current mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-even"><td><p>systemMass</p></td>
+<td><p>Sum of mass of
+primary and
+companions (if
+existent)</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>px</p></td>
+<td><p>Heliocentric x
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-even"><td><p>py</p></td>
+<td><p>Heliocentric y
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-odd"><td><p>pz</p></td>
+<td><p>Heliocentric z
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-even"><td><p>vx</p></td>
+<td><p>Heliocentric x
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>vy</p></td>
+<td><p>Heliocentric y
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-even"><td><p>vz</p></td>
+<td><p>Heliocentric z
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>age</p></td>
+<td><p>Age</p></td>
+<td><p>log(age/yr)</p></td>
+</tr>
+<tr class="row-even"><td><p>popid</p></td>
+<td><p>Population ID -
+integer indicating
+the population
+type ranging from
+0 to 9 (see
+Additional
+Descriptions
+below)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>exbv</p></td>
+<td><p>Extinction E(B-V)
+at the location of
+star given by 3-D
+Schlegel
+extinction maps</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>glat</p></td>
+<td><p>Galactic latitude</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>glon</p></td>
+<td><p>Galactic longitude</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-even"><td><p>mbol</p></td>
+<td><p>Bolometric
+magnitude</p></td>
+<td><p>log(L/L⊙)</p></td>
+</tr>
+<tr class="row-odd"><td><p>grav</p></td>
+<td><p>Surface gravity</p></td>
+<td><p>log(gravity)</p></td>
+</tr>
+<tr class="row-even"><td><p>teff</p></td>
+<td><p>Effective
+temperature</p></td>
+<td><p>Log(T/Kelvin)</p></td>
+</tr>
+<tr class="row-odd"><td><p>feh</p></td>
+<td><p>Metallicity</p></td>
+<td><p>[Fe/H]</p></td>
+</tr>
+<tr class="row-even"><td><p>rad</p></td>
+<td><p>Galactic radial
+distance</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-odd"><td><p>isMultiple</p></td>
+<td><p>True if the system
+has companions,
+False if the
+system does not</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>N_companions</p></td>
+<td><p>Number of
+companions</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>rem_id</p></td>
+<td><p>Integer indicating
+the remnant object
+type (see
+Additional
+Descriptions
+below)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>obj_id</p></td>
+<td><p>Object ID– unique
+integer to
+identify
+star/compact
+object</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>ubv_J, H, K, U, I,
+B, V, R</p></td>
+<td><p>UBV photometric
+system, J, H, K,
+U, I, B, V, R
+system absolute
+magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>ztf_g, r, i
+(optional)</p></td>
+<td><p>ztf photometric
+system g, r, i
+absoltue magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>vr</p></td>
+<td><p>Galactic radial
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-even"><td><p>mu_b</p></td>
+<td><p>Galactic proper
+motion, b
+component</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+<tr class="row-odd"><td><p>mu_lcosb</p></td>
+<td><p>Galactic proper
+motion, l
+component</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<div><blockquote>
+<div><p>Note that the tag names can be used to access HDF5 files (see “How
+to read HDF5 files” above)
+For stars (which are generated by Galaxia ), the following outputs
+are taken directly from Galaxia and just reformatted into the HDF5
+format; parenthetical names correspond to the tag name from Galaxia,
+if different: zams_mass (smass), mass (mact), px, py, pz, vx, vy,
+vz, age, popid, ubv_k, ubv_i, ubv_u, ubv_b, ubv_v, ubv_r, ubv_j,
+ubv_h, exbv (exbv_schlegel), teff, grav, mbol (lum), feh. Note that
+the lum key from Galaxia is referred to as mbol in the Galaxia
+documentation.</p>
+</div></blockquote>
+<p>For compact objects (which we generated with our population synthesis
+code, SPISEA ), we must assign these values ourselves.</p>
+<p>For both stars and compact objects, the following are things we have
+directly calculated or assigned ourselves: rem_id, rad, glat, glon,
+vr, mu_b, mu_lcosb, obj_id. (For reasons relating to managing RAM, we
+calculate rad, glat, and glon although they are an output given
+directly from Galaxia, and we could have just read in the value.
+However, it can be calculated directly from knowledge of px, py, and
+pz.)</p>
+</div></blockquote>
+</section>
+<section id="stars-and-compact-objects-companions-hdf5">
+<h4>4.1.3 Stars and Compact Objects Companions (HDF5)<a class="headerlink" href="#stars-and-compact-objects-companions-hdf5" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>The data output contained in the HDF5 datasets are a combination of
+outputs that come directly from SPISEA , and outputs we ourselves
+have calculated or defined.</p>
+<p>Default name: <em>root</em>_companions.h5</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>system_idx</p></td>
+<td><p>System index
+corresponding to
+the obj_idx of the
+primary</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>zams_mass</p></td>
+<td><p>ZAMS mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-even"><td><p>Teff</p></td>
+<td><p>Effective
+Temperature</p></td>
+<td><p>K</p></td>
+</tr>
+<tr class="row-odd"><td><p>L</p></td>
+<td><p>Luminosity</p></td>
+<td><p>W</p></td>
+</tr>
+<tr class="row-even"><td><p>logg</p></td>
+<td><p>Surface gravity</p></td>
+<td><p>cgs</p></td>
+</tr>
+<tr class="row-odd"><td><p>isWR</p></td>
+<td><p>Is star a
+Wolf-Rayet?</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>mass</p></td>
+<td><p>Current mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>phase</p></td>
+<td><p>Evolution phase
+(equivalent to
+rem_id in primary
+table)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>metallicity</p></td>
+<td><p>Companion
+metallicity</p></td>
+<td><p>[Fe/H]</p></td>
+</tr>
+<tr class="row-odd"><td><p>m_ubv_U, B, V, I,
+R</p></td>
+<td><p>System magnitude
+in filters from
+SPISEA system</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>m_ukirt_H, K, J</p></td>
+<td><p>System magnitude
+in filters from
+SPISEA system</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>m_ztf_g, r, i</p></td>
+<td><p>System magnitude
+in filters from
+SPISEA system</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>log_a</p></td>
+<td><p>Log of the system
+semimajor axis</p></td>
+<td><p>log(AU)</p></td>
+</tr>
+<tr class="row-odd"><td><p>e</p></td>
+<td><p>Eccentricity</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>i</p></td>
+<td><p>Inclination</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>Omega</p></td>
+<td><p>Longitude of
+ascending node</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-even"><td><p>omega</p></td>
+<td><p>Argument of
+periapsis</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>zams_mass_match_diff</p></td>
+<td><p>Difference between
+mass of SPISEA
+primary and
+matched Galaxia
+primary</p></td>
+<td><p>ΔM⊙</p></td>
+</tr>
+<tr class="row-even"><td><p>zams_mass_prim</p></td>
+<td><p>ZAMS mass of
+original SPISEA
+priamry</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>spisea_idx</p></td>
+<td><p>System index in
+original SPISEA
+systems table</p></td>
+<td><p>N/A</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="calc-events">
+<h3>4.2 calc_events<a class="headerlink" href="#calc-events" title="Link to this heading"></a></h3>
+<section id="event-candidates-table-astropy-fits-table">
+<h4>4.2.1 Event candidates table (Astropy FITS table)<a class="headerlink" href="#event-candidates-table-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>The event candidates table is very similar to the HDF5 file created
+in perform_pop_syn. (In fact, the top part is completely duplicated;
+it’s here for completeness.)</p>
+<p>However, the main difference is that there is a LOT less of the
+output, so instead of writing it in arrays in an HDF5 file, we use an
+Astropy table.</p>
+<p>Each row in this table is associated with a microlensing event, each
+of which has a lens-source pair</p>
+<p>Default name: <em>root</em>_events.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>zams_mass (_L,
+_S)</p></td>
+<td><p>ZAMS mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>mass (_L, _S)</p></td>
+<td><p>Current mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-even"><td><p>systemMass (_L,
+_S)</p></td>
+<td><p>Sum of mass of
+primary and
+companions (if
+existent)</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>px (_L, _S)</p></td>
+<td><p>Heliocentric x
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-even"><td><p>py (_L, _S)</p></td>
+<td><p>Heliocentric y
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-odd"><td><p>pz (_L, _S)</p></td>
+<td><p>Heliocentric z
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-even"><td><p>vx (_L, _S)</p></td>
+<td><p>Heliocentric x
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>vy (_L, _S)</p></td>
+<td><p>Heliocentric y
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-even"><td><p>vz (_L, _S)</p></td>
+<td><p>Heliocentric z
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>age (_L, _S)</p></td>
+<td><p>Age</p></td>
+<td><p>log(age/yr)</p></td>
+</tr>
+<tr class="row-even"><td><p>popid (_L, _S)</p></td>
+<td><p>Population ID -
+integer indicating
+the population
+type ranging from
+0 to 9</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>exbv (_L, _S)</p></td>
+<td><p>Extinction E(B-V)
+at the location of
+star given by 3-D
+Schlegel
+extinction maps</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>glat (_L, _S)</p></td>
+<td><p>Galactic latitude</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>glon (_L, _S)</p></td>
+<td><p>Galactic longitude</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-even"><td><p>mbol (_L, _S)</p></td>
+<td><p>Bolometric
+magnitude</p></td>
+<td><p>log(L/L⊙)</p></td>
+</tr>
+<tr class="row-odd"><td><p>grav (_L, _S)</p></td>
+<td><p>Surface gravity</p></td>
+<td><p>log(gravity)</p></td>
+</tr>
+<tr class="row-even"><td><p>teff (_L, _S)</p></td>
+<td><p>Effective
+temperature</p></td>
+<td><p>Log(T/Kelvin)</p></td>
+</tr>
+<tr class="row-odd"><td><p>feh (_L, _S)</p></td>
+<td><p>Metallicity</p></td>
+<td><p>[Fe/H]</p></td>
+</tr>
+<tr class="row-even"><td><p>rad (_L, _S)</p></td>
+<td><p>Galactic radial
+distance</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-odd"><td><p>isMultiple (_L,
+_S)</p></td>
+<td><p>True if the system
+has companions,
+False if the
+system does not</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>N_companions (_L,
+_S)</p></td>
+<td><p>Number of
+companions</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>rem_id (_L, _S)</p></td>
+<td><p>Integer indicating
+the remnant object
+type (more details
+in tag
+description)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>obj_id (_L, _S)</p></td>
+<td><p>Object ID– unique
+integer to
+identify
+star/compact
+object</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>ubv_J, H, K, U, I,
+B, V, R (_L, _S)</p></td>
+<td><p>UBV photometric
+system, J, H, K,
+U, I, B, V, R
+absolute magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>ztf_g, r, i (_L,
+_S)(optional)</p></td>
+<td><p>ztf photometric
+system g, r, i
+absoltue magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>vr (_L, _S)</p></td>
+<td><p>Galactic radial
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-even"><td><p>mu_b (_L, _S)</p></td>
+<td><p>Galactic proper
+motion, b
+component</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+<tr class="row-odd"><td><p>mu_lcosb (_L, _S)</p></td>
+<td><p>Galactic proper
+motion, l
+component</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+<tr class="row-even"><td><p>theta_E</p></td>
+<td><p>(Angular) Einstein
+radius</p></td>
+<td><p>mas</p></td>
+</tr>
+<tr class="row-odd"><td><p>mu_rel</p></td>
+<td><p>Relative
+source-lens proper
+motion</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+<tr class="row-even"><td><p>u0</p></td>
+<td><p>(Unitless) minimum
+source-lens
+separation,
+<em>during</em> the
+survey</p></td>
+<td><div class="line-block">
+<div class="line">dimensionless</div>
+<div class="line">(normalized to
+θE)</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>t0</p></td>
+<td><p>Time at which minimum
+source-lens
+separation occurs</p></td>
+<td><p>days</p></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<div><p>Tag names ARE used for the Astropy table. You will see a lot of the
+tag names have a parenthetical after (_L, _S). That is to indicate
+there is one tag for the lens (L) and one for the source (S), since
+for a given event, you need to have both a lens and a source, and
+each of these things has a mass, a velocity, a position, etc. For
+example, zams_mass_L is the ZAMS mass of the lens, and age_S is the
+log(age/yr) of the source.</p>
+</div></blockquote>
+</section>
+<section id="blends-table-astropy-fits-table">
+<h4>4.2.2 Blends table (Astropy FITS table)<a class="headerlink" href="#blends-table-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>For each candidate microlensing event, associated with it are blended
+stars, which we call neighbors. Given the blend radius chosen when
+running calc_events, the blend table saves all neighbor stars that
+fall within that distance from the lenses in the candidate events
+table. The blends table is again almost identical to the HDF5 output,
+but is has three additional items. For each neighbor star, it lists
+the object ID of the lens and source it is associated with, and the
+distance between itself and the lens. Note that there can be multiple
+neighbor stars associated with a single lens and source (microlensing
+event).</p>
+<p>Default name: <em>root</em>_blends.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>zams_mass_N</p></td>
+<td><p>ZAMS mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>mass_N</p></td>
+<td><p>Current mass</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-even"><td><p>systemMass_N</p></td>
+<td><p>Sum of mass of
+primary and
+companions (if
+existent)</p></td>
+<td><p>M⊙</p></td>
+</tr>
+<tr class="row-odd"><td><p>px_N</p></td>
+<td><p>Heliocentric x
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-even"><td><p>py_N</p></td>
+<td><p>Heliocentric y
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-odd"><td><p>pz_N</p></td>
+<td><p>Heliocentric z
+position</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-even"><td><p>vx_N</p></td>
+<td><p>Heliocentric x
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>vy_N</p></td>
+<td><p>Heliocentric y
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-even"><td><p>vz_N</p></td>
+<td><p>Heliocentric z
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-odd"><td><p>age_N</p></td>
+<td><p>Age</p></td>
+<td><p>log(age/yr)</p></td>
+</tr>
+<tr class="row-even"><td><p>popid_N</p></td>
+<td><p>Population ID -
+integer indicating
+the population
+type ranging from
+0 to 9</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>exbv_N</p></td>
+<td><p>Extinction E(B-V)
+at the location of
+star given by 3-D
+Schlegel
+extinction maps</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>glat_N</p></td>
+<td><p>Galactic latitude</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>glon_N</p></td>
+<td><p>Galactic longitude</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-even"><td><p>mbol_N</p></td>
+<td><p>Bolometric
+magnitude</p></td>
+<td><p>log(L/L⊙)</p></td>
+</tr>
+<tr class="row-odd"><td><p>grav_N</p></td>
+<td><p>Surface gravity</p></td>
+<td><p>log(gravity)</p></td>
+</tr>
+<tr class="row-even"><td><p>teff_N</p></td>
+<td><p>Effective
+temperature</p></td>
+<td><p>Log(T/Kelvin)</p></td>
+</tr>
+<tr class="row-odd"><td><p>feh_N</p></td>
+<td><p>Metallicity</p></td>
+<td><p>[Fe/H]</p></td>
+</tr>
+<tr class="row-even"><td><p>rad_N</p></td>
+<td><p>Galactic radial
+distance</p></td>
+<td><p>kpc</p></td>
+</tr>
+<tr class="row-odd"><td><p>isMultiple_N</p></td>
+<td><p>True if the system
+has companions,
+False if the
+system does not</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>N_companions_N</p></td>
+<td><p>Number of
+companions</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>rem_id_N</p></td>
+<td><p>Integer indicating
+the remnant object
+type (more details
+in tag
+description)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>obj_id_N</p></td>
+<td><p>Object ID– unique
+integer to
+identify
+star/compact
+object</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>ubv_J, H, K, U, I,
+B, V, R_N</p></td>
+<td><p>UBV photometric
+system, J, H, K,
+U, I, B, V, R
+absolute magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>ztf_g, r, i_N
+(optional)</p></td>
+<td><p>ztf photometric
+system g, r, i
+absoltue magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>vr_N</p></td>
+<td><p>Galactic radial
+velocity</p></td>
+<td><p>km/s</p></td>
+</tr>
+<tr class="row-even"><td><p>mu_b_N</p></td>
+<td><p>Galactic proper
+motion, b
+component</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+<tr class="row-odd"><td><p>mu_lcosb_N</p></td>
+<td><p>Galactic proper
+motion, l
+component</p></td>
+<td><p>mas/yr</p></td>
+</tr>
+<tr class="row-even"><td><p>obj_id_L</p></td>
+<td><p>Object ID of the
+lens</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>obj_id_S</p></td>
+<td><p>Object ID of the
+source</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>sep_LN</p></td>
+<td><p>Separation between
+lens and neighbor</p></td>
+<td><p>arcsec</p></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<div><p>Note that there is no additional companions table associated with
+calc_events. In order to cross reference between the events and</p>
+<p>companions, refine_events must be run first</p>
+</div></blockquote>
+</section>
+</section>
+<section id="refine-events">
+<h3>4.3 refine_events<a class="headerlink" href="#refine-events" title="Link to this heading"></a></h3>
+<section id="events-table-astropy-fits-table">
+<h4>4.3.1 Events table (Astropy FITS table)<a class="headerlink" href="#events-table-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>The output here is very similar to the candidate events table. In
+fact, part of it is completely duplicated. All tags listed in the
+event candidates table are also part of the events table. However,
+the following columns are also appended. NOTE: the entries for u0 and
+t0 are <em>overwritten</em>; the values for u0 and t0 returned from
+calc_events is different from that returned in refine_events. Each
+refine_events file requires you to choose a filter and extinction
+law; in this table we suppose filter <em>x</em> is chosen.</p>
+<p>Default name: <em>root</em>_refine_events_<em>filter_reddeninglaw</em>.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag Name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>u0</p></td>
+<td><p>(Unitless) minimum
+source-lens
+separation,
+<em>during</em> the
+survey</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+<tr class="row-odd"><td><p>t0</p></td>
+<td><p>Time at which
+minimum
+source-lens
+separation occurs</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>delta_m_<em>x</em></p></td>
+<td><p>Bump amplitude
+(difference in
+baseline and
+maximum
+magnification
+magnitude) in
+<em>x</em>-band</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>pi_rel</p></td>
+<td><p>Relative parallax</p></td>
+<td><p>mas</p></td>
+</tr>
+<tr class="row-even"><td><p>pi_E</p></td>
+<td><p>Microlensing
+parallax</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+<tr class="row-odd"><td><p>t_E</p></td>
+<td><p>Einstein crossing
+time</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>ubv_<em>x</em>_app
+(_L, _S)</p></td>
+<td><p>UBV photometric
+system, <em>x</em>-band
+apparent
+magnitude, with
+extinction</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>ubv_<em>x</em>_LSN</p></td>
+<td><p>Blended magnitude
+in <em>x</em>-band
+(Apparent
+magnitude of
+source + lens +
+neighbors →
+“baseline mag”)</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>f_blend_<em>x</em></p></td>
+<td><p>Source flux
+fraction (unlensed
+source flux
+divided by
+baseline) in
+<em>x</em>-band</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+<tr class="row-odd"><td><p>cent_glon_<em>x</em>_N</p></td>
+<td><p>Galactic longitude
+l of neighbor
+stars’ centroid</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-even"><td><p>cent_glat_<em>x</em>_N</p></td>
+<td><p>Galactic latitude
+l of neighbor
+stars’ centroid</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>ubv_<em>x</em>_app_N</p></td>
+<td><p>Apparent magnitude
+of neighbor stars,
+<em>x</em>-band apparent
+magnitude</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>pps_seed</p></td>
+<td><p>Seed used in
+perform_pop_syn</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>gal_seed</p></td>
+<td><p>Seed used in
+run_galaxia</p></td>
+<td><p>N/A</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="companions-table-astropy-fits-table">
+<h4>4.3.2 Companions table (Astropy FITS table)<a class="headerlink" href="#companions-table-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>This table is very similar to the companion HDF5 file created in
+perform_pop_syn. In fact, part of it is completely duplicated. There
+is some additional information to index between this table and the
+events table and additional binary properties below. There is also no
+mass_match_diff column. Each row in this table is a companion
+associated with an event. So, if a system is lensed twice, its
+companions will be duplicated in this table.</p>
+<p>Default name:
+<em>root</em>_refine_events_<em>filter_reddeninglaw_</em>companions.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>prim_type</p></td>
+<td><p>Type of primary
+associated with
+companion: ‘S’ if
+source or ‘L’ if
+lens</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>q</p></td>
+<td><p>Companion
+mass/primary mass</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+<tr class="row-even"><td><p>sep</p></td>
+<td><p>Projected angular
+separation between
+companion and
+primary</p></td>
+<td><p>mas</p></td>
+</tr>
+<tr class="row-odd"><td><p>P</p></td>
+<td><p>Period of
+companion</p></td>
+<td><p>years</p></td>
+</tr>
+<tr class="row-even"><td><p>obj_id_L</p></td>
+<td><p>Object ID of the
+lens</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>obj_id_S</p></td>
+<td><p>Object ID of the
+source</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>alpha</p></td>
+<td><p>Angle between
+binary axis and
+North</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-odd"><td><p>phi_pi_E</p></td>
+<td><p>Angle between
+North and relative
+proper motion
+between the source
+and the lens</p></td>
+<td><p>deg</p></td>
+</tr>
+<tr class="row-even"><td><p>phi</p></td>
+<td><p>Angle between the
+relative proper
+motion and the
+binary axis</p></td>
+<td><p>deg</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="refine-binary-events">
+<h3>4.4 refine_binary_events<a class="headerlink" href="#refine-binary-events" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p>In this section we simulate lightcurves for all the binary events
+that contain a binary and store the parameters. In the case of triple</p>
+<p>lenses/sources we simulate multiple lightcurves and choose the one
+with the largest amplitude. The following are the examples of systems
+we simulate:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>Binary lens and binary source:</dt><dd><ul>
+<li><p>Primary lens + companion lens + primary source + companion source</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Triple lens and single source:</dt><dd><ul>
+<li><p>Primary lens + companion lens 1 + source</p></li>
+<li><p>Primary lens + companion lens 2 + source</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Triple lens and binary source:</dt><dd><ul>
+<li><p>Primary lens + companion lens 1 + primary source + companion source</p></li>
+<li><p>Primary lens + companion lens 2 + primary source + companion source</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Triple lens and triple source</dt><dd><ul>
+<li><p>Primary lens + companion lens 1 + primary source + companion source 1</p></li>
+<li><p>Primary lens + companion lens 1 + primary source + companion source 2</p></li>
+<li><p>Primary lens + companion lens 2 + primary source + companion source 1</p></li>
+<li><p>Primary lens + companion lens 2 + primary source + companion source 2</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+<p>The parameters for all these lightcurves are stored in the
+lightcurves.fits table (see 4.4.5) where each bullet point would be
+an entry in that file. We then choose the lightcurve with the largest Δm as the
+microlensing event whose parameters are used in other tables. Whether
+it was used or not is indicated in the lightcurve.fits table.</p>
+</div></blockquote>
+<section id="id2">
+<h4>4.4.1 Events table (Astropy FITS table)<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
+<blockquote>
+<div><blockquote>
+<div><p>This table is a duplicate version of the events table from refine_events
+with some additional properties below from the simulated lightcurves.</p>
+</div></blockquote>
+<p>Default name:
+<em>root</em>_refine_events_<em>filter_reddeninglaw</em>_rb.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>n_peaks</p></td>
+<td><p>Number of peaks in
+lightcurve</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>bin_delta_m</p></td>
+<td><p>Bump amplitude
+(difference in
+baseline and
+maximum
+magnification
+magnitude)</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-even"><td><p>tE_sys</p></td>
+<td><div class="line-block">
+<div class="line">Empirical
+Einstein
+crossing time
+(when the system
+magnitude is at
+least 10% the</div>
+<div class="line">maximum
+magnitude)</div>
+</div>
+</td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-odd"><td><p>tE_primary</p></td>
+<td><p>Empirical Einstein
+crossing time of
+the peak of max
+mag (when the
+system magnitude
+is at least 50%
+the maximum
+magnitude of peak)</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>primary_t</p></td>
+<td><p>Time at which
+maximum peak
+occurs</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-odd"><td><p>avg_t</p></td>
+<td><p>Average time the
+peaks occur</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>std_t</p></td>
+<td><p>Standard deviation
+of times peaks
+occur</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-odd"><td><p>asymmetry</p></td>
+<td><p>Asymmetry as
+defined by
+Chebyshev
+Polynomials (see
+Additional
+Descriptions
+below)</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+<tr class="row-even"><td><p>companion_idx_list</p></td>
+<td><p>List of companion
+indices associated
+with events
+(corresponds with
+companion_idx in
+the companions
+table)</p></td>
+<td><p>N/A</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id3">
+<h4>4.4.2 Companions table (Astropy FITS table)<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>This table is a duplicate version of the companions table from
+refine_events with an additional id Default name:
+<em>root</em>_refine_events_<em>filter_reddeninglaw_</em>companions_rb.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>companion_idx</p></td>
+<td><p>Companion index
+which corresponds
+to position in the
+array</p></td>
+<td><p>N/A</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="multi-peak-table-astropy-fits-table">
+<h4>4.4.3 Multi-peak table (Astropy FITS table)<a class="headerlink" href="#multi-peak-table-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><blockquote>
+<div><p>This table describes properties of each of the peaks in a binary
+lens microlensing event lightcurve that passed a significance
+threshold of 10-5 (by default).</p>
+</div></blockquote>
+<p>Default name:
+<em>root</em>_refine_events_<em>filter_reddeninglaw_</em>companions_rb_mp.fits</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>comp_id</p></td>
+<td><p>Companion ID - the
+position of
+associated
+companion in
+companion table</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>obj_id_L</p></td>
+<td><p>Object ID of the
+lens</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>obj_id_S</p></td>
+<td><p>Object ID of the
+source</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>n_peaks</p></td>
+<td><p>Number of peaks in
+lightcurve</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>t</p></td>
+<td><p>Time at which peak
+occurs</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-odd"><td><p>tE</p></td>
+<td><p>Empirical Einstein
+crossing time of
+the peak (when the
+system magnitude
+is at least 50%
+the maximum
+magnitude of peak)</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>delta_m</p></td>
+<td><p>Bump amplitude
+(difference in
+baseline and maximum
+magnification
+magnitude of peak)</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>ratio</p></td>
+<td><p>Magnitude ratio
+between peak of
+the maximum mag
+and this peak</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="lightcurve-table-astropy-fits-table">
+<h4>4.4.4 Lightcurve table (Astropy FITS table)<a class="headerlink" href="#lightcurve-table-astropy-fits-table" title="Link to this heading"></a></h4>
+<blockquote>
+<div><p>This table has the parameters of all the lightcurves simulated. In any
+cases involving a binary lens or source but no triples, there will be
+only one lightcurve for that event. However, in triple lens or triple
+source cases there will be 2 lightcurves in the TSBL, TSPL, BSTL, and
+PSTL cases and 4 lightcurves in the TSTL case.</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Tag name</strong></p></th>
+<th class="head"><p><strong>Brief
+Description</strong></p></th>
+<th class="head"><p><strong>Units</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>obj_id_L</p></td>
+<td><p>Object ID of the
+lens</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>obj_id_S</p></td>
+<td><p>Object ID of the
+source</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>companion_L</p></td>
+<td><p>Companion ID of
+the lens (blank if
+BSPL)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>companion_S</p></td>
+<td><p>Companion ID of the
+source (blank if
+PSBL)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>class</p></td>
+<td><p>Type of
+microlensing event
+simulated (PSBL,
+BSPL, or BSBL)</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-odd"><td><p>n_peaks</p></td>
+<td><p>Number of peaks in
+lightcurve</p></td>
+<td><p>N/A</p></td>
+</tr>
+<tr class="row-even"><td><p>bin_delta_m</p></td>
+<td><p>Bump amplitude
+(difference in
+baseline and
+maximum
+magnification
+magnitude)</p></td>
+<td><p>mag</p></td>
+</tr>
+<tr class="row-odd"><td><p>tE_sys</p></td>
+<td><div class="line-block">
+<div class="line">Empirical
+Einstein
+crossing time
+(when the system
+magnitude is at
+least 10% the</div>
+<div class="line">maximum
+magnitude)</div>
+</div>
+</td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>tE_primary</p></td>
+<td><p>Empirical Einstein
+crossing time of
+the peak of max
+mag (when the
+system magnitude
+is at least 50%
+the maximum
+magnitude of peak)</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-odd"><td><p>primary_t</p></td>
+<td><p>Time at which
+maximum peak
+occurs</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>avg_t</p></td>
+<td><p>Average time the
+peaks occur</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-odd"><td><p>std_t</p></td>
+<td><p>Standard deviation
+of times peaks
+occur</p></td>
+<td><p>days</p></td>
+</tr>
+<tr class="row-even"><td><p>asymmetry</p></td>
+<td><p>Asymmetry as
+defined by
+Chebyshev
+Polynomials (see
+Additional
+Descriptions
+below)</p></td>
+<td><p>dimensionless</p></td>
+</tr>
+<tr class="row-odd"><td><p>used_lightcurve</p></td>
+<td><p>If this lightcurve
+had the largest
+bin_delta_m of the
+set, it will be
+used in the other
+tables
+corresponding to
+this event (True).
+If not, False.</p></td>
+<td><p>N/A (bool)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="additional-descriptions-of-tags">
+<h3>4.5 Additional descriptions of tags<a class="headerlink" href="#additional-descriptions-of-tags" title="Link to this heading"></a></h3>
+<blockquote>
+<div><p><strong>rem_id/phase:</strong> These label the different types of remnant objects (star, black hole, neutron star, or white dwarf).
+They are identified
+as following:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>0: Star</p></li>
+<li><p>101: White Dwarf</p></li>
+<li><p>102: Neutron Star</p></li>
+<li><p>103: Black Hole</p></li>
+</ul>
+</div></blockquote>
+<p><strong>pop_id:</strong> Describes which population is generated.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>0: Thin disk, ≤0.15 Gyr</p></li>
+<li><p>1: Thin disk, 0.15-1 Gyr</p></li>
+<li><p>2: Thin disk, 1-2 Gyr</p></li>
+<li><p>3: Thin disk, 2-3 Gyr</p></li>
+<li><p>4: Thin disk, 3-5 Gyr</p></li>
+<li><p>5: Thin disk, 5-7 Gyr</p></li>
+<li><p>6: Thin disk, 7-10 Gyr</p></li>
+<li><p>7: Thick disk, 11 Gyr (single-age)</p></li>
+<li><p>8: Stellar halo, 14 Gyr (single-age)</p></li>
+<li><p>9: Bulge, 10 Gyr (single-age)</p></li>
+<li><p>In Galaxia there is an option for a 10th population type; the Bullock and Johnston stellar halos. We have chosen not use it, and the code is not written to include it.</p></li>
+</ul>
+</div></blockquote>
+<p><strong>px, py, pz; vx, vy, vz:</strong> These are given in heliocentric coordinates
+(i.e. Cartesian coordinates with the sun at the origin.) See subsection
+on coordinate systems for more information.</p>
+<p><strong>rad, glat, glon; vr, mu_b, mu_lcosb:</strong> These are given in galactic
+coordinates (i.e. spherical coordinates with the sun at the origin.) See
+subsection on coordinate systems for more information.</p>
+<p><strong>ubv_U, B, V, R, I, J, H, K; exbv:</strong> Photometry information is given in
+absolute magnitude. For NSs and BHs, all these values are \texttt{nan}
+to indicate they are dark. Note that for dark primaries with luminous
+companions, these values will be the system luminosity.</p>
+<p><strong>t0:</strong> Note that you can have a negative day (this just means time
+before the “zero” time, which is defined as the state of the system that
+is generated by Galaxia and the population synthesis. Since we are
+assuming everything moves in straight lines, we can propagate either
+forward or backwards.) This can also be the case for <strong>primary_t</strong> and
+<strong>t</strong> in the output of refine_binary_events.</p>
+<p><strong>asymmetry:</strong> Asymmetry as defined by (<a class="reference external" href="https://iopscience.iop.org/article/10.1086/590320">Night et al. 2008</a>) where the light curve is fit
+by a Chebyshev polynomial to the 50th degree (<a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2021AJ....161..132K/abstract">Khakpash et al. 2021</a>) and <span class="math notranslate nohighlight">\(k = \left(\sum T^2_{\rm odd} / \sum T^2_{\rm even} \right)\)</span>.
+Here the T’s are the coefficients of the Chebyshev polynomial.
+A light curve is symmetric when k = 0.</p>
+</div></blockquote>
+</section>
+</section>
+<section id="coordinate-systems">
+<h2>5 Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading"></a></h2>
+<p>There are two different coordinate systems used, Heliocentric and Galactic.
+Heliocentric coordinates are Cartesian coordinates with the sun at the origin. The positive <span class="math notranslate nohighlight">\(x\)</span> axis is pointing toward the Galactic Center, and the positive <span class="math notranslate nohighlight">\(z\)</span> axis is pointing toward the Galactic North Pole.
+Galactic coordinates are spherical coordinates with the sun at the origin.
+Longitude <span class="math notranslate nohighlight">\(l\)</span> is measuring the angular distance of an object eastward along the galactic equator from the galactic center, and latitude <span class="math notranslate nohighlight">\(b\)</span> is measuring the angle of an object north or south of the galactic equator (or midplane) as viewed from Earth; positive to the north, negative to the south.
+Radius <span class="math notranslate nohighlight">\(r\)</span> is the distance from the sun to the object.</p>
+<p>The conversion between Heliocentric and Galactic is just the same as converting between rectangular to spherical coordinates, where <span class="math notranslate nohighlight">\(\phi = l\)</span> and <span class="math notranslate nohighlight">\(\theta = -b + 90^{\circ}\)</span>.
+Going from Galactic to Heliocentric (units are degrees):</p>
+<blockquote>
+<div><p><span class="math notranslate nohighlight">\(x = r\sin(-b + 90^{\circ}) \cos l =  r \cos b \cos l\)</span></p>
+<p><span class="math notranslate nohighlight">\(y = r\sin(-b + 90^{\circ}) \sin l = r \cos b \sin l\)</span></p>
+<p><span class="math notranslate nohighlight">\(z = r\cos(-b + 90^{\circ}) = r\sin b\)</span></p>
+</div></blockquote>
+<p>Going from Heliocentric to Galactic (units are degrees):</p>
+<blockquote>
+<div><p><span class="math notranslate nohighlight">\(r = \sqrt{x^2 + y^2 + z^2}\)</span></p>
+<p><span class="math notranslate nohighlight">\(b = -\cos^{-1}(z/r) + 90^{\circ}\)</span></p>
+<p><span class="math notranslate nohighlight">\(l = \tan^{-1}(y/x)\)</span></p>
+</div></blockquote>
+<p>Note: be careful with the branch of arctangent. Practically, use <code class="docutils literal notranslate"><span class="pre">numpy.arctan2</span></code> if using Python.</p>
+<img alt="../_images/coords.png" class="align-center" src="../_images/coords.png" />
+<p>Diagram of Heliocentric and Galactic coordinate systems. The red dot is the sun.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="popsycle.html" class="btn btn-neutral float-left" title="popsycle package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="changelog.html" class="btn btn-neutral float-right" title="changelog" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Casey Lam, Jessica Lu, Michael Medford, Natasha Abrams, Sam Rose.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

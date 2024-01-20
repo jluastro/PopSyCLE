@@ -35,8 +35,8 @@ def _return_filename_dict(output_root):
            '{output_root}.ebf'
            '{output_root}_events.h5'
 
-    Output
-    ------
+    Returns
+    -------
     filename_dict : dict
         Dictionary containing the names of the files output by the pipeline
 
@@ -75,8 +75,8 @@ def _check_for_output(filename, overwrite=False):
         or to raise an error. If True, file is overwritten.
         If False, error is raised. Default False.
 
-    Output
-    ------
+    Returns
+    -------
     status : bool
         Status of operation.
         True: Error due to already existing file.
@@ -112,15 +112,9 @@ def generate_field_config_file(longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    Optional Parameters
-    -------------------
-    config_filename : str
+    config_filename : str, optional
         Name of the configuration file
         Default: field_config.yaml
-
-    Output
-    ------
-    None
     """
 
     config = {'longitude': longitude,
@@ -173,15 +167,10 @@ def generate_slurm_config_file(path_python='python', account='ulens',
     additional_lines : list of strings
         Additional lines to be run before executing run.py
 
-    Optional Parameters
-    -------------------
-    config_filename : str
+    config_filename : str, optional
         Name of the configuration file
         Default: slurm_config.yaml
 
-    Output
-    ------
-    None
     """
 
     config = {'path_python': path_python,
@@ -282,16 +271,10 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-
-    Optional Parameters
-    -------------------
-    config_filename : str
+    
+    config_filename : str, optional
         Name of the configuration file
         Default: popsycle_config.yaml
-
-    Output
-    ------
-    None
     """
 
     if bin_edges_number is None:
@@ -339,10 +322,6 @@ def generate_config_file(config_filename, config):
     config : dict
         Dictionary containing the configuration parameters
 
-    Output
-    ------
-    None
-
     """
     with open(config_filename, 'w') as outfile:
         yaml.dump(config, outfile, default_flow_style=True)
@@ -357,8 +336,8 @@ def load_config_file(config_filename):
     config_filename : str
         Name of the configuration file
 
-    Output
-    ------
+    Returns
+    -------
     config : dict
         Dictionary containing the configuration parameters
 
@@ -502,89 +481,87 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         Amount of walltime that the script will request from slurm.
         Format: hh:mm:ss
 
-    Optional Parameters
-    -------------------
-    jobname : str
+    jobname : str, optional
         The name of the slurm job and run_popsycle execution file.
         If 'default', the format will be:
             <longitude>_<latitude>_<output_root>
 
-    seed : int
+    seed : int, optional
         If non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
-    overwrite : bool
+    overwrite : bool, optional
         If True, overwrites output files. If False, exists the
         function if output files are already on disk.
         Default is False.
 
-    submitFlag : bool
+    submitFlag : bool, optional
         If True, script will be submitted to the slurm scheduler
         after being written to disk. If False, it will not be submitted.
         Default is True
 
-    returnJobID : bool
+    returnJobID : bool, optional
         If True and submitFlag is True,
         function will return the SLURM job id after script submission.
         If False or submitFlag is False,
         function will return None.
         Default is False
 
-    dependencyJobID : int
+    dependencyJobID : int, optional
         If non-None and submitFlag is True, submitted job will only run
         after dependencyJobID is completed with no errors.
         Default is None
 
-    n_cores_perform_pop_syn : int
+    n_cores_perform_pop_syn : int, optional
         Number of cores for executing synthetic.perform_pop_syn
         Default is 1.
         
-    n_cores_calc_events : int
+    n_cores_calc_events : int, optional
         Number of cores for executing synthetic.calc_events
         Default is 1.
         
-    n_cores_refine_binary_events : int
+    n_cores_refine_binary_events : int, optional
         Number of cores for executing synthetic.refine_binary_events
         Default is 1.
 
-    multi_proc_refine_binary_events : bool
+    multi_proc_refine_binary_events : bool, optional
         Even if n_proc = 1, a pool is still created. If multi_proc = False,
         instead there is just a for-loop to generate and analyze the lightcurves.
         If multi_proc == False, n_proc must = 1.
         Default is True.
 
-    skip_galaxia : bool
+    skip_galaxia : bool, optional
         If True, pipeline will not run Galaxia and assume that the
         resulting ebf file is already present.
         Default is False
 
-    skip_perform_pop_syn : bool
+    skip_perform_pop_syn : bool, optional
         If True, pipeline will not run perform_pop_syn and assume that
         the resulting h5 file is already present.
         Default is False
 
-    skip_calc_events : bool
+    skip_calc_events : bool, optional
         If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
         Default is False
 
-    skip_refine_events : bool
+    skip_refine_events : bool, optional
         If True, pipeline will not run refine_events.
         Default is False
 
-    skip_refine_binary_events : bool
+    skip_refine_binary_events : bool, optional
         If True, pipeline will not run refine_binary_events.
         If specified multiplicity is None, will be True.
         Default is False
         
-    verbose : int
+    verbose : int, optional
         Level of debugging information to print to stderr. Set to 0 for minimal
         information. Coarse timing at 2 and fine timing at 4.
         Default is 0.
 
-    Output
-    ------
+    Returns
+    -------
     <output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
@@ -597,8 +574,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     <path_run>/run_popsycle_<jobname>.sh : yaml file
         SLURM batch script for submitting job with pipeline run
 
-    Returns
-    -------
     None or slurm_jobid : str
         If submitFlag is True and returnJobID is True,
         function returns the SLURM job ID after script submission.
@@ -913,13 +888,9 @@ def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'tx
         If not None, add `output_prefix` before name of tarball:
             {output_prefix}_runs.tar
 
-    Output
-    ------
-    <output_prefix>_runs.tar : tarball file
-
     Returns
     -------
-    None
+    <output_prefix>_runs.tar : tarball file
     """
     extensions = ' '.join(extension_list)
     print(f'Executing "tar_run_results" in CURRENT directory '

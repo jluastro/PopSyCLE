@@ -18,7 +18,7 @@ import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import Angle  # Angles
-from astropy.table import Table, Column
+from astropy.table import Table, Column, MaskedColumn
 from astropy.table import vstack
 from spisea.imf import imf
 from spisea import synthetic, evolution, reddening, ifmr
@@ -47,6 +47,7 @@ from scipy.signal import find_peaks
 from collections import Counter
 from operator import itemgetter
 from popsycle import binary_utils
+from astropy.io import fits
 
 ##########
 # Conversions.
@@ -120,7 +121,18 @@ multiplicity_list = {'None': None,
 
 def write_galaxia_params(output_root,
                          longitude, latitude, area,
-                         seed=None):
+                         seed=None,
+                         output_dir='./',
+                         photo_sys='UBV',
+                         mag_color_names='V,B-V',
+                         app_mag_limits=[-1000, 1000],
+                         abs_mag_limits=[-1000, 1000],
+                         color_limits=[-1000, 1000],
+                         geometry_option=1,
+                         f_sample=1,
+                         pop_ID=-1,
+                         warp_flare_on=1,
+                         r_max=30):
     """
     Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running. User can also specify a seed for
@@ -130,10 +142,10 @@ def write_galaxia_params(output_root,
     ----------
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include
+        ``myout``,
+        ``/some/path/to/myout``,
+        ``../back/to/some/path/myout``.
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -144,9 +156,7 @@ def write_galaxia_params(output_root,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
          identical results.
@@ -163,24 +173,24 @@ def write_galaxia_params(output_root,
 
     params = [
         "outputFile %s" % output_root,
-        "outputDir ./",
-        "photoSys UBV",
-        "magcolorNames V,B-V",
-        "appMagLimits[0] -1000",
-        "appMagLimits[1] 1000",
-        "absMagLimits[0] -1000",
-        "absMagLimits[1] 1000",
-        "colorLimits[0] -1000",
-        "colorLimits[1] 1000",
-        "geometryOption 1",
+        "outputDir %s" % output_dir,
+        "photoSys %s" % photo_sys,
+        "magcolorNames %s" % mag_color_names,
+        "appMagLimits[0] %s" % app_mag_limits[0],
+        "appMagLimits[1] %s" % app_mag_limits[1],
+        "absMagLimits[0] %s" % abs_mag_limits[0],
+        "absMagLimits[1] %s" % abs_mag_limits[1],
+        "colorLimits[0] %s" % color_limits[0],
+        "colorLimits[1] %s" % color_limits[1],
+        "geometryOption %s" % geometry_option,
         "longitude %f" % longitude,
         "latitude %f" % latitude,
         "surveyArea %.5f" % area,
-        "fSample 1",
-        "popID -1",
-        "warpFlareOn 1",
+        "fSample %s" % f_sample,
+        "popID %s" % pop_ID,
+        "warpFlareOn %s" % warp_flare_on,
         "seed %i" % seed,
-        "r_max 30",
+        "r_max %s" % r_max,
         "starType 0",
         "photoError 0"
     ]
@@ -281,7 +291,18 @@ def _check_run_galaxia(output_root, longitude, latitude, area,
 
 def run_galaxia(output_root, longitude, latitude, area,
                 galaxia_galaxy_model_filename,
-                seed=None):
+                seed=None,
+                output_dir='./',
+                photo_sys='UBV',
+                mag_color_names='V,B-V',
+                app_mag_limits=[-1000, 1000],
+                abs_mag_limits=[-1000, 1000],
+                color_limits=[-1000, 1000],
+                geometry_option=1,
+                f_sample=1,
+                pop_ID=-1,
+                warp_flare_on=1,
+                r_max=30):
     """
     Given an object root, sky location and area, creates the parameter
     file that Galaxia requires for running and executes Galaxia.
@@ -291,10 +312,10 @@ def run_galaxia(output_root, longitude, latitude, area,
     ----------
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include
+        ``myout``,
+        ``/some/path/to/myout``,
+        ``../back/to/some/path/myout``.
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -309,9 +330,7 @@ def run_galaxia(output_root, longitude, latitude, area,
         Name of the galaxia galaxy model parameter file,
         as outlined at https://github.com/jluastro/galaxia
 
-    Optional Parameters
-    -------------------
-    seed : int
+    seed : int, optional
          Seed Galaxia will use to generate objects. If not set, script will
          generate a seed from the current time. Setting this seed guarantees
          identical results.
@@ -326,7 +345,18 @@ def run_galaxia(output_root, longitude, latitude, area,
                          longitude=longitude,
                          latitude=latitude,
                          area=area,
-                         seed=seed)
+                         seed=seed,
+                         output_dir=output_dir,
+                         photo_sys=photo_sys,
+                         mag_color_names=mag_color_names,
+                         app_mag_limits=app_mag_limits,
+                         abs_mag_limits=abs_mag_limits,
+                         color_limits=color_limits,
+                         geometry_option=geometry_option,
+                         f_sample=f_sample,
+                         pop_ID=pop_ID,
+                         warp_flare_on=warp_flare_on,
+                         r_max=r_max)
 
     # Execute Galaxia
     cmd = 'galaxia -r %s_galaxia_params.txt %s' % (output_root, galaxia_galaxy_model_filename)
@@ -565,10 +595,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
 
     output_root : str
         The thing you want the output files to be named
-        Examples:
-           'myout'
-           '/some/path/to/myout'
-           '../back/to/some/path/myout'
+        Examples include 
+        ``myout``, 
+        ``/some/path/to/myout``
+        ``../back/to/some/path/myout``.
 
     iso_dir : filepath
         Where are the isochrones stored (for SPISEA)
@@ -580,29 +610,28 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         'Spera15' = IFMR_Spera15
         'SukhboldN20' = IFMR_N20_Sukhbold
 
-    Optional Parameters
-    -------------------
-    bin_edges_number : int
-        Number of edges for the bins
-            bins = bin_edges_number - 1
-        Total number of bins is
-            N_bins = (bin_edges_number - 1)**2
+    bin_edges_number : int, optional
+        Number of edges for the bins such that
+        ``bins = bin_edges_number - 1``.
+        The Total number of bins is
+        ``N_bins = (bin_edges_number - 1)**2``.
         If set to None (default), then number of bins is
-            bin_edges_number = int(60 * 2 * radius) + 1
+        ``bin_edges_number = int(60 * 2 * radius) + 1``
 
-    BH_kick_speed_mean : float
+    BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
+    NS_kick_speed_mean : float, optional
         Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
         Defaults to 400 km/s based on distributions found by
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    additional_photometric_systems : list of strs
+    additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
         Galaxia / SPISEA's ubv photometry and appended to the output files.
+
 
     multiplicity: object
         If a resovled multiplicity object is specified, 
@@ -613,13 +642,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-    
-    overwrite : bool
+
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
-    seed : int
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
@@ -909,13 +938,14 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 unmade_cluster_mass += sum(list(zip(*results))[2])
             # Multi-threaded version. - STOP
 
+
             del kdt_star_p, exbv_arr4kdt
             gc.collect()
 
     # Multi-Threaded: clean up pool
     mp_pool.close()
     mp_pool.join()
-
+    
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
 
@@ -975,7 +1005,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line20 = 'FILES CREATED' + '\n'
     line21 = output_root + '.h5 : HDF5 file' + '\n'
     line22 = output_root + '_label.fits : label file' + '\n'
-    if multiplicity != None:
+    if multiplicity is not None:
         line23 = output_root + '_companions.h5 : HDF5 file' + '\n'
     else:
         line23 = 'No companions h5 file as multiplicity = None' + '\n'
@@ -1105,8 +1135,8 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-        
-    seed : int
+
+    seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
@@ -1137,7 +1167,6 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         The current mass in the unmade clusters (<= 100 M_sun)
     
     """
-
     # Load up our global (thread-safe) variables.
     global lock, next_id_stars_val, next_id_co_val
 
@@ -1192,7 +1221,6 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                                                      IFMR=IFMR,
                                                                                      feh=metallicity_of_bin, seed=seed,
                                                                                      additional_photometric_systems=additional_photometric_systems)
-
     # Make a temporary table of the compact object primaries. Will eventually be appended to star_dict.
     co_dict, next_id_co = _make_co_dict(age_of_bin,
                                         cluster_tmp,
@@ -1265,6 +1293,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     # Garbage collect in order to save space.
     ##########
     del star_dict
+
 
     return n_co_new, unmade_cluster_counter_new, unmade_cluster_mass_new
 
@@ -1840,6 +1869,7 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
                 save_data = np.empty(len(id_lb), dtype=compound_dtype)
+
                 if companion_obj_arr is None:
                     for colname in obj_arr:
                         save_data[colname] = obj_arr[colname][id_lb]
@@ -2113,7 +2143,21 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         if currentClusterMass > 5*10**4:
             SPISEA_present_day_star_mass_after_matching = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
             assert(np.abs((SPISEA_present_day_star_mass_after_matching/currentClusterMass) - 1) < 0.01)
-            
+
+        # Removes companions with unnassigned masses being not massive enough for
+        # their isochrone (often high metallicity and old)
+        if multiplicity is not None:
+            bad_companions = np.where(np.isnan(cluster.companions['mass']) == True)
+            bad_companions_primaries = cluster.companions['system_idx'][bad_companions]
+            unique_bad_companions_primaries = np.unique(bad_companions_primaries, return_counts = True)
+            # Subtract number of companions that are bad
+            cluster.star_systems['N_companions'][unique_bad_companions_primaries[0]] -= unique_bad_companions_primaries[1]
+            # Set those that have no companions left to non-multiples
+            cluster.star_systems['isMultiple'][cluster.star_systems['N_companions'] == 0] = 0
+            # Drop companions
+            cluster.companions.remove_rows(bad_companions)
+        
+        
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
 
@@ -2836,7 +2880,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
 
             # Reset the companion system_idx to be the correct obj_id
             compact_companions['system_idx'] = co_dict['obj_id'][co_idx_for_dup_sys_table]
-            
+
             # sums mass of companions if there are triples
             grouped_co_companions = compact_companions.group_by(['system_idx'])
             CO_companions_system_mass = grouped_co_companions['mass'].groups.aggregate(np.sum)
@@ -3041,13 +3085,11 @@ def calc_events(hdf5_file, output_root2,
         Stars within this distance of the lens are said to be blended.
         Units are in ARCSECONDS.
 
-    Optional Parameters
-    -------------------
-    n_proc : int
+    n_proc : int, optional
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
 
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -3126,7 +3168,7 @@ def calc_events(hdf5_file, output_root2,
 
     inputs = zip(llbb, hd, ot, no, rc, tf, br)
     
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hdc = itertools.repeat(hdf5_file_comp, reps)
         inputs = zip(llbb, hd, ot, no, rc, tf, br, hdc)
     
@@ -3280,7 +3322,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     hf.close()
 
     # Adds separation in mas between primary and furthest companion if there are companions
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hfc = h5py.File(hdf5_file_comp, 'r')
         bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
         hfc.close()
@@ -3730,7 +3772,7 @@ def unique_events(event_table):
     lens separation.
 
     Parameters
-    ---------
+    ----------
     event_table : numpy array 
         A table with all the events. There are equal numbers of columns
         containing info about the source and the lens, and four additional
@@ -3782,7 +3824,7 @@ def unique_blends(blend_table):
     is picked to be the first occurence.
 
     Parameters
-    ---------
+    ----------
     blend_table : blend array 
         A table with all the events. There is 1 column with the unique
         source ID, 1 with the unique lens ID lens, 1 with the lens-neighbor
@@ -3857,7 +3899,7 @@ def calc_diff_limit_blend(event_fits_file, blend_fits_file, blend_rad):
     return
 
 
-def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
+def reduce_blend_rad(blend_tab, new_blend_rad, output_root, input_root = 'default', overwrite=False):
     """
     Creates a new blend table for some blending radius r_new
     that is smaller than the original blend radius r_orig,
@@ -3875,6 +3917,18 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     output_root : str
         The name for the new blend table
         (and corresponding event table)
+        
+    Optional Parameters
+    ------------------
+    input_root : str
+        The input root of the old blend table.
+        If 'default', takes root of blend_tab.
+    
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+        
 
     Return
     ------
@@ -3882,7 +3936,8 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
         New table with smaller blend radius.
 
     """
-    input_root = blend_tab.rstrip('_blends.fits')
+    if input_root == 'default':
+        input_root = blend_tab.rstrip('_blends.fits')
 
     event_tab_name = input_root + '_events.fits'
     event_log_name = input_root + '_calc_events.log'
@@ -3912,6 +3967,14 @@ def reduce_blend_rad(blend_tab, new_blend_rad, output_root, overwrite=False):
     new_blends = old_blends[good_idx]
 
     new_blends.write(new_blend_tab_name, overwrite=overwrite)
+    
+    # Makes simlinks for necessary unchanged files
+    links = ['_galaxia_params.txt', '_perform_pop_syn.log']
+    for link in links:
+        try:
+            os.symlink(input_root + link, output_root + link)
+        except:
+            continue
 
     return
 
@@ -3932,7 +3995,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
 
 def _check_refine_events(input_root, filter_name,
                          photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp, legacy):
+                         output_file, hdf5_file_comp, legacy, seed):
     """
     Checks that the inputs of refine_events are valid
 
@@ -3966,6 +4029,11 @@ def _check_refine_events(input_root, filter_name,
         For running on files created before ~2020 when the filter system was changed
         to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
         Default is False.
+
+    seed : None or int
+        If not None, this forces the random orbit time for binaries to be fixed every time.
+        If seed is added but there are no binaries, the seed will have no consequence.
+        Default is None.
     """
 
     if not isinstance(input_root, str):
@@ -3992,6 +4060,10 @@ def _check_refine_events(input_root, filter_name,
             
     if not isinstance(legacy, bool):
         raise Exception('legacy (%s) must be a boolean.' % str(legacy))
+
+    if seed is not None:
+        if not isinstance(seed, int):
+            raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -4025,7 +4097,7 @@ def _check_refine_events(input_root, filter_name,
 
 def refine_events(input_root, filter_name, photometric_system, red_law,
                   overwrite=False,
-                  output_file='default', hdf5_file_comp=None, legacy = False):
+                  output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -4034,7 +4106,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     Parameters
     ----------
     input_root : str
-        The root path and name of the *_events.fits and *_blends.fits.
+        The root path and name of the \*_events.fits and \*_blends.fits.
         Don't include those suffixes yet.
 
     filter_name : str
@@ -4048,9 +4120,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     red_law : str
         The name of the reddening law to use from SPISEA.
 
-    Optional Parameters
-    -------------------
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exists the
         function if output files are already on disk.
         Default is False.
@@ -4068,6 +4138,11 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         For running on files created before ~2020 when the filter system was changed
         to uppercase (i.e. from ubv_r to ubv_R) and before seeds were introduced.
         Default is False.
+        
+    seed : None or int
+        If not None, this forces the random orbit time for binaries to be fixed every time.
+        If seed is added but there are no binaries, the seed will have no consequence.
+        Default is None.
 
     Output:
     ----------
@@ -4081,6 +4156,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     that contains the same objects as a the companion file with extra columns of data.
 
     """
+    # Set random seed
+    np.random.seed(seed)
+                      
     # Check if .fits file exists already. If it does, throw an error message
     # to complain and exit.
     if not overwrite and os.path.isfile(output_file):
@@ -4090,7 +4168,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     # Error handling/complaining if input types are not right.
     _check_refine_events(input_root, filter_name,
                          photometric_system, red_law,
-                         overwrite, output_file, hdf5_file_comp, legacy)
+                         overwrite, output_file, hdf5_file_comp, legacy, seed)
 
     if output_file == 'default':
         output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
@@ -4222,7 +4300,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     
     
     # If Multiples
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         hf_comp = h5py.File(hdf5_file_comp, 'r')
         companion_table = []
         
@@ -4266,14 +4344,18 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                 patch_comp_L['prim_type'] = "L"
                 patch_comp_L['obj_id_L'] = (patch_comp_L.index).astype('float64')
                 patch_comp_L['obj_id_S'] = (patch_comp_L['obj_id_S']).astype('float64')
-                patch_comp_L['system_idx'] = patch_comp_L.index
+                # In newer pandas versions name of index is maintained
+                if patch_comp_L.index.name != 'system_idx':
+                    patch_comp_L['system_idx'] = patch_comp_L.index
                 if len(patch_comp_L) > 0:
                     patch_comp_L = patch_comp_L.reset_index()[patch_comp_df_columns]
                 
                 patch_comp_S['prim_type'] = "S"
                 patch_comp_S['obj_id_S'] = (patch_comp_S.index).astype('float64')
                 patch_comp_S['obj_id_L'] = (patch_comp_S['obj_id_L']).astype('float64')
-                patch_comp_S['system_idx'] = patch_comp_S.index
+                # In newer pandas versions name of index is maintained
+                if patch_comp_S.index.name != 'system_idx':
+                    patch_comp_S['system_idx'] = patch_comp_S.index
                 if len(patch_comp_S) > 0:
                     patch_comp_S = patch_comp_S.reset_index()[patch_comp_df_columns]
 
@@ -4282,7 +4364,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     if len(patch_comp_L) > 0:
                         companion_table = patch_comp_L
                         if len(patch_comp_S) > 0:
-                            companion_table = companion_table.append(patch_comp_S)
+                            companion_table = pd.concat([companion_table, patch_comp_S], ignore_index=True)
                             #continue
                     elif len(patch_comp_S) > 0:
                         companion_table = patch_comp_S
@@ -4293,22 +4375,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                     # if-statement necessary because dtype of prim_type column doesn't change
                     # if the table is empty
                     if len(patch_comp_L) > 0:
-                        companion_table = companion_table.append(patch_comp_L)
+                        companion_table = pd.concat([companion_table, patch_comp_L], ignore_index=True)
                     if len(patch_comp_S) > 0:
-                        companion_table = companion_table.append(patch_comp_S)
+                        companion_table = pd.concat([companion_table, patch_comp_S], ignore_index=True)
                  
                 # deletes patch so memory not overwhelmed
                 del patch_comp_L
                 del patch_comp_S
         hf_comp.close()
-        print('memory test 1')
         
         
         if len(companion_table) > 0:
             
             # Adds parameters
             companion_table = _add_multiples_parameters(companion_table, event_tab)
-            print('memory test 2')
             companion_table = _add_binary_angles(companion_table, event_tab)
             companion_table = Table.from_pandas(companion_table).filled(np.nan)
             
@@ -4354,7 +4434,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line13 = output_file + ' : refined events'
     line14 = '\n' #By default no companion file created
     
-    if hdf5_file_comp != None:
+    if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
 
@@ -4495,8 +4575,11 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    flux_N = np.nan_to_num(flux_N)
-
+    if type(flux_N) == MaskedColumn:
+        flux_N = np.nan_to_num(flux_N.filled(np.nan))
+    else:
+        flux_N = np.nan_to_num(flux_N)
+        
     # Get total flux
     flux_N_tot = np.sum(flux_N)
 
@@ -4544,13 +4627,20 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
 
-    flux_L = np.nan_to_num(flux_L)
-    flux_S = np.nan_to_num(flux_S)
+    if type(flux_L) == MaskedColumn:
+        flux_L = np.nan_to_num(flux_L.filled(np.nan))
+    else:
+        flux_L = np.nan_to_num(flux_L)
+
+    if type(flux_S) == MaskedColumn:
+        flux_S = np.nan_to_num(flux_S.filled(np.nan))
+    else:
+        flux_S = np.nan_to_num(flux_S)
 
     # Find the blends.
-    LS_pairs = np.stack((event_tab['obj_id_L'], event_tab['obj_id_S']),
+    LS_pairs = np.stack((event_tab['obj_id_L'].data, event_tab['obj_id_S'].data),
                         axis=-1)
-    blend_pairs = np.stack((blend_tab['obj_id_L'], blend_tab['obj_id_S']),
+    blend_pairs = np.stack((blend_tab['obj_id_L'].data, blend_tab['obj_id_S'].data),
                            axis=-1)
 
     flux_N = np.zeros(len(app_L))
@@ -4641,25 +4731,19 @@ def _add_binary_angles(companion_table, event_table):
     
     
     """
-    companion_tmp_df = copy.deepcopy(companion_table)
-    print('memory test 3')
-    
+    companion_tmp_df = copy.deepcopy(companion_table)    
     event_table_df = event_table.to_pandas()
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
     event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
-    
-    print('memory test 4')
-    
+        
     del event_table_df
     
     start_time_bin_angles = time.time()    
     alphas, phi_pi_Es, phis = calculate_binary_angles(companion_tmp_df_joined)
-    
-    print('memory test 5')
-    
+        
     companion_tmp_df_joined['alpha'] = alphas
     companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
     companion_tmp_df_joined['phi'] = phis
@@ -4668,7 +4752,7 @@ def _add_binary_angles(companion_table, event_table):
     # doing list(cluster.companions.columns) + those other names means that it only takes columns 
     # that were in cluster.companions and obj_id_L, obj_id_S, alpha,...
     companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi']]
-    print('full bin angles loop', start_time_bin_angles - time.time())
+    #print('full bin angles loop', time.time() - start_time_bin_angles)
     
     del companion_tmp_df_joined
     return companion_tmp_df
@@ -4825,7 +4909,7 @@ def calculate_binary_angles(joined_table):
         # Mod 360 so it'll be in the same range as alpha
         phi_pi_E = np.rad2deg(np.arctan2(mu_racosdec_rel,mu_dec_rel)) % 360
         
-        phi = (phi_pi_E - alpha) % 360
+        phi = (alpha - phi_pi_E) % 360
         
         alphas.append(alpha)
         phi_pi_Es.append(phi_pi_E)
@@ -4853,12 +4937,8 @@ def _add_multiples_parameters(companion_table, event_table):
 
     """
     companion_tmp_df = copy.deepcopy(companion_table)
-    
-    print('memory test 1.1')
-    
     event_table_df = event_table.to_pandas()
     
-    print('memory test 1.2')
     
     #indexes on both obj_id_L and obj_id_S at once
     companion_tmp_df = companion_tmp_df.set_index(['obj_id_L', 'obj_id_S'])
@@ -4866,7 +4946,6 @@ def _add_multiples_parameters(companion_table, event_table):
     companion_tmp_df_joined = companion_tmp_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='inner')
 
     del event_table_df
-    print('memory test 1.3')
     
     a_kpc = (np.array(10**companion_tmp_df_joined['log_a'])*unit.AU).to('kpc').value
     
@@ -4886,25 +4965,18 @@ def _add_multiples_parameters(companion_table, event_table):
         event_prim_masses[count] = row[1]['mass_' + prim_type]
         event_system_masses[count] = row[1]['systemMass_' + prim_type]
         event_prim_distances[count] = row[1]['rad_' + prim_type]
-    
-    print('memory test 1.4')
-    
+        
     companion_tmp_df_joined['q'] = companion_tmp_df_joined['mass']/event_prim_masses #mass ratio
-    print('memory test 1.5')
     #abs(acos(i))
     abs_cos_i = np.abs(np.cos(list(companion_tmp_df_joined['i'])))
-    print('memory test 1.6')
     a_mas = (np.arcsin(a_kpc/event_prim_distances)*unit.radian).to('mas').value
-    print('memory test 1.7')
     companion_tmp_df_joined['sep'] = abs_cos_i*a_mas #separation in mas
-    print('memory test 1.8')
     companion_tmp_df_joined['P'] = orbits.a_to_P(event_system_masses, 10**companion_tmp_df_joined['log_a']) #period
-    print('memory test 1.9')
     # reset index adds obj_id_L and obj_id_S back as their own columns
     # doing list(cluster.companions.columns) + those other names means that it only takes columns 
     # that were in cluster.companions and obj_id_L, obj_id_S, q,...
     companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['q', 'sep', 'P']]
-    print('memory test 1.91')
+
     del companion_tmp_df_joined
     return companion_tmp_df
 
@@ -4917,7 +4989,7 @@ def _add_multiples_parameters(companion_table, event_table):
 def _check_refine_binary_events(events, companions,
                                 photometric_system, filter_name,
                                 overwrite, output_file,
-                                save_phot, phot_dir, n_proc):
+                                save_phot, phot_dir, n_proc, multi_proc):
     """
     Checks that the inputs of refine_binary_events are valid
 
@@ -4954,6 +5026,12 @@ def _check_refine_binary_events(events, companions,
     n_proc : int
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
+    
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
     """
 
     if not isinstance(events, str):
@@ -4983,6 +5061,12 @@ def _check_refine_binary_events(events, companions,
             
     if not isinstance(n_proc, int):
         raise Exception('n_proc (%s) must be an integer.' % str(seed))
+    
+    if not isinstance(multi_proc, bool):
+        raise Exception('multi_proc (%s) must be a boolean.' % str(multi_proc))
+    
+    if n_proc > 1 and multi_proc == False:
+        raise Exception('if multi_proc is False, n_proc must = 1')
 
     # Check to see that the filter name, photometric system, red_law are valid
     if photometric_system not in photometric_system_dict:
@@ -5003,208 +5087,11 @@ def _check_refine_binary_events(events, companions,
         exception_str = exception_str[:-2]
         raise Exception(exception_str)
 
-def old_refine_binary_events(events, companions, photometric_system, filter_name,
-                         overwrite = False, output_file = 'default',
-                         save_phot = False, phot_dir = None,
-                         n_proc = 1):
-    """
-    Takes the output Astropy table from refine_events (both primaries and companions) and from that
-    calculates the binary light curves.
-
-    Parameters
-    ----------
-    events : str
-        fits file containing the events calculated from refine_events
-    
-    companions : str
-        fits file containing the companions calculated from refine_events
-    
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    Optional Parameters
-    -------------------
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    output_file : str
-        The name of the final refined_events file.
-        If set to 'default', the format will be:
-            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
-            
-    save_phot : bool
-        If set to True, saves the photometry generated instead of just parameters.
-        Default is False
-    
-    phot_dir : str
-        Name of the directory photometry is saved if save_phot = True.
-        This parameters is NOT optional if save_phot = True.
-        Default is None.
-        
-    n_proc : int
-        Number of processors to use. Should not exceed the number of cores.
-        Default is one processor (no parallelization).
-    
-    Output:
-    ----------
-    A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb.fits
-    that contains all the same objects, only now with lots of extra
-    columns of data. (rb stands for refine binaries).
-    
-    A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb_mp.fits
-    that contains the data for each individual peak for events with multiple peaks.
-    (mp stands for multiple peaks).
-
-    """
-    start_time = time.time()
-    
-    if not overwrite and os.path.isfile(output_file):
-        raise Exception('That refined_events.fits file name is taken! '
-                        'Either delete the .fits file, or pick a new name.')
-
-    if save_phot == True and phot_dir == None:
-        raise Exception('phot_dir is "none". Input a directory to save photometry.')
-        
-    # Error handling/complaining if input types are not right.
-    _check_refine_binary_events(events, companions, 
-                         photometric_system, filter_name,
-                         overwrite, output_file,
-                         save_phot, phot_dir, n_proc)
-        
-    
-    event_table = Table.read(events)
-    comp_table = Table.read(companions)
-    
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='n_peaks') )
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='bin_delta_m') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='tE_sys') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='tE_primary') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='primary_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='avg_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='std_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='asymmetry') )
-    
-    comp_table['bin_delta_m'][:] = np.nan
-    comp_table['tE_sys'][:] = np.nan
-    comp_table['tE_primary'][:] = np.nan
-    comp_table['primary_t'][:] = np.nan
-    comp_table['avg_t'][:] = np.nan
-    comp_table['std_t'][:] = np.nan
-    comp_table['asymmetry'][:] = np.nan
-    
-    # This table is for events with more than one peak to characterize those peaks
-    # comp_id is position of companion in companion table for reference
-    # obj_id_L, obj_id_S, and n_peaks are the same as in the companion table, just for reference
-    # t is time of peak
-    # tE is Einstein crossing time of peak defined by times of 0.5*(max(peak mag) - min(peak mag))
-    # delta m is the change in magnitude between the peak and baseline
-    # ratio is the magnitude ratio between min peak/max peak
-    mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
-
-    L_idxs = np.where(comp_table['prim_type'] == "L")[0]
-    
-    # Set up the multiprocessing
-    pool = Pool(n_proc)
-    
-    parameters = np.empty(len(L_idxs), dtype = object)
-    for ii, comp_idx in enumerate(L_idxs):
-        psbl_parameter_dict, obj_id_L, obj_id_S = get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name)
-        parameters[ii] = [comp_idx, psbl_parameter_dict, psbl_model_gen, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite]
-    
-    
-    results = pool.starmap(one_lightcurve_analysis, parameters)
-    
-    for ii, comp_idx in enumerate(L_idxs):
-        comp_table[comp_idx]['n_peaks'] = results[ii]['n_peaks']
-        comp_table[comp_idx]['bin_delta_m'] = results[ii]['bin_delta_m']
-        comp_table[comp_idx]['tE_sys'] = results[ii]['tE_sys']
-        comp_table[comp_idx]['tE_primary'] = results[ii]['tE_primary']
-        comp_table[comp_idx]['primary_t'] = results[ii]['primary_t']
-        comp_table[comp_idx]['avg_t'] = results[ii]['avg_t']
-        comp_table[comp_idx]['std_t'] = results[ii]['std_t']
-        comp_table[comp_idx]['asymmetry'] = results[ii]['asymmetry']
-        rows = results[ii]['mp_rows']
-        for row in rows:
-            mult_peaks.add_row(row)
-        
-    # Writes fits file
-    if output_file == 'default':
-        comp_table.write(companions[:-5] + "_rb.fits", overwrite=overwrite)
-        mult_peaks.write(companions[:-5] + "_rb_multi_peaks.fits", overwrite=overwrite)
-    else:
-        comp_table.write(output_file + ".fits", overwrite=overwrite)
-        mult_peaks.write(output_file + "_multi_peaks.fits", overwrite=overwrite)
-        
-        
-        
-    ##########
-    # Make log file
-    ##########
-    now = datetime.datetime.now()
-    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
-    popstar_path = os.path.dirname(inspect.getfile(imf))
-    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=popsycle_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                           cwd=popstar_path).decode('ascii').strip()
-    
-    end_time = time.time()
-    
-    dash_line = '-----------------------------' + '\n'
-    empty_line = '\n'
-
-    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
-    line1 = 'event_file : ' + events + '\n'
-    line2 = 'companion_file : ' + companions + '\n'
-    line3 = 'save_phot : ' + str(save_phot) + '\n'
-
-    line4 = 'VERSION INFORMATION' + '\n'
-    line5 = str(now) + ' : creation date' + '\n'
-    line6 = popstar_hash + ' : SPISEA commit' + '\n'
-    line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
-
-    line8 = 'OTHER INFORMATION' + '\n'
-    line9 = str(end_time - start_time) + ' : total runtime (s)' + '\n'
-    line10 = str(len(L_idxs)) + ' : number of simulated lightcurves' + '\n'
-
-    line11 = 'FILES CREATED' + '\n'
-    if output_file == 'default':
-        line12 = companions[:-5] + "_rb.fits" + ' : binary refined events' + '\n'
-        line13 = companions[:-5] + "_rb_multi_peaks.fits" + ' : multiple peak events table' + '\n'
-        log_name = companions[:-5] + "_rb.log"
-    else:
-        line12 = output_file + ".fits" + ' : refined events' + '\n'
-        line13 = output_file + "_multi_peaks.fits" + ' : multiple peak events table' + '\n'
-        log_name = output_file + '.log'
-     
-    line14 = '\n'
-    if save_phot == True:
-        line14 = phot_dir + ' : directiory of photometry'
-       
-    
-    with open(log_name, 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, empty_line,
-                        line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, line10, empty_line,
-                        line11, dash_line, line12, line13, line14])
-
-    print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
-    return
-
 def refine_binary_events(events, companions, photometric_system, filter_name,
                          red_law = 'Damineli16',
                          overwrite = False, output_file = 'default',
                          save_phot = False, phot_dir = None,
-                         n_proc = 1):
+                         n_proc = 1, multi_proc = True):
     """
     Takes the output Astropy table from refine_events (both primaries and companions) and from that
     calculates the binary light curves.
@@ -5253,6 +5140,12 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         Number of processors to use. Should not exceed the number of cores.
         Default is one processor (no parallelization).
     
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
+    
     Output:
     ----------
     A file will be created named
@@ -5279,36 +5172,38 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     _check_refine_binary_events(events, companions, 
                          photometric_system, filter_name,
                          overwrite, output_file,
-                         save_phot, phot_dir, n_proc)
+                         save_phot, phot_dir, n_proc, multi_proc)
         
 
     event_table = Table.read(events)
     comp_table = Table.read(companions)
+
+    comp_table['companion_idx'] = np.arange(len(comp_table))
+
+    event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
+    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
     
-    event_table['event_idx_tmp'] = np.arange(len(event_table))
-    event_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='comp_idx_list') )
-    event_table['comp_idx_list'][:] = []
-    comp_table['comp_idx_tmp'] = np.arange(len(comp_table))
+    event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
+    event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='bin_delta_m') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='tE_sys') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='tE_primary') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='primary_t') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='avg_t') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='std_t') )
+    event_table.add_column( Column(np.empty(len(event_table), dtype=float), name='asymmetry') )
     
-    event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name].filled(np.nan)
-    comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
+    event_table['bin_delta_m'][:] = np.nan
+    event_table['tE_sys'][:] = np.nan
+    event_table['tE_primary'][:] = np.nan
+    event_table['primary_t'][:] = np.nan
+    event_table['avg_t'][:] = np.nan
+    event_table['std_t'][:] = np.nan
+    event_table['asymmetry'][:] = np.nan
     
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='n_peaks') )
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='bin_delta_m') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='tE_sys') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='tE_primary') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='primary_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='avg_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='std_t') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='asymmetry') )
-    
-    comp_table['bin_delta_m'][:] = np.nan
-    comp_table['tE_sys'][:] = np.nan
-    comp_table['tE_primary'][:] = np.nan
-    comp_table['primary_t'][:] = np.nan
-    comp_table['avg_t'][:] = np.nan
-    comp_table['std_t'][:] = np.nan
-    comp_table['asymmetry'][:] = np.nan
+    lightcurve_table = Table(names=('obj_id_L', 'obj_id_S', 'companion_id_L', 'companion_id_S', 'class', 'n_peaks', 'bin_delta_m', 
+                                     'tE_sys', 'tE_primary', 'primary_t', 'avg_t', 'std_t', 'asymmetry', 'mp_rows', 'used_lightcurve'),
+                            dtype = (float, float, float, float, str, float, float, float, float, float, float, float, float, dict, bool))
     
     # This table is for events with more than one peak to characterize those peaks
     # comp_id is position of companion in companion table for reference
@@ -5317,94 +5212,86 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     # tE is Einstein crossing time of peak defined by times of 0.5*(max(peak mag) - min(peak mag))
     # delta m is the change in magnitude between the peak and baseline
     # ratio is the magnitude ratio between min peak/max peak
-    mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
-
-    L_idxs = np.where(comp_table['prim_type'] == "L")[0]
-    S_idxs = np.where(comp_table['prim_type'] == "S")[0]
+    mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'),
+                       dtype = (object, float, float, float, float, float, float, float))
     
-    # One lightcurve for each companion combo
-    # i.e. triple lens + single source, 2 lightcurves
-    # and triple lens + triple source, 4 lightcurves
-    BSPL = event_table[(event_table['isMultiple_S'] == 1) & (event_table['isMultiple_L'] == 0)]
-    num_BSPL_lightcurves = int(np.sum(BSPL['N_companions_S']))
-    PSBL = event_table[(event_table['isMultiple_S'] == 0) & (event_table['isMultiple_L'] == 1)]
-    num_PSBL_lightcurves = int(np.sum(PSBL['N_companions_L']))
-    BSBL = event_table[(event_table['isMultiple_S'] == 1) & (event_table['isMultiple_L'] == 1)]
-    num_BSBL_lightcurves = int(np.sum(BSBL['N_companions_S']*BSBL['N_companions_L']))
+    multiples_lightcurves = sum((event_table['isMultiple_S'] == 1) | (event_table['isMultiple_L'] == 1))
     
     # Set up the multiprocessing
-    pool = Pool(n_proc)
+    if multi_proc:
+        pool = Pool(n_proc)
     
-    comp_table_df = comp_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
+    grouped_comps = comp_table.group_by(['obj_id_L', 'obj_id_S'])
+    
     event_table_df = event_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'])
-    joined_df = comp_table_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim', how='outer')
+    empty_lists = [ [] for _ in range(len(event_table_df)) ]
+    event_table_df['companion_idx_list'] = empty_lists
     
-    #for event in range(len(joined_df)):
-     #   joined_df['event_idx']
+    inputs = np.empty(multiples_lightcurves, dtype = object)
+    for i in range(len(grouped_comps.groups)):
+        obj_id_L = grouped_comps.groups.keys[i][0]
+        obj_id_S = grouped_comps.groups.keys[i][1]
+        obj_id_L_S = (obj_id_L, obj_id_S)
+        event_table_df['companion_idx_list'].loc[obj_id_L_S] = list(grouped_comps.groups[i]['companion_idx'])
+        inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
+                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite]
     
-    import pdb
-    pdb.set_trace()
+    one_lightcurve_analysis
     
-    parameters = np.empty(num_BSPL_lightcurves + num_PSBL_lightcurves + num_BSBL_lightcurves, dtype = object)
-    counter = 0
-    for comp_idx in L_idxs:
-        obj_id_L = comp_table[comp_idx]['obj_id_L']
-        obj_id_S = comp_table[comp_idx]['obj_id_S']
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
-        
-        if event_table[event_id]['isMultiple_S'] == 0 and event_table[event_id]['isMultiple_L'] == 1:
-            psbl_parameter_dict, obj_id_L, obj_id_S = get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, event_id)
-            parameters[counter] = [comp_idx, psbl_parameter_dict, psbl_model_gen, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite]
+    if multi_proc:
+        results = pool.starmap(one_lightcurve_analysis, inputs)
+        # Multi-Threaded: clean up pool
+        pool.close()
+        pool.join()
+    elif multi_proc == False:
+        results = np.zeros(len(inputs), dtype=object)
+        for i, input in enumerate(inputs):
+            results[i] = one_lightcurve_analysis(*input)
+    
+    result_keys = list(results[0][0][0].keys())
+    for i in range(len(grouped_comps.groups)):
+        obj_id_L = grouped_comps.groups.keys[i][0]
+        obj_id_S = grouped_comps.groups.keys[i][1]
+        obj_id_L_S = (obj_id_L, obj_id_S)
+        for result in results[i]:
+            if result[0]['used_lightcurve'] == 1:
+                for key in result_keys:
+                    # only lightcurves with highest delta m (if there were triples and
+                    # multiple were simulated) go into event_table
+                    if key != 'mp_rows' and key != 'used_lightcurve':
+                        event_table_df[key].loc[obj_id_L_S] = result[0][key]
             
-            counter += 1
-          
-        elif event_table[event_id]['isMultiple_S'] == 1 and event_table[event_id]['isMultiple_L'] == 1:
-            comp_idx_L = comp_idx
-            # If source is a triple, could have multiple companions
-            comp_idx_S_arr = np.where((comp_table['obj_id_L'] == obj_id_L) & (comp_table['obj_id_S'] == obj_id_S) & (comp_table['prim_type'] == 'S'))[0]
+            try:
+                lightcurve_table.add_row(result[1] | result[0])
+            except TypeError:
+                # Fails when using python version < 3.9
+                lightcurve_table.add_row({**result[1], **result[0]})
             
-            for comp_idx_S in comp_idx_S_arr:
-                bsbl_parameter_dict, obj_id_L, obj_id_S = get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx_S, 
-                                                                                         photometric_system, filter_name, red_law, event_id)
-                parameters[counter] = [comp_idx, bsbl_parameter_dict, bsbl_model_gen, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite]
-                counter += 1
+            rows = result[0]['mp_rows']
+            for row in rows:
+                mult_peaks.add_row(row)
     
-    # All BSBL taken care of when going through lens companions
-    for comp_idx in S_idxs:
-        obj_id_L = comp_table[comp_idx]['obj_id_L']
-        obj_id_S = comp_table[comp_idx]['obj_id_S']
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
-        
-        if event_table[event_id]['isMultiple_S'] == 1 and event_table[event_id]['isMultiple_L'] == 0:
-            bspl_parameter_dict, obj_id_L, obj_id_S = get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, red_law, event_id)
-            parameters[counter] = [comp_idx, bspl_parameter_dict, bspl_model_gen, obj_id_L, obj_id_S, save_phot, phot_dir, overwrite] 
-            counter += 1
-            
-    # Makes sure no events got missed or double counted
-    assert(counter == len(parameters))
+    event_table_df['companion_idx_list'] = event_table_df['companion_idx_list'].astype(str)
+    event_table = Table.from_pandas(event_table_df.reset_index()).filled(np.nan)
     
-    results = pool.starmap(one_lightcurve_analysis, parameters)
-    
-    for ii, comp_idx in enumerate(L_idxs):
-        comp_table[comp_idx]['n_peaks'] = results[ii]['n_peaks']
-        comp_table[comp_idx]['bin_delta_m'] = results[ii]['bin_delta_m']
-        comp_table[comp_idx]['tE_sys'] = results[ii]['tE_sys']
-        comp_table[comp_idx]['tE_primary'] = results[ii]['tE_primary']
-        comp_table[comp_idx]['primary_t'] = results[ii]['primary_t']
-        comp_table[comp_idx]['avg_t'] = results[ii]['avg_t']
-        comp_table[comp_idx]['std_t'] = results[ii]['std_t']
-        comp_table[comp_idx]['asymmetry'] = results[ii]['asymmetry']
-        rows = results[ii]['mp_rows']
-        for row in rows:
-            mult_peaks.add_row(row)
-        
+    lightcurve_table.remove_column('mp_rows')
+
+    # For write issues, if mult_peaks is empty, define it without dtype
+    if len(mult_peaks) == 0:
+        mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'))
+
+
     # Writes fits file
     if output_file == 'default':
+        event_table.write(events[:-5] + "_rb.fits", overwrite=overwrite)
         comp_table.write(companions[:-5] + "_rb.fits", overwrite=overwrite)
         mult_peaks.write(companions[:-5] + "_rb_multi_peaks.fits", overwrite=overwrite)
+        lightcurve_table.write(events[:-5] + "_rb_lightcurves.fits", overwrite=overwrite)
     else:
-        comp_table.write(output_file + ".fits", overwrite=overwrite)
+        event_table.write(output_file + ".fits", overwrite=overwrite)
+        comp_table.write(output_file + "_companions.fits", overwrite=overwrite)
         mult_peaks.write(output_file + "_multi_peaks.fits", overwrite=overwrite)
+        lightcurve_table.write(output_file + "_lightcurves.fits", overwrite=overwrite)
         
         
         
@@ -5437,16 +5324,20 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     line8 = 'OTHER INFORMATION' + '\n'
     line9 = str(end_time - start_time) + ' : total runtime (s)' + '\n'
-    line10 = str(len(parameters)) + ' : number of simulated lightcurves' + '\n'
+    line10 = str(len(lightcurve_table)) + ' : number of simulated lightcurves' + '\n'
 
     line11 = 'FILES CREATED' + '\n'
     if output_file == 'default':
-        line12 = companions[:-5] + "_rb.fits" + ' : binary refined events' + '\n'
+        line11p1 = events[:-5] + "_rb.fits" + ' : event table w/ binary params' + '\n'
+        line12 = companions[:-5] + "_rb.fits" + ' : companion table w/ idx' + '\n'
         line13 = companions[:-5] + "_rb_multi_peaks.fits" + ' : multiple peak events table' + '\n'
+        line13p5 = events[:-5] + "_rb_lightcurves.fits" + ' : lightcurve file w/ included+non-included lightcurves' + '\n'
         log_name = companions[:-5] + "_rb.log"
     else:
-        line12 = output_file + ".fits" + ' : refined events' + '\n'
+        line11p1 = output_file + ".fits" + ' : event table w/ binary params' + '\n'
+        line12 = output_file + "_companions.fits" + ' : companion table w/ idx' + '\n'
         line13 = output_file + "_multi_peaks.fits" + ' : multiple peak events table' + '\n'
+        line13p5 = output_file + "_lightcurves.fits" + ' : lightcurve file w/ included+non-included lightcurves' + '\n'
         log_name = output_file + '.log'
      
     line14 = '\n'
@@ -5458,15 +5349,367 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         out.writelines([line0, dash_line, line1, line2, line3, line3p5, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, line10, empty_line,
-                        line11, dash_line, line12, line13, line14])
+                        line11, dash_line, line11p1, line12, line13, line13p5, line14])
 
     print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
     return
 
+def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S,
+                            photometric_system, filter_name, red_law,
+                            save_phot = False, phot_dir = None, overwrite = False):
+    """
+    Generate BAGLE model, photometry, and generate binary lightcurve parameters.
+    
+    Parameters
+    ----------
+    event_table_row : Astropy table
+        Astropy table row from event table with event parameters.
+    
+    comp_table_rows: Astropy table
+        Astropy table with row(s) associated with event row. I.e. if it's a binary source,
+        binary lens, there should be two rows.
+    
+    obj_id_L : int
+        Object id of the lens associated with event.
+    
+    obj_id_S : int
+        Object id of the source associated with event.
+    
+    photometric_system : str
+        Name of the photometric system, i.e. 'ubv'.
+    
+    filter_name : str
+        Name of filter associated with photometric system, i.e. 'I'.
+    
+    red_law : str
+        Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
+    
+    Optional Parameters
+    -------------------
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+        
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    
+    Output:
+    ----------
+    lightcurve_parameters : list
+        List of two dictionaries:
+            - Dictionary of additional parameters added to the event table
+              and one called 'mp_rows' which are the rows to be
+              added to the multi peak table.
+            - Dictonary of lightcurve parameters which include both lightcurves
+              whose parameters are saved in the event table and those that are not.
+              i.e. in a triple system only the one with the highest delta_m's p
+              arameters are used for the lightcurve table. These will all be saved in
+              a separate lightcurve_table.
+    """
+    
+    multi_L = event_table_row[0]['isMultiple_L']
+    multi_S = event_table_row[0]['isMultiple_S']
+    if multi_L == 1 and multi_S == 1:
+        event_type = 'BSBL'
+    elif multi_L == 1 and multi_S == 0:
+        event_type = 'PSBL'
+    elif multi_L == 0 and multi_S == 1:
+        event_type = 'BSPL'
+    else:
+        raise Exception('one_lightcurve_analysis() only analyizes binary events')
+
+    lightcurve_parameters = []
+    max_delta_m = np.nan
+    if event_type == 'BSBL':
+        comp_idxs_S = np.where(comp_table_rows['prim_type'] == b"S")[0]
+        comp_idxs_L = np.where(comp_table_rows['prim_type'] == b"L")[0]
+        for comp_idx_S in comp_idxs_S:
+            global_comp_idx_S = comp_table_rows['companion_idx'][comp_idx_S]
+            for comp_idx_L in comp_idxs_L:
+                global_comp_idx_L = comp_table_rows['companion_idx'][comp_idx_L]
+                name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(global_comp_idx_L, global_comp_idx_S)
+                model_parameter_dict, _, _ = get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
+                                                                      photometric_system, filter_name, red_law, event_id = 0)
+                model = bsbl_model_gen(model_parameter_dict)
+                param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx_L, global_comp_idx_S]), 
+                                                      obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+                lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx_L], 
+                                   'companion_id_S' : comp_table_rows['companion_idx'][comp_idx_S], 'class' : event_type}
+                lightcurve_parameters.append([param_dict, lightcurve_dict])
+                
+            del global_comp_idx_S, global_comp_idx_L, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+            
+        del comp_idxs_S, comp_idxs_L
+                
+    elif event_type == 'PSBL':
+        for comp_idx in range(len(comp_table_rows)):
+            global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(global_comp_idx)
+            model_parameter_dict, _, _ = get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, event_id = 0)
+            model = psbl_model_gen(model_parameter_dict)
+            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx], 
+                                   'companion_id_S' : np.nan, 'class' : event_type}
+            lightcurve_parameters.append([param_dict, lightcurve_dict])
+            
+            del global_comp_idx, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+    
+    elif event_type == 'BSPL':
+        for comp_idx in range(len(comp_table_rows)):
+            global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
+            name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(global_comp_idx)
+            model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
+            model = bspl_model_gen(model_parameter_dict)
+            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan, 
+                                   'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
+            lightcurve_parameters.append([param_dict, lightcurve_dict])
+            
+            del global_comp_idx, param_dict,
+            lightcurve_dict, model, model_parameter_dict, name
+
+    # If multiple lightcurves were generated (i.e. for triples)
+    # then take the lightcurve with the highest delta_m.
+    # If all the delta_ms are nan, take the first one
+    if len(lightcurve_parameters) == 1:
+        lightcurve_parameters[0][0]['used_lightcurve'] = 1
+    else:
+        delta_ms = [x[0]['bin_delta_m'] for x in lightcurve_parameters]
+        # if delta m is nan for all lightcurves, take the first one arbitrarily
+        if np.all(np.isnan(delta_ms)):
+            lightcurve_parameters[0][0]['used_lightcurve'] = 1
+        else:
+            #argmax ignoring nans
+            max_delta_m_idx = np.nanargmax(delta_ms)
+            lightcurve_parameters[max_delta_m_idx][0]['used_lightcurve'] = 1
+            
+            del max_delta_m_idx
+        del delta_ms
+    
+    del multi_L, multi_S
+    
+    return lightcurve_parameters
+
+        
+def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
+    """
+    If photometry is being saved, saves the parameters
+    of the model to generate the lightcurve in the first header
+    
+    Parameters
+    ----------
+    model_parameter_dict : dictionary
+        Dictionary of the bagel model parameters 
+        
+    phot_dir : str
+        Name of the directory photometry
+    
+    name : str
+        Base name of fits file of photometry without the _phot 
+        (i.e. L_{obj_id_L}_S_{obj_id_S}).
+    """
+    
+    fits_file = phot_dir + '/' + name + '_phot.fits'
+    with fits.open(fits_file, 'update') as f:
+        hdr = f[0].header
+        for key in list(model_parameter_dict.keys()):
+            try:
+                hdr[key] = model_parameter_dict[key]
+            except ValueError:
+                hdr[key] = str(model_parameter_dict[key])
+
+    return
+
+def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, obj_id_S,
+                             name=None, save_phot=False, phot_dir=None, overwrite=False):
+    """
+    Find the parameters
+    
+    Parameters
+    ----------
+    model : function
+        Function associated with generating the microlensing model (must be same as parameter_dict)
+     
+    model_parameter_dict : dict
+        Dictionary of the bagel model parameters
+    
+    comp_idx : list
+        List of indices into the comp_table of the companion(s) for which the
+        binary event is being calculated.
+    
+    obj_id_L : int
+        Object id of the lens associated with event
+    
+    obj_id_S : int
+        Object id of the source associated with event
+    
+    Optional Parameters
+    --------------------
+    
+    name : str or None
+        Name of fits file to be saved.
+        Default is None.
+        
+    save_phot : bool
+        If set to True, saves the photometry generated instead of just parameters.
+        Default is False
+    
+    phot_dir : str or None
+        Name of the directory photometry is saved if save_phot = True.
+        This parameters is NOT optional if save_phot = True.
+        Default is None.
+        
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+    
+    Output:
+    ----------
+    param_dict : dict
+        Dictionary of additional parameters added to companion table
+        and one called 'mp_rows' which are the rows to be added to the multi peak
+        table.
+    """
+    
+    
+    param_dict = {'n_peaks' : 0, 'bin_delta_m' : np.nan, 'tE_sys' : np.nan, 
+                  'tE_primary' : np.nan, 'primary_t' : np.nan, 'avg_t' : np.nan, 
+                  'std_t' : np.nan, 'asymmetry' : np.nan, 'mp_rows' : [], 'used_lightcurve' : 0}
+
+    # Handles the case of modeling a triple source as a binary source,
+    # But it's CO + CO + star and you're modeling the CO + CO pair (so no flux)
+    if 'mag_src_sec' in list(model_parameter_dict.keys()):
+        if np.isnan(model_parameter_dict['mag_src_sec']) and np.isnan(model_parameter_dict['mag_src_pri']):
+            return param_dict
+        
+    # These covers extreme cases that will never
+    # be detectable with such far t0s that jplephem
+    # does not cover their date range
+    jplephem_lower_mjd = 2287184.5 - 2400000.5
+    jplephem_upper_mjd = 2688976.5 - 2400000.5
+    if model.t0 < jplephem_lower_mjd or model.t0 > jplephem_upper_mjd:
+        return param_dict
+    
+    # Calculate the photometry 
+    duration=1000 # days
+    time_steps=5000
+    tmin = model.t0 - (duration / 2.0)
+    tmax = model.t0 + (duration / 2.0)
+    dt = np.linspace(tmin, tmax, time_steps)
+    
+    if 'get_all_arrays' in dir(model):
+        img, amp = model.get_all_arrays(dt)
+        phot = model.get_photometry(dt, amp_arr=amp)
+    else: #BSPL
+        phot = model.get_photometry(dt)
+
+    if save_phot == True:
+        if not os.path.exists(phot_dir):
+            os.makedirs(phot_dir)
+        foo = Table((dt, phot), names=['time', 'phot'])
+        foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
+        model_param_dict2fits_header(model_parameter_dict, phot_dir, name)
+
+    #because this is magnitudes max(phot) is baseline and min(phot) is peak
+    #baseline 2000tE away get_photometry
+    bin_delta_m = max(phot) - min(phot)
+    param_dict['bin_delta_m'] = bin_delta_m
+
+    # system tE is the time between where the event is first above 10% of it's base mag
+    # to the last time. This may not happen for some events
+    tenp = np.where(phot < (max(phot) - 0.1*bin_delta_m))[0]
+    if len(tenp) == 0:
+        param_dict['tE_sys'] = np.nan
+    else:
+        param_dict['tE_sys'] = max(dt[tenp]) - min(dt[tenp])
+
+    # Find peaks
+    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+    param_dict['n_peaks'] = len(peaks)
+    if len(peaks) == 0:
+        return param_dict
+        
+    param_dict['primary_t'] = dt[peaks][np.argmin(phot[peaks])]
+    param_dict['avg_t'] = np.average(dt[peaks])
+    param_dict['std_t'] = np.std(dt[peaks])
+    
+    # Find asymmetry (0 if symmetric, larger if asymmetric)
+    # Uses 50 degree chebyshev polynomial (see eq 7 in Night et al. 2010)
+    indices = np.arange(0,51)
+    cheb_fit = np.polynomial.chebyshev.Chebyshev.fit(dt, phot, 50).coef
+    odd_cheb = cheb_fit[indices%2==1]
+    even_cheb = cheb_fit[indices%2==0]
+    asymm = np.sqrt(np.sum(odd_cheb**2)/np.sum(even_cheb**2))
+    param_dict['asymmetry'] = asymm
+    
+    # Split up peaks by minima between peaks
+    # Note since it's magnitudes all the np.min and such are maxima
+    split_data = []
+    start_idx = 0
+    if len(peaks) > 1:
+        for i in range(len(peaks) - 1):
+            min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
+            end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
+            split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
+            start_idx = end_idx
+    split_data.append([dt[start_idx:], phot[start_idx:]])
+    split_data = np.array(split_data, dtype='object')
+    
+    highest_peak = np.argmin(phot[peaks])
+
+    if len(split_data[highest_peak][1]) != 0:
+        highest_bump_mag = max(split_data[highest_peak][1]) - min(split_data[highest_peak][1])
+        highest_half = np.where(split_data[highest_peak][1] < (max(split_data[highest_peak][1]) - 0.5*highest_bump_mag))[0]
+        
+        if len(highest_half) != 0:
+            tE_primary = max(dt[highest_half]) - min(dt[highest_half])
+            param_dict['tE_primary'] = tE_primary
+            
+    # For events with more than one peak, add them to the multi peak table
+    rows = []
+    if len(peaks) > 1:
+        n_peaks = len(peaks)
+        for i in range(len(peaks)):
+            t = dt[peaks[i]]
+            delta_m = max(phot) - phot[peaks[i]]
+            ratio = np.min(phot[peaks])/phot[peaks[i]]
+
+            # Don't log primary peak
+            if np.min(phot[peaks]) == phot[peaks[i]]:
+                continue
+
+            if len(split_data[i][1]) == 0:
+                tE = np.nan
+                rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+                continue
+
+            split_bump_mag = max(split_data[i][1]) - min(split_data[i][1])
+            split_half = np.where(split_data[i][1] < (max(split_data[i][1]) - 0.5*split_bump_mag))[0]
+            if len(split_half) == 0:
+                tE = np.nan
+                rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+                continue
+
+            tE = max(dt[split_half]) - min(dt[split_half])
+            rows.append([comp_idxs, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
+            
+        param_dict['mp_rows'] = rows
+        
+    return param_dict
 
 def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, event_id = None):
     """
-    Find the parameters for PSBL_PhotAstrom_Par_Param1 from 
+    Find the parameters for PSBL_PhotAstrom_Par_Param7 from 
     event_table and comp_table.
 
     Parameters
@@ -5496,7 +5739,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     Output:
     ----------
     psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param1 parameters
+        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters
         
     obj_id_L : int
         Object id of the lens associated with event
@@ -5505,8 +5748,8 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
         Object id of the source associated with event
         
     """
-    obj_id_L = comp_table[comp_idx]['obj_id_L']
-    obj_id_S = comp_table[comp_idx]['obj_id_S']
+    obj_id_L = comp_table['obj_id_L'][comp_idx]
+    obj_id_S = comp_table['obj_id_S'][comp_idx]
     
     if event_id is None:
         event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
@@ -5520,7 +5763,7 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec
     mL1 = event_table[event_id]['mass_L'] # msun (Primary lens current mass)
-    mL2 = comp_table[comp_idx]['mass'] # msun (Companion lens current mass)
+    mL2 = comp_table['mass'][comp_idx] # msun (Companion lens current mass)
     t0 = event_table[event_id]['t0'] # mjd
     xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
     beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
@@ -5528,186 +5771,19 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     muS = np.array([S_coords.icrs.pm_ra_cosdec.value, S_coords.icrs.pm_dec.value]) #source proper motion mas/year
     dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
     dS = event_table[event_id]['rad_S']*10**3 #Distance to source
-    sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
-    alpha = comp_table[comp_idx]['alpha']
+    sep = comp_table['sep'][comp_idx] #mas (separation between primary and companion)
+    alpha = comp_table['alpha'][comp_idx]
     mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    model_name = 'PSBL_PhotAstrom_Par_Param7'
     
     psbl_parameter_dict = {'raL': raL, 'decL': decL, 'mL1': mL1, 'mL2': mL2, 
                            't0': t0, 'xS0': xS0, 'beta': beta, 'muL': muL, 
                            'muS': muS, 'dL': dL, 'dS': dS, 'sep': sep, 
-                           'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff}
+                           'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff, 
+                           'model': model_name}
     return psbl_parameter_dict, obj_id_L, obj_id_S
     
-def one_lightcurve_analysis(comp_idx, model_parameter_dict, model_func, obj_id_L, obj_id_S, save_phot = False, phot_dir = None, overwrite = False):
-    """
-    Find the parameters
-    
-    Parameters
-    ----------
-    comp_idx : int
-        Index into the comp_table of the companion for which the psbl is being calculated.
-     
-    model_parameter_dict : dict
-        Dictionary of the bagel model parameters   
-        
-    model_func : function
-        Function associated with generating the microlensing model (must be same as parameter_dict)
-    
-    obj_id_L : int
-        Object id of the lens associated with event
-    
-    obj_id_S : int
-        Object id of the source associated with event
-    
-    Optional Parameters
-    -------------------
-    save_phot : bool
-        If set to True, saves the photometry generated instead of just parameters.
-        Default is False
-    
-    phot_dir : str
-        Name of the directory photometry is saved if save_phot = True.
-        This parameters is NOT optional if save_phot = True.
-        Default is None.
-        
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-    
-    Output:
-    ----------
-    param_dict : dict
-        Dictionary of additional parameters added to companion table
-        and one called 'mp_rows' which are the rows to be added to the multi peak
-        table.
-    """
-
-    name = "{}".format(comp_idx)
-    
-    param_dict = {'n_peaks' : 0, 'bin_delta_m' : np.nan, 'tE_sys' : np.nan, 
-                  'tE_primary' : np.nan, 'primary_t' : np.nan, 'avg_t' : np.nan, 
-                  'std_t' : np.nan, 'asymmetry' : np.nan, 'mp_rows' : []}
-    
-    # Handles the case of modeling a triple source as a binary source, 
-    # But it's CO + CO + star and you're modeling the CO + CO pair (so no flux)
-    if 'mag_src_sec' in list(model_parameter_dict.keys()):
-        if np.isnan(model_parameter_dict['mag_src_sec']) and np.isnan(model_parameter_dict['mag_src_pri']):
-            return param_dict
-        
-    try:
-        model = model_func(model_parameter_dict)
-    except:
-        print("OH NOOOO")
-        print(model_parameter_dict)
-
-    # Calculate the photometry 
-    duration=1000 # days
-    time_steps=5000
-    tmin = model.t0 - (duration / 2.0)
-    tmax = model.t0 + (duration / 2.0)
-    dt = np.linspace(tmin, tmax, time_steps)
-    
-    if 'get_all_arrays' in dir(model):
-        img, amp = model.get_all_arrays(dt)
-        phot = model.get_photometry(dt, amp_arr=amp)
-    else: #BSPL
-        phot = model.get_photometry(dt)
-
-    if save_phot == True:
-        if not os.path.exists(phot_dir):
-            os.makedirs(phot_dir)
-        foo = Table((dt, phot), names=['time', 'phot'])
-        foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
-
-
-    #because this is magnitudes max(phot) is baseline and min(phot) is peak
-    #baseline 2000tE away get_photometry
-    bin_delta_m = max(phot) - min(phot)
-    param_dict['bin_delta_m'] = bin_delta_m
-
-    # system tE is the time between where the event is first above 10% of it's base mag
-    # to the last time. This may not happen for some events
-    tenp = np.where(phot < (max(phot) - 0.1*bin_delta_m))[0]
-    if len(tenp) == 0:
-        param_dict['tE_sys'] = np.nan
-    else:
-        param_dict['tE_sys'] = max(dt[tenp]) - min(dt[tenp])
-
-    # Find peaks
-    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
-    param_dict['n_peaks'] = len(peaks)
-    if len(peaks) == 0:
-        return param_dict
-
-    param_dict['primary_t'] = dt[peaks][np.argmin(phot[peaks])]
-    param_dict['avg_t'] = np.average(dt[peaks])
-    param_dict['std_t'] = np.std(dt[peaks])
-
-    # Find asymmetry (0 if symmetric, larger if asymmetric)
-    # Uses 50 degree chebyshev polynomial (see eq 7 in Night et al. 2010)
-    indices = np.arange(0,51)
-    cheb_fit = np.polynomial.chebyshev.Chebyshev.fit(dt, phot, 50).coef
-    odd_cheb = cheb_fit[indices%2==1]
-    even_cheb = cheb_fit[indices%2==0]
-    asymm = np.sqrt(np.sum(odd_cheb**2)/np.sum(even_cheb**2))
-    param_dict['asymmetry'] = asymm
-
-    # Split up peaks by minima between peaks
-    # Note since it's magnitudes all the np.min and such are maxima
-    split_data = []
-    start_idx = 0
-    if len(peaks) > 1:
-        for i in range(len(peaks) - 1):
-            min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
-            end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
-            split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
-            start_idx = end_idx
-    split_data.append([dt[start_idx:], phot[start_idx:]])
-    split_data = np.array(split_data, dtype='object')
-
-    highest_peak = np.argmin(phot[peaks])
-
-    if len(split_data[highest_peak][1]) != 0:
-        highest_bump_mag = max(split_data[highest_peak][1]) - min(split_data[highest_peak][1])
-        highest_half = np.where(split_data[highest_peak][1] < (max(split_data[highest_peak][1]) - 0.5*highest_bump_mag))[0]
-        
-        if len(highest_half) != 0:
-            tE_primary = max(dt[highest_half]) - min(dt[highest_half])
-            param_dict['tE_primary'] = tE_primary
-
-    # For events with more than one peak, add them to the multi peak table
-    rows = []
-    if len(peaks) > 1:
-        n_peaks = len(peaks)
-        for i in range(len(peaks)):
-            t = dt[peaks[i]]
-            delta_m = max(phot) - phot[peaks[i]]
-            ratio = np.min(phot[peaks])/phot[peaks[i]]
-
-            # Don't log primary peak
-            if np.min(phot[peaks]) == phot[peaks[i]]:
-                continue
-
-            if len(split_data[i][1]) == 0:
-                tE = np.nan
-                rows.append([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
-                continue
-
-            split_bump_mag = max(split_data[i][1]) - min(split_data[i][1])
-            split_half = np.where(split_data[i][1] < (max(split_data[i][1]) - 0.5*split_bump_mag))[0]
-            if len(split_half) == 0:
-                tE = np.nan
-                rows.append([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
-                continue
-
-            tE = max(dt[split_half]) - min(dt[split_half])
-            rows.append([comp_idx, obj_id_L, obj_id_S, n_peaks, t, tE, delta_m, ratio])
-            
-        param_dict['mp_rows'] = rows
-
-    return param_dict
 
 def psbl_model_gen(psbl_parameter_dict):
     """
@@ -5716,7 +5792,7 @@ def psbl_model_gen(psbl_parameter_dict):
     Parameters:
     -----------
     psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param1 parameters 
+        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters 
         
     Output:
     --------
@@ -5741,7 +5817,7 @@ def psbl_model_gen(psbl_parameter_dict):
     mag_src = psbl_parameter_dict['mag_src']
     b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
 
-    psbl = model.PSBL_PhotAstrom_Par_Param1(mL1, mL2, t0, xS0[0], xS0[1],
+    psbl = model.PSBL_PhotAstrom_Par_Param7(mL1, mL2, t0, xS0[0], xS0[1],
                                beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
                                sep, alpha, [b_sff], [mag_src], 
                                raL=raL, decL=decL, 
@@ -5793,8 +5869,8 @@ def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
         Object id of the source associated with event
         
     """
-    obj_id_L = comp_table[comp_idx]['obj_id_L']
-    obj_id_S = comp_table[comp_idx]['obj_id_S']
+    obj_id_L = comp_table['obj_id_L'][comp_idx]
+    obj_id_S = comp_table['obj_id_S'][comp_idx]
     
     if event_id is None:
         event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
@@ -5805,7 +5881,7 @@ def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
                             pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = comp_table[comp_idx]['m_%s_%s' % (photometric_system, filter_name)]
+    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
     
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec
@@ -5819,14 +5895,14 @@ def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
     muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
     muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
-    sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
-    alpha = comp_table[comp_idx]['alpha']
+    sep = comp_table['sep'][comp_idx] #mas (separation between primary and companion)
+    alpha = comp_table['alpha'][comp_idx]
     mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
     mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
-
+    model_name = 'BSPL_PhotAstrom_Par_Param1'
     
-    bspl_parameter_dict = {'raL': raL, 'decL': decL, 'mL': mL,
+    bspl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mL': mL,
                            't0': t0, 'xS0': xS0, 'beta': beta, 
                            'muL_E': muL_E, 'muL_N': muL_N, 'muS_E': muS_E, 'muS_N': muS_N,
                            'dL': dL, 'dL_dS': dL_dS, 'sep': sep, 
@@ -5878,7 +5954,7 @@ def bspl_model_gen(bspl_parameter_dict):
 
 def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law, event_id = None):
     """
-    Find the parameters for BSPL_PhotAstrom_Par_Param1 from 
+    Find the parameters for BSPL_PhotAstrom_Par_Param2 from 
     event_table and comp_table.
 
     Parameters
@@ -5914,7 +5990,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     Output:
     ----------
     bsbl_parameter_dict : dict
-        Dictionary of the BSBL_PhotAstrom_Par_Param1 parameters
+        Dictionary of the BSBL_PhotAstrom_Par_Param2 parameters
         
     obj_id_L : int
         Object id of the lens associated with event
@@ -5923,25 +5999,26 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
         Object id of the source associated with event
         
     """
-    obj_id_L = comp_table[comp_idx_L]['obj_id_L'] # This is equivalent to doing comp_idx_S
-    obj_id_S = comp_table[comp_idx_L]['obj_id_S']
-    
+    obj_id_L = comp_table['obj_id_L'][comp_idx_L] # This is equivalent to doing comp_idx_S
+    obj_id_S = comp_table['obj_id_S'][comp_idx_S]
+
     if event_id is None:
         event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
+    
     L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
                             pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
-                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
+                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')    
     S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
                             pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
-    
+
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = comp_table[comp_idx_S]['m_%s_%s' % (photometric_system, filter_name)]
-    
+    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
+
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec
     mLp = event_table[event_id]['mass_L'] # msun (Lens current mass)
-    mLs = comp_table[comp_idx_L]['mass'] # msun (Companion lens current mass)
+    mLs = comp_table['mass'][comp_idx_L] # msun (Companion lens current mass)
     t0 = event_table[event_id]['t0'] # mjd
     beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
     dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
@@ -5952,15 +6029,16 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
     muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
     muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
-    sepL = comp_table[comp_idx_L]['sep'] #mas (separation between primary and companion)
-    alphaL = comp_table[comp_idx_L]['alpha'] # PA of binary on the sky
-    sepS = comp_table[comp_idx_S]['sep'] #mas (separation between primary and companion)
-    alphaS = comp_table[comp_idx_S]['alpha'] # PA of source binary on the sky
+    sepL = comp_table['sep'][comp_idx_L] #mas (separation between primary and companion)
+    alphaL = comp_table['alpha'][comp_idx_L] # PA of binary on the sky
+    sepS = comp_table['sep'][comp_idx_S] #mas (separation between primary and companion)
+    alphaS = comp_table['alpha'][comp_idx_S] # PA of source binary on the sky
     mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
     mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    model_name = 'BSBL_PhotAstrom_Par_Param2'
     
-    bsbl_parameter_dict = {'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
+    bsbl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
                            't0': t0, 'xS0_E': xS0_E, 'xS0_N': xS0_N, 'beta': beta, 
                            'muL_E': muL_E, 'muL_N': muL_N, 'muS_E': muS_E, 'muS_N': muS_N,
                            'dL': dL, 'dS': dS, 'sepL': sepL, 'alphaL': alphaL, 
@@ -6007,311 +6085,14 @@ def bsbl_model_gen(bsbl_parameter_dict):
     mag_src_sec = bsbl_parameter_dict['mag_src_sec']
     mag_src_pri = bsbl_parameter_dict['mag_src_pri']
     b_sff = bsbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
-    
-    bsbl = model.BSBL_PhotAstrom_Par_Param1(mLp, mLs, t0, xS0_E, xS0_N,
+
+    bsbl = model.BSBL_PhotAstrom_Par_Param2(mLp, mLs, t0, xS0_E, xS0_N,
                                               beta, muL_E, muL_N, muS_E, muS_N,
                                               dL, dS, sepL, alphaL, sepS, alphaS,
                                               mag_src_pri, mag_src_sec, b_sff,
                                               raL=raL, decL=decL,
                                               root_tol=1e-4)
     return bsbl
-
-
-def refine_bspl_events(events, companions, photometric_system, filter_name,
-                         overwrite = False, output_file = 'default',
-                         save_phot = False, phot_dir = None):
-    """
-    Takes the output Astropy table from refine_events or later (both primaries and companions) and from that
-    calculates the binary source point lens lightcurves
-
-    Parameters
-    ----------
-    events : str
-        fits file containing the events calculated from refine_events (or later)
-    
-    companions : str
-        fits file containing the companions calculated from refine_events (or later)
-    
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    Optional Parameters
-    -------------------
-    overwrite : bool
-        If set to True, overwrites output files. If set to False, exists the
-        function if output files are already on disk.
-        Default is False.
-
-    output_file : str
-        The name of the final refined_events file.
-        If set to 'default', the format will be:
-            <input_root>_refined_events_<photometric_system>_<filt>_<red_law>.fits
-            
-    save_phot : bool
-        If set to True, saves the photometry generated instead of just parameters.
-        Default is False
-    
-    phot_dir : str
-        Name of the directory photometry is saved if save_phot = True.
-        This parameters is NOT optional if save_phot = True.
-        Default is None.
-    
-    Output:
-    ----------
-    A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb.fits
-    that contains all the same objects, only now with lots of extra
-    columns of data. (rb stands for refine binaries).
-    
-    A file will be created named
-    <input_root>_refined_events_<photometric_system>_<filt>_<red_law>_companions_rb_mp.fits
-    that contains the data for each individual peak for events with multiple peaks.
-    (mp stands for multiple peaks).
-
-    """
-    start_time = time.time()
-    
-    if not overwrite and os.path.isfile(output_file):
-        raise Exception('That refined_events.fits file name is taken! '
-                        'Either delete the .fits file, or pick a new name.')
-
-    if save_phot == True and phot_dir == None:
-        raise Exception('phot_dir is "none". Input a directory to save photometry.')
-        
-    # Error handling/complaining if input types are not right.
-    # Note this is the same as refine_binary_events since the inputs are the same types
-    _check_refine_binary_events(events, companions, 
-                         photometric_system, filter_name,
-                         overwrite, output_file,
-                         save_phot, phot_dir)
-        
-    
-    event_table = Table.read(events)
-    comp_table = Table.read(companions)
-    
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='n_peaks_S') )
-    comp_table.add_column( Column(np.zeros(len(comp_table), dtype=float), name='bin_delta_m_S') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='primary_t_S') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='avg_t_S') )
-    comp_table.add_column( Column(np.empty(len(comp_table), dtype=float), name='std_t_S') )
-    
-    
-    comp_table['bin_delta_m_S'][:] = np.nan
-    comp_table['primary_t_S'][:] = np.nan
-    comp_table['avg_t_S'][:] = np.nan
-    comp_table['std_t_S'][:] = np.nan
-    
-    # This table is for events with more than one peak to characterize those peaks
-    # comp_id is position of companion in companion table for reference
-    # obj_id_L, obj_id_S, and n_peaks are the same as in the companion table, just for reference
-    # t is time of peak
-    # delta m is the change in magnitude between the peak and baseline
-    # ratio is the magnitude ratio between min peak/max peak
-    mult_peaks = Table(names=('comp_id', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'delta_m', 'ratio'))
-
-    S_idxs = np.where(comp_table['prim_type'] == "S")[0]
-    red_law = 'Damineli16'
-    
-    simulated_lightcurves = 0
-    
-    for comp_idx in S_idxs:
-        name = "{}".format(comp_idx)
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == comp_table[comp_idx]['obj_id_L']), (event_table['obj_id_S'] == comp_table[comp_idx]['obj_id_S'])))[0])
-        
-        # For if you input a cut down event table but a not cut down companion table
-        # so there are companions associated with cut out events
-        if len(event_id) == 0:
-            continue
-        else:
-            event_id = event_id[0]
-        
-        #Skip binary source binary lens events
-        if event_table[event_id]['isMultiple_L'] == True:
-            continue
-            
-        L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
-                                pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
-                                pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
-        S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
-                                pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
-                                  pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
-
-        f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-        abs_mag_sec = comp_table[comp_idx]['m_%s_%s' % (photometric_system, filter_name)]
-        
-        ##########
-        # Calculate binary model and photometry
-        ##########
-        mL = event_table[event_id]['mass_L'] # msun (Lens current mass)
-        t0 = event_table[event_id]['t0'] # mjd
-        beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
-        dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
-        dL_dS = dL/(event_table[event_id]['rad_S']*10**3) #Distance to lens/Distance to source
-        xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
-        muL_E = L_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
-        muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
-        muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
-        muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
-        sep = comp_table[comp_idx]['sep'] #mas (separation between primary and companion)
-        alpha = comp_table[comp_idx]['alpha']
-        mag_src_pri = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)] #FIXME this is system mag
-        mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
-        b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
-        raL = L_coords.icrs.ra.value # Lens R.A.
-        decL = L_coords.icrs.dec.value # Lens dec
-        
-        
-
-        bspl = model.BSPL_PhotAstrom_Par_Param1(mL, t0, beta, dL, dL_dS, 
-                                   xS0[0], xS0[1], muL_E, muL_N, muS_E, muS_N,
-                                   sep, alpha, [mag_src_pri], [mag_src_sec], [b_sff],
-                                   raL=raL, decL=decL)
-        
-        
-
-        # Calculate the photometry 
-        duration=1000 # days
-        time_steps=5000
-        tmin = bspl.t0 - (duration / 2.0)
-        tmax = bspl.t0 + (duration / 2.0)
-        dt = np.linspace(tmin, tmax, time_steps)
-        
-        phot = bspl.get_photometry(dt)
-        
-        simulated_lightcurves += 1
-        
-        if save_phot == True:
-            if not os.path.exists(phot_dir):
-                os.makedirs(phot_dir)
-            foo = Table((dt, phot), names=['time', 'phot'])
-            foo.write(phot_dir + '/' + name + '_phot.fits', overwrite=overwrite)
-        
-        #because this is magnitudes max(phot) is baseline and min(phot) is peak
-        #baseline 2000tE away get_photometry
-        comp_table[comp_idx]['bin_delta_m_S'] = max(phot) - min(phot)
-        
-        # Find peaks
-        peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
-                
-        if len(peaks) == 0:            
-            continue
-        
-        comp_table[comp_idx]['n_peaks_S'] = len(peaks)
-        comp_table[comp_idx]['primary_t_S'] = dt[peaks][np.argmin(phot[peaks])]
-        comp_table[comp_idx]['avg_t_S'] = np.average(dt[peaks])
-        comp_table[comp_idx]['std_t_S'] = np.std(dt[peaks])
-        
-        # Split up peaks by minima between peaks
-        # Note since it's magnitudes all the np.min and such are maxima
-        split_data = []
-        start_idx = 0
-        if len(peaks) > 1:
-            for i in range(len(peaks) - 1):
-                min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
-                end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
-                split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
-                start_idx = end_idx
-        split_data.append([dt[start_idx:], phot[start_idx:]])
-        split_data = np.array(split_data, dtype='object')
-        
-        highest_peak = np.argmin(phot[peaks])
-        
-        if len(split_data[highest_peak][1]) == 0:
-            continue
-        
-        
-        # For events with more than one peak, add them to the multi peak table
-        if len(peaks) > 1:
-            n_peaks = len(peaks)
-            obj_id_L = comp_table[comp_idx]['obj_id_L']
-            obj_id_S = comp_table[comp_idx]['obj_id_S']
-            for i in range(len(peaks)):
-                t = dt[peaks[i]]
-                delta_m = max(phot) - phot[peaks[i]]
-                ratio = np.min(phot[peaks])/phot[peaks[i]]
-                
-                # Don't log primary peak
-                if ratio == 1:
-                    continue
-                
-                if len(split_data[i][1]) == 0:
-                    tE = np.nan
-                    mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, delta_m, ratio])
-                    continue
-                    
-                
-                mult_peaks.add_row([comp_idx, obj_id_L, obj_id_S, n_peaks, t, delta_m, ratio])
-            
-        
-    # Writes fits file
-    if output_file == 'default':
-        comp_table.write(companions[:-5] + "_rb_S.fits", overwrite=overwrite)
-        mult_peaks.write(companions[:-5] + "_rb_S_multi_peaks.fits", overwrite=overwrite)
-    else:
-        comp_table.write(output_file + ".fits", overwrite=overwrite)
-        mult_peaks.write(output_file + "_multi_peaks.fits", overwrite=overwrite)
-        
-        
-        
-    ##########
-    # Make log file
-    ##########
-    now = datetime.datetime.now()
-    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
-    popstar_path = os.path.dirname(inspect.getfile(imf))
-    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                             cwd=popsycle_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                           cwd=popstar_path).decode('ascii').strip()
-    
-    end_time = time.time()
-    
-    dash_line = '-----------------------------' + '\n'
-    empty_line = '\n'
-
-    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
-    line1 = 'event_file : ' + events + '\n'
-    line2 = 'companion_file : ' + companions + '\n'
-    line3 = 'save_phot : ' + str(save_phot) + '\n'
-
-    line4 = 'VERSION INFORMATION' + '\n'
-    line5 = str(now) + ' : creation date' + '\n'
-    line6 = popstar_hash + ' : SPISEA commit' + '\n'
-    line7 = popsycle_hash + ' : PopSyCLE commit' + '\n'
-
-    line8 = 'OTHER INFORMATION' + '\n'
-    line9 = str(end_time - start_time) + ' : total runtime (s)' + '\n'
-    line10 = str(simulated_lightcurves) + ' : number of simulated lightcurves' + '\n'
-
-    line11 = 'FILES CREATED' + '\n'
-    if output_file == 'default':
-        line12 = companions[:-5] + "_rb_S.fits" + ' : binary refined events' + '\n'
-        line13 = companions[:-5] + "_rb_S_multi_peaks.fits" + ' : multiple peak events table' + '\n'
-        log_name = companions[:-5] + "_rb_S.log"
-    else:
-        line12 = output_file + ".fits" + ' : refined events' + '\n'
-        line13 = output_file + "_multi_peaks.fits" + ' : multiple peak events table' + '\n'
-        log_name = output_file + '.log'
-     
-    line14 = '\n'
-    if save_phot == True:
-        line14 = phot_dir + ' : directiory of photometry'
-       
-    
-    with open(log_name, 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, empty_line,
-                        line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, line10, empty_line,
-                        line11, dash_line, line12, line13, line14])
-
-    print('refine_binary_events runtime : {0:f} s'.format(end_time - start_time))
-    return
-
 
 ##################################################################
 ############ Reading/writing and format functions  ###############
@@ -6365,7 +6146,7 @@ def make_label_file(h5file_name, overwrite=False):
         The path and name of the input h5file containing the
         population synthesis results. We will read this in and
         make a new output file entitled:
-        <h5file_name>_label.fits (after removing the *.h5).
+        <h5file_name>_label.fits (after removing the \*.h5).
 
     Return
     ------
@@ -6558,7 +6339,7 @@ def galactic_to_heliocentric(r, b, l):
     Converts from galactic coordinates to heliocentric coordinates.
 
     Parameters
-    ---------
+    ----------
     r, b, l : float or array
         Galactic coordinates r, b and l (in kpc and degrees)
 
@@ -6683,7 +6464,7 @@ def calc_bump_amp(u0, f_S, f_L, f_N):
     Calculate the "bump" amplitude, given the minimum separation and the fluxes
     of the (unmagnified) source, lens, and neighbors.
     The bump amplitude (mags) is:
-    |m_peak - m_base| = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
+    abs(m_peak - m_base) = -2.5 log10 ((A(u0) * f_S + f_L + f_N)/(f_S + f_L + f_N))
 
     Parameters
     ----------

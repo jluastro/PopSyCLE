@@ -3,6 +3,7 @@ import pytest
 from popsycle import synthetic
 from popsycle import ebf
 from popsycle import binary_utils
+import popsycle
 from spisea.imf import multiplicity
 from astropy.coordinates import SkyCoord  # High-level coordinates
 import astropy.coordinates as coord
@@ -21,17 +22,17 @@ from math import isclose
 import resource
 from copy import deepcopy
 from scipy.spatial import cKDTree
+from scipy.signal import find_peaks
 
 masyr_to_degday = 1.0 * (1.0e-3 / 3600.0) * (1.0 / 365.25)
 kms_to_kpcday = 1.0 * (3.086 * 10 ** 16) ** -1 * 86400.0
 au_to_kpc = 4.848 * 10 ** -9
 
 # Define some fixtures for each stage of synthetic analysis.
-@pytest.fixture
-def srun_galaxia():
+def galaxia():
     seed = 10
 
-    output_root = 'data_test/test_Srun'
+    output_root = 'data_test/test'
 
     test_filepath = os.path.dirname(__file__)
     galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
@@ -39,19 +40,52 @@ def srun_galaxia():
     synthetic.write_galaxia_params(output_root=output_root,
                                    longitude=1.25,
                                    latitude=-2.65,
-                                   area=0.0001,
+                                   area=0.001,
                                    seed=seed)
 
     synthetic.run_galaxia(output_root=output_root,
                           longitude=1.25,
                           latitude=-2.65,
-                          area=0.0001,
+                          area=0.001,
                           galaxia_galaxy_model_filename=galaxia_params,
                           seed=seed)
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'galaxia', scope="module")
+def galaxia_fixture():
+    return galaxia()
+    
+def srun_galaxia(galaixa):
+    # Srun and Mrun share the same galaxia file
+    input_root = 'data_test/test'
+
+    output_root = 'data_test/test_Srun'
+    
+    test_filepath = os.path.dirname(__file__)
+    full_input_root = test_filepath + '/' + input_root
+    full_output_root = test_filepath + '/' + output_root
+    
+
+    try:
+        os.symlink(full_input_root + '_galaxia.log', full_output_root + '_galaxia.log')  
+    except FileExistsError:
+        pass
+    try: 
+        os.symlink(full_input_root + '_galaxia_params.txt', full_output_root + '_galaxia_params.txt')
+    except FileExistsError:
+        pass
+    try:
+        os.symlink(full_input_root + '.ebf', full_output_root + '.ebf')
+    except FileExistsError:
+        pass
+
+    return output_root
+
+@pytest.fixture(name = 'srun_galaxia', scope="module")
+def srun_galaxia_fixture(galaxia):
+    return srun_galaxia(galaxia)
+
 def srun_popsyn(srun_galaxia):
     seed = 10
 
@@ -71,7 +105,10 @@ def srun_popsyn(srun_galaxia):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'srun_popsyn', scope="module")
+def srun_popsyn_fixture(srun_galaxia):
+    return srun_popsyn(srun_galaxia)
+
 def srun_calc_events(srun_popsyn):
     seed = 10
 
@@ -90,7 +127,10 @@ def srun_calc_events(srun_popsyn):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'srun_calc_events', scope="module")
+def srun_calc_events_fixture(srun_popsyn):
+    return srun_calc_events(srun_popsyn)
+
 def srun_refine_events(srun_calc_events):
     seed = 0
 
@@ -107,31 +147,38 @@ def srun_refine_events(srun_calc_events):
 
     return output_root
 
-@pytest.fixture
-def mrun_galaxia():
-    seed = 10
+@pytest.fixture(name = 'srun_refine_events', scope="module")
+def srun_refine_events_fixture(srun_calc_events):
+    return srun_refine_events(srun_calc_events)
 
+def mrun_galaxia(galaixa):
+    # Srun and Mrun share the same galaxia file
+    input_root = 'data_test/test'
     output_root = 'data_test/test_Mrun'
-
+    
     test_filepath = os.path.dirname(__file__)
-    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
+    full_input_root = test_filepath + '/' + input_root
+    full_output_root = test_filepath + '/' + output_root
 
-    synthetic.write_galaxia_params(output_root=output_root,
-                                   longitude=1.25,
-                                   latitude=-2.65,
-                                   area=0.0001,
-                                   seed=seed)
-
-    synthetic.run_galaxia(output_root=output_root,
-                          longitude=1.25,
-                          latitude=-2.65,
-                          area=0.0001,
-                          galaxia_galaxy_model_filename=galaxia_params,
-                          seed=seed)
+    try:
+        os.symlink(full_input_root + '_galaxia.log', full_output_root + '_galaxia.log')
+    except FileExistsError:
+        pass
+    try:
+        os.symlink(full_input_root + '_galaxia_params.txt', full_output_root + '_galaxia_params.txt')
+    except FileExistsError:
+        pass
+    try:
+        os.symlink(full_input_root + '.ebf', full_output_root + '.ebf')
+    except FileExistsError:
+        pass
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'mrun_galaxia', scope="module")
+def mrun_galaxia_fixture(galaxia):
+    return mrun_galaxia(galaxia)
+
 def mrun_popsyn(mrun_galaxia):
     seed = 10
 
@@ -154,7 +201,10 @@ def mrun_popsyn(mrun_galaxia):
 
     return output_root
 
-#@pytest.fixture()
+@pytest.fixture(name = 'mrun_popsyn', scope="module")
+def mrun_popsyn_fixture(mrun_galaxia):
+    return mrun_popsyn(mrun_galaxia)
+
 def mrun_calc_events(mrun_popsyn):
     seed = 10
 
@@ -175,8 +225,13 @@ def mrun_calc_events(mrun_popsyn):
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'mrun_calc_events', scope="module")
+def mrun_calc_events_fixture(mrun_popsyn):
+    return mrun_calc_events(mrun_popsyn)
+
 def mrun_refine_events(mrun_calc_events):
+    seed = 10
+    
     input_root = mrun_calc_events
 
     synthetic.refine_events(input_root=input_root,
@@ -185,13 +240,17 @@ def mrun_refine_events(mrun_calc_events):
                             red_law='Damineli16',
                             hdf5_file_comp=input_root + '_companions.h5',
                             overwrite=True,
-                            output_file='default')
+                            output_file='default',
+                            seed = seed)
 
     output_root = input_root + '_refined_events_ubv_I_Damineli16'
 
     return output_root
 
-@pytest.fixture()
+@pytest.fixture(name = 'mrun_refine_events', scope="module")
+def mrun_refine_events_fixture(mrun_calc_events):
+    return mrun_refine_events(mrun_calc_events)
+
 def mrun_refine_binary(mrun_refine_events):
     input_root = mrun_refine_events
     events_prim_fits = input_root + '.fits'
@@ -202,9 +261,13 @@ def mrun_refine_binary(mrun_refine_events):
                                    photometric_system='ubv', overwrite=True,
                                    output_file='default', save_phot=False)
 
-    output_root = input_root + '_companions_rb'
+    output_root = input_root + '_rb'
 
     return output_root
+
+@pytest.fixture(name = 'mrun_refine_binary', scope="module")
+def mrun_refine_binary_fixture(mrun_refine_events):
+    return mrun_refine_binary(mrun_refine_events)
 
 def mrun_big_galaxia():
     seed = 10
@@ -318,6 +381,67 @@ def remake_correct_data():
     return
 
 
+def test_galactic_to_heliocentric():
+    """
+    Test the conversion from Galactic to Heliocentric positions.
+
+    NOTE THAT HELIOCENTRIC COORDINATES ARE NOT THE SAME AS
+    ASTROPY'S DEFAULT GALACTOCENTRIC COORDINATES!!!
+    
+    THEY ARE BOTH RECTANGULAR, BUT ONE IS CENTERED ON THE SUN,
+    THE OTHER IS CENTERED ON THE GC!
+    """
+    
+    # The arrays px, py, pz, glat, glon come from Galaxia.
+    # They are just the first 10 entries of an EBF file it made.
+    # For internal reference: the file is
+    # /g2/scratch/casey/papers/microlens_2019/popsycle_rr_files/OGLE150_v2.ebf
+
+    # Heliocentric 3-D positions (kpc)
+    px = np.array([1.1423072 , 1.5105276 , 0.63417935, 0.7515631 , 1.1420373 ,
+                   1.1334454 , 1.1531974 , 1.2154862 , 1.2258973 , 1.3694662 ])
+
+    py = np.array([0.03450311, 0.04551123, 0.01913031, 0.02276252, 0.03423306,
+                   0.0343769 , 0.03504916, 0.03649908, 0.03713397, 0.04156267])
+
+    pz = np.array([-0.08887936, -0.11735878, -0.04948796, -0.05863307, -0.08901644,
+                   -0.08859035, -0.08981982, -0.09497609, -0.09539149, -0.10696827])
+
+    # Galactic 3-D positions (deg and kpc)
+    glat = np.array([-4.4470243, -4.4406023, -4.4599943, -4.458851 , -4.454934 ,
+                     -4.467121 , -4.451596 , -4.465916 , -4.4473953, -4.4642286])
+
+    glon = np.array([1.7300799, 1.7257639, 1.7278297, 1.734782 , 1.716952 ,
+                     1.7372237, 1.7408566, 1.7199831, 1.7350312, 1.7383676])
+
+    rad = np.array([1.146279 , 1.5157632, 0.6363949, 0.7541903, 1.1460127,
+                    1.1374218, 1.157221 , 1.2197374, 1.2301637, 1.374266 ])
+
+    # Convert the Heliocentric positions to Galactic positions
+    r, b, l = synthetic.heliocentric_to_galactic(px, py, pz)
+
+    np.testing.assert_almost_equal(r, rad, 5)
+    np.testing.assert_almost_equal(b, glat, 5)
+    np.testing.assert_almost_equal(l, glon, 5)
+
+    ##########
+    # Astropy.
+    # 
+    # Note: This is not a test because we're showing
+    # that Heliocentric is not the same as Galactocentric...
+    # This is just for reference... so it's just comments.
+    ##########
+    # c_xyz = coord.SkyCoord(x=px * u.kpc,
+    #                        y=py * u.kpc,
+    #                        z=pz * u.kpc,
+    #                        frame=coord.Galactocentric)
+    # 
+    # c_gal = c_xyz.transform_to(coord.Galactic)
+    # 
+    # print(np.min(c_gal.b.value - glat))
+    # print(np.min(c_gal.l.value - glon))
+    # print(np.min(c_gal.distance.value - rad))
+    
 def test_galactic_to_heliocentric_1():
     """
     Test that the formula gives the right things in 3 simple geometry cases.
@@ -339,100 +463,6 @@ def test_galactic_to_heliocentric_3():
     r3, b3, l3 = synthetic.heliocentric_to_galactic(0, 0, 1)
     np.testing.assert_equal([r3, b3, l3], [1, 90, 0])
 
-
-@pytest.mark.xfail
-def test_all_Srun(srun_popsyn, srun_refine_events):
-    """
-    Testing an Srun (singles only)
-    from beginning to end. This will generate all files and
-    check them against pre-run files.
-    """
-    srun_popsyn_correct = srun_popsyn.replace('test_', 'test_correct_')
-    srun_refine_events_correct = srun_refine_events.replace('test_', 'test__correct')
-
-    # # Test Galaxia Results
-    # run_galaxia_result = filecmp.cmp(srun_popsyn_correct + '.ebf',
-    #                                  srun_popsyn + '.ebf', shallow=False)
-    # assert run_galaxia_result
-    #
-    # # Test PopS yn Results
-    # perform_pop_syn_result = filecmp.cmp(srun_popsyn_correct + '.h5',
-    #                                      srun_popsyn + '.h5', shallow=False)
-    # assert perform_pop_syn_result
-
-    # Test Calc Events Results
-    calc_events_result = filecmp.cmp(srun_popsyn_correct + '_events.fits',
-                                     srun_popsyn + '_events.fits', shallow=False)
-    assert calc_events_result
-
-    # Test Refine Events Results
-    refine_events_result = filecmp.cmp(srun_refine_events_correct + '.fits',
-                                       srun_refine_events + '.fits', shallow=False)
-    assert refine_events_result
-
-    return
-
-
-@pytest.mark.xfail
-def test_all_Mrun(mrun_popsyn, mrun_calc_events, mrun_refine_binary):
-    """
-    Testing an Mrun (singles and multiples)
-    from beginning to end. This will generate all files and 
-    check them against pre-run files.
-
-    Takes ~3 minutes to run.
-    """
-    mrun_popsyn_correct = mrun_popsyn.replace('test', 'test_correct')
-    mrun_calc_events_correct = mrun_calc_events.replace('test', 'test_correct')
-    mrun_refine_binary_correct = mrun_calc_events.replace('test', 'test_correct')
-
-    run_galaxia_result = filecmp.cmp(mrun_popsyn_correct + '.ebf', 
-                                     mrun_popsyn + '.ebf', shallow=False)
-    assert run_galaxia_result
-
-
-    # Test Galaxia Results
-    perform_pop_syn_result = filecmp.cmp(mrun_popsyn_correct + '.h5', 
-                                         mrun_popsyn + '.h5', shallow=False)
-    assert perform_pop_syn_result
-
-
-    # Test Pop Syn Results
-    perform_pop_syn_companions_result = filecmp.cmp(mrun_popsyn_correct + '_companions.h5', 
-                                                    mrun_popsyn + '_companions.h5',
-                                                    shallow=False)
-    assert perform_pop_syn_companions_result
-
-    # Test Calc Events Results
-    calc_events_result = filecmp.cmp(mrun_popsyn_correct + '.fits',
-                                     mrun_popsyn + '.fits', shallow=False)
-    assert calc_events_result
-
-    # Test Refine Events Results
-    refine_events_result = filecmp.cmp(mrun_calc_events_correct + '.fits',
-                                       mrun_calc_events + '.fits', shallow=False)
-    assert refine_events_result
-
-
-    refine_events_companions_result = filecmp.cmp(mrun_calc_events_correct + '_companions.fits',
-                                                  mrun_calc_events + '_companions.fits',
-                                                  shallow=False)
-    assert refine_events_companions_result
-
-
-    # Test Refine Binary Events Results
-    refine_binary_events_result = filecmp.cmp(mrun_refine_binary_correct + '.fits',
-                                              mrun_refine_binary + '.fits',
-                                              shallow=False)
-    assert refine_binary_events_result
-
-
-    refine_binary_events_multi_peaks_result = filecmp.cmp(
-        mrun_refine_binary_correct + '_multi_peaks.fits',
-        mrun_refine_binary + '_multi_peaks.fits', shallow=False)
-    assert refine_binary_events_multi_peaks_result
-
-    return
 
 
 @pytest.mark.xfail
@@ -849,7 +879,7 @@ def test_system_mass(mrun_popsyn):
     seed = 10
 
     output_root = mrun_popsyn
-
+    
     test_h5 = h5py.File(output_root + '.h5', 'r')
     test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
 
@@ -915,6 +945,10 @@ def test_system_mass(mrun_popsyn):
                 n_comp_checked += 1
 
         print(f'Field {field}: Successfully checked system masses of {n_comp_checked} multiple systems.')
+        
+    test_h5.close()
+    test_comp_h5.close()
+    
     return
 
 
@@ -934,12 +968,14 @@ def test_system_luminosity(mrun_galaxia):
     
     # Returns the intersecting obj_ids/system_idxs, indices in co_table or star_dict that correspond with the overlap, 
     # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
-    co_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id']), grouped_system_idxs, return_indices = True)
+    # DOES NOT TEST WDs since some are luminous and I have no reference magnitudes for them!!!
+    NS_BH_idxs = np.where(co_dict['rem_id'] >= 102)
+    co_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id'][NS_BH_idxs]), grouped_system_idxs, return_indices = True)
     star_idx_w_companions = np.intersect1d(np.array(star_dict['obj_id']), grouped_system_idxs, return_indices = True)
     
     # checks the matching was done properly
     assert np.array_equiv(star_dict['obj_id'][star_idx_w_companions[1]], grouped_system_idxs[star_idx_w_companions[2]])
-    assert np.array_equiv(co_dict['obj_id'][co_idx_w_companions[1]], grouped_system_idxs[co_idx_w_companions[2]])
+    assert np.array_equiv(co_dict['obj_id'][NS_BH_idxs][co_idx_w_companions[1]], grouped_system_idxs[co_idx_w_companions[2]])
     
     calc_primary_luminosity = binary_utils.primary_mag_from_system_mag(star_dict['ubv_I'][star_idx_w_companions[1]],
                                                                        companions_system_m_ubv_I[star_idx_w_companions[2]])
@@ -948,7 +984,7 @@ def test_system_luminosity(mrun_galaxia):
     # the system luminosity - companion luminosity
     assert np.allclose(calc_primary_luminosity, primary_star_dict['ubv_I'][star_idx_w_companions[1]])
     
-    calc_primary_luminosity_co = binary_utils.primary_mag_from_system_mag(co_dict['ubv_I'][co_idx_w_companions[1]],
+    calc_primary_luminosity_co = binary_utils.primary_mag_from_system_mag(co_dict['ubv_I'][NS_BH_idxs][co_idx_w_companions[1]],
                                                                        companions_system_m_ubv_I[co_idx_w_companions[2]])
     
 
@@ -1123,6 +1159,46 @@ def test_subtract_mags():
     
     return
 
+def test_no_nan_companions(mrun_popsyn):
+    """
+    Tests that there are no nan companions that weren't
+    assigned isochrones (happens for low mass companions often
+    with high metalicity + old)
+
+    Checks systemMass and mass are not nan and that N_companions
+    is correct (since it was modified)
+    """
+    
+    output_root = mrun_popsyn
+    test_h5 = h5py.File(output_root + '.h5', 'r')
+    test_comp_h5 = h5py.File(output_root + '_companions.h5', 'r')
+    
+    subfield_list = list(test_h5.keys())[1:-2]
+    
+    for ff, subfield in enumerate(subfield_list):
+        systemMasses = test_h5[subfield]['systemMass']
+        companion_masses = test_comp_h5[subfield]['mass']
+        
+        assert sum(np.isnan(systemMasses)) == 0
+        assert sum(np.isnan(companion_masses)) == 0
+    
+        del systemMasses, companion_masses
+    
+        # Checks number of companions matches for 1000 cases
+        # since this was edited
+        N_companions_all = test_h5[subfield]['N_companions']
+        obj_id_all = test_h5[subfield]['obj_id']
+        system_id_all = test_comp_h5[subfield]['system_idx']
+        for ss in range(1000):
+            N_companions = N_companions_all[ss]
+            obj_id = obj_id_all[ss]
+            companions = np.where(system_id_all == obj_id)[0]
+    
+            assert(N_companions == len(companions))
+    
+        del N_companions_all, obj_id_all, system_id_all
+        
+
 
 def test_single_CO_frac(srun_popsyn):
     """
@@ -1131,7 +1207,7 @@ def test_single_CO_frac(srun_popsyn):
     """
     test_hdf5 = h5py.File(srun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.1 #Msun
-    CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
+    CO, total, CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
     
     precalc_CO_frac = 0.0822
     precalc_CO_number = 2071
@@ -1155,7 +1231,7 @@ def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
         total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
         del array
     CO_frac = CO/total
-    return  CO_frac
+    return  CO, total, CO_frac
 
 
 def test_multiplicity_properties(mrun_popsyn):
@@ -1165,7 +1241,7 @@ def test_multiplicity_properties(mrun_popsyn):
     """
     test_hdf5 = h5py.File(mrun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.5 #Msun
-    multiplicity_frac = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
+    multiplicity_frac, multiples, total = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
     
     precalc_mult_frac = 0.4727
     precalc_mult_number = 2052
@@ -1182,6 +1258,8 @@ def test_multiplicity_properties(mrun_popsyn):
     min_log_semimajor_axis_imposed = -2
     
     assert(min_log_semimajor_axis_imposed < min_log_semimajor_axis)
+
+    test_hdf5_comp.close()
     
     return
 
@@ -1196,7 +1274,7 @@ def calc_multiplicity_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
         total += len(np.where(array['mass'] > lower_mass_cutoff)[0])
         del array
     multiple_frac = multiples/total
-    return  multiple_frac
+    return  multiple_frac, multiples, total
 
 def calc_min_semimajor_axis(hdf5_file):
     subfield_list = list(hdf5_file.keys())[1:-2]
@@ -1232,7 +1310,102 @@ def test_binary_angles(mrun_refine_events):
     
     return
 
+# FIXME
+@pytest.mark.xfail
+def test_refine_binary_events_multiple_lightcurves(mrun_refine_binary):
+    """
+    Makes sure refine binary events properly 
+    makes the right number of lightcurves for event (i.e. 2 lightcurves
+    for PSBL and 4 lightcurves for BSBL). Also that it picks the correct
+    one as the primary one (highest delta m).
+    """
+    
+    test_events = Table.read(mrun_refine_binary + '.fits')
 
+def test_refine_binary_events_psbl_lightcurve():
+    """
+    Generates a lightcurve that should have 4 peaks.
+    Check by eye against 'tests/data_correct/psbl_4_peaks_example.png'
+    """
+    
+    psbl_param_dict = {'raL': 265,
+                       'decL' : -30,
+                       'mL1' : 4,
+                       'mL2' : 1,
+                       't0' : 0,
+                       'xS0': np.array([0, 0]),
+                       'beta' : 0.001,
+                       'muL' : np.array([0,0]),
+                       'muS' : np.array([0,1]),
+                       'dL' : 4000,
+                       'dS' : 8000,
+                       'sep' : 1,
+                       'alpha' : 180,
+                       'mag_src' : 22,
+                      'b_sff' : 1}
+    
+    psbl = synthetic.psbl_model_gen(psbl_param_dict)
+    
+    duration=1000 # days
+    time_steps=5000
+    tmin = psbl.t0 - (duration / 2.0)
+    tmax = psbl.t0 + (duration / 2.0)
+    dt = np.linspace(tmin, tmax, time_steps)
+    img, amp = psbl.get_all_arrays(dt)
+    phot = psbl.get_photometry(dt, amp_arr=amp)
+    
+    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+    
+    assert(len(peaks) == 4)
+    
+    plt.plot(dt, phot.data)
+    plt.plot(dt[peaks], phot.data[peaks], marker = '.', linestyle = 'None')
+    plt.gca().invert_yaxis()
+    plt.savefig(popsycle.__path__[0] + '/tests/data_test/psbl_4_peaks_example.png')
+    
+    return
+
+def test_bspl_single_luminous_source_one_peak():
+    """
+    Makes sure that a BSPL event with one luminous source
+    and one dark source only has a single peak (picked parameters
+    such that not high parallax)
+    """
+    
+    bspl_param_dict = {'raL': 265,
+                       'decL' : -30,
+                       'mL' : 4,
+                       't0' : 0,
+                       'xS0': np.array([0, 0]),
+                       'beta' : 0.001,
+                       'muL_E' : 0,
+                       'muL_N' : 0,
+                       'muS_E' : 0,
+                       'muS_N' : 1,
+                       'dL' : 4000,
+                       'dL_dS' : 0.5,
+                       'sep' : 1,
+                       'alpha' : 270,
+                       'mag_src_pri' : 22,
+                         'mag_src_sec' : np.nan,
+                      'b_sff' : 1}
+    bspl = synthetic.bspl_model_gen(bspl_param_dict)
+    
+    duration=1000 # days
+    time_steps=5000
+    tmin = bspl.t0 - (duration / 2.0)
+    tmax = bspl.t0 + (duration / 2.0)
+    dt = np.linspace(tmin, tmax, time_steps)
+    phot = bspl.get_photometry(dt)
+    
+    peaks, _ = find_peaks(-phot, prominence = 10e-5, width =1) 
+    
+    assert(len(peaks) == 1)
+    
+    return
+
+#FIXME
+@pytest.mark.xfail
 def test_psbl_parallax():
     """
     Test psbl lightcurve model to make sure in a 
@@ -1280,139 +1453,4 @@ def test_psbl_parallax():
     pdb.set_trace()
     
     return
-    
-    
-def generate_correct_Srun_files():
-    """
-    This generates the correct Srun (singles only)
-    files. This should !ONLY! be run if the outputs of the code
-    were expected to change from when they were originally made!!!
 
-    Takes ~3 minutes to run.
-    """
-    
-    seed = 10
-
-    output_root = 'data_test/test_correct_Srun'
-
-    test_filepath = os.path.dirname(__file__)
-    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
-
-    
-    # synthetic.write_galaxia_params(output_root = output_root,
-    #                                longitude = 1.25,
-    #                                latitude = -2.65,
-    #                                area = 0.0001,
-    #                                seed = seed)
-    #
-    # synthetic.run_galaxia(output_root = output_root,
-    #                       longitude = 1.25,
-    #                       latitude = -2.65,
-    #                       area = 0.0001,
-    #                       galaxia_galaxy_model_filename= galaxia_params,
-    #                       seed = seed)
-    
-    
-    synthetic.perform_pop_syn(ebf_file = output_root + '.ebf',
-                              output_root = output_root,
-                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
-                              bin_edges_number = None, 
-                              BH_kick_speed_mean = 100,
-                              NS_kick_speed_mean = 350,
-                              IFMR = 'SukhboldN20',
-                              overwrite=True,
-                              seed = seed,
-                              n_proc=1)
-    
-    
-    synthetic.calc_events(hdf5_file = output_root + '.h5',
-                          output_root2 = output_root,
-                          radius_cut = 2, 
-                          obs_time = 1000, 
-                          n_obs = 11, 
-                          theta_frac = 2, 
-                          blend_rad = 0.65, 
-                          overwrite = True,
-                          n_proc = 1)
-    
-    
-    synthetic.refine_events(input_root = output_root,
-                            filter_name = 'I',
-                            photometric_system = 'ubv',
-                            red_law = 'Damineli16', 
-                            overwrite = True,
-                            output_file = 'default')
-    
-    return
-    
-    
-def generate_correct_Mrun_files():
-    """
-    This generates the correct Mrun (singles and multiples)
-    files. This should !ONLY! be run if the outputs of the code
-    were expected to change from when they were originally made!!!
-
-    Takes ~4 minutes to run.
-    """
-    
-    seed = 10
-
-    output_root = 'data_test/test_correct_Mrun'
-
-    test_filepath = os.path.dirname(__file__)
-    galaxia_params = test_filepath + '/galaxyModelParams_PopSyCLEv3.txt'
-
-    # synthetic.write_galaxia_params(output_root = output_root,
-    #                                longitude = 1.25,
-    #                                latitude = -2.65,
-    #                                area = 0.0001,
-    #                                seed = seed)
-    #
-    # synthetic.run_galaxia(output_root = output_root,
-    #                       longitude = 1.25,
-    #                       latitude = -2.65,
-    #                       area = 0.0001,
-    #                       galaxia_galaxy_model_filename= galaxia_params,
-    #                       seed = seed)
-    
-    multi_obj = multiplicity.MultiplicityResolvedDK(companion_max=True, CSF_max=2)
-
-    synthetic.perform_pop_syn(ebf_file = output_root + '.ebf',
-                              output_root = output_root,
-                              iso_dir = '/g/lu/models/PopSyCLE_isochrones',
-                              bin_edges_number = None,
-                              BH_kick_speed_mean = 100,
-                              NS_kick_speed_mean = 350,
-                              IFMR = 'SukhboldN20',
-                              multiplicity=multi_obj,
-                              overwrite=True,
-                              seed = seed,
-                              n_proc=1)
-    
-    
-    synthetic.calc_events(hdf5_file = output_root + '.h5',
-                          output_root2 = output_root,
-                          radius_cut = 2,
-                          obs_time = 1000,
-                          n_obs = 11,
-                          theta_frac = 2,
-                          blend_rad = 0.65,
-                          hdf5_file_comp = output_root + '_companions.h5',
-                          overwrite = True,
-                          n_proc = 1)
-    
-    
-    synthetic.refine_events(input_root = output_root,
-                        filter_name = 'I',
-                        photometric_system = 'ubv',
-                        red_law = 'Damineli16', 
-                        hdf5_file_comp = output_root + '_companions.h5',
-                        overwrite = True,
-                        output_file = 'default')
-    
-    synthetic.refine_binary_events(output_root + '_refined_events_ubv_I_Damineli16.fits',
-                                   output_root + '_refined_events_ubv_I_Damineli16_companions.fits', filter_name = 'I',
-                                   photometric_system = 'ubv', overwrite = True,
-                                   output_file = 'default', save_phot = False)
-    
-    return

@@ -7,4 +7,4 @@ This is the documentation for popsycle.
 Reference/API
 =============
 
-.. automodapi:: popsycle
+.. automodapi:: popsycle.synthetic

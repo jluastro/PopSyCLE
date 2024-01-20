@@ -7,6 +7,7 @@ PopSyCLE
 
 **Pop**\ulation **Sy**\nthesis for **C**\ompact-object **L**\ensing **E**\vents
 
+Full PopSyCLE documentation can be found `here <https://popsycle.readthedocs.io/en/latest/>`_.
 
 Dependencies
 ------------
@@ -15,7 +16,9 @@ PopSyCLE requires a custom version of galaxia in order to support
 user selected galaxy models. Please follow the installation instructions
 found at our galaxia GitHub repo: https://github.com/jluastro/galaxia.
 
-`PyPopStar <https://pypopstar.readthedocs.io/en/latest/>`_
+`SPISEA <https://spisea.readthedocs.io/en/latest/>`_
+
+`BAGLE <https://github.com/MovingUniverseLab/BAGLE_Microlensing>`_
 
 
 Installation
@@ -33,7 +36,8 @@ Running PopSyCLE
 ----------------
 
 An example of implementing PopSyCLE can be found
-`in our example notebook <docs/PopSyCLE_example.ipynb>`_.
+in our example notebook for `single stars <docs/PopSyCLE_example.ipynb>`_ or 
+`with multiples <docs/PopSyCLE_example_multiplicity.ipynb>`_.
 
 Running the PopSyCLE Pipeline
 -----------------------------

@@ -5,11 +5,14 @@ Functions (and their associated functions) for utilities.
 """
 import subprocess
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, MaskedColumn
 from astropy.table import vstack
 import os
 import gc
-from popsycle import synthetic
+from popsycle import synthetic, orbits
+import copy
+import time
+import datetime
 
 
 def add_precision64(input_array, power):
@@ -26,8 +29,8 @@ def add_precision64(input_array, power):
     power : float
         To what place you want the perturbation.
 
-    Return
-    ------
+    Returns
+    -------
     output_array : float or array (float64)
         Thing that has more precision.
 
@@ -46,6 +49,27 @@ def add_precision64(input_array, power):
     return output_array
 
 
+def make_symlinks(input_root, output_root):
+    """
+    Makes symlinks for galaxia_params.txt and
+    perform_pop_syn.log files which are required for refine_events()
+    
+    Parameters
+    ----------
+    input_root : str
+        Input root of galaxia_params.txt and perform_pop_syn.log.
+        (Assumes they have the same input root).
+    
+    output_root : str
+        Output root of galaxia_params.txt and perform_pop_syn.log.
+    """
+    links = ['_galaxia_params.txt', '_perform_pop_syn.log']
+    for link in links:
+        try:
+            os.symlink(input_root + link, output_root + link)
+        except:
+            continue
+
 def sample_spherical(npoints, speed, ndim=3):
     """
     Randomly sample points on a sphere.
@@ -63,8 +87,8 @@ def sample_spherical(npoints, speed, ndim=3):
         The dimension of the space in which the sphere is embedded
         (ndim = 3 samples points on a 2-sphere, aka a "normal" sphere)
 
-    Return
-    ------
+    Returns
+    -------
     An array of the vectors.
     """
     # Check that the speed vector is either a float or an array of length npoints
@@ -102,8 +126,8 @@ def return_nearest_gridpoint(grid, x_grid_arr, y_grid_arr, x_data, y_data):
     y_data : numpy array
         y-coordinate for data that will be located onto the grid
 
-    Output
-    ------
+    Returns
+    -------
     gridpoint_arr : numpy array
         list of nearest cell values on the grid at
         the location of (x_data, y_data)
@@ -146,12 +170,10 @@ def execute(cmd, shell=False):
     cmd : str
         Command line instruction, including any executables and parameters
 
-    Optional Parameters
-    -------------------
-    shell : bool
+    shell : bool, optional
         Determines if the command is run through the shell. Default is False.
 
-    Outputs
+    Returns
     -------
     stdout : str
         Contains the standard output of the executed process
@@ -181,8 +203,8 @@ def calc_normalized_counts(mag):
     ----------
     mag: float
     
-    Return
-    ------
+    Returns
+    -------
     counts: int
     
     CHANGE THIS CODE IN THE FUTURE TO TAKE IN DIFFERENT ZERO POINTS! NEEDS ADDITIONAL DOCUMENTATION
@@ -204,15 +226,12 @@ def combine_refined_events(refined_events_filenames, overwrite=False,
     refined_events_filenames : list of strs
         Filenames of refined_events tables to be combined
 
-    Optional Parameters
-    -------------------
-
-    overwrite : bool
+    overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
 
-    output_file : str
+    output_file : str, optional
         The name of the final refined_events file.
         If set to 'default', the format will be generated from the first
         filename in refined_events_filenames following:
@@ -320,8 +339,8 @@ def get_u_from_t(u0, t0, tE, t):
     t : float or array
         Time at which you want to calculate the separation
 
-    Return
-    ------
+    Returns
+    -------
     u : float or array
         Separation of lens and source (normalized to Einstein radius)
     """
@@ -386,8 +405,8 @@ def calc_new_position(l0, b0, mu_lcosb, mu_b, t):
     t : float or array
         Time, in DAYS
 
-    Return
-    ------
+    Returns
+    -------
     l : float or array
         Latitude, in DEGREES
 
@@ -422,8 +441,8 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
     u : float or array
         Dimensionless separation
 
-    Return
-    ------
+    Returns
+    -------
     delta_c_obs : float or array
         Magnitude of observed astrometric shift, in mas
     """
@@ -468,31 +487,48 @@ def calc_f(lambda_eff):
     return f
 
 
-def generate_all_isochrones(iso_dir, include_ztf=True):
+def generate_isochrones(iso_dir, logAge_min=5.01, logAge_max=10.291,
+                        logAge_delta=0.01, metallicity=0.0,
+                        include_ztf=True):
     """
-    Generates all solar metallicity isochrones needed for PopSyCLE simulations
+    Generates isochrones needed for PopSyCLE simulations
 
     Parameters
     ----------
     iso_dir : filepath
-        Where are the isochrones stored (for PopStar)
+        Where are the isochrones stored (for SPISEA)
 
-    Optional Parameters
-    -------------------
-    include_ztf : bool
+    logAge_min : float
+        Minimum log10(age) of generated isochrones
+
+    logAge_max : float
+        Maximum log10(age) of generated isochrones
+
+    logAge_delta : float
+        Resolution in log10(age) of generated isochrones
+
+    metallicity : float
+        The metallicity in [M/H]
+
+    include_ztf : bool, optional
         Determines if ztf filters should be included
         in the generated isochrones. Default is True.
+
     """
-    from popsycle.synthetic import all_filt_list
-#     from popstar import evolution, synthetic 
+    from popsycle.synthetic import all_filt_list 
     from spisea import evolution, synthetic
     my_filt_list = all_filt_list
     # Add ztf filters to generated isochrones
     if include_ztf:
         my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
 
+    # Enforce sensible values
+    logAge_min = max(5.01, logAge_min)
+    logAge_max = min(10.291, logAge_max)
+    logAge_delta = max(0.01, logAge_delta)
+
     # All possibles ages to two digit precision
-    log_age_arr = np.arange(5.01, 10.291, 0.01)
+    log_age_arr = np.arange(logAge_min, logAge_max, logAge_delta)
     print('Generating %i isochrones for '
           '%.2f < log_age < %.2f' % (len(log_age_arr),
                                      log_age_arr[0],
@@ -500,6 +536,7 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
     for i, log_age in enumerate(log_age_arr):
         print('Generating log_age = %.2f (%03d / %03d)' % (log_age, i+1, len(log_age_arr)))
         my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+                                         metallicity=metallicity,
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir)
@@ -508,12 +545,147 @@ def generate_all_isochrones(iso_dir, include_ztf=True):
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
         my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
-        if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
+        if set(my_filt_list_fmt) != set(my_iso_filters):
             _ = synthetic.IsochronePhot(log_age, 0, 10,
+                                        metallicity=metallicity,
                                         evo_model=evolution.MISTv1(),
                                         filters=my_filt_list,
                                         iso_dir=iso_dir,
                                         recomp=True)
        
             
+def remove_nan_companions(event_table_loc, comp_table_loc, event_output_loc = None, comp_output_loc = None, overwrite = False, rewrite_old_loc = None):
+    """
+    utility to remove companions that were not assigned a final mass
+    or other parameters. This functionality will be implemented in
+    perform_pop_syn, but this modifies those that were run with the
+    nan companions included.
     
+    If a SPISEA zams_mass of a companion is too small,
+    the isochrone interpolator may not be able to assign a mass
+    and other parameters so they'll be nan.
+    This is especially a problem for old (>~ 9 Gyr) and high
+    metallicity (Fe/H>0.4) objects.
+    
+    Parameters
+    ----------
+    event_table_loc : string
+        Location of a companion table to modify
+        
+    comp_table_loc : string
+        Location of a companion table to modify
+    
+    event_output_loc : string or None, optional
+        String of output location of companion table without nan companions
+        formated as '/path/to/file.fits'.
+        If none, gets saved in the input location with '_no_nan' suffix
+        Default is None.
+        
+    comp_output_loc : string or None, optional
+        String of output location of companion table without nan companions
+        formated as '/path/to/file.fits'.
+        If none, gets saved in the input location with '_no_nan' suffix
+        Default is None.
+    
+    overwrite : bool, optional
+        Whether file at output_loc should be overwritten.
+        Default is False.
+        
+    rewrite_old_loc : string or None, optional
+        String of output location of companion table without nan companions.
+        If None, does not get saved.
+        Default is None.
+    """
+    t0 = time.time()
+    now = datetime.datetime.now()
+    
+    event_table = Table.read(event_table_loc)
+    comp_table = Table.read(comp_table_loc).filled(np.nan)
+    original_comp_len = len(comp_table)
+    if rewrite_old_loc is not None:
+        rewrite_old_loc = comp_table.write(rewrite_old_loc)
+    
+    # Find companions with nan parameters
+    bad_idxs = np.where(np.isnan(comp_table['mass']) == True)[0].tolist()
+        
+    # Set primary to not have companion
+    if type(event_table['systemMass_L']) == MaskedColumn:
+        event_table['systemMass_L'] = event_table['systemMass_L'].filled(np.nan)
+    if type(event_table['systemMass_S']) == MaskedColumn:
+        event_table['systemMass_S'] = event_table['systemMass_S'].filled(np.nan)
+    for idx in bad_idxs:
+        prim_type = comp_table['prim_type'][idx]
+        system_idx = comp_table['system_idx'][idx]
+        event_rows = event_table['obj_id_{}'.format(prim_type)] == system_idx
+        # Decreases number of companions by 1 and if none are left, says system is no longer multiple
+        event_table['N_companions_{}'.format(prim_type)][event_rows] -= 1
+        companionless_event_rows = (event_table['N_companions_{}'.format(prim_type)] == 0) & (event_rows)
+        event_table['isMultiple_{}'.format(prim_type)][companionless_event_rows] = 0
+
+        # Fix system mass for those with dropped companions
+        # Luminosity doesn't need to be fixed since nan mag counted as 0 flux
+        # For those with no more companions, set systemMass to mass of primary
+        systemMass_new_mass = event_table['mass_{}'.format(prim_type)][companionless_event_rows]
+        event_table['systemMass_{}'.format(prim_type)][companionless_event_rows] = systemMass_new_mass 
+        # For those with remaining companions, recalculate systemMass
+        more_companions_event_rows = (event_table['N_companions_{}'.format(prim_type)] > 0) & (event_rows)
+        systemMass_new =  event_table['mass_{}'.format(prim_type)][more_companions_event_rows]
+        companions_mass = np.nan_to_num(comp_table['mass'][comp_table['system_idx'] == system_idx]) #treats nan masses as 0
+        systemMass_new += sum(companions_mass) # adds the same to all of them, since it'd be multiple events with the same system if there are multiple rows
+        event_table['systemMass_{}'.format(prim_type)][more_companions_event_rows] = systemMass_new
+
+        # Fix Period, alpha, and phi
+        # For those with remaining companions
+        remaining_companions_rows = (comp_table['system_idx'] == system_idx) & (np.isnan(comp_table['mass']) == False)
+        if sum(remaining_companions_rows) > 0:
+            comp_table['P'][remaining_companions_rows] = orbits.a_to_P(systemMass_new, 10**comp_table['log_a'][remaining_companions_rows])
+            event_table_df = event_table[more_companions_event_rows].to_pandas()
+            event_table_df = event_table_df.set_index(['obj_id_L', 'obj_id_S'])
+            comp_table_df = comp_table[remaining_companions_rows].to_pandas()
+            comp_table_df = comp_table_df.set_index(['obj_id_L', 'obj_id_S'])
+            joined_table = comp_table_df.join(event_table_df, lsuffix='_comp', rsuffix='_prim')
+            alphas, phi_pi_Es, phis = synthetic.calculate_binary_angles(joined_table)
+            comp_table['alpha'][remaining_companions_rows] = alphas
+            comp_table['phi'][remaining_companions_rows] = phis
+            
+    # Remove bad companions
+    comp_table.remove_rows(bad_idxs)
+
+    if event_output_loc is None:
+        event_output_loc = event_table_loc[0:-5] + '_no_nan.fits'
+        
+    if comp_output_loc is None:
+        comp_output_loc = comp_table_loc[0:-5] + '_no_nan.fits'
+    event_table.write(event_output_loc, overwrite=overwrite)
+    comp_table.write(comp_output_loc, overwrite=overwrite)
+    
+    t1 = time.time()
+    
+    # Make logfile
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'INPUT FILES' + '\n'
+    line1 = 'event table , ' + str(event_table_loc) + '\n'
+    line2 = 'companion table , ' + str(comp_table_loc) + '\n'
+    
+    line3 = 'COMPANION INFORMATION' + '\n'
+    line4 = '{} out of {} companions trimmed'.format(len(bad_idxs), original_comp_len)
+    
+    line5 = 'OUTPUT FILES' + '\n'
+    line6 = 'new events table, ' + str(event_output_loc) + '\n'
+    line6b = 'new companion table, ' + str(comp_output_loc) + '\n'
+    line7 = ''
+    if rewrite_old_loc is not None:
+        line7 = 'rewrote old companion table, ' + str(rewrite_old_loc) + '\n'
+
+    line8 = 'OTHER INFORMATION' + '\n'
+    line9 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line10 = str(now) + ': time started' + '\n'
+
+    with open(event_table_loc + '_remove_nan.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, dash_line, 
+                        line4, empty_line, line5, dash_line, line6, line6b, line7, 
+                        empty_line, line8, dash_line, line9, line10])
+    
+    return

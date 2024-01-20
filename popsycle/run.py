@@ -11,12 +11,15 @@ from argparse import RawTextHelpFormatter
 import yaml
 import sys
 import time
+import glob
 from popsycle import synthetic
 from popsycle import utils
 from popsycle.synthetic import _check_run_galaxia
 from popsycle.synthetic import _check_perform_pop_syn
 from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
+from popsycle.synthetic import _check_refine_binary_events
+from popsycle.synthetic import multiplicity_list
 
 
 def _return_filename_dict(output_root):
@@ -32,8 +35,8 @@ def _return_filename_dict(output_root):
            '{output_root}.ebf'
            '{output_root}_events.h5'
 
-    Output
-    ------
+    Returns
+    -------
     filename_dict : dict
         Dictionary containing the names of the files output by the pipeline
 
@@ -72,8 +75,8 @@ def _check_for_output(filename, overwrite=False):
         or to raise an error. If True, file is overwritten.
         If False, error is raised. Default False.
 
-    Output
-    ------
+    Returns
+    -------
     status : bool
         Status of operation.
         True: Error due to already existing file.
@@ -109,15 +112,9 @@ def generate_field_config_file(longitude, latitude, area,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    Optional Parameters
-    -------------------
-    config_filename : str
+    config_filename : str, optional
         Name of the configuration file
         Default: field_config.yaml
-
-    Output
-    ------
-    None
     """
 
     config = {'longitude': longitude,
@@ -127,10 +124,10 @@ def generate_field_config_file(longitude, latitude, area,
 
 
 def generate_slurm_config_file(path_python='python', account='ulens',
-                               queue='regular', resource='haswell',
-                               memory=128, n_cores_per_node=32, n_nodes_max=2388,
-                               memory_max=128,
-                               walltime_max='48:00:00',
+                               queue='regular', resource='cpu',
+                               memory=512, n_cores_per_node=64, n_nodes_max=3072,
+                               memory_max=512,
+                               walltime_max='24:00:00',
                                additional_lines=['module load cray-hdf5/1.10.5.2',
                                                  'export HDF5_USE_FILE_LOCKING=FALSE'],
                                config_filename='slurm_config.yaml'):
@@ -170,15 +167,10 @@ def generate_slurm_config_file(path_python='python', account='ulens',
     additional_lines : list of strings
         Additional lines to be run before executing run.py
 
-    Optional Parameters
-    -------------------
-    config_filename : str
+    config_filename : str, optional
         Name of the configuration file
         Default: slurm_config.yaml
 
-    Output
-    ------
-    None
     """
 
     config = {'path_python': path_python,
@@ -197,12 +189,15 @@ def generate_slurm_config_file(path_python='python', account='ulens',
 def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   n_obs=101, theta_frac=2, blend_rad=0.75,
                                   isochrones_dir='/Users/myself/popsycle_isochrones',
+                                  IFMR='Raithel18',
                                   galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
                                   NS_kick_speed_mean=400,
                                   photometric_system='ubv',
                                   filter_name='R', red_law='Damineli16',
+                                  multiplicity=None,
+                                  binning = True,
                                   config_filename='popsycle_config.yaml'):
     """
     Save popsycle configuration parameters from a dictionary into a yaml file
@@ -226,7 +221,14 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         Units are in ARCSECONDS.
 
     isochrones_dir : str
-        Directory for PyPopStar isochrones
+        Directory for SPISEA isochrones
+
+    IFMR : string
+        The name of the IFMR object from SPISEA. For more information on these objects see ifmr.py
+        in SPISEA.
+        'Raithel18' = IFMR_Raithel18
+        'Spera15' = IFMR_Spera15
+        'SukhboldN20' = IFMR_N20_Sukhbold
 
     galaxia_galaxy_model_filename : str
         Name of the galaxia galaxy model, as outlined at https://github.com/jluastro/galaxia
@@ -258,17 +260,21 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         in the global filt_dict parameter at the top of this module.
 
     red_law : str
-        The name of the reddening law to use from PopStar.
+        The name of the reddening law to use from SPISEA.
 
-    Optional Parameters
-    -------------------
-    config_filename : str
+    multiplicity: str
+        If a resovled multiplicity object is specified,
+        the table will be generated with resolved multiples.
+        Default is None.
+    
+    binning : bool
+        If set to True, bins files as specified by bin_edges_numbers or default.
+        If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
+        Default is True.
+    
+    config_filename : str, optional
         Name of the configuration file
         Default: popsycle_config.yaml
-
-    Output
-    ------
-    None
     """
 
     if bin_edges_number is None:
@@ -280,19 +286,27 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         raise Exception("'galaxia_galaxy_model_filename' must be set by the user. "
                         "The default value is only an example.")
 
+    if multiplicity is None:
+        multiplicity = 'None'
+    if multiplicity not in multiplicity_list:
+        raise Exception('multiplicity must be None or "ResolvedDK"')
+
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
               'n_obs': n_obs,
               'theta_frac': theta_frac,
               'blend_rad': blend_rad,
               'isochrones_dir': os.path.abspath(isochrones_dir),
+              'IFMR' : IFMR,
               'galaxia_galaxy_model_filename': os.path.abspath(galaxia_galaxy_model_filename),
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
               'photometric_system': photometric_system,
               'filter_name': filter_name,
-              'red_law': red_law}
+              'red_law': red_law,
+              'multiplicity': multiplicity,
+              'binning':binning}
     generate_config_file(config_filename, config)
 
 
@@ -308,10 +322,6 @@ def generate_config_file(config_filename, config):
     config : dict
         Dictionary containing the configuration parameters
 
-    Output
-    ------
-    None
-
     """
     with open(config_filename, 'w') as outfile:
         yaml.dump(config, outfile, default_flow_style=True)
@@ -326,8 +336,8 @@ def load_config_file(config_filename):
     config_filename : str
         Name of the configuration file
 
-    Output
-    ------
+    Returns
+    -------
     config : dict
         Dictionary containing the configuration parameters
 
@@ -421,12 +431,18 @@ def _check_slurm_config(slurm_config, walltime):
 def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           path_run, output_root,
                           longitude, latitude, area,
-                          n_cores_calc_events,
-                          walltime, jobname='default',
+                          walltime,
+                          n_cores_perform_pop_syn = 1,
+                          n_cores_calc_events = 1,
+                          n_cores_refine_binary_events = 1,
+                          multi_proc_refine_binary_events = True,
+                          jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
                           returnJobID=True, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
-                          skip_calc_events=False, skip_refine_events=False):
+                          skip_calc_events=False, skip_refine_events=False,
+                          skip_refine_binary_events=False,
+                          verbose = 0):
     """
     Generates (and possibly submits) the slurm script that
     executes the PopSyCLE pipeline
@@ -461,68 +477,91 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     area : float
         Area of the sky that will be generated, in square degrees
 
-    n_cores_calc_events : int
-        Number of cores for executing synthetic.calc_events
-
     walltime : str
         Amount of walltime that the script will request from slurm.
         Format: hh:mm:ss
 
-    Optional Parameters
-    -------------------
-    jobname : str
+    jobname : str, optional
         The name of the slurm job and run_popsycle execution file.
         If 'default', the format will be:
             <longitude>_<latitude>_<output_root>
 
-    seed : int
+    seed : int, optional
         If non-None, all random sampling will be seeded with the
-        specified seed, forcing identical output for PyPopStar and PopSyCLE.
+        specified seed, forcing identical output for SPISEA and PopSyCLE.
         Default None.
 
-    overwrite : bool
+    overwrite : bool, optional
         If True, overwrites output files. If False, exists the
         function if output files are already on disk.
         Default is False.
 
-    submitFlag : bool
+    submitFlag : bool, optional
         If True, script will be submitted to the slurm scheduler
         after being written to disk. If False, it will not be submitted.
         Default is True
 
-    returnJobID : bool
+    returnJobID : bool, optional
         If True and submitFlag is True,
         function will return the SLURM job id after script submission.
         If False or submitFlag is False,
         function will return None.
         Default is True
 
-    dependencyJobID : int
+    dependencyJobID : int, optional
         If non-None and submitFlag is True, submitted job will only run
         after dependencyJobID is completed with no errors.
         Default is None
 
-    skip_galaxia : bool
+    n_cores_perform_pop_syn : int, optional
+        Number of cores for executing synthetic.perform_pop_syn
+        Default is 1.
+        
+    n_cores_calc_events : int, optional
+        Number of cores for executing synthetic.calc_events
+        Default is 1.
+        
+    n_cores_refine_binary_events : int, optional
+        Number of cores for executing synthetic.refine_binary_events
+        Default is 1.
+
+    multi_proc_refine_binary_events : bool, optional
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to generate and analyze the lightcurves.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
+
+    skip_galaxia : bool, optional
         If True, pipeline will not run Galaxia and assume that the
         resulting ebf file is already present.
         Default is False
 
-    skip_perform_pop_syn : bool
+    skip_perform_pop_syn : bool, optional
         If True, pipeline will not run perform_pop_syn and assume that
         the resulting h5 file is already present.
         Default is False
 
-    skip_calc_events : bool
+    skip_calc_events : bool, optional
         If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
         Default is False
 
-    skip_refine_events : bool
+    skip_refine_events : bool, optional
         If True, pipeline will not run refine_events.
         Default is False
 
-    Output
-    ------
+    skip_refine_binary_events : bool, optional
+        If True, pipeline will not run refine_binary_events.
+        If specified multiplicity is None, will be True.
+        Default is False
+        
+    verbose : int, optional
+        Level of debugging information to print to stderr. Set to 0 for minimal
+        information. Coarse timing at 2 and fine timing at 4.
+        Default is 0.
+
+    Returns
+    -------
     <output_root>.h5 : hdf5 file
         NOTE: This is what _bin_lb_hdf5 returns.
         An hdf5 file with datasets that correspond to the longitude bin edges,
@@ -535,8 +574,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     <path_run>/run_popsycle_<jobname>.sh : yaml file
         SLURM batch script for submitting job with pipeline run
 
-    Returns
-    -------
     None or slurm_jobid : str
         If submitFlag is True and returnJobID is True,
         function returns the SLURM job ID after script submission.
@@ -559,8 +596,25 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     popsycle_config_filename = os.path.abspath(popsycle_config_filename)
     popsycle_config = load_config_file(popsycle_config_filename)
 
+    # Load multiplicity from popsycle_config
+    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
+    # Additional multiplicity classes may require a different method of instantiation
+    # that would require breaking this out into a separate function
+    if multiplicity is not None:
+        # These arguments ensure a maximum of triples
+        multiplicity = multiplicity(CSF_max=2, companion_max=True)
+        hdf5_file_comp = '%s_companions.h5' % output_root
+    else:
+        skip_refine_binary_events = True
+        hdf5_file_comp = None
+
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
+    
+    # Create n_cores dict
+    n_cores_popsycle = {'n_cores_perform_pop_syn' : n_cores_perform_pop_syn,
+                        'n_cores_calc_events' : n_cores_calc_events,
+                        'n_cores_refine_binary_events' : n_cores_refine_binary_events}
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
@@ -577,12 +631,17 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         _check_perform_pop_syn(ebf_file='test.ebf',
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
+                               IFMR=popsycle_config['IFMR'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=[popsycle_config['photometric_system']],
+                               n_proc=n_cores_perform_pop_syn,
+                               binning = popsycle_config['binning'],
+                               verbose = verbose,
                                overwrite=overwrite,
-                               seed=seed)
+                               seed=seed,
+                               multiplicity=multiplicity)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,
@@ -592,14 +651,35 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            theta_frac=popsycle_config['theta_frac'],
                            blend_rad=popsycle_config['blend_rad'],
                            n_proc=n_cores_calc_events,
-                           overwrite=overwrite)
+                           overwrite=overwrite,
+                           hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_events:
         _check_refine_events(input_root='test',
                              filter_name=popsycle_config['filter_name'],
                              photometric_system=popsycle_config['photometric_system'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
-                             output_file='default')
+                             legacy=False,
+                             output_file='default',
+                             hdf5_file_comp=hdf5_file_comp,
+                             seed=seed)
+    if not skip_refine_binary_events:
+        refined_events_filename = '{0:s}_refined_events_' \
+                              '{1:s}_{2:s}_{3:s}.' \
+                              'fits'.format(output_root,
+                                            popsycle_config['photometric_system'],
+                                            popsycle_config['filter_name'],
+                                            popsycle_config['red_law'])
+        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        phot_dir = '%s_bin_phot' % output_root
+        _check_refine_binary_events(events=refined_events_filename,
+                                    companions=refined_events_comp_filename,
+                                    photometric_system=popsycle_config['photometric_system'],
+                                    filter_name=popsycle_config['filter_name'],
+                                    n_proc=n_cores_refine_binary_events,
+                                    overwrite=overwrite,
+                                    output_file='default', save_phot=True,
+                                    phot_dir=phot_dir, multi_proc=multi_proc_refine_binary_events)
 
 
     # Make a run directory for the PopSyCLE output
@@ -617,7 +697,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Create a slurm jobname base that all stages will be appended to
     if jobname == 'default':
-        jobname = 'l%.1f_b%.1f_%s' % (longitude, latitude, output_root)
+        jobname = 'l%.3f_b%.3f_%s' % (longitude, latitude, output_root)
 
     ## Bring the slurm_config values into the namespace so that down before
     ## the **locals() command can be executed
@@ -642,11 +722,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     walltime_max = slurm_config[resource]['walltime_max']
     # Get filepath of the run_on_slurm file
     run_filepath = os.path.dirname(inspect.getfile(load_config_file))
-
-    if n_cores_calc_events > n_cores_per_node:
-        raise Exception('n_cores_calc_events (%s) '
+    
+    if max(n_cores_popsycle.values()) > n_cores_per_node:
+        raise Exception(max(n_cores_popsycle, key = n_cores_popsycle.get) + ' (%s) '
                         'must be less than or equal to '
-                        'n_cores_per_node (%s)' % (n_cores_calc_events,
+                        'n_cores_per_node (%s)' % (max(n_cores_popsycle.values()),
                                                    n_cores_per_node))
 
     if memory > memory_max:
@@ -697,7 +777,7 @@ cd {path_run}
     for line in slurm_config['additional_lines']:
         slurm_template += '%s\n' % line
     slurm_template += """
-srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} --n-cores-calc-events={n_cores_calc_events} {optional_cmds}
+srun -N 1 -n 1 {path_python} {run_filepath}/run.py --output-root={output_root} --field-config-filename={field_config_filename} --popsycle-config-filename={popsycle_config_filename} {optional_cmds}
 exitcode=$?
  
 date
@@ -708,6 +788,16 @@ exit $exitcode
     optional_cmds = ''
 
     # Pass along optional parameters if present
+    if not skip_perform_pop_syn:
+        optional_cmds += '--n-cores-perform-pop-syn={} '.format(n_cores_perform_pop_syn)
+    
+    if not skip_calc_events:
+        optional_cmds += '--n-cores-calc-events={} '.format(n_cores_calc_events)
+    
+    if not skip_refine_binary_events:
+        optional_cmds += '--n-cores-refine-binary-events={} '.format(n_cores_refine_binary_events)
+        optional_cmds += '--multi-proc-refine-binary-events={} '.format(multi_proc_refine_binary_events)
+
     if overwrite:
         optional_cmds += '--overwrite '
 
@@ -725,6 +815,9 @@ exit $exitcode
 
     if skip_refine_events:
         optional_cmds += '--skip-refine-events '
+
+    if skip_refine_binary_events:
+        optional_cmds += '--skip-refine-binary-events '
 
     # Populate the mpi_template specified inputs
     job_script = slurm_template.format(**locals())
@@ -772,16 +865,88 @@ exit $exitcode
             return slurm_jobid
 
 
+def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'txt', 'yaml'],
+                    include_bin_phot=True,
+                    output_prefix=None):
+    """
+    Creates a tarball of all results from executing run.py. This script
+    assumes that all instances of `generat_slurm_script` were run with
+    `path_run` set to subfolders to a common folder, and that this
+    script is being run in that common folder. Failure to do so
+    will create some funky tarball with files you don't want in it.
+
+    Parameters
+    ----------
+    extension_list : list
+        List of extensions to include in tarball.
+        Defaults to all possible extensions.
+
+    include_bin_phot : bool
+        If True and running with multiplicity, include lightcurves
+        generated by `refine_binary_events`. Default True.
+
+    output_prefix : str
+        If not None, add `output_prefix` before name of tarball:
+            {output_prefix}_runs.tar
+
+    Returns
+    -------
+    <output_prefix>_runs.tar : tarball file
+    """
+    extensions = ' '.join(extension_list)
+    print(f'Executing "tar_run_results" in CURRENT directory '
+          f'for extensions: {extensions}')
+    folders = glob.glob('*')
+    folders.sort()
+    print('-- %i folders gathered' % len(folders))
+
+    fis = []
+    for folder in folders:
+        for ext in extension_list:
+            fis += glob.glob(f'{folder}/*{ext}')
+        if include_bin_phot:
+            fis += glob.glob(f'{folder}/*bin_phot*/*')
+
+
+    tar_files_fname = 'tar_files.txt'
+    with open(tar_files_fname, 'w') as f:
+        for fi in fis:
+            f.write('%s\n' % fi)
+
+    print('-- %i files gathered' % len(fis))
+
+    if output_prefix is not None:
+        output_fname = f'{output_prefix}_runs.tar'
+    else:
+        output_fname = 'runs.tar'
+
+    cmd = f'tar -cvf {output_fname} -T {tar_files_fname}'
+    print('-- executing tarball creation')
+    stdout, stderr = utils.execute(cmd)
+    print('-- STDOUT --')
+    print(stdout)
+    print('-- STDERR --')
+    print(stderr)
+
+
+    os.remove(tar_files_fname)
+
+
 def run(output_root='root0',
         field_config_filename='field_config.yaml',
         popsycle_config_filename='popsycle_config.yaml',
+        n_cores_perform_pop_syn=1,
         n_cores_calc_events=1,
+        n_cores_refine_binary_events=1,
+        multi_proc_refine_binary_events=True,
+        verbose=0,
         seed=None,
         overwrite=False,
         skip_galaxia=False,
         skip_perform_pop_syn=False,
         skip_calc_events=False,
-        skip_refine_events=False):
+        skip_refine_events=False,
+        skip_refine_binary_events=False):
 
     t0 = time.time()
 
@@ -825,6 +990,17 @@ def run(output_root='root0',
     if popsycle_config['photometric_system'] != 'ubv':
         additional_photometric_systems = [popsycle_config['photometric_system']]
 
+    # Load multiplicity from popsycle_config
+    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
+    # Additional multiplicity classes may require a different method of instantiation
+    # that would require breaking this out into a separate function
+    if multiplicity is not None:
+        # These arguments ensure a maximum of triples
+        multiplicity = multiplicity(CSF_max=2, companion_max=True)
+        hdf5_file_comp = '%s_companions.h5' % output_root
+    else:
+        hdf5_file_comp = None
+
     # Check pipeline stages for valid inputs
     if not skip_galaxia:
         _check_run_galaxia(output_root=output_root,
@@ -837,12 +1013,17 @@ def run(output_root='root0',
         _check_perform_pop_syn(ebf_file=filename_dict['ebf_filename'],
                                output_root=output_root,
                                iso_dir=popsycle_config['isochrones_dir'],
+                               IFMR=popsycle_config['IFMR'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
                                additional_photometric_systems=additional_photometric_systems,
+                               verbose=verbose,
+                               n_proc=n_cores_perform_pop_syn,
+                               binning=popsycle_config['binning'],
                                overwrite=overwrite,
-                               seed=seed)
+                               seed=seed,
+                               multiplicity=multiplicity)
     if not skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
                            output_root2=output_root,
@@ -852,14 +1033,35 @@ def run(output_root='root0',
                            theta_frac=popsycle_config['theta_frac'],
                            blend_rad=popsycle_config['blend_rad'],
                            n_proc=n_cores_calc_events,
-                           overwrite=overwrite)
+                           overwrite=overwrite,
+                           hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_events:
         _check_refine_events(input_root=output_root,
                              filter_name=popsycle_config['filter_name'],
                              photometric_system=popsycle_config['photometric_system'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
-                             output_file='default')
+                             legacy=False,
+                             output_file='default',
+                             hdf5_file_comp=hdf5_file_comp,
+                             seed=seed)
+    if not skip_refine_binary_events:
+        refined_events_filename = '{0:s}_refined_events_' \
+                              '{1:s}_{2:s}_{3:s}.' \
+                              'fits'.format(output_root,
+                                            popsycle_config['photometric_system'],
+                                            popsycle_config['filter_name'],
+                                            popsycle_config['red_law'])
+        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        phot_dir = '%s_bin_phot' % output_root
+        _check_refine_binary_events(events=refined_events_filename,
+                                    companions=refined_events_comp_filename,
+                                    photometric_system=popsycle_config['photometric_system'],
+                                    filter_name=popsycle_config['filter_name'],
+                                    n_proc=n_cores_refine_binary_events,
+                                    overwrite=overwrite,
+                                    output_file='default', save_phot=True,
+                                    phot_dir=phot_dir, multi_proc=multi_proc_refine_binary_events)
 
     if not skip_galaxia:
         # Remove Galaxia output if already exists and overwrite=True
@@ -892,12 +1094,15 @@ def run(output_root='root0',
             ebf_file=filename_dict['ebf_filename'],
             output_root=output_root,
             iso_dir=popsycle_config['isochrones_dir'],
+            IFMR=popsycle_config['IFMR'],
             bin_edges_number=popsycle_config['bin_edges_number'],
             BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
             additional_photometric_systems=additional_photometric_systems,
+            n_proc=n_cores_perform_pop_syn,
             overwrite=overwrite,
-            seed=seed)
+            seed=seed,
+            multiplicity=multiplicity)
 
     if not skip_calc_events:
         # Remove calc_events output if already exists and overwrite=True
@@ -922,7 +1127,8 @@ def run(output_root='root0',
                               theta_frac=popsycle_config['theta_frac'],
                               blend_rad=popsycle_config['blend_rad'],
                               n_proc=n_cores_calc_events,
-                              overwrite=overwrite)
+                              overwrite=overwrite,
+                              hdf5_file_comp=hdf5_file_comp)
 
         # Write a fle to disk stating that there are no events if
         # calc_events does not produce an events file
@@ -933,13 +1139,15 @@ def run(output_root='root0',
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(0)
 
+    refined_events_filename = '{0:s}_refined_events_' \
+                              '{1:s}_{2:s}_{3:s}.' \
+                              'fits'.format(output_root,
+                                            popsycle_config['photometric_system'],
+                                            popsycle_config['filter_name'],
+                                            popsycle_config['red_law'])
     if not skip_refine_events:
         # Remove refine_events output if already exists and overwrite=True
-        filename = '{0:s}_refined_events_{1:s}_{2:s}.' \
-                   'fits'.format(output_root,
-                                 popsycle_config['filter_name'],
-                                 popsycle_config['red_law'])
-        if _check_for_output(filename, overwrite):
+        if _check_for_output(refined_events_filename, overwrite):
             t1 = time.time()
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
@@ -951,7 +1159,30 @@ def run(output_root='root0',
                                 photometric_system=popsycle_config['photometric_system'],
                                 red_law=popsycle_config['red_law'],
                                 overwrite=overwrite,
-                                output_file='default')
+                                output_file='default',
+                                hdf5_file_comp=hdf5_file_comp,
+                                seed=seed)
+
+    if multiplicity is not None and not skip_refine_binary_events:
+        if not os.path.exists(refined_events_filename):
+            print('Refined events %s missing and therefore '
+                  'cannot run refine_binary_events. Skipping...'
+                  % refined_events_filename)
+            t1 = time.time()
+            print('run.py runtime : {0:f} s'.format(t1 - t0))
+            sys.exit(1)
+
+        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        phot_dir = '%s_bin_phot' % output_root
+        synthetic.refine_binary_events(events=refined_events_filename,
+                                       companions=refined_events_comp_filename,
+                                       photometric_system=popsycle_config['photometric_system'],
+                                       filter_name=popsycle_config['filter_name'],
+                                       n_proc=n_cores_refine_binary_events,
+                                       overwrite=overwrite,
+                                       output_file='default', save_phot=True,
+                                       phot_dir=phot_dir,
+                                       multi_proc=multi_proc_refine_binary_events)
 
     t1 = time.time()
     print('run.py runtime : {0:f} s'.format(t1 - t0))
@@ -985,18 +1216,31 @@ def main():
                                'the PopSyCLE parameters. '
                                'Default: popsycle_config.yaml',
                           default='popsycle_config.yaml')
-    required.add_argument('--n-cores-calc-events', type=int,
-                          help='Number of cores to use in the calc_events '
-                               'function (the only piece of the '
-                               'PopSyCLE pipeline that uses multiprocessing). '
-                               'Default is --n-cores=1 or serial processing.',
-                          default=1)
 
     optional = parser.add_argument_group(title='Optional')
+    optional.add_argument('--n-cores-perform-pop-syn', type=int,
+                          help='Number of cores to use in the perform_pop_syn '
+                               'function.'
+                               'Default is --n-cores=1 or serial processing.',
+                          default=1)
+    optional.add_argument('--n-cores-calc-events', type=int,
+                          help='Number of cores to use in the calc_events '
+                               'function. '
+                               'Default is --n-cores=1 or serial processing.',
+                          default=1)
+    optional.add_argument('--n-cores-refine-binary-events', type=int,
+                          help='Number of cores to use in the refine_binary_events '
+                               'function. '
+                               'Default is --n-cores=1 or serial processing.',
+                          default=1)
+    optional.add_argument('--multi-proc-refine-binary-events', type=bool,
+                          help='Controls multi processing for refine bianry events '
+                          'even if n-cores=1',
+                          default=True)
     optional.add_argument('--seed', type=int,
                           help='Set a seed for all PopSyCLE functions with '
                                'randomness, which are running Galaxia and '
-                               'PyPopStar. Setting this flag guarantees '
+                               'SPISEA. Setting this flag guarantees '
                                'identical output and is useful for debugging.',
                           default=None)
     optional.add_argument('--overwrite',
@@ -1014,18 +1258,25 @@ def main():
     optional.add_argument('--skip-refine-events',
                           help="Skip running refine_events.",
                           action='store_true')
+    optional.add_argument('--skip-refine-binary-events',
+                          help="Skip running refine_binary_events.",
+                          action='store_true')
     args = parser.parse_args()
 
     run(output_root=args.output_root,
         field_config_filename=args.field_config_filename,
         popsycle_config_filename=args.popsycle_config_filename,
+        n_cores_perform_pop_syn=args.n_cores_perform_pop_syn,
         n_cores_calc_events=args.n_cores_calc_events,
+        n_cores_refine_binary_events=args.n_cores_refine_binary_events,
+        multi_proc_refine_binary_events=args.multi_proc_refine_binary_events,
         seed=args.seed,
         overwrite=args.overwrite,
         skip_galaxia=args.skip_galaxia,
         skip_perform_pop_syn=args.skip_perform_pop_syn,
         skip_calc_events=args.skip_calc_events,
-        skip_refine_events=args.skip_refine_events)
+        skip_refine_events=args.skip_refine_events,
+        skip_refine_binary_events=args.skip_refine_binary_events)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,12 @@
+numpy~=1.24.3
+matplotlib~=3.7.1
+pytest~=7.2.0
+astropy~=5.3
+h5py~=3.8.0
+scipy~=1.10.1
+# Removing yaml on 2024-01-19 to make RTD work. What about NERSC?
+#yaml~=0.2.5
+pyyaml~=6.0
+pandas~=1.5.2
+numpydoc~=1.5
+sphinx_rtd_theme

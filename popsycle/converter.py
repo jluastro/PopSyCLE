@@ -6,7 +6,7 @@ Functions for converting PopSyCLE data formats.
 
 import h5py
 import numpy as np
-from popsycle.synthetic import _generate_comp_dtype
+from popsycle.synthetic import _generate_compound_dtype
 
 def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
     """
@@ -17,8 +17,8 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
     hdf5_file : str
         Name of the HDF5 file with the array datatype.
 
-    Output
-    ------
+    Returns
+    -------
     <hdf5_file>.compound_dtype.fits
         Name of the resulting HDF5 file with the compound datatype.
 
@@ -41,7 +41,7 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
         reverse_col_idx[val] = key
 
     # Build a compound datatype that assigns a variable type for each key
-    comp_dtype = _generate_comp_dtype(col_idx)
+    compound_dtype = _generate_compound_dtype(col_idx)
 
     # Load in the old file and prepare to write to the new file
     hdf5_file_new = hdf5_file.replace('.h5', '.compound_dtype.h5')
@@ -58,7 +58,7 @@ def convert_h5_array_dtype_to_compound_dtype(hdf5_file):
         # Load in the data
         data_in = f_in[key][:]
         # Prepare an empty data_out array with the compound datatype
-        data_out = np.empty(data_in.shape[1], dtype=comp_dtype)
+        data_out = np.empty(data_in.shape[1], dtype=compound_dtype)
         # Load up the data_out array with the columns
         # given the names in the reverse_col_idx
         for i in range(data_in.shape[0]):

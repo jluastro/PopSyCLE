@@ -127,7 +127,7 @@ def generate_slurm_config_file(path_python='python', account='ulens',
                                queue='regular', resource='cpu',
                                memory=512, n_cores_per_node=64, n_nodes_max=3072,
                                memory_max=512,
-                               walltime_max='12:00:00',
+                               walltime_max='24:00:00',
                                additional_lines=['module load cray-hdf5/1.10.5.2',
                                                  'export HDF5_USE_FILE_LOCKING=FALSE'],
                                config_filename='slurm_config.yaml'):

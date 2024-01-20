@@ -438,7 +438,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           multi_proc_refine_binary_events = True,
                           jobname='default',
                           seed=None, overwrite=False, submitFlag=True,
-                          returnJobID=False, dependencyJobID=None,
+                          returnJobID=True, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
                           skip_calc_events=False, skip_refine_events=False,
                           skip_refine_binary_events=False,
@@ -506,7 +506,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         function will return the SLURM job id after script submission.
         If False or submitFlag is False,
         function will return None.
-        Default is False
+        Default is True
 
     dependencyJobID : int, optional
         If non-None and submitFlag is True, submitted job will only run
@@ -856,12 +856,13 @@ exit $exitcode
         print('')
         os.chdir(cwd)
 
-        try:
-            slurm_jobid = int(stdout.replace('\n','').split('job')[1])
-        except Exception as e:
-            slurm_jobid = None
+        if returnJobID:
+            try:
+                slurm_jobid = int(stdout.replace('\n','').split('job')[1])
+            except Exception as e:
+                slurm_jobid = None
 
-    return slurm_jobid
+            return slurm_jobid
 
 
 def tar_run_results(extension_list=['ebf', 'fits', 'h5', 'log', 'out', 'sh', 'txt', 'yaml'],

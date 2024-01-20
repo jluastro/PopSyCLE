@@ -4610,17 +4610,37 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     else:
         flux_S = np.nan_to_num(flux_S)
 
+    ##########
     # Find the blends.
+    ##########
+    # LS_pairs are the (unique) array of lens/source pairs that correspond
+    #     to a single microlensing event.
+    # blend_pairs is a list of all lens/source pairs associated with a 
+    #     neighbor. A lens/source pair is listed multiple times, listed N
+    #     times if there are N neighbors.
     LS_pairs = np.stack((event_tab['obj_id_L'].data, event_tab['obj_id_S'].data),
                         axis=-1)
     blend_pairs = np.stack((blend_tab['obj_id_L'].data, blend_tab['obj_id_S'].data),
                            axis=-1)
 
+    # flux_N will store the total neighbor flux associated with an event
+    #     lens/source pair.
+    # cent_glon_N and cent_glat_N will store the centroid.
     flux_N = np.zeros(len(app_L))
     event_tab['cent_glon_' + filter_name + '_N'] = np.zeros(len(app_L))
     event_tab['cent_glat_' + filter_name + '_N'] = np.zeros(len(app_L))
 
     # Get the unique blend_pairs and the first instance of each.
+    # The blend pairs are listed sequentially. That is, if you have three
+    #     events E1, E2, E3 which have 3, 5, and 2 neighbors respectively,
+    #     they will be listed in the table as 
+    #         N1_1, N1_2, N1_3, N2_1, N2_2, N2_3, N2_4, N2_5, N3_1, N3_2
+    #     and the corresponding unique indices uni_bidx will be
+    #         0, 3, 8.
+    #     We then append the length of the blend_pairs table (in this case 10)
+    #     to uni_bidx to get uni_bidxx. That way, you can get all the indices
+    #     of a particular event by indexing from
+    #     uni_bidxx[idx][0] to uni_bidxx[idx+1][0].
     if len(blend_pairs) > 0:
         uni_blends, uni_bidx = np.unique(blend_pairs, return_index=True,
                                          axis=0)
@@ -4635,7 +4655,6 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # FIXME: Put in a check that uni_bidx is monotonically increasing???
     # np.sort(uni_bidx) - uni_bidx == np.zeros(len(uni_bidx)) ???
 
-    # FIXME: This seems more complicated than necessary...
     for pp in range(len(LS_pairs)):
         # Search for where the blend pairs have the nth unique LS value
         idx = np.where(uni_blends == LS_pairs[pp])[0]

@@ -1,5 +1,5 @@
-popsycle package
-================
+Package and Function Info
+=========================
 
 Subpackages
 -----------

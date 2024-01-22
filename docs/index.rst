@@ -10,6 +10,8 @@ Welcome to PopSyCLE's documentation!
     :alt: Powered by Astropy Badge
 
 **Pop**\ulation **Sy**\nthesis for **C**\ompact-object **L**\ensing **E**\vents
+is a code to simulate a model of the Milky Way including compact objects and multiple systems and perform a mock microlensing survey. 
+You can use it to put black hole candidates into context and to understand the effect of Galactic properties on photometric and astrometric microlensing simulation distributions among lots of other applications.
 
 .. toctree::
    :maxdepth: 2
@@ -52,7 +54,8 @@ Running the PopSyCLE Pipeline
 -----------------------------
 
 An example of running the PopSyCLE pipline from the command line be found
-`in our example notebook <docs/PopSyCLE_example_run.ipynb>`_.
+in our example notebook for `single stars <docs/PopSyCLE_example.ipynb>`_ or 
+`with multiples <docs/PopSyCLE_example_multiplicity.ipynb>`_.
 
 Running the PopSyCLE Pipeline on a Slurm Scheduler
 --------------------------------------------------

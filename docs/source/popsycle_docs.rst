@@ -1,4 +1,4 @@
-popsycle_docs
+Documentation
 =============
 
 .. contents:: Table of Contents

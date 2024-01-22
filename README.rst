@@ -6,6 +6,8 @@ PopSyCLE
     :alt: Powered by Astropy Badge
 
 **Pop**\ulation **Sy**\nthesis for **C**\ompact-object **L**\ensing **E**\vents
+is a code to simulate a model of the Milky Way including compact objects and multiple systems and perform a mock microlensing survey.                                               
+You can use it to put black hole candidates into context and to understand the effect of Galactic properties on photometric and astrometric microlensing simulation distributions among lots of other applications.
 
 Full PopSyCLE documentation can be found `here <https://popsycle.readthedocs.io/en/latest/>`_.
 

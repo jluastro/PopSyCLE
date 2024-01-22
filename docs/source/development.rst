@@ -48,4 +48,4 @@ of the proposed code changes, even to files not included in the pull request. If
 reviewers should `start a review <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/reviewing-proposed-changes-in-a-pull-request#starting-a-review>`_ including commenting on specific lines of code that have issues. Work
 with the author of the changes to get the code to a stable and useful state. Then `approve any reviews <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews>`_
 and `merge the pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/merging-a-pull-request>`_. Pull requests should be merged with the create a merge commit option
-and the feature branch should remain undeleted.
+and the feature branch should be tagged and archived.

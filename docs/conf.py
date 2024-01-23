@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath('../../popsycle/'))
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('../SPISEA/spisea/'))
 sys.path.insert(0, os.path.abspath('../SPISEA/'))
-os.environ["PYSYN_CDBS"] = "cbds"
+os.environ["PYSYN_CDBS"] = "../cbds"
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information

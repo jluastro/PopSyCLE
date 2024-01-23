@@ -23,9 +23,6 @@ build:
       - tar -xf hlsp_reference-atlases_hst_multi_kurucz-1993-atlas_multi_v2_synphot4.tar 
       - mv grp/redcat/trds/grid cbds/grid
       - ls
-#      - mkdir cbds
-#      - echo "export PYSYN_CDBS=cdbs/" >> ~/.bash_profile
-#      - . ~/.bash_profile
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:

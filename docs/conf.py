@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath('../../popsycle/'))
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('../SPISEA/spisea/'))
 sys.path.insert(0, os.path.abspath('../SPISEA/'))
+sys.path.insert(0, os.path.abspath('../BAGLE_Microlensing/src/'))
 os.environ["PYSYN_CDBS"] = "../cbds"
 
 # -- Project information -----------------------------------------------------

@@ -12,4 +12,6 @@ numpydoc~=1.5
 sphinx_rtd_theme
 pysynphot
 scikit-learn
+# The following are needed for BAGLE
 celerite
+ephem

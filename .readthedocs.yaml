@@ -21,7 +21,7 @@ build:
       - cd cbds
       - wget https://archive.stsci.edu/hlsps/reference-atlases/hlsp_reference-atlases_hst_multi_kurucz-1993-atlas_multi_v2_synphot4.tar
       - tar -xf hlsp_reference-atlases_hst_multi_kurucz-1993-atlas_multi_v2_synphot4.tar 
-      - mv grp/redcat/trds/grid grid
+      - mv grp/redcat/trds/grid cbds/grid
       - ls
 #      - mkdir cbds
 #      - echo "export PYSYN_CDBS=cdbs/" >> ~/.bash_profile

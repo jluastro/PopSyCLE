@@ -17,6 +17,11 @@ build:
   jobs:
     post_checkout:
       - git clone https://github.com/astropy/SPISEA.git
+      - mkdir cbds
+      - cd cbds
+      - wget https://archive.stsci.edu/hlsps/reference-atlases/hlsp_reference-atlases_hst_multi_kurucz-1993-atlas_multi_v2_synphot4.tar
+      - tar -xf hlsp_reference-atlases_hst_multi_kurucz-1993-atlas_multi_v2_synphot4.tar 
+      - mv grp/redcat/trds/grid grid
       - ls
 #      - mkdir cbds
 #      - echo "export PYSYN_CDBS=cdbs/" >> ~/.bash_profile

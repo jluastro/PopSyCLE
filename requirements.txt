@@ -10,3 +10,4 @@ pyyaml~=6.0
 pandas~=1.5.2
 numpydoc~=1.5
 sphinx_rtd_theme
+pysynphot

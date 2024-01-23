@@ -12,6 +12,7 @@ to the repository.
 Your first step will be to get added to the repository as a collaborator. Email jlu.astro@berkeley.edu
 with the subject line Requesting PopSyCLE Repository Access and include the following information
 in your request:
+
     #. Name
     #. GitHub Username
     #. Academic Affiliation
@@ -34,9 +35,11 @@ on GitHub asking to merge your feature branch back into the master branch. Your 
 be examined by one of our approved reviewers and you may be asked to comment on a `pull request
 review <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/reviewing-proposed-changes-in-a-pull-request#about-reviewing-pull-requests>`_. Once the reviewers have determined that your feature is complete without issues, your pull
 request will be approved and your branch will be merged into master. Approved reviewers are:
+
     #. Jessica Lu : `jluastro <https://github.com/jluastro>`_
     #. Casey Lam : `caseylam <https://github.com/caseylam>`_
     #. Natasha Abrams : `nsabrams <https://github.com/nsabrams>`_
+
 You are encouraged to `add these GitHub accounts as reviewers onto your pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/requesting-a-pull-request-review>`_.
 
 4 Reviewing a Pull Request

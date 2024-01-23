@@ -48,21 +48,21 @@ Running PopSyCLE
 ----------------
 
 An example of implementing PopSyCLE can be found
-`in our example notebook <docs/PopSyCLE_example.ipynb>`_.
+`single stars <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example.ipynb>`_ or 
+`with multiples <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_multiples.ipynb>`_.
 
 Running the PopSyCLE Pipeline
 -----------------------------
 
 An example of running the PopSyCLE pipline from the command line be found
-in our example notebook for `single stars <docs/PopSyCLE_example.ipynb>`_ or 
-`with multiples <docs/PopSyCLE_example_multiplicity.ipynb>`_.
+`in our example notebook <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_run.ipynb>`__.
 
 Running the PopSyCLE Pipeline on a Slurm Scheduler
 --------------------------------------------------
 
 An example of running the PopSyCLE pipline on a compute cluster with a
 slurm scheduler can be found
-`in our example notebook <docs/PopSyCLE_example_slurm.ipynb>`_.
+`in our example notebook <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_slurm.ipynb>`__.
 
 License
 -------

@@ -464,9 +464,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     output_root : str
         Base filename of the output files
         Examples:
-           '{output_root}.h5'
-           '{output_root}.ebf'
-           '{output_root}_events.h5'
+    
+           * '{output_root}.h5'
+           * '{output_root}.ebf'
+           * '{output_root}_events.h5'
 
     longitude : float
         Galactic longitude, ranging from -180 degrees to 180 degrees
@@ -484,7 +485,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     jobname : str, optional
         The name of the slurm job and run_popsycle execution file.
         If 'default', the format will be:
-            <longitude>_<latitude>_<output_root>
+        <longitude>_<latitude>_<output_root>
 
     seed : int, optional
         If non-None, all random sampling will be seeded with the

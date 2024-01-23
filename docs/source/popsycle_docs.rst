@@ -25,6 +25,7 @@ Documentation
             #. In your home directory, make a directory called GalaxiaData (i.e. ``mkdir GalaxiaData``).
             #. Move to the galaxia-0.7.2 directory (i.e. ``cd galaxia-0.7.2``), and in there, do the following 
                (replacing ``/your/home/directory/`` with your home directory as appropriate):
+
                 .. code-block:: bash
 
                     ./configure --datadir=/your/home/directory/GalaxiaData/
@@ -44,6 +45,7 @@ Documentation
         If you want to do a local install, you need to have a folder for the software to be installed in.
         For example, in my home directory I made a `sw` directory (/your/home/directory/sw) for Galaxia to be installed in.
         You can then run the following instead:
+
             .. code-block:: bash
                 
                 ./configure --prefix=/your/home/directory/sw --datadir=/your/home/directory/GalaxiaData/
@@ -68,10 +70,12 @@ Documentation
         Suppose you want to change the pattern speed in Galaxia.
         To do this, follow the installation instructions up to and including step 4.
         Then do the following:
+
             #. Move to the galaxia-0.7.2/src directory.
             #. Open the Population.h file with your favorite text editor.
             #. Find the pattern speed (in this case by searching for 71.62) and replace with your desired value (in this case 40.00).
             #. Save the change.
+
         Now return to step 5 in the installation instruction and proceed as instructed.
 
 1.2 Installing SPISEA

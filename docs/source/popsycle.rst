@@ -1,16 +1,6 @@
 Package and Function Info
 =========================
 
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-
-Submodules
-----------
-
 popsycle.binary\_utils module
 -----------------------------
 

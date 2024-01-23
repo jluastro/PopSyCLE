@@ -76,7 +76,7 @@ def sample_spherical(npoints, speed, ndim=3):
     I found this code on stackexchange.
 
     Parameters
-    ---------
+    ----------
     npoints : float
         The number of points you want to generate.
 
@@ -235,7 +235,7 @@ def combine_refined_events(refined_events_filenames, overwrite=False,
         The name of the final refined_events file.
         If set to 'default', the format will be generated from the first
         filename in refined_events_filenames following:
-            combined_refined_events_<photometric_system>_<filt>_<red_law>.fits
+        combined_refined_events_<photometric_system>_<filt>_<red_law>.fits
     """
     # Check to see that all refined_events tables are unique
     if len(refined_events_filenames) != len(set(refined_events_filenames)):
@@ -374,8 +374,8 @@ def get_t_from_u(u0, t0, tE, u):
     u : float or array
         Separation of lens and source (normalized to Einstein radius)
 
-    Return
-    ------
+    Returns
+    -------
     t : float or array
         Time corresponding to the separation u
     """

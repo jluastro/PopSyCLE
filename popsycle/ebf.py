@@ -2697,6 +2697,12 @@ def iterate(filename,tagname,cache):
 
 
 class EbfFile():
+    """
+    Methods
+    -------
+    read_ind:
+        Read indicies.
+    """
     def __init__(self, filename,path,mode,dataunit='',cache=100):
         self.filename=filename
         self.path=path
@@ -2806,11 +2812,11 @@ class EbfFile():
         This method is ~50% faster than looping over each index and running:
         data[i] = self.read(ind[i])
         
-	Parameters
-	----------
-	ind : str
+    	Parameters
+    	----------
+    	ind : str
             List or array of indices to be read.
-	"""
+    	"""
         if numpy.max(ind) < self.elements:
             # Find the ascending order of indices
             ind1 = numpy.argsort(ind)

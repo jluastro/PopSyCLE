@@ -14,10 +14,10 @@ class Orbit(object):
     
     Methods
     -------
-    kep2xyz :
+    kep2xyz:
 	Generates (r, v, a) in AU, AU/yr, and AU/yr^2 respectively from keplarian parameters.
     
-    eccen_anomaly :
+    eccen_anomaly:
         Calculates the eccentricity anomaly.
     """
     def kep2xyz(self, epochs):
@@ -34,13 +34,13 @@ class Orbit(object):
         An example call is:
 
         >>> orb = orbits.Orbit()
-        orb.w = omega # [degrees]
-        orb.o = bigOm # [degrees]
-        orb.i = incl # [degrees]
-        orb.e = e_mag # float between 0 and 1
-        orb.p = p # [years]
-        orb.t0 = t0 # [years] This is initial
-        orb.mass = mass # [Msun]
+        >>> orb.w = omega # [degrees]
+        >>> orb.o = bigOm # [degrees]
+        >>> orb.i = incl # [degrees]
+        >>> orb.e = e_mag # float between 0 and 1
+        >>> orb.p = p # [years]
+        >>> orb.t0 = t0 # [years] This is initial
+        >>> orb.mass = mass # [Msun]
 
         (r, v, a) = orb.kep2xyz(array([refTime]))
         

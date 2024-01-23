@@ -18,9 +18,9 @@ build:
     post_checkout:
       - git clone https://github.com/astropy/SPISEA.git
       - ls
-      - mkdir cbds
-      - echo "export PYSYN_CDBS=cdbs/" >> ~/.bash_profile
-      - . ~/.bash_profile
+#      - mkdir cbds
+#      - echo "export PYSYN_CDBS=cdbs/" >> ~/.bash_profile
+#      - . ~/.bash_profile
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:

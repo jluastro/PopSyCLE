@@ -11,5 +11,5 @@ built on open source, and we'd love to have you hang out in our community.
 | [<img src="https://avatars2.githubusercontent.com/u/58865295?s=460&v=4" width="48px;" alt="Sam Rose"/><br /><sub><b>Sam Rose</b></sub>](https://github.com/samrose30)<br /> | [<img src="https://www.nsabrams.com/images/Natasha.jpeg" width="48px;" alt="Natasha Abrams"/><br /><sub><b>Natasha Abrams</b></sub>](https://www.nsabrams.com/)<br /> 
 | [<img src="https://avatars1.githubusercontent.com/u/27032156?s=460&v=4" width="48px;" alt="Kerianne Pruett"/><br /><sub><b>Kerianne Pruett</b></sub>](https://github.com/Kerianne28)<br /> 
 | [<img src="https://people.llnl.gov/sites/default/files/styles/medium/public/img/dawson29.png?itok=4raoUpPa" width="48px;" alt="Will Dawson"/><br /><sub><b>Will Dawson</b></sub>](http://www.dawsonresearch.com/)<br /> |
-| :---: | :---: | :---: | :---: | :---: | :---: |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 <!-- ALL-CONTRIBUTORS-LIST:END -->

@@ -73,6 +73,8 @@ def subtract_magnitudes(m1, m2):
     
     return m_diff
 
+def primary_mag_from_system_mag(system_mag, companion_mag):
+    return subtract_magnitudes(system_mag, companion_mag)
 
 def event_table_companion_idxs_to_lists(events):
     """
@@ -296,8 +298,7 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
 
 
 
-#def primary_mag_from_system_mag(system_mag, companion_mag):
-#    return subtract_magnitudes(system_mag, companion_mag)
+
 
 #def primary_mag_from_system_mag_hdf5(prim_hdf5, comp_hdf5, mag_colnames):
 #    grouped_companions = companions_table.group_by(['system_idx'])

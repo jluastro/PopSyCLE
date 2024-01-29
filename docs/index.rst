@@ -11,7 +11,7 @@ Welcome to PopSyCLE's documentation!
 
 **Pop**\ulation **Sy**\nthesis for **C**\ompact-object **L**\ensing **E**\vents
 is a code to simulate a model of the Milky Way including compact objects and multiple systems and perform a mock microlensing survey. 
-You can use it to put black hole candidates into context and to understand the effect of Galactic properties on photometric and astrometric microlensing simulation distributions among lots of other applications.
+You can use it to put black hole candidates into context and to understand the effect of Galactic properties on photometric and astrometric microlensing simulation distributions among many other applications.
 
 .. toctree::
    :maxdepth: 2
@@ -80,7 +80,7 @@ Contributing
 We love contributions! PopSyCLE is open source,
 built on open source, and we'd love to have you hang out in our community.
 
-`Check out all of PopSyCLE's contributors! <contributors.md>`_.
+`Check out all of PopSyCLE's contributors! <https://github.com/jluastro/PopSyCLE/blob/main/contributors.md>`_.
 
 **Imposter syndrome disclaimer**: We want your help. No, really.
 

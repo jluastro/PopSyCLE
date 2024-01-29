@@ -80,7 +80,7 @@ Contributing
 We love contributions! PopSyCLE is open source,
 built on open source, and we'd love to have you hang out in our community.
 
-`Check out all of PopSyCLE's contributors! <https://github.com/jluastro/PopSyCLE/blob/main/contributors.md>`_.
+`Check out all of PopSyCLE's contributors! <https://github.com/jluastro/PopSyCLE/blob/main/contributors.md>`_
 
 **Imposter syndrome disclaimer**: We want your help. No, really.
 

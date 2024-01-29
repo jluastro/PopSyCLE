@@ -289,11 +289,11 @@ a text log file that lists the input parameters
 4.1.1 Label/summary file (Astropy FITS Table)
 +++++++++++++++++++++++++++++++++++++++++++++
 
-        *. file_name is the name of the dataset for the HDF5 file.
-        *. long_start and long_end are the edges of the longitude bin.
-        *. lat_start and lat_end are the edges of the latitude bin.
-        *. objects is the number of objects in that latitude/longitude bin.
-        *. N_stars, N_WD, N_NS, and N_BH are the number of stars, white dwarfs, neutron stars,
+        * file_name is the name of the dataset for the HDF5 file.
+        * long_start and long_end are the edges of the longitude bin.
+        * lat_start and lat_end are the edges of the latitude bin.
+        * objects is the number of objects in that latitude/longitude bin.
+        * N_stars, N_WD, N_NS, and N_BH are the number of stars, white dwarfs, neutron stars,
             and black holes, respectively, in that latitude/longitude bin. The sum of these should be
             equal to the total number of objects.
 

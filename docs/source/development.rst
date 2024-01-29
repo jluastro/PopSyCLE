@@ -23,14 +23,15 @@ in your request:
 Due to the small size of the current PopSyCLE community we have opted to develop new features using
 branches on this repository instead of using GitHub forks. Begin by 
 `cloning the current repository <https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository>`_
-onto your local machine and checking out the main branch. From main, create a new branch with
+onto your local machine and checking out the main branch. From dev, create a new branch with
 a succinct name summarizing the feature you plan to write. Push this new branch back to GitHub
-so that all collaborators can see that a new feature is in development.
+so that all collaborators can see that a new feature is in development. 
+We also ask that you indicate that you are working on this feature in`<GitHub issues https://github.com/jluastro/PopSyCLE/issues>`_.
 
 3 Submitting a New Feature for Review
 --------------------------------------
 Once you have completed the development of a new feature, you will want to submit it for review to
-be added into the master branch. We use GitHub pull requests for such review. `Create a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_
+be added into the dev branch, and then the main branch. We use GitHub pull requests for such review. `Create a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_
 on GitHub asking to merge your feature branch back into the master branch. Your feature will then
 be examined by one of our approved reviewers and you may be asked to comment on a `pull request
 review <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/reviewing-proposed-changes-in-a-pull-request#about-reviewing-pull-requests>`_. Once the reviewers have determined that your feature is complete without issues, your pull

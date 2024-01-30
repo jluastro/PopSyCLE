@@ -250,4 +250,5 @@ For example, zams_mass_L is the ZAMS mass of the lens, and age_S is the log(age/
 |t0                  |Time at which the minimum source-lens         |days          |
 |                    |separation occurs                             |              | 
 +--------------------+----------------------------------------------+--------------+
+
 >>>>>>> 508ec94f996e06fc219d2871af03d5e5414da5f4

@@ -11,6 +11,14 @@ from random import choice
 class Orbit(object):
     """
     Exerpted from orbits.py from gcworks
+    
+    Methods
+    -------
+    kep2xyz:
+	Generates (r, v, a) in AU, AU/yr, and AU/yr^2 respectively from keplarian parameters.
+    
+    eccen_anomaly:
+        Calculates the eccentricity anomaly.
     """
     def kep2xyz(self, epochs):
         """
@@ -25,14 +33,14 @@ class Orbit(object):
 
         An example call is:
 
-        orb = orbits.Orbit()
-        orb.w = omega # [degrees]
-        orb.o = bigOm # [degrees]
-        orb.i = incl # [degrees]
-        orb.e = e_mag # float between 0 and 1
-        orb.p = p # [years]
-        orb.t0 = t0 # [years] This is initial
-        orb.mass = mass # [Msun]
+        >>> orb = orbits.Orbit()
+        >>> orb.w = omega # [degrees]
+        >>> orb.o = bigOm # [degrees]
+        >>> orb.i = incl # [degrees]
+        >>> orb.e = e_mag # float between 0 and 1
+        >>> orb.p = p # [years]
+        >>> orb.t0 = t0 # [years] This is initial
+        >>> orb.mass = mass # [Msun]
 
         (r, v, a) = orb.kep2xyz(array([refTime]))
         
@@ -120,7 +128,9 @@ class Orbit(object):
         """
         Calculates the eccentricity anomaly
         
-        m: numpy array
+	Parameters
+	----------        
+	m: numpy array
             Mean anomalies
             
         ecc: float between 0-1
@@ -255,7 +265,7 @@ def a_to_P(mass, a):
         Semimajor axis in AU.
         
     Returns
-    ---------- 
+    ------- 
     period: float or array-like
         Orbital period in years.
     """
@@ -360,8 +370,8 @@ def distance_to_center_of_mass(ss_pos, companions_pos):
     companion_pos: astropy table
         Companion table with positions added with add_mult_positions()
         
-    Results
-    -------- 
+    Returns
+    ------- 
     ss_pos_temp: astropy table
         Star system table with distance to center of mass in AU added
     

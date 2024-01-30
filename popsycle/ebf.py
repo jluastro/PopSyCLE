@@ -1624,14 +1624,16 @@ def rename(filename,oldkey,newkey):
 
     Parameters
     ----------
-    filename: string
+    filename: str
 
-    oldkey: a string, the name of key to rename
+    oldkey: str
+	The name of key to rename.
 
-    newkey: a string, the new name. If new key is blank '', then  a \
-    name of the form '/.tr'+oldkey+'.X' is created. Here X is a an \ 
-    integer greater than equal to zero, which is incremented each \ 
-    time the item with same name is deleted. 
+    newkey: str
+	The new name. If new key is blank '', then  a 
+	name of the form '/.tr'+oldkey+'.X' is created. Here X is a an 
+	integer greater than equal to zero, which is incremented each 
+	time the item with same name is deleted. 
 
     Examples
     --------
@@ -2695,6 +2697,12 @@ def iterate(filename,tagname,cache):
 
 
 class EbfFile():
+    """
+    Methods
+    -------
+    read_ind:
+        Read indicies.
+    """
     def __init__(self, filename,path,mode,dataunit='',cache=100):
         self.filename=filename
         self.path=path
@@ -2802,8 +2810,13 @@ class EbfFile():
         This method looks for groups of contiguous indices in 'ind' and
         loads those blocks of memory with a single copy command.
         This method is ~50% faster than looping over each index and running:
-           data[i] = self.read(ind[i])
-        """
+        data[i] = self.read(ind[i])
+        
+    	Parameters
+    	----------
+    	ind : str
+            List or array of indices to be read.
+    	"""
         if numpy.max(ind) < self.elements:
             # Find the ascending order of indices
             ind1 = numpy.argsort(ind)
@@ -3238,7 +3251,7 @@ def swapEndian(filename):
     Swaps the endianess of the file. Little to Big or Big to Little.
 
     Parameters
-    -----------
+    ----------
     filename : str
 
     Examples

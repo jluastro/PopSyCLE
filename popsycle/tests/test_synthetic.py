@@ -1203,15 +1203,15 @@ def test_no_nan_companions(mrun_popsyn):
 def test_single_CO_frac(srun_popsyn):
     """
     Checks that the CO fraction of objects greater than 0.1 Msun
-    is about 8.2%
+    is about 9.1%
     """
     test_hdf5 = h5py.File(srun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.1 #Msun
     CO, total, CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
     
-    precalc_CO_frac = 0.0822
-    precalc_CO_number = 2071
-    precalc_total_number = 25184
+    precalc_CO_frac = 0.09138
+    precalc_CO_number = 23173 
+    precalc_total_number = 253583
     precalc_error = precalc_CO_frac*np.sqrt((np.sqrt(precalc_CO_number)/precalc_CO_number)**2 + (np.sqrt(precalc_total_number)/precalc_total_number)**2)
     
     assert(np.abs(CO_frac - precalc_CO_frac) < precalc_error)
@@ -1236,16 +1236,16 @@ def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
 
 def test_multiplicity_properties(mrun_popsyn):
     """
-    Checks that the multiplicity fraction of objects > 0.5 Msun is about 47%
+    Checks that the multiplicity fraction of objects > 0.5 Msun is about 52%
     and that the minimum semimajor axis is greater than 10^-2
     """
     test_hdf5 = h5py.File(mrun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.5 #Msun
     multiplicity_frac, multiples, total = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
-    
-    precalc_mult_frac = 0.4727
-    precalc_mult_number = 2052
-    precalc_total_number = 4341
+
+    precalc_mult_frac = 0.5199
+    precalc_mult_number = 23710 
+    precalc_total_number = 45606
     precalc_error = precalc_mult_frac*np.sqrt((np.sqrt(precalc_mult_number)/precalc_mult_number)**2 + (np.sqrt(precalc_total_number)/precalc_total_number)**2)
     
     assert(np.abs(multiplicity_frac - precalc_mult_frac) < precalc_error)

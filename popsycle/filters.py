@@ -14,8 +14,8 @@ from scipy.spatial.ckdtree import cKDTree
 
 def generate_ubv_to_ztf_grid(iso_dir, filter_name):
     """
-    Creates the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
-    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
+    Creates the 2D transformational matrix `ubv_to_ztf-r_grid.npz` and
+    `ubv_to_ztf-g_grid.npz` necessary for generating ztf-g and ztf-r
     magnitudes from the UBV filters.
 
     2D transformational matrix is valid for values of:
@@ -181,8 +181,8 @@ def generate_ubv_to_ztf_grid(iso_dir, filter_name):
 
 def load_ubv_to_ztf_grid(filter_name):
     """
-    Loads the 2D transformational matrix `ubv_to_ztf-r_grid.npz' and
-    `ubv_to_ztf-g_grid.npz' necessary for generating ztf-g and ztf-r
+    Loads the 2D transformational matrix `ubv_to_ztf-r_grid.npz` and
+    `ubv_to_ztf-g_grid.npz` necessary for generating ztf-g and ztf-r
     magnitudes from the UBV filters, as well as the kdtree of those values.
 
     2D transformational matrix is valid for values of:

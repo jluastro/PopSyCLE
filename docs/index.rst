@@ -10,6 +10,8 @@ Welcome to PopSyCLE's documentation!
     :alt: Powered by Astropy Badge
 
 **Pop**\ulation **Sy**\nthesis for **C**\ompact-object **L**\ensing **E**\vents
+is a code to simulate a model of the Milky Way including compact objects and multiple systems and perform a mock microlensing survey. 
+You can use it to put black hole candidates into context and to understand the effect of Galactic properties on photometric and astrometric microlensing simulation distributions among many other applications.
 
 .. toctree::
    :maxdepth: 2
@@ -46,20 +48,21 @@ Running PopSyCLE
 ----------------
 
 An example of implementing PopSyCLE can be found
-`in our example notebook <docs/PopSyCLE_example.ipynb>`_.
+`single stars <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example.ipynb>`_ or 
+`with multiples <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_multiples.ipynb>`_.
 
 Running the PopSyCLE Pipeline
 -----------------------------
 
 An example of running the PopSyCLE pipline from the command line be found
-`in our example notebook <docs/PopSyCLE_example_run.ipynb>`_.
+`in our example notebook <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_run.ipynb>`__.
 
 Running the PopSyCLE Pipeline on a Slurm Scheduler
 --------------------------------------------------
 
 An example of running the PopSyCLE pipline on a compute cluster with a
 slurm scheduler can be found
-`in our example notebook <docs/PopSyCLE_example_slurm.ipynb>`_.
+`in our example notebook <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_slurm.ipynb>`__.
 
 License
 -------
@@ -77,7 +80,7 @@ Contributing
 We love contributions! PopSyCLE is open source,
 built on open source, and we'd love to have you hang out in our community.
 
-`Check out all of PopSyCLE's contributors! <contributors.md>`_.
+`Check out all of PopSyCLE's contributors! <https://github.com/jluastro/PopSyCLE/blob/main/contributors.md>`_
 
 **Imposter syndrome disclaimer**: We want your help. No, really.
 

@@ -39,7 +39,7 @@ Running PopSyCLE
 
 An example of implementing PopSyCLE can be found
 in our example notebook for `single stars <docs/PopSyCLE_example.ipynb>`_ or 
-`with multiples <docs/PopSyCLE_example_multiplicity.ipynb>`_.
+`with multiples <docs/PopSyCLE_example_multiples.ipynb>`_.
 
 Running the PopSyCLE Pipeline
 -----------------------------

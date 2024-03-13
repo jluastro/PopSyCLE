@@ -213,7 +213,10 @@ def add_observable_peaks_column(t_prim, t_comp_rb, t_comp_rb_mp, t_lightcurves, 
                 if current_pos == False and sum(pos) > 0:
                     break
     
-            t_matched_multipeaks = t_comp_rb_mp[in_matched_field][matched_multipeaks[in_matched_field] & pos]
+            if match_by_field:
+                t_matched_multipeaks = t_comp_rb_mp[in_matched_field][matched_multipeaks[in_matched_field] & pos]
+            else:
+                t_matched_multipeaks = t_comp_rb_mp[pos]
             
             observable_peaks = len(np.where(t_matched_multipeaks['delta_m'] > delta_m_cutoff_secondary)[0]) + 1
             fixed_peaks.append(observable_peaks)

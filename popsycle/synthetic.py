@@ -4548,7 +4548,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    if type(flux_N) == MaskedColumn:
+    if type(flux_N) == np.ma.core.MaskedArray or type(flux_N) == MaskedColumn:
         flux_N = np.nan_to_num(flux_N.filled(np.nan))
     else:
         flux_N = np.nan_to_num(flux_N)
@@ -4599,13 +4599,13 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # Convert absolute magnitude to fluxes, and fix bad values
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
-
-    if type(flux_L) == MaskedColumn:
+    
+    if type(flux_L) == np.ma.core.MaskedArray or type(flux_L) == MaskedColumn:
         flux_L = np.nan_to_num(flux_L.filled(np.nan))
     else:
         flux_L = np.nan_to_num(flux_L)
 
-    if type(flux_S) == MaskedColumn:
+    if type(flux_S) == np.ma.core.MaskedArray or type(flux_S) == MaskedColumn:
         flux_S = np.nan_to_num(flux_S.filled(np.nan))
     else:
         flux_S = np.nan_to_num(flux_S)
@@ -5173,8 +5173,12 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     comp_table['companion_idx'] = np.arange(len(comp_table))
 
+    comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
+    comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
+    comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
+
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
-    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
+    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
         comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
     
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )

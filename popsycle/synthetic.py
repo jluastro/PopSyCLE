@@ -31,7 +31,7 @@ import subprocess
 import os
 from sklearn import neighbors
 import itertools
-from multiprocessing import Pool, Value, Lock, Manager
+from multiprocessing import Pool, Value, Lock
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
@@ -4548,11 +4548,8 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    if type(flux_N) == np.ma.core.MaskedArray or type(flux_N) == MaskedColumn:
-        flux_N = np.nan_to_num(flux_N.filled(np.nan))
-    else:
-        flux_N = np.nan_to_num(flux_N)
-        
+    flux_N = utils.nan_to_zero(flux_N)
+
     # Get total flux
     flux_N_tot = np.sum(flux_N)
 
@@ -4599,16 +4596,10 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # Convert absolute magnitude to fluxes, and fix bad values
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
-    
-    if type(flux_L) == np.ma.core.MaskedArray or type(flux_L) == MaskedColumn:
-        flux_L = np.nan_to_num(flux_L.filled(np.nan))
-    else:
-        flux_L = np.nan_to_num(flux_L)
 
-    if type(flux_S) == np.ma.core.MaskedArray or type(flux_S) == MaskedColumn:
-        flux_S = np.nan_to_num(flux_S.filled(np.nan))
-    else:
-        flux_S = np.nan_to_num(flux_S)
+    flux_L = utils.nan_to_zero(flux_L)
+
+    flux_S = utils.nan_to_zero(flux_S)
 
     ##########
     # Find the blends.

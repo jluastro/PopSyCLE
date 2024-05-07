@@ -10,7 +10,7 @@ def test_get_star_system_pos_mag():
 
     h5_file = full_in_root + '.h5'
 
-    df = analysis.get_star_system_pos_mag(h5_file)
+    df = analysis.get_star_system_pos_mag(h5_file, recalc=True)
 
     assert 'm_ubv_I_app' in df.columns
     assert 'glat' in df.columns

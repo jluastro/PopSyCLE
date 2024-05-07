@@ -3,11 +3,12 @@ import numpy as np
 import h5py
 import pylab as plt
 
-import utils
+from popsycle import utils
 from popsycle import synthetic
 import time
+import os
 
-def get_star_system_pos_mag(hdf5_file, filt='ubv_I'):
+def get_star_system_pos_mag(hdf5_file, filt='ubv_I', recalc=True):
     """
     Return a table with lists of star systems and their RA, Dec, z position,
     and system apparent magnitude. This is useful for making stellar density maps,
@@ -31,6 +32,15 @@ def get_star_system_pos_mag(hdf5_file, filt='ubv_I'):
         where the magnitude column is the apparent system magnitude
         in the designated filter.
     """
+    outfile = hdf5_file.replace('.h5', '_stars_posmag.pkl')
+
+    if os.path.exists(outfile) and recalc == False:
+        start_time = time.time()
+        df_final = pd.read_pickle(outfile)
+        stop_time = time.time()
+        print(f'get_star_system_pos_mag: Run time = {stop_time - start_time} sec with recalc=False')
+        return df_final
+
     # Load up the H5 file with star systems.
     hf = h5py.File(hdf5_file, 'r')
 
@@ -43,10 +53,13 @@ def get_star_system_pos_mag(hdf5_file, filt='ubv_I'):
 
     ext_law = 'Damineli16'
     start_time = time.time()
-    df_final = None
+
+    list_of_df = []
 
     # Loop through the fields and aggregate the stars.
+    print('Countint stars in patches: ', end="")
     for k in field_keys:
+        print(f'{k}, ', end="")
         patch = np.array(hf[k])
 
         if len(patch) > 0:
@@ -71,16 +84,17 @@ def get_star_system_pos_mag(hdf5_file, filt='ubv_I'):
             # More memory management. Drop absolute mag columns
             patch_df.drop(patch_df.filter(regex='^ubv').columns, axis=1, inplace=True)
 
-            # Save to final stacked dataframe (all stars)
-            if df_final is None:
-                df_final = patch_df
-            else:
-                df_final = pd.concat([df_final, patch_df])
+            # Save to list of all data frames (to be concatenatted later)
+            list_of_df.append(patch_df)
 
-    del hf
+    df_final = pd.concat(list_of_df)
+    del list_of_df
 
     stop_time = time.time()
-    print(f'Run time = {stop_time - start_time} sec')
+    print()
+    print(f'get_star_system_pos_mag: Run time = {stop_time - start_time} sec')
+
+    df_final.to_pickle(outfile)
 
     return df_final
 

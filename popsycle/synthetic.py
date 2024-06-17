@@ -3230,6 +3230,584 @@ def star_size(rad,star_radius): ## rad is radial distance away, star_radius in k
 ## End of copied segment from hamer-code-edits.py
 ##########
 
+##########
+## Start of duplicate/old calc_events functions (for testing)
+##########
+
+def calc_events_old(hdf5_file, output_root2,
+                radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
+                blend_rad=0.65, n_proc=1,
+                overwrite=False, hdf5_file_comp=None):
+    """
+    Calculate microlensing events
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Name of the HDF5 file.
+
+    output_root2 : str
+        The name for the h5 file
+
+    radius_cut : float
+        Initial radius cut, in ARCSECONDS.
+
+    obs_time : float
+        Survey duration, in DAYS.
+
+    n_obs : int
+        Number of observations.
+
+    theta_frac : float
+        Another cut, in multiples of Einstein radii.
+
+    blend_rad : float
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
+
+    n_proc : int, optional
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
+
+    overwrite : bool, optional
+        If set to True, overwrites output files. If set to False, exists the
+        function if output files are already on disk.
+        Default is False.
+        
+    hdf5_file_comp: str
+        String of hdf5 file of companion events created in perform_pop_syn().
+        Default is None.
+
+
+    Returns
+    -------
+    <output_root2>_events.fits : Astropy .fits table
+        Table of candidate microlensing events. The number of rows
+        corresponds to the number of candidate events.
+
+    """
+
+    ##########
+    # Error handling: check whether files exist and
+    # whether input types are correct.
+    ##########
+
+    # Check if .fits file exists already. If it does, throw an error message
+    # to complain and exit.
+    if not overwrite:
+        if os.path.isfile(output_root2 + '_events.fits'):
+            raise Exception(
+                'That events.fits file name is taken! Either delete the .fits '
+                'file, or pick a new name.')
+        if os.path.isfile(output_root2 + '_blends.fits'):
+            raise Exception(
+                'That blends.fits file name is taken! Either delete the .fits '
+                'file, or pick a new name.')
+
+    # Error handling/complaining if input types are not right.
+    _check_calc_events(hdf5_file, output_root2,
+                       radius_cut, obs_time, n_obs, theta_frac,
+                       blend_rad, n_proc, overwrite, hdf5_file_comp)
+
+    ##########
+    # Start of code
+    #########
+
+    ## Reminder message for Kai, can be deleted later along with this comment
+    print("You are using the old version of synthetic.py, now called synthetic_old.py")
+    print("If you are trying to run the new one, please use synthetic.py")
+
+    t0 = time.time()
+
+    # Initialize events_tmp and blends_tmp.
+    events_tmp = None
+    blends_tmp = None
+
+    # Get the l and b from the HDF5 file.
+    hf = h5py.File(hdf5_file, 'r')
+    l_array = np.array(hf['long_bin_edges'])
+    b_array = np.array(hf['lat_bin_edges'])
+    hf.close()
+
+    # Converts radius_cut from arcseconds into milliarcseconds
+    radius_cut *= 1000.0
+
+    # Set up the multiprocessing
+    pool = Pool(n_proc)
+
+    # Set up inputs to be able to be read by pool.map
+    nll = len(l_array[:]) - 2
+    nbb = len(b_array[:]) - 2
+
+    llbb = itertools.product(range(nll), range(nbb))
+
+    reps = nll * nbb
+
+    hd = itertools.repeat(hdf5_file, reps)
+    ot = itertools.repeat(obs_time, reps)
+    no = itertools.repeat(n_obs, reps)
+    rc = itertools.repeat(radius_cut, reps)
+    tf = itertools.repeat(theta_frac, reps)
+    br = itertools.repeat(blend_rad, reps)
+
+    inputs = zip(llbb, hd, ot, no, rc, tf, br)
+    
+    if hdf5_file_comp is not None:
+        hdc = itertools.repeat(hdf5_file_comp, reps)
+        inputs = zip(llbb, hd, ot, no, rc, tf, br, hdc)
+    
+    ##########
+    # Loop through galactic latitude and longitude bins. For each bin vertex,
+    # take the nearest 4 bin samples and calculate microlensing events.
+    # We do this to properly handle bin edges
+    # (i.e. a sliding window analysis of 2x2 bins).
+    # Duplicate events are removed.
+    ##########
+    # Should I use starmap_async?
+    results = pool.starmap(_calc_event_time_loop_old, inputs)
+    pool.close()
+    pool.join()
+
+    # Remove all the None values
+    # (occurs for patches with less than 10 objects)
+    results = [i for i in results if i is not None]
+
+    results_ev = []
+    results_bl = []
+
+    for ii in range(len(results)):
+        if results[ii] is not None:
+            if results[ii][0] is not None:
+                results_ev.append(results[ii][0])
+            if results[ii][1] is not None:
+                results_bl.append(results[ii][1])
+
+    if len(results_ev) > 0:
+        events_tmp = np.concatenate(results_ev, axis=0)
+        if len(results_bl) == 0:
+            blends_tmp = np.array([])
+        else:
+            blends_tmp = np.concatenate(results_bl, axis=0)
+        # Convert the events numpy recarray into an
+        # Astropy Table for easier consumption.
+        events_tmp = unique_events(events_tmp)
+        events_final = Table(events_tmp)
+        N_events = len(events_final)
+        print('Candidate events detected: ', N_events)
+
+        if len(results_bl) != 0:
+            blends_tmp = unique_blends(blends_tmp)
+        blends_final = Table(blends_tmp)
+        
+        #if len(results_cp) != 0:
+         #   companions_tmp = unique_companions(companions_tmp, events_tmp)
+
+        # Save out file
+        events_final.write(output_root2 + '_events.fits', overwrite=overwrite)
+        blends_final.write(output_root2 + '_blends.fits', overwrite=overwrite)
+    else:
+        N_events = 0
+        print('No events!')
+    t1 = time.time()
+
+    ##########
+    # Make log file
+    ##########
+    now = datetime.datetime.now()
+    radius_cut = radius_cut / 1000.0  # back to arcsec
+    popsycle_path = os.path.dirname(inspect.getfile(perform_pop_syn))
+    popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                            cwd=popsycle_path).decode('ascii').strip()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'hdf5_file , ' + hdf5_file + '\n'
+    line2 = 'output_root2 , ' + output_root2 + '\n'
+    line3 = 'radius_cut , ' + str(radius_cut) + ' , (arcsec)' + '\n'
+    line4 = 'obs_time , ' + str(obs_time) + ' , (days)' + '\n'
+    line5 = 'n_obs , ' + str(n_obs) + '\n'
+    line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
+    line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
+    line8 = 'n_proc , ' + str(n_proc) + '\n'
+    if hdf5_file_comp is not None:
+        line8 += 'hdf5_file_comp , %s \n' % hdf5_file_comp
+
+    line9 = 'VERSION INFORMATION' + '\n'
+    line10 = str(now) + ' : creation date' + '\n'
+    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line14 = str(N_events) + ' : total number of events' + '\n'
+
+    if N_events > 0:
+        line15 = 'FILES CREATED' + '\n'
+        line16 = output_root2 + '_events.fits : events file' + '\n'
+        line17 = output_root2 + '_blends.fits : blends file' + '\n'
+    else:
+        line15 = 'NO FILES CREATED' + '\n'
+        line16 = '\n'
+        line17 = '\n'
+
+    with open(output_root2 + '_calc_events.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3,
+                        line4, line5, line6, line7, line8, empty_line,
+                        line9, dash_line, line10, line11, empty_line,
+                        line12, dash_line, line13, line14, empty_line, line15,
+                        dash_line, line16, line17])
+
+    print('calc_events runtime : {0:f} s'.format(t1 - t0))
+
+    return
+
+
+def _calc_event_time_loop_old(llbb, hdf5_file, obs_time, n_obs, radius_cut,
+                          theta_frac, blend_rad, hdf5_file_comp = None):
+    """
+    Parameters
+    -----------
+    llbb : (int, int)
+        Indices of (l,b) bin.
+
+    obs_time, n_obs, radius_cut, theta_frac, blend_rad
+    are all parameters of calc_events()
+
+    Returns
+    -------
+    events_llbb : array
+        Array of the unique events for the particular (l,b) patch.
+
+    blends_llbb : array
+        Array of the unique blends for the particular (l,b) patch.
+
+    """
+    ####################
+    # Loop through different time steps and figure out separations between
+    # all possible pairs of stars. Trim down to "events", which consist of
+    # those pairs that approach within one <radius_cut> of each other.
+    # These will be the events we consider as candidate microlensing events.
+    ####################
+
+    # Initialize events_llbb and blends_llbb and companions.
+    events_llbb = None
+    blends_llbb = None
+
+    ll = llbb[0]
+    bb = llbb[1]
+
+    print('Working on loop ll, bb = ', ll, bb)
+    name00 = 'l' + str(ll) + 'b' + str(bb)
+    name01 = 'l' + str(ll) + 'b' + str(bb + 1)
+    name10 = 'l' + str(ll + 1) + 'b' + str(bb)
+    name11 = 'l' + str(ll + 1) + 'b' + str(bb + 1)
+
+    hf = h5py.File(hdf5_file, 'r')
+    bigpatch = np.hstack((hf[name00], hf[name01], hf[name10], hf[name11]))
+    hf.close()
+
+    # Adds separation in mas between primary and furthest companion if there are companions
+    if hdf5_file_comp is not None:
+        hfc = h5py.File(hdf5_file_comp, 'r')
+        bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
+        hfc.close()
+        
+        if len(bigpatch_comp) > 0:
+            bigpatch_comp = rfn.append_fields(bigpatch_comp, 'sep', np.zeros(len(bigpatch_comp)), usemask = False) #separation in mas
+            bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
+            bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
+
+            rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_companions']))
+
+            a_kpc = ((10**bigpatch_comp['log_a'])*unit.AU).to('kpc').value
+
+            # abs(acos(i))
+            bigpatch_comp_df['sep'] = np.abs(np.cos(bigpatch_comp['i']))*(np.arcsin(a_kpc/rad)*unit.radian).to('mas').value
+
+            # Find max sep for triples
+            bigpatch_comp_df_max = bigpatch_comp_df.groupby('system_idx').max()['sep'].reset_index()
+
+            # Add separation to bigpatch
+            sep = bigpatch_comp_df_max[['system_idx', 'sep']]
+            # Cross referencing between separation from companions table and the primaries
+            sep = sep.set_index("system_idx")
+            bigpatch_df = bigpatch_df.set_index('obj_id')
+            bigpatch_df = bigpatch_df.join(sep)
+            bigpatch_df['sep'] = bigpatch_df['sep'].fillna(0) # Make nans from lack of companions to zeros
+            
+            bigpatch_df = bigpatch_df.reset_index() # Makes it index normally instead of by 'obj_id'
+            bigpatch = rfn.append_fields(bigpatch, 'sep', bigpatch_df['sep'], usemask = False) 
+            
+            del bigpatch_df
+            del bigpatch_comp_df
+         
+    # Skip patches with less than 10 objects
+    if len(bigpatch) < 10:
+        # continue
+        return
+
+    time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
+
+    for i in np.arange(len(time_array)):
+        # Find potential lenses and sources that fall within radius cut.
+        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius_old(bigpatch,
+                                                                            time_array[i],
+                                                                            radius_cut)
+
+        # Calculate einstein radius and lens-source separation
+        theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
+                                  r_t[lens_id], r_t[sorc_id])  # mas      
+        u = sep[event_id1] / theta_E
+        
+        binary_sep = None
+        if 'sep' in bigpatch[0].dtype.names:
+            binary_sep = bigpatch['sep'][event_id1]
+
+        # Trim down to those microlensing events that really get close enough
+        # to hope that we can detect them. Trim on a Theta_E criteria.
+        event_lbt = _calc_event_cands_thetaE_old(bigpatch, theta_E, u, theta_frac,
+                                             lens_id, sorc_id, time_array[i], binary_sep)
+
+        if event_lbt is not None:
+            # Concatenate the current event table
+            # (at this l, b, time) with the rest.
+            if events_llbb is not None:
+                events_llbb = np.hstack((events_llbb, event_lbt))
+            else:
+                events_llbb = event_lbt
+
+            # Keep only unique events within our different time stamps
+            events_llbb = unique_events(events_llbb)
+
+            #########
+            # Get blending.
+            # Note 1: We are centering on the lens.
+            # Note 2: We don't want to include the lens itself,
+            # or the source, in the table.
+            # Note 3: Assumes all binaries are blended
+            ##########
+            blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+
+            if blends_lbt is not None:
+                # Concatenate the current blend table (at this l, b, time)
+                # with the rest.
+                if blends_llbb is not None:
+                    blends_llbb = np.hstack((blends_llbb, blends_lbt))
+                else:
+                    blends_llbb = blends_lbt
+
+                # Keep only unique blends within our different time stamps
+                blends_llbb = unique_blends(blends_llbb)
+
+        # END of time loop
+        
+    return events_llbb, blends_llbb
+
+
+def _calc_event_cands_radius_old(bigpatch, timei, radius_cut):
+    """
+    Get sources and lenses that pass the radius cut.
+
+    Parameters
+    -----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    timei : float
+        Time at which to evaluate.
+
+    radius_cut : float
+        Parameter of calc_events().
+        Converted to mas
+
+    Returns
+    -------
+    lens_id : array
+        Indices into bigpatch that indicate lenses
+
+    sorc_id : array
+        Indices into bigpatch that indicate sources
+
+    r_t : array
+        Radial coordinates for all objects in bigpatch at time t
+
+    sep : array
+        Separation between lens-source pairs (mas)
+
+    event_id1 : array
+        Lens-source pairs where sep < radius_cut
+
+    c : SkyCoord object
+        Coordinates of all the stars.
+    """
+    # Propagate r, b, l positions forward in time.
+    r_t = bigpatch['rad'] + timei * bigpatch['vr'] * kms_to_kpcday  # kpc
+    b_t = bigpatch['glat'] + timei * bigpatch['mu_b'] * masyr_to_degday  # deg
+    l_t = bigpatch['glon'] + timei * (bigpatch['mu_lcosb'] / np.cos(np.radians(bigpatch['glat']))) * masyr_to_degday  # deg
+
+    ##########
+    # Determine nearest neighbor in spherical coordinates.
+    ##########
+    c = SkyCoord(frame='galactic', l=l_t * units.deg, b=b_t * units.deg)
+
+    # NOTE: dist has no actual meaning since
+    # we didn't input distances from Earth.
+    # It's an auto output. just ignore it.
+    idx, sep, dist = coord.match_coordinates_sky(c, c, nthneighbor=2)
+
+    # Converts separations to milliarcseconds
+    sep = (sep.to(units.mas)) / units.mas
+
+    
+    ##########
+    # Error checking: calculate how many duplicate (l, b) pairs there are.
+    # (This is a problem for nearest neighbors.)
+    ##########
+    uni = np.unique((l_t, b_t), axis=1).shape[1]
+    tot = len(l_t)
+    dup = tot - uni
+    if dup != 0:
+        print('****************** WARNING!!! ********************')
+        print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
+        print('**************************************************')
+
+    ##########
+    # Find all objects with a nearest neighbor within an angular distance
+    # equal to sep. The index of the object and its nearest neighbor are
+    # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
+    ##########
+    # NOTE: event_id1/2 are indices into bigpatch
+    event_id1 = np.where(sep < radius_cut)[0]
+    event_id2 = idx[event_id1]
+
+    ##########
+    # We've got neighbors... figure out who's the lens and who's the source.
+    ##########
+    # NOTE: lens_id and sorc_id are indices into bigpatch
+    idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
+    idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
+
+    lens_id = np.zeros(len(event_id1), dtype='int')
+    sorc_id = np.zeros(len(event_id1), dtype='int')
+
+    lens_id[idx_l1] = event_id1[idx_l1]
+    sorc_id[idx_l1] = event_id2[idx_l1]
+
+    lens_id[idx_l2] = event_id2[idx_l2]
+    sorc_id[idx_l2] = event_id1[idx_l2]
+
+    return lens_id, sorc_id, r_t, sep, event_id1, c
+
+
+def _calc_event_cands_thetaE_old(bigpatch, theta_E, u, theta_frac, lens_id,
+                             sorc_id, timei, binary_sep = None):
+    """
+    Get sources and lenses that pass the radius cut.
+
+    Parameters
+    -----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    theta_E : array
+        Einstein radius of the events that pass the radius cut
+
+    u : array
+        Impact parameters at time t of the events that pass the radius cut
+
+    theta_frac : float
+        Parameter of calc_events()
+        Another cut, in multiples of Einstein radii.
+
+    lens_id : array
+        Indices into bigpatch that indicate lenses
+
+    sorc_id : array
+        Indices into bigpatch that indicate sources
+
+    timei : float
+        Time at which to evaluate.
+
+    Returns
+    -------
+    event_lbt : array
+        Lenses and sources at a particular time t.
+
+    """
+    # If there are binaries extend the search radius to theta_frac + separation between primary
+    # and furthest companion.
+    if binary_sep is not None:
+        theta_frac_comp = theta_frac + binary_sep
+        if np.shape(u) != np.shape(theta_frac_comp):
+            print(u, theta_frac_comp)
+        #print(np.shape(u), np.shape(theta_frac_comp), np.shape(theta_frac), np.shape(bigpatch['sep']))
+        adx = np.where(u < theta_frac_comp)[0]
+    else: 
+        # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
+        adx = np.where(u < theta_frac)[0]
+    if len(adx > 0):
+        # Narrow down to unique pairs of stars... don't double calculate
+        # an event.
+        lens_sorc_id_pairs = np.stack((bigpatch['obj_id'][lens_id][adx],
+                                       bigpatch['obj_id'][sorc_id][adx]),
+                                      axis=-1)
+
+        unique_returns = np.unique(lens_sorc_id_pairs,
+                                   return_index=True, return_inverse=True,
+                                   return_counts=True, axis=0)
+        unique_tab = unique_returns[0]
+        unique_indices = unique_returns[1]
+        unique_inverse = unique_returns[2]
+        unique_counts = unique_returns[3]
+
+        # Define all tables we will need to calculate event properties.
+        # These will all have a length of N_events.
+        lens_table = bigpatch[lens_id][adx][unique_indices]
+        sorc_table = bigpatch[sorc_id][adx][unique_indices]
+        theta_E = theta_E[adx][unique_indices]
+        u = u[adx][unique_indices]
+
+        mu_b_rel = sorc_table['mu_b'] - lens_table['mu_b']  # mas/yr
+        mu_lcosb_rel = sorc_table['mu_lcosb'] - lens_table['mu_lcosb']  # mas/yr
+        mu_rel = np.sqrt(mu_b_rel ** 2 + mu_lcosb_rel ** 2)  # mas/yr
+        t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
+        
+
+        # This is all the events for this l, b, time
+        # Loop through the lens table and append '_L' to the end of each field
+        lens_rename_dct = {}
+        for name in lens_table.dtype.names:
+            lens_rename_dct[name] = name + '_L'
+        lens_table = rfn.rename_fields(lens_table, lens_rename_dct)
+
+        # Loop through the source table and append '_S' to the end of each field
+        sorc_rename_dct = {}
+        for name in sorc_table.dtype.names:
+            sorc_rename_dct[name] = name + '_S'
+        sorc_table = rfn.rename_fields(sorc_table, sorc_rename_dct)
+
+        # Combine the lens and source tables into the events table
+        event_lbt = rfn.merge_arrays((lens_table, sorc_table),
+                                     flatten=True)
+
+        # Add additional microlensing parameters to the events table
+        event_lbt = rfn.append_fields(event_lbt, 'theta_E',
+                                      theta_E, usemask=False)
+        event_lbt = rfn.append_fields(event_lbt, 'u0',
+                                      u.value, usemask=False)
+        event_lbt = rfn.append_fields(event_lbt, 'mu_rel',
+                                      mu_rel, usemask=False)
+        event_lbt = rfn.append_fields(event_lbt, 't0',
+                                      t_event, usemask=False)
+                
+        return event_lbt
+
+    else:
+        return None
+
+##########
+## end old calc_events section
+##########
+    
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
                 blend_rad=0.65, n_proc=1,

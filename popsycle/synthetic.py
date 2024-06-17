@@ -48,6 +48,8 @@ from collections import Counter
 from operator import itemgetter
 from popsycle import binary_utils
 from astropy.io import fits
+from mpmath import mp, mpf, nstr
+from mpmath import isnan as mp_isnan
 
 ##########
 # Conversions.
@@ -3033,6 +3035,200 @@ def _check_calc_events(hdf5_file, output_root2,
         if not isinstance(hdf5_file_comp, type(None)):
             raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
 
+##########
+## Kai's comments marked by "##." New comments with "#" are nickhamer's that 
+## have been left in for clarity
+## New implementation of the calc_events function
+## May include: calc_events, _calc_events_time_loop, _calc_event_cands_radius,
+## _calc_event_cands_thetaE, _calc_blends, unique_events, & unique_blends
+##########
+
+##########
+## Begin copied segment from hamer-code-edits.py
+##########
+
+# (15 min / 1825 days)^2 where 15 min is Roman's fiducial cadence
+# and 1825 days is Roman's fiducial observational baseline
+## change: instead of using Roman time, we will use obs_time as specified by calc_events (DAYS)
+transit15minSq = mpf('3.25786e-11')
+
+# set precision
+mp.dps = 30
+
+# region coordinate transformations
+
+def GLat_exact(px, py, pz):
+    return np.arcsin(pz / np.sqrt(px**2 + py**2 + pz**2))
+
+def GLon_exact(px, py, pz):
+    return np.arctan(py / px)
+
+def spherical_exact(px, py, pz):
+    return(
+        np.sqrt(px**2 + py**2 + pz**2),
+        GLat_exact(px, py, pz),
+        GLon_exact(px, py, pz)
+    )
+
+def cartesian_exact(rad, glat, glon):
+    return(
+        rad * np.cos(glat * np.pi / 180) * np.cos(glon * np.pi / 180),        
+        rad * np.cos(glat * np.pi / 180) * np.sin(glon * np.pi / 180),
+        rad * np.sin(glat * np.pi / 180)
+    )
+
+#endregion
+
+# this holds all the information about some circle with a linear trajectory
+# r is radius, p1 is initial center of circle, v is 2D velocity vector, t is duration
+# returns (circle1, circle2, rectangle points)
+def RRectPath(r, p1, v, t):
+    # p1 (p2) is center of circle at the beginning (end)
+    p2 = p1 + v * t
+
+    # v is 2D vector of proper motion, if v = 0, then the shape is just a 
+    # stationary circle and zero-size rectangle
+    if (v[0] == 0 and v[1] == 0):
+        return ((p1, r), (p1, r), (p1, p1, p1, p1))
+
+    # unit vector perpendicular to trajectory
+    uPerp = np.array([-v[1], v[0]]) / np.sqrt(np.dot(v,v))
+
+    # boundary points of rectangular portion
+    rectPoints = (p1 + uPerp * r, p2 + uPerp * r, p2 - uPerp * r, p1 - uPerp * r)
+
+    return ((p1, r), (p2, r), rectPoints)
+
+# after writing many functions, had to start using precision numbers.
+# this is a decorator to map all the arguments of a function f(x1,x2...) --> f(mpf(x1),mpf(x2)...)
+def make_precise(func):
+    def inner(*args):
+        return(func(*map(mpf, args)))
+
+    return inner
+
+# the squared difference between  the two solutions of the quadratic equation
+# formulas here were solved analytically in mathematica and copy/pasted
+@make_precise
+def tSolSqDiff(r1, r2, x1, y1, vx1, vy1, x2, y2, vx2, vy2):
+    # -r1 -r2 + sqrt(...) < 0 condition
+    if (np.power(r1 + r2,2) <= (np.power(vy1*x1 - vy2*x1 - vy1*x2 + vy2*x2 - vx1*y1 + vx2*y1 + vx1*y2 - 
+        vx2*y2,2)/
+        (np.power(vx1,2) - 2*vx1*vx2 + np.power(vx2,2) + np.power(vy1,2) - 2*vy1*vy2 + 
+        np.power(vy2,2)))):
+        # no solution
+        return(np.nan)
+    
+
+    return(4*(-4*r1*r2*vx1*vx2 - 4*r1*r2*vy1*vy2 - 4*vy1*vy2*x1*x2 + 2*vx1*vy1*x1*y1 - 2*vx2*vy1*x1*y1 - 2*vx1*vy2*x1*y1 + 
+    2*vx2*vy2*x1*y1 - 2*vx1*vy1*x2*y1 + 2*vx2*vy1*x2*y1 + 2*vx1*vy2*x2*y1 - 2*vx2*vy2*x2*y1 - 2*vx1*vy1*x1*y2 + 
+    2*vx2*vy1*x1*y2 + 2*vx1*vy2*x1*y2 - 2*vx2*vy2*x1*y2 + 2*vx1*vy1*x2*y2 - 2*vx2*vy1*x2*y2 - 2*vx1*vy2*x2*y2 + 
+    2*vx2*vy2*x2*y2 - 4*vx1*vx2*y1*y2 - 2*vx1*vx2*np.power(r1,2) - 2*vy1*vy2*np.power(r1,2) - 2*vx1*vx2*np.power(r2,2) - 
+    2*vy1*vy2*np.power(r2,2) + 2*r1*r2*np.power(vx1,2) + 2*y1*y2*np.power(vx1,2) + np.power(r1,2)*np.power(vx1,2) + 
+    np.power(r2,2)*np.power(vx1,2) + 2*r1*r2*np.power(vx2,2) + 2*y1*y2*np.power(vx2,2) + 
+    np.power(r1,2)*np.power(vx2,2) + np.power(r2,2)*np.power(vx2,2) + 2*r1*r2*np.power(vy1,2) + 
+    2*x1*x2*np.power(vy1,2) + np.power(r1,2)*np.power(vy1,2) + np.power(r2,2)*np.power(vy1,2) + 
+    2*r1*r2*np.power(vy2,2) + 2*x1*x2*np.power(vy2,2) + np.power(r1,2)*np.power(vy2,2) + 
+    np.power(r2,2)*np.power(vy2,2) + 2*vy1*vy2*np.power(x1,2) - np.power(vy1,2)*np.power(x1,2) - 
+    np.power(vy2,2)*np.power(x1,2) + 2*vy1*vy2*np.power(x2,2) - np.power(vy1,2)*np.power(x2,2) - 
+    np.power(vy2,2)*np.power(x2,2) + 2*vx1*vx2*np.power(y1,2) - np.power(vx1,2)*np.power(y1,2) - 
+    np.power(vx2,2)*np.power(y1,2) + 2*vx1*vx2*np.power(y2,2) - np.power(vx1,2)*np.power(y2,2) - 
+    np.power(vx2,2)*np.power(y2,2))*np.power(-2*vx1*vx2 - 2*vy1*vy2 + np.power(vx1,2) + np.power(vx2,2) + 
+    np.power(vy1,2) + np.power(vy2,2),-2))
+
+# solve for the value of t when the circles are exactly touching
+# solutions correspond to the beginning of event (first overlap of two circles)
+# and end of event (when two circles stop overlapping)
+# tSol used in rrQuadSolve to find the beginning and end t for an event
+@make_precise
+def tSol(solutionIndex, r1, r2, x1, y1, vx1, vy1, x2, y2, vx2, vy2):
+
+    if (solutionIndex == 1):
+        sqrtSign = -1
+    elif(solutionIndex == 2):
+        sqrtSign = 1
+    else:
+        raise Exception('solutionIndex must 1 or 2, corresponding to the two different solutions of the quadratic equation')
+
+    # check condition for solution existing
+
+    cond1 = r1 + r2 + np.sqrt(np.power(vy1*x1 - vy2*x1 - vy1*x2 + vy2*x2 - vx1*y1 + vx2*y1 + vx1*y2 - 
+        vx2*y2,2)/
+        (np.power(vx1,2) - 2*vx1*vx2 + np.power(vx2,2) + np.power(vy1,2) - 2*vy1*vy2 + 
+        np.power(vy2,2)))
+
+    cond2 = -r1 - r2 + np.sqrt(np.power(vy1*x1 - vy2*x1 - vy1*x2 + vy2*x2 - vx1*y1 + vx2*y1 + vx1*y2 - 
+        vx2*y2,2)/
+        (np.power(vx1,2) - 2*vx1*vx2 + np.power(vx2,2) + np.power(vy1,2) - 2*vy1*vy2 + 
+        np.power(vy2,2)))
+
+    if (cond1 > 0 and cond2 > 0):
+        return(np.nan)
+        
+
+    return(-2*vx1*x1 + 2*vx2*x1 + 2*vx1*x2 - 
+        2*vx2*x2 - 2*vy1*y1 + 
+        2*vy2*y1 + 2*vy1*y2 - 
+        2*vy2*y2 + 
+        sqrtSign * np.sqrt(np.power(2*vx1*x1 - 
+        2*vx2*x1 - 2*vx1*x2 + 
+        2*vx2*x2 + 2*vy1*y1 - 
+        2*vy2*y1 - 2*vy1*y2 + 
+        2*vy2*y2,2) - 
+        4*(np.power(vx1,2) - 
+        2*vx1*vx2 + 
+        np.power(vx2,2) + 
+        np.power(vy1,2) - 
+        2*vy1*vy2 + np.power(vy2,2))*
+        (-np.power(r1,2) - 2*r1*r2 - 
+        np.power(r2,2) + 
+        np.power(x1,2) - 2*x1*x2 + 
+        np.power(x2,2) + 
+        np.power(y1,2) - 2*y1*y2 + 
+        np.power(y2,2))))/(
+        2.*(np.power(vx1,2) - 2*vx1*vx2 + 
+        np.power(vx2,2) + 
+        np.power(vy1,2) - 2*vy1*vy2 + 
+        np.power(vy2,2))
+    )
+
+# solve for the times t1,t2 where two circles overlap given two RRectPaths
+# only done after comparing the square differences
+def rrQuadSolve(rr1, rr2):
+
+    d1 = rr1[1][0] - rr1[0][0]
+    d2 = rr2[1][0] - rr2[0][0]
+
+    t1 = tSol(1, rr1[0][1], rr2[0][1], *rr1[0][0], *d1, *rr2[0][0], *d2)
+
+    t2 = tSol(2, rr1[0][1], rr2[0][1],
+        *rr1[0][0], *d1,
+        *rr2[0][0], *d2
+    )
+    return((t1, t2))
+
+
+# xxx: does this implement a t = -T/2 start?
+def rrQuadDiff(rr1, rr2):
+
+    d1 = rr1[1][0] - rr1[0][0]
+    d2 = rr2[1][0] - rr2[0][0]
+        
+    return(tSolSqDiff(
+        rr1[0][1], rr2[0][1],
+        *rr1[0][0], *d1,
+        *rr2[0][0], *d2
+    ))
+
+# pretend all stars have the radius of the sun
+# returns angular size in radians
+## change: use actual radius of star -- ask how to calculate this from other attributes of the star
+def star_size(rad,star_radius): ## rad is radial distance away, star_radius in kpc
+    return star_radius / rad
+
+##########
+## End of copied segment from hamer-code-edits.py
+##########
 
 def calc_events(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
@@ -3112,6 +3308,10 @@ def calc_events(hdf5_file, output_root2,
     ##########
     # Start of code
     #########
+
+    ## Reminder message for Kai, can be deleted later along with this comment
+    print("You are using the new version of synthetic.py, it is prone to errors")
+    print("If you are trying to run the old one, please use synthetic_old.py")
 
     t0 = time.time()
 
@@ -3347,7 +3547,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # Find potential lenses and sources that fall within radius cut.
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
                                                                             time_array[i],
-                                                                            radius_cut)
+                                                                            radius_cut, 
+                                                                            obs_time)
 
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
@@ -3399,7 +3600,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     return events_llbb, blends_llbb
 
 
-def _calc_event_cands_radius(bigpatch, timei, radius_cut):
+def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     """
     Get sources and lenses that pass the radius cut.
 
@@ -3435,25 +3636,128 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
     c : SkyCoord object
         Coordinates of all the stars.
     """
+
+    startTime = time.time()
     # Propagate r, b, l positions forward in time.
+    ## for now, we will assume timei to be the middle of the duration
     r_t = bigpatch['rad'] + timei * bigpatch['vr'] * kms_to_kpcday  # kpc
     b_t = bigpatch['glat'] + timei * bigpatch['mu_b'] * masyr_to_degday  # deg
     l_t = bigpatch['glon'] + timei * (bigpatch['mu_lcosb'] / np.cos(np.radians(bigpatch['glat']))) * masyr_to_degday  # deg
-
-    ##########
-    # Determine nearest neighbor in spherical coordinates.
-    ##########
+    
     c = SkyCoord(frame='galactic', l=l_t * units.deg, b=b_t * units.deg)
 
-    # NOTE: dist has no actual meaning since
-    # we didn't input distances from Earth.
-    # It's an auto output. just ignore it.
-    idx, sep, dist = coord.match_coordinates_sky(c, c, nthneighbor=2)
+    sources = bigpatch[:]
+    lenses = bigpatch[:]
 
-    # Converts separations to milliarcseconds
+    # location of final point in spherical coords
+    ## these might be incorrect (see question about coordinates and t=0)
+    ## leave for now and assume this is right, but its clearly in conflict with c = SkyCoord at the moment,
+    ## and im pretty sure its wrong, but we'll see after a meeting
+    ## functionality should be the same, just giving slightly different results or something, (will be easy to change later if wrong)
+    def end_movement_spherical_noCartesian(pVec, vVec):
+        return spherical_exact(
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time,
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time,
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time
+        )
+    
+    def mid_movement_spherical_noCartesian(pVec, vVec):
+        return spherical_exact(
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time/2,
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time/2,
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time/2
+        )
+
+    # end position of sources and lenses respectively
+    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
+    endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
+
+    midPosSph_sources = np.asarray(mid_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
+    midPosSph_lenses = np.asarray(mid_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
+
+    def to_radians(rgg):
+        return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
+
+    # starting position of sources and lenses respectively
+    startPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
+    startPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    
+
+    ## array of total displacements for lenses, all displacement is related to lenses
+    total_disp_arr = np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2)
+    max_disp = total_disp_arr.max()
+    disp_95 = np.percentile(total_disp_arr, 95)
+    radius_cut_95 = 2*disp_95 ## double because lens and source could each have about this much motion 
+    ## could have more, but that case is currently being neglected, as this will catch almost all cases (especially if taken from midpoint positions)
+    radius_cut_max = 2*max_disp ## in units of radians
+    print('====== displacements ======')    
+    print('max: %s' % max_disp)
+    print('95th percentile: %s' % disp_95)
+    print('===========================')
+
+
+    ## note: radius_cut is input with milliarcseconds, and maxSphRadius is currently in radians, so there needs to be a unit conversion
+    maxSphRadius = ((radius_cut * units.mas).to(units.radian)) / units.radian ## convert to radians (from mas)
+    print('DIAGNOSTIC: maxSphRadius/radius_cut in radians = %s' % maxSphRadius)
+    kdt = cKDTree(midPosSph_sources[:, 1:3]) ## now uses midpoint instead of start to capture more relevant potential events
+    print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(midPosSph_sources[:, 1:3]))
+    
+    ## in the case that displacements are larger, we will use the radius cut
+    ## should usually be the same radius_cut_95 and radius_cut_max
+    radius_cut_95 = min(radius_cut_95, maxSphRadius)
+    radius_cut_max = min(radius_cut_max, maxSphRadius)
+    lens_id = []
+    sorc_id = []
+    
+
+    totalNearbyObjects = 0 ## counts the number of nearby (potential) sources near a lens
+    totalIsolatedObjects = 0
+    ## this could be implemented dynamically such that for cases where there are lots of large values
+    ## we take a percentile that will run very fast and do those, then use the radius_cut for the others
+    for i, lens in enumerate(lenses):
+        
+        if total_disp_arr[i] <= disp_95:
+            ## if the ith lens has a displacement lower than disp_95, we use the 95th percentile threshold value
+            results = kdt.query_ball_point((midPosSph_lenses[i][1], midPosSph_lenses[i][2]), radius_cut_95)
+            ## lens' glat, glon (coords)
+            ## compare with minimum in case radius_cut_95 is larger than maxSphRadius so we dont look too far
+            
+        else: ##in the >95% case
+            results = kdt.query_ball_point((midPosSph_lenses[i][1], midPosSph_lenses[i][2]), radius_cut_max)
+        
+        results = [index for index in results if index != i] ## dont count the same object as a source if its already the lens
+        
+        for res in results:
+            ## res,i are the indices of the sources, lenses (respectively) in the original patch list
+            if(lens['rad'] < startPosSph_sources[res][0]):
+                ## comparing "starting positions" (with how we have new code set up for now) (i think comparing ACTUAL mid positions)
+                # lens is nearer than the source
+                totalNearbyObjects += 1
+                lens_id.append(i) ## this is the index of the object in the original patch list
+                sorc_id.append(res) ## this is the index of the object in the original patch list
+                
+        if len(results) == 0:
+            totalIsolatedObjects += 1
+    
+    ## convert to arrays
+    sorc_id = np.array(sorc_id)
+    lens_id = np.array(lens_id)
+    
+    lens_coords = SkyCoord(frame='galactic', l=l_t[lens_id] * units.deg, b=b_t[lens_id] * units.deg)
+    sorc_coords = SkyCoord(frame='galactic', l=l_t[sorc_id] * units.deg, b=b_t[sorc_id] * units.deg)
+    
+    sep = lens_coords.separation(sorc_coords)
+
+    # Converts separations to milliarcseconds (from degrees)
     sep = (sep.to(units.mas)) / units.mas
 
-    
+    event_id1 = np.array(range(len(lens_id)))
+    if len(lens_id) != len(sorc_id): #or len(sep) != len(lens_id):
+        print('=========================')
+        print('error! lengths are not equivalent!')
+        print('=========================')
+        ## can turn this into an exception but whtever, can do that later if need be
+        ## delete all the stuff below here too
     ##########
     # Error checking: calculate how many duplicate (l, b) pairs there are.
     # (This is a problem for nearest neighbors.)
@@ -3466,30 +3770,13 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut):
         print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
         print('**************************************************')
 
-    ##########
-    # Find all objects with a nearest neighbor within an angular distance
-    # equal to sep. The index of the object and its nearest neighbor are
-    # event_id1 and event_id2. (Indices correspond to those of idx and sep.)
-    ##########
-    # NOTE: event_id1/2 are indices into bigpatch
-    event_id1 = np.where(sep < radius_cut)[0]
-    event_id2 = idx[event_id1]
 
-    ##########
-    # We've got neighbors... figure out who's the lens and who's the source.
-    ##########
-    # NOTE: lens_id and sorc_id are indices into bigpatch
-    idx_l1 = np.where(r_t[event_id1] < r_t[event_id2])[0]
-    idx_l2 = np.where(r_t[event_id1] > r_t[event_id2])[0]
-
-    lens_id = np.zeros(len(event_id1), dtype='int')
-    sorc_id = np.zeros(len(event_id1), dtype='int')
-
-    lens_id[idx_l1] = event_id1[idx_l1]
-    sorc_id[idx_l1] = event_id2[idx_l1]
-
-    lens_id[idx_l2] = event_id2[idx_l2]
-    sorc_id[idx_l2] = event_id1[idx_l2]
+    endTime = time.time()
+    print('search radius is %s rad (adjust manually if necessary)' % maxSphRadius)
+    print('completed search for transit events in %s s' % (endTime-startTime))
+    print('total close sources found: %d. total lonely lenses found: %d' % (totalNearbyObjects, totalIsolatedObjects))
+    ## totalNearbyObjects may still be higher than total # of objects because sources may be close to multiple other
+    ## change: print statements should be modified to match current implementation (late priority)
 
     return lens_id, sorc_id, r_t, sep, event_id1, c
 

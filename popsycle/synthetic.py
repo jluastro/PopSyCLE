@@ -4228,10 +4228,6 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     lenses = bigpatch[:]
 
     # location of final point in spherical coords
-    ## these might be incorrect (see question about coordinates and t=0)
-    ## leave for now and assume this is right, but its clearly in conflict with c = SkyCoord at the moment,
-    ## and im pretty sure its wrong, but we'll see after a meeting
-    ## functionality should be the same, just giving slightly different results or something, (will be easy to change later if wrong)
     ## + vVec because the end occurs at obs_time/2
     def end_movement_spherical_noCartesian(pVec, vVec):
         return spherical_exact(
@@ -4255,7 +4251,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     def to_radians(rgg):
         return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
 
-    ## not sure if this works as intended now, but mid points should just be when t=0 (i.e default coords)
+    ## mid points should just be when t=0 (i.e default coords)
     midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
     midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
     
@@ -4301,7 +4297,6 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
             ## if the ith lens has a displacement lower than disp_95, we use the 95th percentile threshold value
             results = kdt.query_ball_point((midPosSph_lenses[i][1], midPosSph_lenses[i][2]), radius_cut_95)
             ## lens' glat, glon (coords)
-            ## compare with minimum in case radius_cut_95 is larger than maxSphRadius so we dont look too far
             
         else: ##in the >95% case
             results = kdt.query_ball_point((midPosSph_lenses[i][1], midPosSph_lenses[i][2]), radius_cut_max)
@@ -4337,7 +4332,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
         print('error! lengths are not equivalent!')
         print('=========================')
         ## can turn this into an exception but whtever, can do that later if need be
-        ## delete all the stuff below here too
+        ## delete all the stuff below here too (?)
     ##########
     # Error checking: calculate how many duplicate (l, b) pairs there are.
     # (This is a problem for nearest neighbors.)

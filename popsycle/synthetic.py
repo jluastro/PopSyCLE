@@ -4232,33 +4232,37 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     ## leave for now and assume this is right, but its clearly in conflict with c = SkyCoord at the moment,
     ## and im pretty sure its wrong, but we'll see after a meeting
     ## functionality should be the same, just giving slightly different results or something, (will be easy to change later if wrong)
+    ## + vVec because the end occurs at obs_time/2
     def end_movement_spherical_noCartesian(pVec, vVec):
-        return spherical_exact(
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time,
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time,
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time
-        )
-    
-    def mid_movement_spherical_noCartesian(pVec, vVec):
         return spherical_exact(
             cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time/2,
             cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time/2,
             cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time/2
         )
+    ## - vVec because the start occurs at -obs_time/2
+    def start_movement_spherical_noCartesian(pVec, vVec):
+        return spherical_exact(
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] - vVec['vx'] * kms_to_kpcday * obs_time/2,
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] - vVec['vy'] * kms_to_kpcday * obs_time/2,
+            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] - vVec['vz'] * kms_to_kpcday * obs_time/2
+        )
+    
 
     # end position of sources and lenses respectively
     endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
 
-    midPosSph_sources = np.asarray(mid_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
-    midPosSph_lenses = np.asarray(mid_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
-
     def to_radians(rgg):
         return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
 
+    ## not sure if this works as intended now, but mid points should just be when t=0 (i.e default coords)
+    midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
+    midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    
+
     # starting position of sources and lenses respectively
-    startPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
-    startPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
+    startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
     
 
     ## array of total displacements for lenses, all displacement is related to lenses
@@ -4286,7 +4290,6 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     radius_cut_max = min(radius_cut_max, maxSphRadius)
     lens_id = []
     sorc_id = []
-    
 
     totalNearbyObjects = 0 ## counts the number of nearby (potential) sources near a lens
     totalIsolatedObjects = 0
@@ -4307,8 +4310,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
         
         for res in results:
             ## res,i are the indices of the sources, lenses (respectively) in the original patch list
-            if(lens['rad'] < startPosSph_sources[res][0]):
-                ## comparing "starting positions" (with how we have new code set up for now) (i think comparing ACTUAL mid positions)
+            if(lens['rad'] < midPosSph_sources[res][0]):
                 # lens is nearer than the source
                 totalNearbyObjects += 1
                 lens_id.append(i) ## this is the index of the object in the original patch list

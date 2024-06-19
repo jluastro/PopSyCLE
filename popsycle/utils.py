@@ -689,3 +689,26 @@ def remove_nan_companions(event_table_loc, comp_table_loc, event_output_loc = No
                         empty_line, line8, dash_line, line9, line10])
     
     return
+
+
+def nan_to_zero(flux):
+    """
+    Modify the input flux array (or any numpy array for that matter) to replace all
+    nan values with zeros.
+
+    Parameters
+    ----------
+    flux : numpy array or Column
+        Array of flux values. Can be me a regular numpy array or a Masked array or column.
+
+    Returns
+    -------
+    flux : numpy array or Column
+        copy of array now with nan's replaced with zeros
+    """
+    if type(flux) == np.ma.core.MaskedArray or type(flux) == MaskedColumn:
+        flux = np.nan_to_num(flux.filled(np.nan))
+    else:
+        flux = np.nan_to_num(flux)
+
+    return flux

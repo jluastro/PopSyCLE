@@ -5870,7 +5870,11 @@ def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
                             pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
+    abs_mag_sec_col = comp_table['m_%s_%s' % (photometric_system, filter_name)]
+    if type(abs_mag_sec_col) == np.ma.core.MaskedArray or type(abs_mag_sec_col) == MaskedColumn:
+        abs_mag_sec_col = abs_mag_sec_col.filled(np.nan)
+        
+    abs_mag_sec = abs_mag_sec_col[comp_idx]
     
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec
@@ -6001,7 +6005,11 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
 
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
+    abs_mag_sec_col = comp_table['m_%s_%s' % (photometric_system, filter_name)]
+    if type(abs_mag_sec_col) == np.ma.core.MaskedArray or type(abs_mag_sec_col) == MaskedColumn:
+        abs_mag_sec_col = abs_mag_sec_col.filled(np.nan)
+        
+    abs_mag_sec = abs_mag_sec_col[comp_idx_S]
 
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec

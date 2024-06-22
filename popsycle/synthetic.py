@@ -3088,8 +3088,9 @@ def RRectPath(r, p1, v, t):
 
     # v is 2D vector of proper motion, if v = 0, then the shape is just a 
     # stationary circle and zero-size rectangle
-    if (v[0] == 0 and v[1] == 0):
-        return ((p1, r), (p1, r), (p1, p1, p1, p1))
+    ##if (v[0] == 0 and v[1] == 0):
+        ##return ((p1, r), (p1, r), (p1, p1, p1, p1))
+    ## CHANGE: see if i can get away with not including this (might just have to for loop it)
 
     # unit vector perpendicular to trajectory
     uPerp = np.array([-v[1], v[0]]) / np.sqrt(np.dot(v,v))
@@ -3225,6 +3226,26 @@ def rrQuadDiff(rr1, rr2):
 ## change: use actual radius of star -- ask how to calculate this from other attributes of the star
 def star_size(rad,star_radius): ## rad is radial distance away, star_radius in kpc
     return star_radius / rad
+
+def to_radians(rgg):
+    return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
+
+# location of final point in spherical coords
+## + vVec because the end occurs at obs_time/2
+def end_movement_spherical_noCartesian(pVec, vVec, obs_time):
+    return spherical_exact(
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time/2
+    )
+
+## - vVec because the start occurs at -obs_time/2
+def start_movement_spherical_noCartesian(pVec, vVec,obs_time):
+    return spherical_exact(
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] - vVec['vx'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] - vVec['vy'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] - vVec['vz'] * kms_to_kpcday * obs_time/2
+    )
 
 ##########
 ## End of copied segment from hamer-code-edits.py
@@ -4140,7 +4161,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # Trim down to those microlensing events that really get close enough
         # to hope that we can detect them. Trim on a Theta_E criteria.
         event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
-                                             lens_id, sorc_id, time_array[i], binary_sep)
+                                             lens_id, sorc_id, time_array[i], obs_time, binary_sep)
 
         if event_lbt is not None:
             # Concatenate the current event table
@@ -4226,30 +4247,12 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
 
     sources = bigpatch[:]
     lenses = bigpatch[:]
-
-    # location of final point in spherical coords
-    ## + vVec because the end occurs at obs_time/2
-    def end_movement_spherical_noCartesian(pVec, vVec):
-        return spherical_exact(
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time/2,
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time/2,
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time/2
-        )
-    ## - vVec because the start occurs at -obs_time/2
-    def start_movement_spherical_noCartesian(pVec, vVec):
-        return spherical_exact(
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] - vVec['vx'] * kms_to_kpcday * obs_time/2,
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] - vVec['vy'] * kms_to_kpcday * obs_time/2,
-            cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] - vVec['vz'] * kms_to_kpcday * obs_time/2
-        )
     
 
     # end position of sources and lenses respectively
-    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
-    endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
+    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
-    def to_radians(rgg):
-        return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
 
     ## mid points should just be when t=0 (i.e default coords)
     midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
@@ -4257,8 +4260,8 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     
 
     # starting position of sources and lenses respectively
-    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']])).T
-    startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']])).T
+    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
     
 
     ## array of total displacements for lenses, all displacement is related to lenses
@@ -4357,7 +4360,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
 
 
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
-                             sorc_id, timei, binary_sep = None):
+                             sorc_id, timei, obs_time, binary_sep = None):
     """
     Get sources and lenses that pass the radius cut.
 
@@ -4391,6 +4394,53 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         Lenses and sources at a particular time t.
 
     """
+    ## new (shortened) list of sources and lenses (after first cut)
+    sources = bigpatch[sorc_id]
+    lenses = bigpatch[lens_id]
+
+    ##########
+    ## the following lines are essentially copied from *cands_radius()
+    ##########
+
+    # end position of sources and lenses respectively
+    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
+
+
+    ## mid points should just be when t=0 (i.e default coords)
+    midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
+    ## midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    
+
+    # starting position of sources and lenses respectively
+    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
+    
+
+    ## array of coordinates movement
+    d_lens = endPosSph_lenses[:, 1:3] - startPosSph_lenses[:, 1:3]
+    d_sorc = endPosSph_sources[:, 1:3] - startPosSph_sources[:, 1:3]
+    ## put these AFTER binary sep part, just starting with them for now
+    rr_lens = RRectPath(
+                    theta_frac * theta_E, 
+                    startPosSph_lenses[:, 1:3],
+                    d_lens, 1)
+    ## use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
+    rr_source = RRectPath(
+                    star_size(midPosSph_sources[:, 0]),
+                    startPosSph_sources[:, 1:3],
+                    d_sorc, 1)
+    ## NOTE: might have to make these array calls into a boring old for loop, we'll see
+    print("DIAGNOSTICS:")
+    print("length of rr_lens is", len(rr_lens))
+    print("length of rr_source is", len(rr_source))
+    print("rr_lens first ten entries")
+    print(rr_lens[0:10])
+    print("rr_source first ten entries")
+    print(rr_source[0:10])
+    print("keyboard interrupt now!")
+    print("type of rr_lens is")
+    return type(rr_lens)
     # If there are binaries extend the search radius to theta_frac + separation between primary
     # and furthest companion.
     if binary_sep is not None:

@@ -3224,7 +3224,7 @@ def rrQuadDiff(rr1, rr2):
 # pretend all stars have the radius of the sun
 # returns angular size in radians
 ## change: use actual radius of star -- ask how to calculate this from other attributes of the star
-def star_size(rad,star_radius): ## rad is radial distance away, star_radius in kpc
+def star_size(rad, star_radius): ## rad is radial distance away, star_radius in kpc
     return star_radius / rad
 
 def to_radians(rgg):
@@ -4394,9 +4394,18 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         Lenses and sources at a particular time t.
 
     """
+    startTime = time.time()
+    totalLensingEvents = 0
     ## new (shortened) list of sources and lenses (after first cut)
     sources = bigpatch[sorc_id]
     lenses = bigpatch[lens_id]
+    ## the code could be rewritten to take inputs of mas, but that is too tall a task (for now at last) esp. given such a simple solution
+    ## converting theta_E to radians (from mas) for RRectPath (radians intended)
+    ## will switch back to mas after for loop
+    theta_E = theta_E * units.mas
+    theta_E = (theta_E.to(units.radian)) / units.radian
+    theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
+
 
     ##########
     ## the following lines are essentially copied from *cands_radius()
@@ -4420,27 +4429,58 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     ## array of coordinates movement
     d_lens = endPosSph_lenses[:, 1:3] - startPosSph_lenses[:, 1:3]
     d_sorc = endPosSph_sources[:, 1:3] - startPosSph_sources[:, 1:3]
+    ## print("d_lens[0:10]", d_lens[0:10])
+    ## print("=====================")
+    ## print("startPosSph_lenses[:, 1:3][0:10]", startPosSph_lenses[:, 1:3][0:10])
     ## put these AFTER binary sep part, just starting with them for now
-    rr_lens = RRectPath(
-                    theta_frac * theta_E, 
-                    startPosSph_lenses[:, 1:3],
-                    d_lens, 1)
+    """print("midPosSph_sources[:, 0]:")
+    print(midPosSph_sources[:, 0])
+    print("midPosSph_sources[:, 0][0]:")
+    print(midPosSph_sources[:, 0][0])
+    print("midPosSph_sources[:, 0][1]:")
+    print(midPosSph_sources[:, 0][1])
+    print("len(midPosSph_sources[:, 0])")
+    print(len(midPosSph_sources[:, 0]))
+    print("len of sources for example:", len(sources))"""
+    adx = []
+    count = 0
+    for i in range(len(sources)):
+        rr_lens = RRectPath(
+                    theta_frac * theta_E[i],
+                    startPosSph_lenses[:, 1:3][i],
+                    d_lens[i], 1)
     ## use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
-    rr_source = RRectPath(
-                    star_size(midPosSph_sources[:, 0]),
-                    startPosSph_sources[:, 1:3],
-                    d_sorc, 1)
-    ## NOTE: might have to make these array calls into a boring old for loop, we'll see
-    print("DIAGNOSTICS:")
-    print("length of rr_lens is", len(rr_lens))
-    print("length of rr_source is", len(rr_source))
-    print("rr_lens first ten entries")
-    print(rr_lens[0:10])
-    print("rr_source first ten entries")
-    print(rr_source[0:10])
-    print("keyboard interrupt now!")
-    print("type of rr_lens is")
-    return type(rr_lens)
+        rr_source = RRectPath(
+                    star_size(midPosSph_sources[:, 0][i], 2.26E-11), ## CHANGE: use individual star size, not sun default (see hamer code)
+                    startPosSph_sources[:, 1:3][i],
+                    d_sorc[i], 1)
+
+        deltaTSq = rrQuadDiff(rr_lens, rr_source)
+        count += 1
+        ## below line: need to ask about cadence and n_obs -> should we include something to miss events based on how often we observe? or no?
+        """if (deltaTSq < transit15minSq):
+                    # event is too short duration to be seen with 15 min cadence
+                    continue"""
+        if not pd.isnull(deltaTSq): ## pd.isnull can handle weird mpmath objects representing numbers that np.isnan cant
+            t1, t2 = rrQuadSolve(rr_lens, rr_source)
+            t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
+            t2 -= 0.5
+            if (t1 >= -0.5 and t1 <= 0.5) or (t2 >= -0.5 and t2 <= 0.5): ## if the start or end of the event falls within the survey window
+                ## times are in line with -T/2 to T/2 viewing window. Would just need to subtract 0.5 from each of them.
+                    print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
+                    totalLensingEvents +=1
+                    adx.append(i)
+    adx = np.array(adx) ## convert to np.array for consistency
+    print('adx =', adx)
+    print('total lensing events: %s' % totalLensingEvents)
+    endTime = time.time()
+    print('completed search for transit events in %s s' % (endTime-startTime))
+    ## changing back theta_E to mas (from radians for computations above)
+    theta_E = theta_E * units.radian
+    theta_E = (theta_E.to(units. mas)) / units.mas
+    theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
+    return ## pick off where we left off here
+    
     # If there are binaries extend the search radius to theta_frac + separation between primary
     # and furthest companion.
     if binary_sep is not None:
@@ -4506,10 +4546,13 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                                       mu_rel, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 't0',
                                       t_event, usemask=False)
-                
+        endTime = time.time()
+        print('completed search for transit events in %s s' % (endTime-startTime))      
         return event_lbt
 
     else:
+        endTime = time.time()
+        print('completed search for transit events in %s s' % (endTime-startTime))    
         return None
 
 

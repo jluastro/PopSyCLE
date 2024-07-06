@@ -218,8 +218,9 @@ def processPatch_quad_starTree(patch, duration):
     # diagnostic: num sources, num lenses
     print('num sources: %d, lenses: %d' % (len(sources), len(lenses))) ## should be the same number
     
+    ## this is the original coordinates used: doesnt align with synthetic.py time, so i switched it for testing purposes
     # location of final point in spherical coords
-    def end_movement_spherical_noCartesian(pVec, vVec):
+    """def end_movement_spherical_noCartesian(pVec, vVec):
         return spherical_exact(
             cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * duration,
             cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * duration,
@@ -245,8 +246,41 @@ def processPatch_quad_starTree(patch, duration):
 
     # starting position of sources and lenses respectively
     startPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
-    startPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    startPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T"""
+
+    obs_time = duration ## same thing, just diff notation across this file and synthetic.py
+
+    def end_movement_spherical_noCartesian(pVec, vVec, obs_time):
+        return spherical_exact(
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] + vVec['vy'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time/2
+    )
+
+    ## - vVec because the start occurs at -obs_time/2
+    def start_movement_spherical_noCartesian(pVec, vVec,obs_time):
+        return spherical_exact(
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] - vVec['vx'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[1] - vVec['vy'] * kms_to_kpcday * obs_time/2,
+        cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] - vVec['vz'] * kms_to_kpcday * obs_time/2
+    )
     
+    def to_radians(rgg):
+        return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
+    
+    # end position of sources and lenses respectively
+    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
+
+
+    ## mid points should just be when t=0 (i.e default coords)
+    midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
+    midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    
+
+    # starting position of sources and lenses respectively
+    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
     ## array of total displacements for lenses, all displacement is related to lenses
     total_disp_arr = np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2)
@@ -325,21 +359,19 @@ def processPatch_quad_starTree(patch, duration):
                 d_lens =  lensCoord_end - lensCoord_start
                 d_source = sourceCoord_end - sourceCoord_start
 
-                # this is here since the time in popsycle might go from t=-1/2 to t=1/2
-                # so for purposes of comparing our output to theirs, make this the same.
-                lensCoord_start = lensCoord_start - d_lens/2
-                sourceCoord_start = sourceCoord_start - d_source/2
+                lensCoord_start = lensCoord_start
+                sourceCoord_start = sourceCoord_start
 
                 # trajectory contours of lens and source respectively
                 rr_lens = RRectPath(
-                    2*einstein_radius(lens['rad'], startPosSph_sources[res][0], lens['mass']), ## change: should be system mass
+                    2*einstein_radius(lens['rad'], midPosSph_sources[res][0], lens['mass']), ## change: should be system mass
                     np.array(lensCoord_start),
                     np.array(d_lens),
                 1)
                 ## 2 einstein radii will be an input that can be changed later, just use 2 as placeholder for now
                 ## change: einstein_radius in synthetic.py is in MAS, nicks code assumes its in RADIANS
                 rr_source = RRectPath(
-                    star_size(startPosSph_sources[res][0]),
+                    star_size(midPosSph_sources[res][0]),
                     np.array(sourceCoord_start),
                     np.array(d_source),
                 1)
@@ -413,13 +445,13 @@ def processPatch_quad_starTree(patch, duration):
     print('total close sources found: %d. total lonely lenses found: %d' % (totalNearbyObjects, totalIsolatedObjects))
     ## totalNearbyObjects may still be higher than total # of objects because sources may be close to multiple other
     print('total lensing events: %s' % totalLensingEvents)
-    print('less_95_case = %s' % less_95_case)
+    """print('less_95_case = %s' % less_95_case)
     print('greater_95_case = %s' % greater_95_case)
     ## change: print statements should be modified to match current implementation (late priority)
     print('length of sorc_id is', len(sorc_id))
     print(sorc_id[0:20])
     print('length of lens_id is', len(lens_id))
-    print(lens_id[0:20])
+    print(lens_id[0:20])"""
 
     resultData['sourceCoordsStart'] = startPosSph_sources[ [tr['id_source'] for tr in resultData['transitData']] ]
     resultData['sourceCoordsEnd'] = endPosSph_sources[ [tr['id_source'] for tr in resultData['transitData']] ]

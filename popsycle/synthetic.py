@@ -4446,6 +4446,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     print("len of sources for example:", len(sources))"""
     adx = []
     count = 0
+    times = []
     for i in range(len(sources)):
         rr_lens = RRectPath(
                     theta_frac * theta_E[i],
@@ -4468,32 +4469,29 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
             t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
             t2 -= 0.5
             if (t1 >= -0.5 and t1 <= 0.5) or (t2 >= -0.5 and t2 <= 0.5): ## if the start or end of the event falls within the survey window
-                ## times are in line with -T/2 to T/2 viewing window. Would just need to subtract 0.5 from each of them.
+                ## times are in line with -T/2 to T/2 viewing window.
                     print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
                     totalLensingEvents +=1
                     adx.append(i)
+                    times.append(obs_time * (t2 + t1) / 2) ## use midpoint of event for t0 (ask about this)
     adx = np.array(adx) ## convert to np.array for consistency
-    print('adx =', adx)
+    times = np.array(times)
     print('total lensing events: %s' % totalLensingEvents)
-    endTime = time.time()
-    print('completed search for transit events in %s s' % (endTime-startTime))
+    ## CHANGE: remove all these print statements eventually
     ## changing back theta_E to mas (from radians for computations above)
     theta_E = theta_E * units.radian
     theta_E = (theta_E.to(units. mas)) / units.mas
     theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
-    return ## pick off where we left off here
     
     # If there are binaries extend the search radius to theta_frac + separation between primary
     # and furthest companion.
-    if binary_sep is not None:
+    """if binary_sep is not None:
         theta_frac_comp = theta_frac + binary_sep
         if np.shape(u) != np.shape(theta_frac_comp):
             print(u, theta_frac_comp)
         #print(np.shape(u), np.shape(theta_frac_comp), np.shape(theta_frac), np.shape(bigpatch['sep']))
-        adx = np.where(u < theta_frac_comp)[0]
-    else: 
-        # NOTE: adx is an index into lens_id or event_id (NOT bigpatch)
-        adx = np.where(u < theta_frac)[0]
+        adx = np.where(u < theta_frac_comp)[0]"""
+    
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
         # an event.
@@ -4519,8 +4517,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         mu_b_rel = sorc_table['mu_b'] - lens_table['mu_b']  # mas/yr
         mu_lcosb_rel = sorc_table['mu_lcosb'] - lens_table['mu_lcosb']  # mas/yr
         mu_rel = np.sqrt(mu_b_rel ** 2 + mu_lcosb_rel ** 2)  # mas/yr
-        t_event = np.ones(len(mu_rel), dtype=float) * timei  # days
-        
+        t_event = np.ones(len(mu_rel), dtype=float) * times  # days
+        t_event = np.array([float(obj) for obj in t_event]) ## have to do this to change mpmath objs into floats
+                                                            ## for compatability. i dont like mpmath...
+        # CHANGE: for now, using midpoint of event (between t2 and t1)
 
         # This is all the events for this l, b, time
         # Loop through the lens table and append '_L' to the end of each field

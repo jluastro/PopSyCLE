@@ -3088,9 +3088,9 @@ def RRectPath(r, p1, v, t):
 
     # v is 2D vector of proper motion, if v = 0, then the shape is just a 
     # stationary circle and zero-size rectangle
-    ##if (v[0] == 0 and v[1] == 0):
-        ##return ((p1, r), (p1, r), (p1, p1, p1, p1))
-    ## CHANGE: see if i can get away with not including this (might just have to for loop it)
+    if (v[0] == 0 and v[1] == 0):
+        return ((p1, r), (p1, r), (p1, p1, p1, p1))
+    
 
     # unit vector perpendicular to trajectory
     uPerp = np.array([-v[1], v[0]]) / np.sqrt(np.dot(v,v))
@@ -3221,11 +3221,13 @@ def rrQuadDiff(rr1, rr2):
         *rr2[0][0], *d2
     ))
 
-# pretend all stars have the radius of the sun
 # returns angular size in radians
-## change: use actual radius of star -- ask how to calculate this from other attributes of the star
-def star_size(rad, star_radius): ## rad is radial distance away, star_radius in kpc
-    return star_radius / rad
+def star_size(rad, star): ## rad is radial distance away
+    if np.isnan(star['grav']): ## temporary fix for now
+        return 0
+    radius_cm = np.sqrt((6.6743*10**-8) * (star['mass']*1.989*10**33) / (10**star['grav'])) ## all cgs units
+    radius_kpc = radius_cm * 3.24078*10**-22
+    return radius_kpc / rad
 
 def to_radians(rgg):
     return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
@@ -4451,7 +4453,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                     d_lens[i], 1)
     ## use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
         rr_source = RRectPath(
-                    star_size(midPosSph_sources[:, 0][i], 2.26E-11), ## CHANGE: use individual star size, not sun default (see hamer code)
+                    star_size(midPosSph_sources[:, 0][i], sources[i]),
                     startPosSph_sources[:, 1:3][i],
                     d_sorc[i], 1)
 

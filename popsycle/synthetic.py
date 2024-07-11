@@ -3337,8 +3337,7 @@ def calc_events_old(hdf5_file, output_root2,
     #########
 
     ## Reminder message for Kai, can be deleted later along with this comment
-    print("You are using the old version of synthetic.py, now called synthetic_old.py")
-    print("If you are trying to run the new one, please use synthetic.py")
+    print("You are using the old version of calc_events, now called calc_events_old.py")
 
     t0 = time.time()
 
@@ -3911,8 +3910,7 @@ def calc_events(hdf5_file, output_root2,
     #########
 
     ## Reminder message for Kai, can be deleted later along with this comment
-    print("You are using the new version of synthetic.py, it is prone to errors")
-    print("If you are trying to run the old one, please use synthetic_old.py")
+    print("You are using the new version of calc_events, it is prone to errors")
 
     t0 = time.time()
 
@@ -4141,67 +4139,61 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     if len(bigpatch) < 10:
         # continue
         return
+    
+    # Find potential lenses and sources that fall within radius cut.
+    lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
+                                                                        radius_cut, 
+                                                                        obs_time)
 
-    time_array = np.linspace(-1 * obs_time / 2.0, obs_time / 2.0, n_obs)
+    # Calculate einstein radius and lens-source separation
+    theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
+                                r_t[lens_id], r_t[sorc_id])  # mas      
+    u = sep[event_id1] / theta_E
+    
+    binary_sep = None
+    if 'sep' in bigpatch[0].dtype.names:
+        binary_sep = bigpatch['sep'][event_id1]
 
-    for i in np.arange(len(time_array)):
-        # Find potential lenses and sources that fall within radius cut.
-        lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
-                                                                            time_array[i],
-                                                                            radius_cut, 
-                                                                            obs_time)
+    # Trim down to those microlensing events that really get close enough
+    # to hope that we can detect them. Trim on a Theta_E criteria.
+    event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
+                                            lens_id, sorc_id, obs_time, binary_sep)
 
-        # Calculate einstein radius and lens-source separation
-        theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
-                                  r_t[lens_id], r_t[sorc_id])  # mas      
-        u = sep[event_id1] / theta_E
-        
-        binary_sep = None
-        if 'sep' in bigpatch[0].dtype.names:
-            binary_sep = bigpatch['sep'][event_id1]
+    if event_lbt is not None:
+        # Concatenate the current event table
+        # (at this l, b, time) with the rest.
+        if events_llbb is not None:
+            events_llbb = np.hstack((events_llbb, event_lbt))
+        else:
+            events_llbb = event_lbt
 
-        # Trim down to those microlensing events that really get close enough
-        # to hope that we can detect them. Trim on a Theta_E criteria.
-        event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
-                                             lens_id, sorc_id, time_array[i], obs_time, binary_sep)
+        # Keep only unique events within our different time stamps
+        events_llbb = unique_events(events_llbb)
 
-        if event_lbt is not None:
-            # Concatenate the current event table
-            # (at this l, b, time) with the rest.
-            if events_llbb is not None:
-                events_llbb = np.hstack((events_llbb, event_lbt))
+        #########
+        # Get blending.
+        # Note 1: We are centering on the lens.
+        # Note 2: We don't want to include the lens itself,
+        # or the source, in the table.
+        # Note 3: Assumes all binaries are blended
+        ##########
+        blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+
+        if blends_lbt is not None:
+            # Concatenate the current blend table (at this l, b, time)
+            # with the rest.
+            if blends_llbb is not None:
+                blends_llbb = np.hstack((blends_llbb, blends_lbt))
             else:
-                events_llbb = event_lbt
+                blends_llbb = blends_lbt
 
-            # Keep only unique events within our different time stamps
-            events_llbb = unique_events(events_llbb)
-
-            #########
-            # Get blending.
-            # Note 1: We are centering on the lens.
-            # Note 2: We don't want to include the lens itself,
-            # or the source, in the table.
-            # Note 3: Assumes all binaries are blended
-            ##########
-            blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
-
-            if blends_lbt is not None:
-                # Concatenate the current blend table (at this l, b, time)
-                # with the rest.
-                if blends_llbb is not None:
-                    blends_llbb = np.hstack((blends_llbb, blends_lbt))
-                else:
-                    blends_llbb = blends_lbt
-
-                # Keep only unique blends within our different time stamps
-                blends_llbb = unique_blends(blends_llbb)
-
-        # END of time loop
+            # Keep only unique blends within our different time stamps
+            blends_llbb = unique_blends(blends_llbb)
         
     return events_llbb, blends_llbb
 
 
-def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
+def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
     """
     Get sources and lenses that pass the radius cut.
 
@@ -4209,9 +4201,6 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     -----------
     bigpatch : array
         Compilation of 4 .h5 datasets containing stars.
-
-    timei : float
-        Time at which to evaluate.
 
     radius_cut : float
         Parameter of calc_events().
@@ -4241,9 +4230,10 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     startTime = time.time()
     # Propagate r, b, l positions forward in time.
     ## for now, we will assume timei to be the middle of the duration
-    r_t = bigpatch['rad'] + timei * bigpatch['vr'] * kms_to_kpcday  # kpc
-    b_t = bigpatch['glat'] + timei * bigpatch['mu_b'] * masyr_to_degday  # deg
-    l_t = bigpatch['glon'] + timei * (bigpatch['mu_lcosb'] / np.cos(np.radians(bigpatch['glat']))) * masyr_to_degday  # deg
+    ## CHANGE: do we want to propogate everything forward/backward AFTER the lensing events are found?
+    r_t = bigpatch['rad'] # kpc
+    b_t = bigpatch['glat'] # deg
+    l_t = bigpatch['glon'] # deg
     
     c = SkyCoord(frame='galactic', l=l_t * units.deg, b=b_t * units.deg)
 
@@ -4252,7 +4242,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     
 
     # end position of sources and lenses respectively
-    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    #endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
 
@@ -4262,7 +4252,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
     
 
     # starting position of sources and lenses respectively
-    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    #startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
     startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
     
 
@@ -4362,7 +4352,7 @@ def _calc_event_cands_radius(bigpatch, timei, radius_cut, obs_time):
 
 
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
-                             sorc_id, timei, obs_time, binary_sep = None):
+                             sorc_id, obs_time, binary_sep = None):
     """
     Get sources and lenses that pass the radius cut.
 
@@ -4386,9 +4376,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     sorc_id : array
         Indices into bigpatch that indicate sources
-
-    timei : float
-        Time at which to evaluate.
 
     Returns
     -------

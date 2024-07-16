@@ -2954,7 +2954,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
 ############################################################################
 
 def _check_calc_events(hdf5_file, output_root2,
-                       radius_cut, obs_time, n_obs, theta_frac,
+                       radius_cut, obs_time, theta_frac,
                        blend_rad, n_proc, overwrite, hdf5_file_comp):
     """
     Checks that the inputs of calc_events are valid
@@ -2972,9 +2972,6 @@ def _check_calc_events(hdf5_file, output_root2,
 
     obs_time : float
         Survey duration, in DAYS.
-
-    n_obs : int
-        Number of observations.
 
     theta_frac : float
         Another cut, in multiples of Einstein radii.
@@ -3017,9 +3014,6 @@ def _check_calc_events(hdf5_file, output_root2,
     if not isinstance(blend_rad, int):
         if not isinstance(blend_rad, float):
             raise Exception('blend_rad (%s) must be an integer or a float.' % str(blend_rad))
-
-    if not isinstance(n_obs, int):
-        raise Exception('n_obs (%s) must be an integer.' % str(n_obs))
 
     if not isinstance(n_proc, int):
         raise Exception('n_proc (%s) must be an integer.' % str(n_proc))
@@ -3222,10 +3216,17 @@ def rrQuadDiff(rr1, rr2):
     ))
 
 # returns angular size in radians
-def star_size(rad, star): ## rad is radial distance away
-    if np.isnan(star['grav']): ## temporary fix for now
+def obj_size(rad, obj): ## rad is radial distance away (kpc)
+     ## all cgs units
+    if obj['rem_id'] == 103:
+        ## black hole case
+        radius_cm = 2 * 6.6743*10**-8 * (obj['mass']*1.989*10**33) / ((2.998 * 10**10)**2)
+    elif np.isnan(obj['grav']): ## temporary fix for WD (101) & NS (102)
         return 0
-    radius_cm = np.sqrt((6.6743*10**-8) * (star['mass']*1.989*10**33) / (10**star['grav'])) ## all cgs units
+    else:
+        ## normal star case
+        radius_cm = np.sqrt((6.6743*10**-8) * (obj['mass']*1.989*10**33) / (10**obj['grav']))
+    
     radius_kpc = radius_cm * 3.24078*10**-22
     return radius_kpc / rad
 
@@ -3256,6 +3257,88 @@ def start_movement_spherical_noCartesian(pVec, vVec,obs_time):
 ##########
 ## Start of duplicate/old calc_events functions (for testing)
 ##########
+
+def _check_calc_events_old(hdf5_file, output_root2,
+                       radius_cut, obs_time, n_obs, theta_frac,
+                       blend_rad, n_proc, overwrite, hdf5_file_comp):
+    """
+    Checks that the inputs of calc_events are valid
+
+    Parameters
+    -----------
+    hdf5_file : str
+        Name of the HDF5 file.
+
+    output_root2 : str
+        The name for the h5 file
+
+    radius_cut : float
+        Initial radius cut, in ARCSECONDS.
+
+    obs_time : float
+        Survey duration, in DAYS.
+
+    n_obs : int
+        Number of observations.
+
+    theta_frac : float
+        Another cut, in multiples of Einstein radii.
+
+    blend_rad : float
+        Stars within this distance of the lens are said to be blended.
+        Units are in ARCSECONDS.
+
+    n_proc : int
+        Number of processors to use. Should not exceed the number of cores.
+        Default is one processor (no parallelization).
+
+    overwrite : bool
+        If set to True, overwrites output files. If set to False, exits the
+        function if output files are already on disk.
+        Default is False.
+        
+    hdf5_file_comp: str
+        String of hdf5 file of companion events created in perform_pop_syn().
+        Default is None.
+    """
+
+    if not isinstance(hdf5_file, str):
+        raise Exception('hdf5_file (%s) must be a string.' % str(hdf5_file))
+
+    if hdf5_file[-3:] != '.h5':
+        raise Exception('hdf5_file (%s) must be an h5 file.' % str(hdf5_file))
+
+    if not isinstance(output_root2, str):
+        raise Exception('output_root2 (%s) must be a string.' % str(output_root2))
+
+    if not isinstance(radius_cut, int):
+        if not isinstance(radius_cut, float):
+            raise Exception('radius_cut (%s) must be an integer or a float.' % str(radius_cut))
+
+    if not isinstance(obs_time, int):
+        if not isinstance(obs_time, float):
+            raise Exception('obs_time (%s) must be an integer or a float.' % str(obs_time))
+
+    if not isinstance(blend_rad, int):
+        if not isinstance(blend_rad, float):
+            raise Exception('blend_rad (%s) must be an integer or a float.' % str(blend_rad))
+
+    if not isinstance(n_obs, int):
+        raise Exception('n_obs (%s) must be an integer.' % str(n_obs))
+
+    if not isinstance(n_proc, int):
+        raise Exception('n_proc (%s) must be an integer.' % str(n_proc))
+
+    if not isinstance(overwrite, bool):
+        raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
+
+    if not isinstance(theta_frac, int):
+        if not isinstance(theta_frac, float):
+            raise Exception('theta_frac (%s) must be an integer or a float.' % str(theta_frac))
+
+    if not isinstance(hdf5_file_comp, str):
+        if not isinstance(hdf5_file_comp, type(None)):
+            raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
 
 def calc_events_old(hdf5_file, output_root2,
                 radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
@@ -3328,7 +3411,7 @@ def calc_events_old(hdf5_file, output_root2,
                 'file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    _check_calc_events(hdf5_file, output_root2,
+    _check_calc_events_old(hdf5_file, output_root2,
                        radius_cut, obs_time, n_obs, theta_frac,
                        blend_rad, n_proc, overwrite, hdf5_file_comp)
 
@@ -3607,7 +3690,7 @@ def _calc_event_time_loop_old(llbb, hdf5_file, obs_time, n_obs, radius_cut,
             # or the source, in the table.
             # Note 3: Assumes all binaries are blended
             ##########
-            blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+            blends_lbt = _calc_blends_old(bigpatch, c, event_lbt, blend_rad)
 
             if blends_lbt is not None:
                 # Concatenate the current blend table (at this l, b, time)
@@ -3825,13 +3908,153 @@ def _calc_event_cands_thetaE_old(bigpatch, theta_E, u, theta_frac, lens_id,
 
     else:
         return None
+    
+def _calc_blends_old(bigpatch, c, event_lbt, blend_rad):
+    """
+    Create a table containing the blended stars for each event.
+    Note 1: We are centering on the lens.
+    Note 2: We don't want to include the lens itself,
+    or the source, in the table.
+
+    Parameters
+    -----------
+    bigpatch : array
+        Compilation of 4 .h5 datasets containing stars.
+
+    c : SkyCoord object
+        Coordinates of all the stars.
+
+    event_lbt : array
+        Lenses and sources at a particular time t.
+
+    blend_rad : float
+        Parameter of calc_events().
+
+    Returns
+    -------
+    blends_lbt : array
+        Array of neighbor stars for each lens-source pair.
+
+    """
+    ##########
+    # Get the cached KD-Tree to make things run faster.
+    ##########
+    # This way, we don't have to remake a tree that already exists.
+    # (We didn't just do the neighbor calculation initially, because
+    # it would be expensive to hold onto all the unnecessary neighbors)
+    kdtree_cache = c.cache['kdtree_sky']
+
+    # Define the center of the blending disk (the lens)
+    coords_lbt = SkyCoord(frame='galactic',
+                          l=np.array(event_lbt['glon_L']) * units.deg,
+                          b=np.array(event_lbt['glat_L']) * units.deg)
+
+    ##########
+    # Replicate astropy's search_around_sky.
+    ##########
+    # Make the coordinates to query around
+    seplimit = blend_rad * units.arcsec
+    coords1 = coords_lbt
+    coords1 = coords1.transform_to(c)
+    urepr1 = coords1.data.represent_as(UnitSphericalRepresentation)
+    ucoords1 = coords1.realize_frame(urepr1)
+    cartxyz1 = ucoords1.cartesian.xyz
+    flatxyz1 = cartxyz1.reshape((3, np.prod(cartxyz1.shape) // 3))
+
+    # Define the query distance.
+    r_kdt = (2 * np.sin(Angle(seplimit) / 2.0)).value
+
+    # Query ball against the existing (cached) tree.
+    # NOTE: results is an array of lists.
+    results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+    
+    # Figure out the number of blends for each lens.
+    blend_lens_obj_id = []
+    blend_sorc_obj_id = []
+    blend_neigh_obj_id = []
+    blend_neigh_idx = []
+    sep_LN_list = []
+
+    for ii in range(len(results)):
+        # results indexes into bigpatch.
+        # ii corresponds to coords_lbt.
+        if len(results[ii]) == 0:
+            continue
+
+        # bidx indexes into results.
+        # It should be that len(results[ii]) == len(bidx) + 2 (we get rid of source and lens.)
+        # neighbor star object id
+        nid = bigpatch['obj_id'][results[ii]]
+        # lens star object id
+        lid = np.array(event_lbt['obj_id_L'][ii])
+        # source star object id
+        sid = np.array(event_lbt['obj_id_S'][ii])
+
+        # Fetch the things that are not the lens and the source.
+        bidx = np.where((nid != lid) &
+                        (nid != sid))[0]
+
+        if len(bidx) == 0:
+            continue
+
+        # Make a list of the lens and source IDs for each neighbor... these are just repeats.
+        tmp_lens_id = np.repeat(lid, len(bidx)).tolist()
+        tmp_sorc_id = np.repeat(sid, len(bidx)).tolist()
+
+        # Calculate the distance from lens to each neighbor.
+        lens_lb = SkyCoord(frame='galactic',
+                           l=np.array(event_lbt['glon_L'][ii]) * units.deg,
+                           b=np.array(event_lbt['glat_L'][ii]) * units.deg)
+        neigh_lb = SkyCoord(frame='galactic',
+                            l=bigpatch['glon'][results[ii]][bidx] * units.deg,
+                            b=bigpatch['glat'][results[ii]][bidx] * units.deg)
+        sep_LN = lens_lb.separation(neigh_lb)
+        sep_LN = (sep_LN.to(units.arcsec)) / units.arcsec
+
+        # Add the non-lens, non-source blended object IDs to a list.
+        # Add the lens and the source object ID to a new list as well.
+        # Add the index of the neighbors.
+        blend_neigh_obj_id.extend(nid[bidx].tolist())
+        blend_lens_obj_id.extend(tmp_lens_id)
+        blend_sorc_obj_id.extend(tmp_sorc_id)
+        blend_neigh_idx.extend([results[ii][bb] for bb in bidx])
+        sep_LN_list.extend(sep_LN.value.tolist())
+
+    # Convert our lists into arrays.
+    blend_neigh_obj_id = np.array(blend_neigh_obj_id)
+    blend_lens_obj_id = np.array(blend_lens_obj_id)
+    blend_sorc_obj_id = np.array(blend_sorc_obj_id)
+    blend_neigh_idx = np.array(blend_neigh_idx)
+    sep_LN_list = np.array(sep_LN_list)
+
+    if len(blend_neigh_obj_id) > 0:
+        # Grab the rows of bigpatch that are neighbors
+        blends_lbt = bigpatch[blend_neigh_idx]
+
+        # Append '_N' to each column in blends_lbt
+        blends_rename_dct = {}
+        for name in blends_lbt.dtype.names:
+            blends_rename_dct[name] = name + '_N'
+        blends_lbt = rfn.rename_fields(blends_lbt, blends_rename_dct)
+
+        # Add additional columns into blends_lbt
+        blends_lbt = rfn.append_fields(blends_lbt, 'obj_id_L',
+                                       blend_lens_obj_id, usemask=False)
+        blends_lbt = rfn.append_fields(blends_lbt, 'obj_id_S',
+                                       blend_sorc_obj_id, usemask=False)
+        blends_lbt = rfn.append_fields(blends_lbt, 'sep_LN',
+                                       sep_LN_list, usemask=False)
+    else:
+        blends_lbt = None
+
+    return blends_lbt
 
 ##########
 ## end old calc_events section
 ##########
     
 def calc_events(hdf5_file, output_root2,
-                radius_cut=2, obs_time=1000, n_obs=101, theta_frac=2,
+                radius_cut=2, obs_time=1000, theta_frac=2,
                 blend_rad=0.65, n_proc=1,
                 overwrite=False, hdf5_file_comp=None):
     """
@@ -3850,9 +4073,6 @@ def calc_events(hdf5_file, output_root2,
 
     obs_time : float
         Survey duration, in DAYS.
-
-    n_obs : int
-        Number of observations.
 
     theta_frac : float
         Another cut, in multiples of Einstein radii.
@@ -3902,7 +4122,7 @@ def calc_events(hdf5_file, output_root2,
 
     # Error handling/complaining if input types are not right.
     _check_calc_events(hdf5_file, output_root2,
-                       radius_cut, obs_time, n_obs, theta_frac,
+                       radius_cut, obs_time, theta_frac,
                        blend_rad, n_proc, overwrite, hdf5_file_comp)
 
     ##########
@@ -3940,16 +4160,15 @@ def calc_events(hdf5_file, output_root2,
 
     hd = itertools.repeat(hdf5_file, reps)
     ot = itertools.repeat(obs_time, reps)
-    no = itertools.repeat(n_obs, reps)
     rc = itertools.repeat(radius_cut, reps)
     tf = itertools.repeat(theta_frac, reps)
     br = itertools.repeat(blend_rad, reps)
 
-    inputs = zip(llbb, hd, ot, no, rc, tf, br)
+    inputs = zip(llbb, hd, ot, rc, tf, br)
     
     if hdf5_file_comp is not None:
         hdc = itertools.repeat(hdf5_file_comp, reps)
-        inputs = zip(llbb, hd, ot, no, rc, tf, br, hdc)
+        inputs = zip(llbb, hd, ot, rc, tf, br, hdc)
     
     ##########
     # Loop through galactic latitude and longitude bins. For each bin vertex,
@@ -4020,43 +4239,42 @@ def calc_events(hdf5_file, output_root2,
     line2 = 'output_root2 , ' + output_root2 + '\n'
     line3 = 'radius_cut , ' + str(radius_cut) + ' , (arcsec)' + '\n'
     line4 = 'obs_time , ' + str(obs_time) + ' , (days)' + '\n'
-    line5 = 'n_obs , ' + str(n_obs) + '\n'
-    line6 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
-    line7 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
-    line8 = 'n_proc , ' + str(n_proc) + '\n'
+    line5 = 'theta_frac , ' + str(theta_frac) + ' , (thetaE)' + '\n'
+    line6 = 'blend_rad , ' + str(blend_rad) + ' , (arcsec)' + '\n'
+    line7 = 'n_proc , ' + str(n_proc) + '\n'
     if hdf5_file_comp is not None:
-        line8 += 'hdf5_file_comp , %s \n' % hdf5_file_comp
+        line7 += 'hdf5_file_comp , %s \n' % hdf5_file_comp
 
-    line9 = 'VERSION INFORMATION' + '\n'
-    line10 = str(now) + ' : creation date' + '\n'
-    line11 = popsycle_hash + ' : PopSyCLE commit' + '\n'
+    line8 = 'VERSION INFORMATION' + '\n'
+    line9 = str(now) + ' : creation date' + '\n'
+    line10 = popsycle_hash + ' : PopSyCLE commit' + '\n'
 
-    line12 = 'OTHER INFORMATION' + '\n'
-    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
-    line14 = str(N_events) + ' : total number of events' + '\n'
+    line11 = 'OTHER INFORMATION' + '\n'
+    line12 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+    line13 = str(N_events) + ' : total number of events' + '\n'
 
     if N_events > 0:
-        line15 = 'FILES CREATED' + '\n'
-        line16 = output_root2 + '_events.fits : events file' + '\n'
-        line17 = output_root2 + '_blends.fits : blends file' + '\n'
+        line14 = 'FILES CREATED' + '\n'
+        line15 = output_root2 + '_events.fits : events file' + '\n'
+        line16 = output_root2 + '_blends.fits : blends file' + '\n'
     else:
-        line15 = 'NO FILES CREATED' + '\n'
+        line14 = 'NO FILES CREATED' + '\n'
+        line15 = '\n'
         line16 = '\n'
-        line17 = '\n'
 
     with open(output_root2 + '_calc_events.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3,
                         line4, line5, line6, line7, line8, empty_line,
                         line9, dash_line, line10, line11, empty_line,
                         line12, dash_line, line13, line14, empty_line, line15,
-                        dash_line, line16, line17])
+                        dash_line, line16])
 
     print('calc_events runtime : {0:f} s'.format(t1 - t0))
 
     return
 
 
-def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
+def _calc_event_time_loop(llbb, hdf5_file, obs_time, radius_cut,
                           theta_frac, blend_rad, hdf5_file_comp = None):
     """
     Parameters
@@ -4064,7 +4282,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     llbb : (int, int)
         Indices of (l,b) bin.
 
-    obs_time, n_obs, radius_cut, theta_frac, blend_rad
+    obs_time, radius_cut, theta_frac, blend_rad
     are all parameters of calc_events()
 
     Returns
@@ -4141,9 +4359,9 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         return
     
     # Find potential lenses and sources that fall within radius cut.
-    lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
-                                                                        radius_cut, 
-                                                                        obs_time)
+    lens_id, sorc_id, r_t, sep, event_id1, c, kdt = _calc_event_cands_radius(bigpatch,
+                                                                            radius_cut, 
+                                                                            obs_time)
 
     # Calculate einstein radius and lens-source separation
     theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
@@ -4177,7 +4395,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         # or the source, in the table.
         # Note 3: Assumes all binaries are blended
         ##########
-        blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad)
+        blends_lbt = _calc_blends(bigpatch, c, event_lbt, blend_rad, kdt)
 
         if blends_lbt is not None:
             # Concatenate the current blend table (at this l, b, time)
@@ -4273,6 +4491,8 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
     maxSphRadius = ((radius_cut * units.mas).to(units.radian)) / units.radian ## convert to radians (from mas)
     print('DIAGNOSTIC: maxSphRadius/radius_cut in radians = %s' % maxSphRadius)
     kdt = cKDTree(midPosSph_sources[:, 1:3]) ## now uses midpoint instead of start to capture more relevant potential events
+    kdt_cart = cKDTree(np.array(c.cartesian.xyz.T))
+    ## CHANGE: make a more efficient way to use only 1 kdtree
     print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(midPosSph_sources[:, 1:3]))
     
     ## in the case that displacements are larger, we will use the radius cut
@@ -4348,7 +4568,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
     ## totalNearbyObjects may still be higher than total # of objects because sources may be close to multiple other
     ## change: print statements should be modified to match current implementation (late priority)
 
-    return lens_id, sorc_id, r_t, sep, event_id1, c
+    return lens_id, sorc_id, r_t, sep, event_id1, c, kdt_cart
 
 
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
@@ -4441,13 +4661,13 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                     d_lens[i], 1)
     ## use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
         rr_source = RRectPath(
-                    star_size(midPosSph_sources[:, 0][i], sources[i]),
+                    obj_size(midPosSph_sources[:, 0][i], sources[i]),
                     startPosSph_sources[:, 1:3][i],
                     d_sorc[i], 1)
 
         deltaTSq = rrQuadDiff(rr_lens, rr_source)
         count += 1
-        ## below line: need to ask about cadence and n_obs -> should we include something to miss events based on how often we observe? or no?
+        ## below line: need to ask about cadence -> should we include something to miss events based on how often we observe? or no?
         """if (deltaTSq < transit15minSq):
                     # event is too short duration to be seen with 15 min cadence
                     continue"""
@@ -4545,7 +4765,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         return None
 
 
-def _calc_blends(bigpatch, c, event_lbt, blend_rad):
+def _calc_blends(bigpatch, c, event_lbt, blend_rad, kdt):
     """
     Create a table containing the blended stars for each event.
     Note 1: We are centering on the lens.
@@ -4566,6 +4786,9 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
     blend_rad : float
         Parameter of calc_events().
 
+    kdt : KDTree object
+        Coordinates of all the stars (in degrees).
+
     Returns
     -------
     blends_lbt : array
@@ -4573,18 +4796,16 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     """
     ##########
-    # Get the cached KD-Tree to make things run faster.
+    ## The KD-Tree has been passed through
     ##########
     # This way, we don't have to remake a tree that already exists.
     # (We didn't just do the neighbor calculation initially, because
     # it would be expensive to hold onto all the unnecessary neighbors)
-    kdtree_cache = c.cache['kdtree_sky']
 
     # Define the center of the blending disk (the lens)
     coords_lbt = SkyCoord(frame='galactic',
                           l=np.array(event_lbt['glon_L']) * units.deg,
                           b=np.array(event_lbt['glat_L']) * units.deg)
-
     ##########
     # Replicate astropy's search_around_sky.
     ##########
@@ -4602,7 +4823,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad):
 
     # Query ball against the existing (cached) tree.
     # NOTE: results is an array of lists.
-    results = kdtree_cache.query_ball_point(flatxyz1.T, r_kdt)
+    results = kdt.query_ball_point(flatxyz1.T, r_kdt)
 
     # Figure out the number of blends for each lens.
     blend_lens_obj_id = []

@@ -4615,6 +4615,15 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     theta_E = (theta_E.to(units.radian)) / units.radian
     theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
 
+    # If there are binaries extend the search radius to theta_frac + separation between primary
+    # and furthest companion.
+    ## might need more info to complete the binary separation.
+    ## this would only work if binary_sep is defined to be zero for nonbinaries
+    ## if binary_sep is nan, then this doesnt work
+    ## CHANGE: make sure this works, and test it
+    if binary_sep is not None:
+        theta_frac_comp = theta_frac + binary_sep/theta_E
+        theta_frac = theta_frac_comp
 
     ##########
     ## the following lines are essentially copied from *cands_radius()
@@ -4638,19 +4647,8 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     ## array of coordinates movement
     d_lens = endPosSph_lenses[:, 1:3] - startPosSph_lenses[:, 1:3]
     d_sorc = endPosSph_sources[:, 1:3] - startPosSph_sources[:, 1:3]
-    ## print("d_lens[0:10]", d_lens[0:10])
-    ## print("=====================")
-    ## print("startPosSph_lenses[:, 1:3][0:10]", startPosSph_lenses[:, 1:3][0:10])
-    ## put these AFTER binary sep part, just starting with them for now
-    """print("midPosSph_sources[:, 0]:")
-    print(midPosSph_sources[:, 0])
-    print("midPosSph_sources[:, 0][0]:")
-    print(midPosSph_sources[:, 0][0])
-    print("midPosSph_sources[:, 0][1]:")
-    print(midPosSph_sources[:, 0][1])
-    print("len(midPosSph_sources[:, 0])")
-    print(len(midPosSph_sources[:, 0]))
-    print("len of sources for example:", len(sources))"""
+    
+
     adx = []
     times = np.ones(len(sources), dtype=float) * np.nan
     times = times.tolist() ## to enable insert later
@@ -4688,15 +4686,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     theta_E = theta_E * units.radian
     theta_E = (theta_E.to(units. mas)) / units.mas
     theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
-    
-    # If there are binaries extend the search radius to theta_frac + separation between primary
-    # and furthest companion.
-    """if binary_sep is not None:
-        theta_frac_comp = theta_frac + binary_sep
-        if np.shape(u) != np.shape(theta_frac_comp):
-            print(u, theta_frac_comp)
-        #print(np.shape(u), np.shape(theta_frac_comp), np.shape(theta_frac), np.shape(bigpatch['sep']))
-        adx = np.where(u < theta_frac_comp)[0]"""
     
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate

@@ -4652,8 +4652,8 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     print(len(midPosSph_sources[:, 0]))
     print("len of sources for example:", len(sources))"""
     adx = []
-    count = 0
-    times = []
+    times = np.ones(len(sources), dtype=float) * np.nan
+    times = times.tolist() ## to enable insert later
     for i in range(len(sources)):
         rr_lens = RRectPath(
                     theta_frac * theta_E[i],
@@ -4666,11 +4666,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                     d_sorc[i], 1)
 
         deltaTSq = rrQuadDiff(rr_lens, rr_source)
-        count += 1
         ## below line: need to ask about cadence -> should we include something to miss events based on how often we observe? or no?
-        """if (deltaTSq < transit15minSq):
+        if (deltaTSq < transit15minSq):
                     # event is too short duration to be seen with 15 min cadence
-                    continue"""
+                    continue
         if not pd.isnull(deltaTSq): ## pd.isnull can handle weird mpmath objects representing numbers that np.isnan cant
             t1, t2 = rrQuadSolve(rr_lens, rr_source)
             t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
@@ -4680,7 +4679,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                     print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
                     totalLensingEvents +=1
                     adx.append(i)
-                    times.append(obs_time * (t2 + t1) / 2) ## use midpoint of event for t0 (ask about this)
+                    times.insert(i, float(obs_time * (t2 + t1) / 2)) ## use midpoint of event for t0 
     adx = np.array(adx) ## convert to np.array for consistency
     times = np.array(times)
     print('total lensing events: %s' % totalLensingEvents)
@@ -4719,15 +4718,12 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         lens_table = bigpatch[lens_id][adx][unique_indices]
         sorc_table = bigpatch[sorc_id][adx][unique_indices]
         theta_E = theta_E[adx][unique_indices]
-        u = u[adx][unique_indices]
+        u = u[adx][unique_indices] ## change: need to recalculate u for a specific time
+        t_event = times[adx][unique_indices]
 
         mu_b_rel = sorc_table['mu_b'] - lens_table['mu_b']  # mas/yr
         mu_lcosb_rel = sorc_table['mu_lcosb'] - lens_table['mu_lcosb']  # mas/yr
         mu_rel = np.sqrt(mu_b_rel ** 2 + mu_lcosb_rel ** 2)  # mas/yr
-        t_event = np.ones(len(mu_rel), dtype=float) * times  # days
-        t_event = np.array([float(obj) for obj in t_event]) ## have to do this to change mpmath objs into floats
-                                                            ## for compatability. i dont like mpmath...
-        # CHANGE: for now, using midpoint of event (between t2 and t1)
 
         # This is all the events for this l, b, time
         # Loop through the lens table and append '_L' to the end of each field

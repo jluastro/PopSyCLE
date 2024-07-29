@@ -4707,8 +4707,20 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         lens_table = bigpatch[lens_id][adx][unique_indices]
         sorc_table = bigpatch[sorc_id][adx][unique_indices]
         theta_E = theta_E[adx][unique_indices]
-        u = u[adx][unique_indices] ## change: need to recalculate u for a specific time
         t_event = times[adx][unique_indices]
+        
+        ## new u calculation, using t_event
+        source_glat = sorc_table['glat'] + t_event * sorc_table['mu_b'] * masyr_to_degday #deg
+        source_glon = sorc_table['glon'] + t_event * (sorc_table['mu_lcosb'] 
+                                                    / np.cos(np.radians(sorc_table['glat']))) * masyr_to_degday  # deg
+        lens_glat = lens_table['glat'] + t_event * lens_table['mu_b'] * masyr_to_degday #deg
+        lens_glon = lens_table['glon'] + t_event * (lens_table['mu_lcosb'] 
+                                                    / np.cos(np.radians(lens_table['glat']))) * masyr_to_degday  # deg
+        lens_coords = SkyCoord(frame='galactic', l = lens_glon * units.deg, b = lens_glat * units.deg)
+        source_coords = SkyCoord(frame='galactic', l = source_glon * units.deg, b = source_glat * units.deg)
+        sep = lens_coords.separation(source_coords)
+        sep = (sep.to(units.mas)) / units.mas
+        u = sep / theta_E
 
         mu_b_rel = sorc_table['mu_b'] - lens_table['mu_b']  # mas/yr
         mu_lcosb_rel = sorc_table['mu_lcosb'] - lens_table['mu_lcosb']  # mas/yr

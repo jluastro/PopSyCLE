@@ -3221,6 +3221,14 @@ def obj_size(rad, obj): ## rad is radial distance away (kpc)
     if obj['rem_id'] == 103:
         ## black hole case
         radius_cm = 2 * 6.6743*10**-8 * (obj['mass']*1.989*10**33) / ((2.998 * 10**10)**2)
+    if obj['rem_id'] == 102:
+        ## neutron star case
+        ## using 10 km (=10e6 cm) as average/ order of magnitude estimate
+        radius_cm = 10**6
+    if obj['rem_id'] == 101:
+        ## white dwarf case
+        ## using ~ earth radius (6370 km) ~ 6.5e8 cm (rounded up)
+        radius_cm = 6.5*10**8
     elif np.isnan(obj['grav']): ## temporary fix for WD (101) & NS (102)
         return 0
     else:

@@ -4616,22 +4616,21 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     ## new (shortened) list of sources and lenses (after first cut)
     sources = bigpatch[sorc_id]
     lenses = bigpatch[lens_id]
+
+    # If there are binaries extend the search radius to theta_frac + separation between primary
+    # and furthest companion.
+    ## CHANGE: test this!
+    if binary_sep is not None:
+        ## theta_frac has units of theta_E, divide binary_sep by theta_E to get in units of theta_E instead of mas
+        theta_frac_comp = theta_frac + binary_sep/theta_E
+        theta_frac = theta_frac_comp
+    
     ## the code could be rewritten to take inputs of mas, but that is too tall a task (for now at last) esp. given such a simple solution
     ## converting theta_E to radians (from mas) for RRectPath (radians intended)
     ## will switch back to mas after for loop
     theta_E = theta_E * units.mas
     theta_E = (theta_E.to(units.radian)) / units.radian
     theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
-
-    # If there are binaries extend the search radius to theta_frac + separation between primary
-    # and furthest companion.
-    ## might need more info to complete the binary separation.
-    ## this would only work if binary_sep is defined to be zero for nonbinaries
-    ## if binary_sep is nan, then this doesnt work
-    ## CHANGE: make sure this works, and test it
-    if binary_sep is not None:
-        theta_frac_comp = theta_frac + binary_sep/theta_E
-        theta_frac = theta_frac_comp
 
     ##########
     ## the following lines are essentially copied from *cands_radius()

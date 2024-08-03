@@ -4375,7 +4375,8 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, radius_cut,
     theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                 r_t[lens_id], r_t[sorc_id])  # mas      
     u = sep[event_id1] / theta_E
-    
+    ## (potential) change: do we need u?
+
     binary_sep = None
     if 'sep' in bigpatch[0].dtype.names:
         binary_sep = bigpatch['sep'][event_id1]
@@ -4432,6 +4433,10 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
         Parameter of calc_events().
         Converted to mas
 
+    obs_time : float
+        Parameter of calc_events().
+        Survey duration, in DAYS
+
     Returns
     -------
     lens_id : array
@@ -4451,12 +4456,13 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
 
     c : SkyCoord object
         Coordinates of all the stars.
+    
+    kdt : cKDTree object
+        Coordinates of all the stars (cartesian)
     """
 
     startTime = time.time()
-    # Propagate r, b, l positions forward in time.
-    ## for now, we will assume timei to be the middle of the duration
-    ## CHANGE: do we want to propogate everything forward/backward AFTER the lensing events are found?
+    ## Using midpoint of survey duration for all initial coord searches
     r_t = bigpatch['rad'] # kpc
     b_t = bigpatch['glat'] # deg
     l_t = bigpatch['glon'] # deg
@@ -4484,7 +4490,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
 
     ########
     ## array of total displacements for lenses, all displacement is related to lenses
-    ## np.tan to convert to cartesian query
+    ## np.tan to convert to cartesian search radius
     total_disp_arr = np.tan(np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2))
 
     max_disp = total_disp_arr.max()
@@ -4501,7 +4507,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
     maxSphRadius = np.tan((radius_cut * units.mas).to(units.radian)) ## convert to radians (from mas), then to cartesian w/ tan
     print('DIAGNOSTIC: maxSphRadius/radius_cut in cartesian = %s' % maxSphRadius)
     carts = np.array(c.cartesian.xyz.T)
-    kdt_cart = cKDTree(carts)
+    kdt = cKDTree(carts)
     print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(carts))
 
     ## in the case that displacements are larger, we will use the radius cut
@@ -4520,11 +4526,11 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
         
         if total_disp_arr[i] <= disp_95:
             ## if the ith lens has a displacement lower than disp_95, we use the 95th percentile threshold value
-            results = kdt_cart.query_ball_point(carts[i], radius_cut_95)
+            results = kdt.query_ball_point(carts[i], radius_cut_95)
             ## lens' x,y,z coords
             
         else: ##in the >95% case
-            results = kdt_cart.query_ball_point(carts[i], radius_cut_max)
+            results = kdt.query_ball_point(carts[i], radius_cut_max)
 
         ## dont count the same object as a source if its already the lens
         results = [index for index in results if index != i] 
@@ -4720,7 +4726,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time):
     ## totalNearbyObjects may still be higher than total # of objects because sources may be close to multiple other
     ## change: print statements should be modified to match current implementation (late priority)
 
-    return lens_id, sorc_id, r_t, sep, event_id1, c, kdt_cart
+    return lens_id, sorc_id, r_t, sep, event_id1, c, kdt
 
 
 def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
@@ -4748,6 +4754,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     sorc_id : array
         Indices into bigpatch that indicate sources
+
+    obs_time : float
+        Parameter of calc_events().
+        Survey duration, in DAYS
 
     Returns
     -------
@@ -4935,7 +4945,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad, kdt):
         Parameter of calc_events().
 
     kdt : KDTree object
-        Coordinates of all the stars (in degrees).
+        Coordinates of all the stars (cartesian).
 
     Returns
     -------

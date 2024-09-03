@@ -3216,30 +3216,32 @@ def rrQuadDiff(rr1, rr2):
     ))
 
 # returns angular size in radians
-def obj_size(rad, obj, bin_sep): ## rad is radial distance away (kpc)
-    ## bin_sep is 0 or greater, in mas
-    ## all cgs units
-    ## for now, if bin_sep is 0, then run as normal, but otherwise just use sep and convert to radians
+def obj_size(rad, obj, bin_sep): 
+    # rad is radial distance away (kpc)
+    # bin_sep is 0 or greater, in mas
+    # all cgs units
+    # for now, if bin_sep is 0, then run as normal, but otherwise just use sep and convert to radians
     if bin_sep != 0:
         bin_sep *= units.mas
         bin_sep_rad = (bin_sep.to(units.rad)).value
-        return bin_sep_rad ## CHANGED FROM /2 to not, we'll see whats new
+        return bin_sep_rad # Note: using binary source separation as the radius of the contour circle
     
     if obj['rem_id'] == 103:
-        ## black hole case
+        # black hole case
         radius_cm = 2 * 6.6743*10**-8 * (obj['mass']*1.989*10**33) / ((2.998 * 10**10)**2)
     if obj['rem_id'] == 102:
-        ## neutron star case
-        ## using 10 km (=10e6 cm) as average/ order of magnitude estimate
+        # neutron star case
+        # using 10 km (=10e6 cm) as average/ order of magnitude estimate
         radius_cm = 10**6
     if obj['rem_id'] == 101:
-        ## white dwarf case
-        ## using ~ earth radius (6370 km) ~ 6.5e8 cm (rounded up)
-        radius_cm = 6.5*10**8
-    elif np.isnan(obj['grav']): ## temporary fix for WD (101) & NS (102)
+        # white dwarf case
+        # using approximate average radius for WD (7000 km) = 7e8 cm 
+        radius_cm = 7*10**8
+    elif np.isnan(obj['grav']):
+        print('Using 0 as source radius for contour creation! Object is [probably] not a star, NS, WD, or BH')
         return 0
     else:
-        ## normal star case
+        # normal star case
         radius_cm = np.sqrt((6.6743*10**-8) * (obj['mass']*1.989*10**33) / (10**obj['grav']))
     
     radius_kpc = radius_cm * 3.24078*10**-22

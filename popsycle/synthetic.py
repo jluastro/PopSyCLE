@@ -3224,16 +3224,17 @@ def obj_size(rad, obj, bin_sep):
     if obj['rem_id'] == 103:
         # black hole case
         radius_cm = 2 * 6.6743*10**-8 * (obj['mass']*1.989*10**33) / ((2.998 * 10**10)**2)
-    if obj['rem_id'] == 102:
+    elif obj['rem_id'] == 102:
         # neutron star case
         # using 10 km (=10e6 cm) as average/ order of magnitude estimate
         radius_cm = 10**6
-    if obj['rem_id'] == 101:
+    elif obj['rem_id'] == 101:
         # white dwarf case
         # using approximate average radius for WD (7000 km) = 7e8 cm 
         radius_cm = 7*10**8
     elif np.isnan(obj['grav']):
         print('Using 0 as source radius for contour creation! Object is [probably] not a star, NS, WD, or BH')
+        print('obj[rem_id] is', obj['rem_id'])
         return 0
     else:
         # normal star case
@@ -4481,22 +4482,22 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     
     c = SkyCoord(frame='galactic', l=l_t * units.deg, b=b_t * units.deg)
 
-    sources = bigpatch[:]
+    sorces = bigpatch[:]
     lenses = bigpatch[:]
     
 
     # end position of sources and lenses respectively
-    #endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    #endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
 
     ## mid points should just be when t=0 (i.e default coords)
-    midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
+    midPosSph_sorces = np.asarray(to_radians(sorces[['rad','glat','glon']])).T
     midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
     
 
     # starting position of sources and lenses respectively
-    #startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    #startPosSph_sorces = np.asarray(start_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
     
 
@@ -4568,7 +4569,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
        
         for res in results: ## switch back to results after
             ## res,i are the indices of the sources, lenses (respectively) in the original patch list
-            if(lens['rad'] < midPosSph_sources[res][0]):
+            if(lens['rad'] < midPosSph_sorces[res][0]):
                 # lens is nearer than the source
                 totalNearbyObjects += 1
                 lens_id.append(i) ## this is the index of the object in the original patch list
@@ -4592,7 +4593,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     r_radius_cut_95 = 2*r_disp_95
     r_radius_cut_max = 2*r_max_disp ## in units of radians
     r_maxSphRadius = (radius_cut * units.mas).to(units.radian) / units.radian
-    kdt = cKDTree(midPosSph_sources[:, 1:3])
+    kdt = cKDTree(midPosSph_sorces[:, 1:3])
     r_radius_cut_95 = min(r_radius_cut_95, r_maxSphRadius)
     r_radius_cut_max = min(r_radius_cut_max, r_maxSphRadius)
     r_totalNearbyObjects = 0
@@ -4613,11 +4614,11 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     ## note: radius_cut is input with milliarcseconds, and maxSphRadius is currently in radians, so there needs to be a unit conversion
     maxSphRadius = np.tan((radius_cut * units.mas).to(units.radian)) ## convert to radians (from mas), then to cartesian w/ tan
     print('DIAGNOSTIC: maxSphRadius/radius_cut in cartesian = %s' % maxSphRadius)
-    ## kdt = cKDTree(midPosSph_sources[:, 1:3]) ## now uses midpoint instead of start to capture more relevant potential events
+    ## kdt = cKDTree(midPosSph_sorces[:, 1:3]) ## now uses midpoint instead of start to capture more relevant potential events
     carts = np.array(c.cartesian.xyz.T)
     kdt_cart = cKDTree(carts)
     ## CHANGE: make a more efficient way to use only 1 kdtree
-    ## print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(midPosSph_sources[:, 1:3]))
+    ## print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(midPosSph_sorces[:, 1:3]))
     print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(carts))
 
     ## in the case that displacements are larger, we will use the radius cut
@@ -4689,14 +4690,14 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
             print('for ref (cart), search radius is', curr_cut)
             print('cart dist is less than search?:', cart_dist < curr_cut)
             ### after testing, delete curr_cut and all this stuff
-            rad_dist = dist_rad(midPosSph_lenses[i], midPosSph_sources[unshared_ind][0])
+            rad_dist = dist_rad(midPosSph_lenses[i], midPosSph_sorces[unshared_ind][0])
             print('distance (radians) between lens and source is', rad_dist)
             print('for ref (rad), search radius is', r_curr_cut)
             print('radian dist is less than search?:', rad_dist < r_curr_cut)
 
         for res in results: ## switch back to results after
             ## res,i are the indices of the sources, lenses (respectively) in the original patch list
-            if(lens['rad'] < midPosSph_sources[res][0]):
+            if(lens['rad'] < midPosSph_sorces[res][0]):
                 # lens is nearer than the source
                 totalNearbyObjects += 1
                 lens_id.append(i) ## this is the index of the object in the original patch list
@@ -4704,7 +4705,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
 
         for res in r_results: ## switch back to results after
             ## res,i are the indices of the sources, lenses (respectively) in the original patch list
-            if(lens['rad'] < midPosSph_sources[res][0]):
+            if(lens['rad'] < midPosSph_sorces[res][0]):
                 # lens is nearer than the source
                 r_totalNearbyObjects += 1
                 
@@ -4800,7 +4801,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     startTime = time.time()
     totalLensingEvents = 0
     ## new (shortened) list of sources and lenses (after first cut)
-    sources = bigpatch[sorc_id]
+    sorces = bigpatch[sorc_id]
     lenses = bigpatch[lens_id]
 
     # If there are binaries extend the search radius to theta_frac + separation between primary
@@ -4818,7 +4819,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         print('first 100 theta_frac is', theta_frac[:100])
         print('first 100 thetaE',theta_E[:100])
         print('==========')
-        print('first 100 source obj_id are',[x for x in sources[:100]['obj_id']])
+        print('first 100 source obj_id are',[x for x in sorces[:100]['obj_id']])
         print('first 100 sorc seps are', sorc_binary_sep[:100])
         print('==========')
         """
@@ -4844,11 +4845,11 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         355435, 357770, 186615, 139729, 202934, 122042, 335509, 304738,
         170423])
     else:
-        theta_frac = np.ones(len(sources)) * theta_frac
+        theta_frac = np.ones(len(sorces)) * theta_frac
 
     ## for the non-binary case, need to make sep list zero
     if sorc_binary_sep is None:
-        sorc_binary_sep = np.zeros(len(sources))
+        sorc_binary_sep = np.zeros(len(sorces))
     ## the code could be rewritten to take inputs of mas, but that is too tall a task (for now at last) esp. given such a simple solution
     ## converting theta_E to radians (from mas) for RRectPath (radians intended)
     ## will switch back to mas after for loop
@@ -4861,43 +4862,43 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
     ##########
 
     # end position of sources and lenses respectively
-    endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    endPosSph_sorces = np.asarray(end_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
 
     ## mid points should just be when t=0 (i.e default coords)
-    midPosSph_sources = np.asarray(to_radians(sources[['rad','glat','glon']])).T
+    midPosSph_sorces = np.asarray(to_radians(sorces[['rad','glat','glon']])).T
     ## midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
     
 
     # starting position of sources and lenses respectively
-    startPosSph_sources = np.asarray(start_movement_spherical_noCartesian(sources[['rad','glat','glon']], sources[['vx', 'vy', 'vz']], obs_time)).T
+    startPosSph_sorces = np.asarray(start_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
     
 
     ## array of coordinates movement
     d_lens = endPosSph_lenses[:, 1:3] - startPosSph_lenses[:, 1:3]
-    d_sorc = endPosSph_sources[:, 1:3] - startPosSph_sources[:, 1:3]
+    d_sorc = endPosSph_sorces[:, 1:3] - startPosSph_sorces[:, 1:3]
     
 
     adx = []
-    times = np.ones(len(sources), dtype=float) * np.nan
+    times = np.ones(len(sorces), dtype=float) * np.nan
     times = times.tolist() ## to enable insert later
-    for i in range(len(sources)):
+    for i in range(len(sorces)):
         rr_lens = RRectPath(
                     theta_frac[i] * theta_E[i],
                     startPosSph_lenses[:, 1:3][i],
                     d_lens[i], 1)
     ## use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
-        rr_source = RRectPath(
-                    obj_size(midPosSph_sources[:, 0][i], sources[i], sorc_binary_sep[i]),
-                    startPosSph_sources[:, 1:3][i],
+        rr_sorc = RRectPath(
+                    obj_size(midPosSph_sorces[:, 0][i], sorces[i], sorc_binary_sep[i]),
+                    startPosSph_sorces[:, 1:3][i],
                     d_sorc[i], 1)
 
-        deltaTSq = rrQuadDiff(rr_lens, rr_source)
-        """if (sources[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
+        deltaTSq = rrQuadDiff(rr_lens, rr_sorc)
+        """if (sorces[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
             print('=======================')
-            print('obj_id_S is', sources[i]['obj_id'])
+            print('obj_id_S is', sorces[i]['obj_id'])
             print('obj_id_L is', lenses[i]['obj_id'])
             print('deltaTSq is', deltaTSq)
             print('sorc_binary_sep is', sorc_binary_sep[i])
@@ -4905,10 +4906,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
             print('theta_frac[i] * theta_E[i] is', theta_frac[i] * theta_E[i])
             print('=======================')"""
         if not pd.isnull(deltaTSq): ## pd.isnull can handle weird mpmath objects representing numbers that np.isnan cant
-            t1, t2 = rrQuadSolve(rr_lens, rr_source)
+            t1, t2 = rrQuadSolve(rr_lens, rr_sorc)
             t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
             t2 -= 0.5
-            """if (sources[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
+            """if (sorces[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
                 print('deltaTsq is not nan!')
                 print('t1=', t1)
                 print('t2=', t2)
@@ -4957,15 +4958,15 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
         t_event = times[adx][unique_indices]
         
         ## new u calculation, using t_event
-        source_glat = sorc_table['glat'] + t_event * sorc_table['mu_b'] * masyr_to_degday #deg
-        source_glon = sorc_table['glon'] + t_event * (sorc_table['mu_lcosb'] 
+        sorc_glat = sorc_table['glat'] + t_event * sorc_table['mu_b'] * masyr_to_degday #deg
+        sorc_glon = sorc_table['glon'] + t_event * (sorc_table['mu_lcosb'] 
                                                     / np.cos(np.radians(sorc_table['glat']))) * masyr_to_degday  # deg
         lens_glat = lens_table['glat'] + t_event * lens_table['mu_b'] * masyr_to_degday #deg
         lens_glon = lens_table['glon'] + t_event * (lens_table['mu_lcosb'] 
                                                     / np.cos(np.radians(lens_table['glat']))) * masyr_to_degday  # deg
         lens_coords = SkyCoord(frame='galactic', l = lens_glon * units.deg, b = lens_glat * units.deg)
-        source_coords = SkyCoord(frame='galactic', l = source_glon * units.deg, b = source_glat * units.deg)
-        sep = lens_coords.separation(source_coords)
+        sorc_coords = SkyCoord(frame='galactic', l = sorc_glon * units.deg, b = sorc_glat * units.deg)
+        sep = lens_coords.separation(sorc_coords)
         sep = (sep.to(units.mas)) / units.mas
         u = sep / theta_E
 

@@ -4898,7 +4898,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
                     d_sorc[i], 1)
 
         deltaTSq = rrQuadDiff(rr_lens, rr_source)
-        if (sources[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
+        """if (sources[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
             print('=======================')
             print('obj_id_S is', sources[i]['obj_id'])
             print('obj_id_L is', lenses[i]['obj_id'])
@@ -4906,7 +4906,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
             print('sorc_binary_sep is', sorc_binary_sep[i])
             print('lens_binary_sep is', lens_binary_sep[i])
             print('theta_frac[i] * theta_E[i] is', theta_frac[i] * theta_E[i])
-            print('=======================')
+            print('=======================')"""
         ## below line: need to ask about cadence -> should we include something to miss events based on how often we observe? or no?
         """if (deltaTSq < transit15minSq):
                     # event is too short duration to be seen with 15 min cadence
@@ -4915,12 +4915,12 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
             t1, t2 = rrQuadSolve(rr_lens, rr_source)
             t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
             t2 -= 0.5
-            if (sources[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
+            """if (sources[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
                 print('deltaTsq is not nan!')
                 print('t1=', t1)
                 print('t2=', t2)
                 print('=======================')
-                print('t0 is', ((t2 + t1) / 2))
+                print('t0 is', ((t2 + t1) / 2))"""
             if (t1 >= -0.5 and t1 <= 0.5) or (t2 >= -0.5 and t2 <= 0.5) or (-0.5 <= ((t2 + t1) / 2) <= 0.5): 
                 ## ASK/CHANGE: do we want events that are take place in the survey duration but might not peak inside?
                 ## if the start or end of the event falls within the survey window OR if the peak of the event occurs in the window

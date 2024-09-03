@@ -4480,24 +4480,19 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
 
     sorces = bigpatch[:]
     lenses = bigpatch[:]
-    
 
     # end position of sources and lenses respectively
     #endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
-
     ## mid points should just be when t=0 (i.e default coords)
     midPosSph_sorces = np.asarray(to_radians(sorces[['rad','glat','glon']])).T
     midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
-    
 
     # starting position of sources and lenses respectively
     #startPosSph_sorces = np.asarray(start_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
-    
 
-    ########
     ## array of total displacements for lenses, all displacement is related to lenses
     total_disp_arr = np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2)
 
@@ -4574,147 +4569,6 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
         if len(results) == 0:
             totalIsolatedObjects += 1
 
-    ########
-    ## INTERTWINED TESTING
-    ## holding on to below code for potential testing, delete later.
-    ########
-    ## np.tan to convert to cartesian query
-    """
-    total_disp_arr = np.tan(np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2))
-    
-    #### FOR TESTING ####
-    r_total_disp_arr = np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2)
-    r_max_disp = r_total_disp_arr.max()
-    r_disp_95 = np.percentile(r_total_disp_arr, 95)
-    r_radius_cut_95 = 2*r_disp_95
-    r_radius_cut_max = 2*r_max_disp ## in units of radians
-    r_maxSphRadius = (radius_cut * units.mas).to(units.radian) / units.radian
-    kdt = cKDTree(midPosSph_sorces[:, 1:3])
-    r_radius_cut_95 = min(r_radius_cut_95, r_maxSphRadius)
-    r_radius_cut_max = min(r_radius_cut_max, r_maxSphRadius)
-    r_totalNearbyObjects = 0
-    r_totalIsolatedObjects = 0
-    #####################
-
-    max_disp = total_disp_arr.max()
-    disp_95 = np.percentile(total_disp_arr, 95)
-    radius_cut_95 = 2*disp_95 ## double because lens and source could each have about this much motion 
-    ## could have more, but that case is currently being neglected, as this will catch almost all cases (especially if taken from midpoint positions)
-    radius_cut_max = 2*max_disp ## in cartesian
-    print('====== displacements ======')    
-    print('max: %s (in cartesian)' % max_disp)
-    print('95th percentile: %s (in cartesian)' % disp_95)
-    print('===========================')
-
-
-    ## note: radius_cut is input with milliarcseconds, and maxSphRadius is currently in radians, so there needs to be a unit conversion
-    maxSphRadius = np.tan((radius_cut * units.mas).to(units.radian)) ## convert to radians (from mas), then to cartesian w/ tan
-    print('DIAGNOSTIC: maxSphRadius/radius_cut in cartesian = %s' % maxSphRadius)
-    ## kdt = cKDTree(midPosSph_sorces[:, 1:3]) ## now uses midpoint instead of start to capture more relevant potential events
-    carts = np.array(c.cartesian.xyz.T)
-    kdt_cart = cKDTree(carts)
-    ## CHANGE: make a more efficient way to use only 1 kdtree
-    ## print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(midPosSph_sorces[:, 1:3]))
-    print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(carts))
-
-    ## in the case that displacements are larger, we will use the radius cut
-    ## should usually be the same radius_cut_95 and radius_cut_max
-    radius_cut_95 = min(radius_cut_95, maxSphRadius)
-    radius_cut_max = min(radius_cut_max, maxSphRadius)
-    lens_id = []
-    sorc_id = []
-
-    totalNearbyObjects = 0 ## counts the number of nearby (potential) sources near a lens
-    totalIsolatedObjects = 0
-    ## this could be implemented dynamically such that for cases where there are lots of large values
-    ## we take a percentile that will run very fast and do those, then use the radius_cut for the others
-
-    def unshared(l1, l2):
-        ## assuming l1 & l2 are not the same length
-        unique_ls = []
-        if len(l1) > len(l2):
-            for i in l1:
-                if i not in l2:
-                    unique_ls.append(i)
-        if len(l2) > len(l1):
-            for i in l2:
-                if i not in l1:
-                    unique_ls.append(i)
-        return unique_ls
-    
-    def dist_cart(target, obj_carts):
-        print('target is', target)
-        print('obj_cart is', obj_carts)
-        return np.sqrt((target[0]-obj_carts[0])**2 + (target[1]-obj_carts[1])**2 + (target[2]-obj_carts[2])**2)
-    
-    def dist_rad(target, obj_rad):
-        print('target is', target)
-        print('obj_rad is', obj_rad)
-        return np.sqrt((target[1]-obj_rad[1])**2 + (target[2]-obj_rad[2])**2)
-    
-    for i, lens in enumerate(lenses):
-        
-        if total_disp_arr[i] <= disp_95:
-            ## if the ith lens has a displacement lower than disp_95, we use the 95th percentile threshold value
-            results = kdt_cart.query_ball_point(carts[i], radius_cut_95)
-            curr_cut = radius_cut_95
-            ## lens' glat, glon (coords)
-            
-        else: ##in the >95% case
-            results = kdt_cart.query_ball_point(carts[i], radius_cut_max)
-            curr_cut = radius_cut_max
-        
-        if r_total_disp_arr[i] <= r_disp_95:
-            r_results = kdt.query_ball_point((midPosSph_lenses[i][1], midPosSph_lenses[i][2]), r_radius_cut_95)
-            r_curr_cut = r_radius_cut_95
-
-        else:
-            r_results = kdt.query_ball_point((midPosSph_lenses[i][1], midPosSph_lenses[i][2]), r_radius_cut_max)
-            r_curr_cut = r_radius_cut_max
-
-        results = [index for index in results if index != i] ## dont count the same object as a source if its already the lens
-        r_results = [index for index in r_results if index != i]
-
-        if len(results) != len(r_results):
-            print ('============')
-            print('results are', results)
-            print('r_results are', r_results)
-            unshared_ind = unshared(results, r_results)
-            print('unshared index is', unshared_ind)
-            cart_dist = dist_cart(carts[i], carts[unshared_ind][0])
-            print('distance (cartesian) between lens and source is', cart_dist)
-            print('for ref (cart), search radius is', curr_cut)
-            print('cart dist is less than search?:', cart_dist < curr_cut)
-            ### after testing, delete curr_cut and all this stuff
-            rad_dist = dist_rad(midPosSph_lenses[i], midPosSph_sorces[unshared_ind][0])
-            print('distance (radians) between lens and source is', rad_dist)
-            print('for ref (rad), search radius is', r_curr_cut)
-            print('radian dist is less than search?:', rad_dist < r_curr_cut)
-
-        for res in results: ## switch back to results after
-            ## res,i are the indices of the sources, lenses (respectively) in the original patch list
-            if(lens['rad'] < midPosSph_sorces[res][0]):
-                # lens is nearer than the source
-                totalNearbyObjects += 1
-                lens_id.append(i) ## this is the index of the object in the original patch list
-                sorc_id.append(res) ## this is the index of the object in the original patch list
-
-        for res in r_results: ## switch back to results after
-            ## res,i are the indices of the sources, lenses (respectively) in the original patch list
-            if(lens['rad'] < midPosSph_sorces[res][0]):
-                # lens is nearer than the source
-                r_totalNearbyObjects += 1
-                
-        if len(results) == 0:
-            totalIsolatedObjects += 1
-        
-        if len(r_results) == 0:
-            r_totalIsolatedObjects += 1
-    """
-    ########
-    ## END TESTING
-    ########
-
     ## convert to arrays
     sorc_id = np.array(sorc_id)
     lens_id = np.array(lens_id)
@@ -4736,7 +4590,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
         ## delete all the stuff below here too (?)
     ##########
     # Error checking: calculate how many duplicate (l, b) pairs there are.
-    # (This is a problem for nearest neighbors.)
+    # (There shouldn't be any, but if there are, that's a problem)
     ##########
     uni = np.unique((l_t, b_t), axis=1).shape[1]
     tot = len(l_t)
@@ -4799,44 +4653,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
 
     # If there are binaries extend the search radius to theta_frac + separation between primary
     # and furthest companion.
-    ## CHANGE: test this!
     if lens_binary_sep is not None:
         ## theta_frac has units of theta_E, divide binary_sep by theta_E to get in units of theta_E instead of mas
         theta_frac_comp = theta_frac + lens_binary_sep/theta_E
         theta_frac = theta_frac_comp
-        """print('theta_frac is', theta_frac)
-        print('length of theta_frac is', len(theta_frac))
-        print('max theta_frac is', max(theta_frac))
-        print('first 100 of lens_binary_sep', [float(x) for x in lens_binary_sep[:100]])
-        print('first 100 obj_id of lenses', [x for x in lenses[:100]['obj_id']])
-        print('first 100 theta_frac is', theta_frac[:100])
-        print('first 100 thetaE',theta_E[:100])
-        print('==========')
-        print('first 100 source obj_id are',[x for x in sorces[:100]['obj_id']])
-        print('first 100 sorc seps are', sorc_binary_sep[:100])
-        print('==========')
-        """
-        ## TESTING!!! ##
-        obj_id_L_watch = np.array([861,   3827,   4124,   5207,   6754,   8587,   9631,  10432,
-        11199,  15513,  18632,  27683,  39453,  40062,  49810,  55130,
-        58148,  64017,  83207,  87724,  98994,  99345, 107365, 112371,
-        121444, 136838, 137271, 140279, 159822, 198968, 218386, 218540,
-        219611, 223905, 224667, 227426, 230562, 231542, 231825, 232443,
-        234779, 240782, 243665, 245943, 247788, 250303, 254673, 261092,
-        261602, 263031, 264259, 265027, 267318, 271840, 277407, 282720,
-        282955, 296758, 333874, 336794, 349116, 369521, 371017, 371571,
-        375916, 376511, 376604, 383088, 383695, 384502, 385626, 385672,
-        386847])
-        obj_id_S_watch = np.array([385860, 382965, 166374, 356039, 375518,  50956, 370468, 368702,
-        379267, 214567, 342662, 390879, 387844, 390782, 371572, 390361,
-        370433, 308491, 376167, 151847, 385671, 386221, 379213, 381939,
-        378559, 371237, 390365, 147925, 390435, 382510, 379412, 389109,
-        375844, 382725, 391193, 369131, 338545, 388127, 386715, 390217,
-        363973, 377558, 366935, 186884, 374063, 178927, 385069, 381259,
-        388461, 372842, 369160, 371016, 379046, 171561, 386826, 367240,
-        378307,  12812,  25700,  19649, 368120,  10661, 372380, 378216,
-        355435, 357770, 186615, 139729, 202934, 122042, 335509, 304738,
-        170423])
     else:
         theta_frac = np.ones(len(sorces)) * theta_frac
 
@@ -4889,25 +4709,12 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
                     d_sorc[i], 1)
 
         deltaTSq = rrQuadDiff(rr_lens, rr_sorc)
-        """if (sorces[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
-            print('=======================')
-            print('obj_id_S is', sorces[i]['obj_id'])
-            print('obj_id_L is', lenses[i]['obj_id'])
-            print('deltaTSq is', deltaTSq)
-            print('sorc_binary_sep is', sorc_binary_sep[i])
-            print('lens_binary_sep is', lens_binary_sep[i])
-            print('theta_frac[i] * theta_E[i] is', theta_frac[i] * theta_E[i])
-            print('=======================')"""
+
         if not pd.isnull(deltaTSq): ## pd.isnull can handle weird mpmath objects representing numbers that np.isnan cant
             t1, t2 = rrQuadSolve(rr_lens, rr_sorc)
             t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
             t2 -= 0.5
-            """if (sorces[i]['obj_id'] in obj_id_S_watch) and (lenses[i]['obj_id'] in obj_id_L_watch):
-                print('deltaTsq is not nan!')
-                print('t1=', t1)
-                print('t2=', t2)
-                print('=======================')
-                print('t0 is', ((t2 + t1) / 2))"""
+
             if (t1 >= -0.5 and t1 <= 0.5) or (t2 >= -0.5 and t2 <= 0.5) or (-0.5 <= ((t2 + t1) / 2) <= 0.5): 
                 ## ASK/CHANGE: do we want events that are take place in the survey duration but might not peak inside?
                 ## if the start or end of the event falls within the survey window OR if the peak of the event occurs in the window
@@ -4915,9 +4722,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
                     print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
                     totalLensingEvents +=1
                     adx.append(i)
-                    """print('theta_frac =', theta_frac[i])
-                    print('lens_id is ', lenses[i]['obj_id'])
-                    print('==============')"""
                     times.insert(i, float(obs_time * (t2 + t1) / 2)) ## use midpoint of event for t0 
     adx = np.array(adx) ## convert to np.array for consistency
     times = np.array(times)

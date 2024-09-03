@@ -3041,11 +3041,6 @@ def _check_calc_events(hdf5_file, output_root2,
 ## Begin copied segment from hamer-code-edits.py
 ##########
 
-# (15 min / 1825 days)^2 where 15 min is Roman's fiducial cadence
-# and 1825 days is Roman's fiducial observational baseline
-## change: instead of using Roman time, we will use obs_time as specified by calc_events (DAYS)
-transit15minSq = mpf('3.25786e-11')
-
 # set precision
 mp.dps = 30
 
@@ -4909,10 +4904,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
             print('lens_binary_sep is', lens_binary_sep[i])
             print('theta_frac[i] * theta_E[i] is', theta_frac[i] * theta_E[i])
             print('=======================')"""
-        ## below line: need to ask about cadence -> should we include something to miss events based on how often we observe? or no?
-        """if (deltaTSq < transit15minSq):
-                    # event is too short duration to be seen with 15 min cadence
-                    continue"""
         if not pd.isnull(deltaTSq): ## pd.isnull can handle weird mpmath objects representing numbers that np.isnan cant
             t1, t2 = rrQuadSolve(rr_lens, rr_source)
             t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5

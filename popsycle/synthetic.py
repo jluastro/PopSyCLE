@@ -3432,8 +3432,7 @@ def calc_events_old(hdf5_file, output_root2,
     # Start of code
     #########
 
-    ## Reminder message for Kai, can be deleted later along with this comment
-    print("You are using the old version of calc_events, now called calc_events_old.py")
+    print("This is the old version of calc_events. It is better for binaries")
 
     t0 = time.time()
 
@@ -4142,8 +4141,7 @@ def calc_events(hdf5_file, output_root2,
     # Start of code
     #########
 
-    ## Reminder message for Kai, can be deleted later along with this comment
-    print("You are using the new version of calc_events, it is prone to errors")
+    print("This version of calc_events is great for singles, but not recommended for binaries at this time")
 
     t0 = time.time()
 

@@ -4383,8 +4383,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, radius_cut,
     # Calculate einstein radius and lens-source separation
     theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                 r_t[lens_id], r_t[sorc_id])  # mas      
-    u = sep[event_id1] / theta_E
-    ## (potential) change: do we need u?
 
     lens_bi_sep = None
     sorc_bi_sep = None
@@ -4396,7 +4394,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, radius_cut,
 
     # Trim down to those microlensing events that really get close enough
     # to hope that we can detect them. Trim on a Theta_E criteria.
-    event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac,
+    event_lbt = _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac,
                                             lens_id, sorc_id, obs_time, lens_bi_sep, sorc_bi_sep)
 
     if event_lbt is not None:
@@ -4761,7 +4759,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     return lens_id, sorc_id, r_t, sep, event_id1, c, kdt
 
 
-def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
+def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
                              sorc_id, obs_time, lens_binary_sep = None, 
                              sorc_binary_sep = None):
     """
@@ -4774,9 +4772,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, u, theta_frac, lens_id,
 
     theta_E : array
         Einstein radius of the events that pass the radius cut
-
-    u : array
-        Impact parameters at time t of the events that pass the radius cut
 
     theta_frac : float
         Parameter of calc_events()

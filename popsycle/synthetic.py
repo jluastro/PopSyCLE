@@ -4132,7 +4132,7 @@ def calc_events(hdf5_file, output_root2,
     # Start of code
     #########
 
-    print("This version of calc_events is great for singles, but not recommended for binaries at this time")
+    print("This version of calc_events is recommended for singles, but not binaries (at this time)")
 
     t0 = time.time()
 
@@ -4466,7 +4466,6 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
         Coordinates of all the stars (cartesian)
     """
 
-    startTime = time.time()
     # Using midpoint of survey duration for all initial coord searches
     r_t = bigpatch['rad'] # kpc
     b_t = bigpatch['glat'] # deg
@@ -4496,17 +4495,11 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     disp_95 = np.percentile(total_disp_arr, 95)
     radius_cut_95 = 2*disp_95 # double because lens and source could each have about this much motion 
     radius_cut_max = 2*max_disp
-    print('====== displacements ======')    
-    print('max: %s (in radians)' % max_disp)
-    print('95th percentile: %s (in radians)' % disp_95)
-    print('===========================')
 
     # Note: radius_cut is input with units of mas, and maxSphRadius is currently in radians, so there needs to be a unit conversion
     maxSphRadius = np.tan((radius_cut * units.mas).to(units.radian)) # convert to radians (from mas), convert radians to cartesian with tan
-    print('DIAGNOSTIC: maxSphRadius/radius_cut in cartesian = %s' % maxSphRadius)
     carts = np.array(c.cartesian.xyz.T)
     kdt = cKDTree(carts)
-    print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(carts))
 
     lens_id = []
     sorc_id = []
@@ -4588,12 +4581,6 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
         print('There are ' + str(dup) + ' duplicate (l, b) pairs.')
         print('**************************************************')
 
-
-    endTime = time.time()
-    print('search radius is %s rad (adjust manually if necessary)' % maxSphRadius)
-    print('completed search for transit events in %s s' % (endTime-startTime))
-    print('total close sources found: %d. total lonely lenses found: %d' % (totalNearbyObjects, totalIsolatedObjects))
-
     return lens_id, sorc_id, r_t, sep, event_id1, c, kdt
 
 
@@ -4637,8 +4624,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
         Lenses and sources at a particular time t.
 
     """
-    startTime = time.time()
-    totalLensingEvents = 0
     sorces = bigpatch[sorc_id]
     lenses = bigpatch[lens_id]
 
@@ -4678,7 +4663,6 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
     d_lens = endPosSph_lenses[:, 1:3] - startPosSph_lenses[:, 1:3]
     d_sorc = endPosSph_sorces[:, 1:3] - startPosSph_sorces[:, 1:3]
     
-
     adx = []
     # Don't care about nans, just about inserting actual times into the right index
     times = np.ones(len(sorces), dtype=float) * np.nan
@@ -4702,13 +4686,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
             t2 -= 0.5
 
             if (t1 >= -0.5 and t1 <= 0.5) or (t2 >= -0.5 and t2 <= 0.5) or (-0.5 <= ((t2 + t1) / 2) <= 0.5): 
-                print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
-                totalLensingEvents +=1
                 adx.append(i)
                 times.insert(i, float(obs_time * (t2 + t1) / 2))
     adx = np.array(adx) 
     times = np.array(times)
-    print('total lensing events: %s' % totalLensingEvents)
     theta_E = theta_E * units.radian
     theta_E = (theta_E.to(units. mas)) / units.mas
     theta_E = np.array(theta_E)
@@ -4778,13 +4759,10 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
                                       mu_rel, usemask=False)
         event_lbt = rfn.append_fields(event_lbt, 't0',
                                       t_event, usemask=False)
-        endTime = time.time()
-        print('completed search for transit events in %s s' % (endTime-startTime))      
+    
         return event_lbt
 
     else:
-        endTime = time.time()
-        print('completed search for transit events in %s s' % (endTime-startTime))    
         return None
 
 

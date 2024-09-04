@@ -3030,15 +3030,7 @@ def _check_calc_events(hdf5_file, output_root2,
             raise Exception('hdf5_file_comp (%s) must be a str or a NoneType.' % str(hdf5_file_comp))
 
 ##########
-## Kai's comments marked by "##." New comments with "#" are nickhamer's that 
-## have been left in for clarity
-## New implementation of the calc_events function
-## May include: calc_events, _calc_events_time_loop, _calc_event_cands_radius,
-## _calc_event_cands_thetaE, _calc_blends, unique_events, & unique_blends
-##########
-
-##########
-## Begin copied segment from hamer-code-edits.py
+# Begin copied segment from lensing-search
 ##########
 
 # set precision
@@ -3089,15 +3081,17 @@ def RRectPath(r, p1, v, t):
 
     return ((p1, r), (p2, r), rectPoints)
 
-# after writing many functions, had to start using precision numbers.
+# after writing many functions, [Nick] had to start using precision numbers.
 # this is a decorator to map all the arguments of a function f(x1,x2...) --> f(mpf(x1),mpf(x2)...)
+# mp.math might not be necessary. This is something to look into in the future - Kai
+
 def make_precise(func):
     def inner(*args):
         return(func(*map(mpf, args)))
 
     return inner
 
-# the squared difference between  the two solutions of the quadratic equation
+# the squared difference between the two solutions of the quadratic equation
 # formulas here were solved analytically in mathematica and copy/pasted
 @make_precise
 def tSolSqDiff(r1, r2, x1, y1, vx1, vy1, x2, y2, vx2, vy2):
@@ -3138,7 +3132,7 @@ def tSol(solutionIndex, r1, r2, x1, y1, vx1, vy1, x2, y2, vx2, vy2):
     elif(solutionIndex == 2):
         sqrtSign = 1
     else:
-        raise Exception('solutionIndex must 1 or 2, corresponding to the two different solutions of the quadratic equation')
+        raise Exception('solutionIndex must be 1 or 2, corresponding to the two different solutions of the quadratic equation')
 
     # check condition for solution existing
 
@@ -3197,8 +3191,6 @@ def rrQuadSolve(rr1, rr2):
     )
     return((t1, t2))
 
-
-# xxx: does this implement a t = -T/2 start?
 def rrQuadDiff(rr1, rr2):
 
     d1 = rr1[1][0] - rr1[0][0]
@@ -3214,7 +3206,6 @@ def rrQuadDiff(rr1, rr2):
 def obj_size(rad, obj, bin_sep): 
     # rad is radial distance away (kpc)
     # bin_sep is 0 or greater, in mas
-    # all cgs units
     # for now, if bin_sep is 0, then run as normal, but otherwise just use sep and convert to radians
     if bin_sep != 0:
         bin_sep *= units.mas
@@ -3247,7 +3238,7 @@ def to_radians(rgg):
     return (rgg['rad'], rgg['glat']*np.pi/180, rgg['glon']*np.pi/180)
 
 # location of final point in spherical coords
-## + vVec because the end occurs at obs_time/2
+# + vVec because the end occurs at obs_time/2
 def end_movement_spherical_noCartesian(pVec, vVec, obs_time):
     return spherical_exact(
         cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] + vVec['vx'] * kms_to_kpcday * obs_time/2,
@@ -3255,7 +3246,7 @@ def end_movement_spherical_noCartesian(pVec, vVec, obs_time):
         cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[2] + vVec['vz'] * kms_to_kpcday * obs_time/2
     )
 
-## - vVec because the start occurs at -obs_time/2
+# - vVec because the start occurs at -obs_time/2
 def start_movement_spherical_noCartesian(pVec, vVec,obs_time):
     return spherical_exact(
         cartesian_exact(pVec['rad'], pVec['glat'], pVec['glon'])[0] - vVec['vx'] * kms_to_kpcday * obs_time/2,
@@ -3264,11 +3255,11 @@ def start_movement_spherical_noCartesian(pVec, vVec,obs_time):
     )
 
 ##########
-## End of copied segment from hamer-code-edits.py
+# End of copied segment from hamer-code-edits.py
 ##########
 
 ##########
-## Start of duplicate/old calc_events functions (for testing)
+# Start of duplicate/old calc_events functions (for testing & binaries)
 ##########
 
 def _check_calc_events_old(hdf5_file, output_root2,
@@ -3853,7 +3844,7 @@ def _calc_event_cands_thetaE_old(bigpatch, theta_E, u, theta_frac, lens_id,
     # If there are binaries extend the search radius to theta_frac + separation between primary
     # and furthest companion.
     if binary_sep is not None:
-        theta_frac_comp = theta_frac + binary_sep/theta_E ## added / theta_E for accuracy & consistency
+        theta_frac_comp = theta_frac + binary_sep/theta_E # added / theta_E for accuracy & consistency
         if np.shape(u) != np.shape(theta_frac_comp):
             print(u, theta_frac_comp)
         #print(np.shape(u), np.shape(theta_frac_comp), np.shape(theta_frac), np.shape(bigpatch['sep']))
@@ -4062,7 +4053,7 @@ def _calc_blends_old(bigpatch, c, event_lbt, blend_rad):
     return blends_lbt
 
 ##########
-## end old calc_events section
+# end old calc_events section
 ##########
     
 def calc_events(hdf5_file, output_root2,
@@ -4329,6 +4320,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, radius_cut,
     bigpatch = np.hstack((hf[name00], hf[name01], hf[name10], hf[name11]))
     hf.close()
 
+    # by default, assume no binaries
     is_binary = False
 
     # Adds separation in mas between primary and furthest companion if there are companions
@@ -4382,6 +4374,7 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, radius_cut,
     theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                 r_t[lens_id], r_t[sorc_id])  # mas      
 
+    # Again, we default to no binaries
     lens_bi_sep = None
     sorc_bi_sep = None
     if 'sep' in bigpatch[0].dtype.names:
@@ -4446,6 +4439,9 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
         Parameter of calc_events().
         Survey duration, in DAYS
 
+    is_binary : bool
+        Boolean indicating if this is a binary run or not
+
     Returns
     -------
     lens_id : array
@@ -4471,7 +4467,7 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     """
 
     startTime = time.time()
-    ## Using midpoint of survey duration for all initial coord searches
+    # Using midpoint of survey duration for all initial coord searches
     r_t = bigpatch['rad'] # kpc
     b_t = bigpatch['glat'] # deg
     l_t = bigpatch['glon'] # deg
@@ -4482,53 +4478,48 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     lenses = bigpatch[:]
 
     # end position of sources and lenses respectively
-    #endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
+    # endPosSph_sources = np.asarray(end_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
-    ## mid points should just be when t=0 (i.e default coords)
+    # mid points should just be when t=0 (i.e default coords)
     midPosSph_sorces = np.asarray(to_radians(sorces[['rad','glat','glon']])).T
-    midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
+    # midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
 
     # starting position of sources and lenses respectively
-    #startPosSph_sorces = np.asarray(start_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
+    # startPosSph_sorces = np.asarray(start_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
-    ## array of total displacements for lenses, all displacement is related to lenses
+    # array of total displacements for lenses, all displacement is related to lenses
     total_disp_arr = np.sqrt((startPosSph_lenses - endPosSph_lenses)[:, 1]**2 + (startPosSph_lenses - endPosSph_lenses)[:, 2]**2)
 
     max_disp = total_disp_arr.max()
     disp_95 = np.percentile(total_disp_arr, 95)
-    radius_cut_95 = 2*disp_95 ## double because lens and source could each have about this much motion 
-    ## could have more, but that case is currently being neglected, as this will catch almost all cases (especially if taken from midpoint positions)
-    radius_cut_max = 2*max_disp ## in cartesian
+    radius_cut_95 = 2*disp_95 # double because lens and source could each have about this much motion 
+    radius_cut_max = 2*max_disp
     print('====== displacements ======')    
     print('max: %s (in radians)' % max_disp)
     print('95th percentile: %s (in radians)' % disp_95)
     print('===========================')
 
-    ## note: radius_cut is input with milliarcseconds, and maxSphRadius is currently in radians, so there needs to be a unit conversion
-    maxSphRadius = np.tan((radius_cut * units.mas).to(units.radian)) ## convert to radians (from mas), convert rad to cart with tan
+    # Note: radius_cut is input with units of mas, and maxSphRadius is currently in radians, so there needs to be a unit conversion
+    maxSphRadius = np.tan((radius_cut * units.mas).to(units.radian)) # convert to radians (from mas), convert radians to cartesian with tan
     print('DIAGNOSTIC: maxSphRadius/radius_cut in cartesian = %s' % maxSphRadius)
     carts = np.array(c.cartesian.xyz.T)
     kdt = cKDTree(carts)
     print('DIAGNOSTIC: number of objects (sources) in the kdtree: %d' % len(carts))
 
-    ## in the case that displacements are larger, we will use the radius cut
-    ## should usually be the same radius_cut_95 and radius_cut_max
     lens_id = []
     sorc_id = []
 
-    totalNearbyObjects = 0 ## counts the number of nearby (potential) sources near a lens
+    totalNearbyObjects = 0
     totalIsolatedObjects = 0
-    ## this could be implemented dynamically such that for cases where there are lots of large values
-    ## we take a percentile that will run very fast and do those, then use the radius_cut for the others
+    
     if is_binary:
         lenses_sep = lenses['sep']
         lenses_sep *= units.mas
         lenses_radian_sep = (lenses_sep.to(units.rad)).value
         sep_95 = np.percentile(lenses_radian_sep, 95)
         max_sep = lenses_radian_sep.max()
-        ## should we multiply these factors by two like i do with the displacements?
     else:
         binary_factor = 0
 
@@ -4550,26 +4541,24 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
             disp_factor = radius_cut_max
         
         query_factor = np.tan(disp_factor + binary_factor)
-        query_factor = min(query_factor, maxSphRadius) ## both in cartesian now, use whichever is smaller
+        query_factor = min(query_factor, maxSphRadius)
         
         results = kdt.query_ball_point(carts[i], query_factor)
-        ## lens' x,y,z coords
         
-        ## dont count the same object as a source if its already the lens
+        # Don't count the same object as a source if its already the lens
         results = [index for index in results if index != i] 
        
-        for res in results: ## switch back to results after
-            ## res,i are the indices of the sources, lenses (respectively) in the original patch list
+        for res in results:
+            # res, i are the indices of the sources, lenses (respectively) in the original patch list
             if(lens['rad'] < midPosSph_sorces[res][0]):
                 # lens is nearer than the source
                 totalNearbyObjects += 1
-                lens_id.append(i) ## this is the index of the object in the original patch list
-                sorc_id.append(res) ## this is the index of the object in the original patch list
+                lens_id.append(i) 
+                sorc_id.append(res)
                 
         if len(results) == 0:
             totalIsolatedObjects += 1
 
-    ## convert to arrays
     sorc_id = np.array(sorc_id)
     lens_id = np.array(lens_id)
     
@@ -4582,12 +4571,11 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     sep = (sep.to(units.mas)) / units.mas
 
     event_id1 = np.array(range(len(lens_id)))
-    if len(lens_id) != len(sorc_id): #or len(sep) != len(lens_id):
+    if len(lens_id) != len(sorc_id):
         print('=========================')
-        print('error! lengths are not equivalent!')
+        print('error! lens_id & sorc_id lengths are not equivalent!')
         print('=========================')
-        ## can turn this into an exception but whtever, can do that later if need be
-        ## delete all the stuff below here too (?)
+
     ##########
     # Error checking: calculate how many duplicate (l, b) pairs there are.
     # (There shouldn't be any, but if there are, that's a problem)
@@ -4605,8 +4593,6 @@ def _calc_event_cands_radius(bigpatch, radius_cut, obs_time, is_binary):
     print('search radius is %s rad (adjust manually if necessary)' % maxSphRadius)
     print('completed search for transit events in %s s' % (endTime-startTime))
     print('total close sources found: %d. total lonely lenses found: %d' % (totalNearbyObjects, totalIsolatedObjects))
-    ## totalNearbyObjects may still be higher than total # of objects because sources may be close to multiple other
-    ## change: print statements should be modified to match current implementation (late priority)
 
     return lens_id, sorc_id, r_t, sep, event_id1, c, kdt
 
@@ -4639,6 +4625,12 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
         Parameter of calc_events().
         Survey duration, in DAYS
 
+    lens_binary_sep : array
+        The binary separation associated with lenses (mas)
+
+    sorc_binary_sep : array
+        The binary separation associated with sources (mas)
+
     Returns
     -------
     event_lbt : array
@@ -4647,62 +4639,56 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
     """
     startTime = time.time()
     totalLensingEvents = 0
-    ## new (shortened) list of sources and lenses (after first cut)
     sorces = bigpatch[sorc_id]
     lenses = bigpatch[lens_id]
 
     # If there are binaries extend the search radius to theta_frac + separation between primary
     # and furthest companion.
     if lens_binary_sep is not None:
-        ## theta_frac has units of theta_E, divide binary_sep by theta_E to get in units of theta_E instead of mas
         theta_frac_comp = theta_frac + lens_binary_sep/theta_E
         theta_frac = theta_frac_comp
     else:
         theta_frac = np.ones(len(sorces)) * theta_frac
 
-    ## for the non-binary case, need to make sep list zero
+    # For the non-binary case, need to make sep list zero
     if sorc_binary_sep is None:
         sorc_binary_sep = np.zeros(len(sorces))
-    ## the code could be rewritten to take inputs of mas, but that is too tall a task (for now at last) esp. given such a simple solution
-    ## converting theta_E to radians (from mas) for RRectPath (radians intended)
-    ## will switch back to mas after for loop
+
     theta_E = theta_E * units.mas
     theta_E = (theta_E.to(units.radian)) / units.radian
-    theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
+    theta_E = np.array(theta_E)
 
     ##########
-    ## the following lines are essentially copied from *cands_radius()
+    # the following lines are essentially copied from _calc_events_cands_radius()
     ##########
 
     # end position of sources and lenses respectively
     endPosSph_sorces = np.asarray(end_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     endPosSph_lenses = np.asarray(end_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
 
-
-    ## mid points should just be when t=0 (i.e default coords)
+    # mid points should just be when t=0 (i.e default coords)
     midPosSph_sorces = np.asarray(to_radians(sorces[['rad','glat','glon']])).T
-    ## midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
-    
+    # midPosSph_lenses = np.asarray(to_radians(lenses[['rad','glat','glon']])).T
 
     # starting position of sources and lenses respectively
     startPosSph_sorces = np.asarray(start_movement_spherical_noCartesian(sorces[['rad','glat','glon']], sorces[['vx', 'vy', 'vz']], obs_time)).T
     startPosSph_lenses = np.asarray(start_movement_spherical_noCartesian(lenses[['rad','glat','glon']], lenses[['vx', 'vy', 'vz']], obs_time)).T
     
-
-    ## array of coordinates movement
+    # array of coordinate shifts
     d_lens = endPosSph_lenses[:, 1:3] - startPosSph_lenses[:, 1:3]
     d_sorc = endPosSph_sorces[:, 1:3] - startPosSph_sorces[:, 1:3]
     
 
     adx = []
+    # Don't care about nans, just about inserting actual times into the right index
     times = np.ones(len(sorces), dtype=float) * np.nan
-    times = times.tolist() ## to enable insert later
+    times = times.tolist()
     for i in range(len(sorces)):
         rr_lens = RRectPath(
                     theta_frac[i] * theta_E[i],
                     startPosSph_lenses[:, 1:3][i],
                     d_lens[i], 1)
-    ## use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
+    # Use displacement as velocity, use 1 as time, as v*t = d; v=d, t=1
         rr_sorc = RRectPath(
                     obj_size(midPosSph_sorces[:, 0][i], sorces[i], sorc_binary_sep[i]),
                     startPosSph_sorces[:, 1:3][i],
@@ -4710,27 +4696,22 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
 
         deltaTSq = rrQuadDiff(rr_lens, rr_sorc)
 
-        if not pd.isnull(deltaTSq): ## pd.isnull can handle weird mpmath objects representing numbers that np.isnan cant
+        if not pd.isnull(deltaTSq):
             t1, t2 = rrQuadSolve(rr_lens, rr_sorc)
-            t1 -= 0.5 ## originally coded (hamer's ver) to be between 0 and 1, now between -0.5 and 0.5
+            t1 -= 0.5
             t2 -= 0.5
 
             if (t1 >= -0.5 and t1 <= 0.5) or (t2 >= -0.5 and t2 <= 0.5) or (-0.5 <= ((t2 + t1) / 2) <= 0.5): 
-                ## ASK/CHANGE: do we want events that are take place in the survey duration but might not peak inside?
-                ## if the start or end of the event falls within the survey window OR if the peak of the event occurs in the window
-                ## times are in line with -T/2 to T/2 viewing window.
-                    print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
-                    totalLensingEvents +=1
-                    adx.append(i)
-                    times.insert(i, float(obs_time * (t2 + t1) / 2)) ## use midpoint of event for t0 
-    adx = np.array(adx) ## convert to np.array for consistency
+                print('comparing delta t:   ',t2 - t1, np.sqrt(deltaTSq))
+                totalLensingEvents +=1
+                adx.append(i)
+                times.insert(i, float(obs_time * (t2 + t1) / 2))
+    adx = np.array(adx) 
     times = np.array(times)
     print('total lensing events: %s' % totalLensingEvents)
-    ## CHANGE: remove all these print statements eventually
-    ## changing back theta_E to mas (from radians for computations above)
     theta_E = theta_E * units.radian
     theta_E = (theta_E.to(units. mas)) / units.mas
-    theta_E = np.array(theta_E) ## turns all <Quantity> objects back into numbers
+    theta_E = np.array(theta_E)
     
     if len(adx > 0):
         # Narrow down to unique pairs of stars... don't double calculate
@@ -4754,7 +4735,7 @@ def _calc_event_cands_thetaE(bigpatch, theta_E, theta_frac, lens_id,
         theta_E = theta_E[adx][unique_indices]
         t_event = times[adx][unique_indices]
         
-        ## new u calculation, using t_event
+        # u calculation, using t_event
         sorc_glat = sorc_table['glat'] + t_event * sorc_table['mu_b'] * masyr_to_degday #deg
         sorc_glon = sorc_table['glon'] + t_event * (sorc_table['mu_lcosb'] 
                                                     / np.cos(np.radians(sorc_table['glat']))) * masyr_to_degday  # deg
@@ -4838,7 +4819,7 @@ def _calc_blends(bigpatch, c, event_lbt, blend_rad, kdt):
 
     """
     ##########
-    ## The KD-Tree has been passed through
+    # The KD-Tree has been passed through
     ##########
     # This way, we don't have to remake a tree that already exists.
     # (We didn't just do the neighbor calculation initially, because

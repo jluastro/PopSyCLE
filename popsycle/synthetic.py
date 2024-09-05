@@ -5191,7 +5191,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     
     lightcurve_table = Table(names=('obj_id_L', 'obj_id_S', 'companion_id_L', 'companion_id_S', 'class', 'n_peaks', 'bin_delta_m', 
                                      'tE_sys', 'tE_primary', 'primary_t', 'avg_t', 'std_t', 'asymmetry', 'mp_rows', 'used_lightcurve'),
-                            dtype = (float, float, float, float, str, float, float, float, float, float, float, float, float, dict, bool))
+                            dtype = (int, int, float, float, str, float, float, float, float, float, float, float, float, dict, bool))
     
     # This table is for events with more than one peak to characterize those peaks
     # comp_id is position of companion in companion table for reference
@@ -5201,7 +5201,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     # delta m is the change in magnitude between the peak and baseline
     # ratio is the magnitude ratio between min peak/max peak
     mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'),
-                       dtype = (object, float, float, float, float, float, float, float))
+                       dtype = (object, int, int, float, float, float, float, float))
     
     multiples_lightcurves = sum((event_table['isMultiple_S'] == 1) | (event_table['isMultiple_L'] == 1))
     
@@ -5223,8 +5223,6 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         event_table_df['companion_idx_list'].loc[obj_id_L_S] = list(grouped_comps.groups[i]['companion_idx'])
         inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
                      photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite]
-    
-    one_lightcurve_analysis
     
     if multi_proc:
         results = pool.starmap(one_lightcurve_analysis, inputs)
@@ -5456,10 +5454,10 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
             model = bspl_model_gen(model_parameter_dict)
             param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
-            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan, 
+            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan,
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
-            
+
             del global_comp_idx, param_dict,
             lightcurve_dict, model, model_parameter_dict, name
 

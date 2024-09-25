@@ -4080,7 +4080,8 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     Parameters
     ----------
     input_root : str
-        The root path and name of the \*_events.fits and \*_blends.fits.
+        The root path and name of the \*_events.fits, \*_blends.fits,
+        \*_galaxia_params.txt, \*_calc_events.log, and \_*_perform_pop_syn.log.
         Don't include those suffixes yet.
 
     filter_name : str

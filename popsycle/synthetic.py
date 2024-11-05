@@ -967,8 +967,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     popstar_path = os.path.dirname(inspect.getfile(imf))
     popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=popsycle_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    try:
+        popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
+    except:
+        popstar_hash = 'Cannot access SPISEA hash'
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
 

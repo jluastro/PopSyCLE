@@ -2,6 +2,8 @@ import numpy as np
 import warnings
 from astropy.table import Table, Column
 from ast import literal_eval
+import h5py
+import pandas as pd
 
 
 def add_magnitudes(mags):
@@ -299,13 +301,16 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
 
     return t_both_mcut, t_both_mcut_one_peak, t_multiples_mcut_multi_peak
 
-def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, new_hdf5_file = None, new_hdf5_file_comp = None):
+def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['ubv_I', 'ubv_K', 'ubv_J', 'ubv_U', 'ubv_R', 'ubv_B', 'ubv_V', 'ubv_H'],
+                    new_hdf5_file = None, new_hdf5_file_comp = None):
     """
     This makes some fraction of BHs singles.
     Currently no binary star evolution, so all BHs end up in binaries.
     We drop the companions from the companion table and set the BH parameters
     to those of a single BH.
     These are saved to a new file.
+
+    To be run after perform_pop_syn.
 
     Parameters
     ----------
@@ -318,6 +323,11 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, new_hdf5_fi
     bh_binary_frac : float
         Binary fraction to be kept of BHs.
         Default is 0.1.
+
+    phots : list of str
+        Photometry values to be made nan for BHs.
+        Should include all photometry values in table.
+        Default is all those in ubv system.
 
     new_hdf5_file : str or None
         New hdf5 file name.

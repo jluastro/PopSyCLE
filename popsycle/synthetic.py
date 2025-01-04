@@ -40,6 +40,7 @@ from popsycle import ebf
 from popsycle.filters import transform_ubv_to_ztf
 from popsycle import utils
 import astropy.units as unit
+import astropy.constants as const
 from popsycle import orbits
 import pandas as pd
 from bagle import model
@@ -6399,7 +6400,8 @@ def einstein_radius(M, d_L, d_S):
     -------
         Einstein radius, in mas
     """
-    return 2.85 * M ** 0.5 * (1 / d_L - 1 / d_S) ** 0.5
+    inv_dist_diff = (1 / (d_L*unit.kpc) - 1 / (d_S*unit.kpc))
+    return (unit.rad*(np.sqrt((4*const.G/(const.c**2)) * M*unit.M_sun * inv_dist_diff))).to('mas').value
 
 
 def calc_sph_motion(vx, vy, vz, r, b, l):

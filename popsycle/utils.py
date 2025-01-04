@@ -13,6 +13,7 @@ from popsycle import synthetic, orbits
 import copy
 import time
 import datetime
+from spisea import reddening
 
 
 def add_precision64(input_array, power):
@@ -472,11 +473,39 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
 
     return delta_c_obs
 
+def get_Alambda_AKs(red_law_name, lambda_eff):
+    """
+    Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
+    Naming convention is not consistent. Change SPISEA or add if statements?
+
+    Parameters
+    ----------
+    red_law_name : str
+        The name of the reddening law
+    lambda_eff : float
+        Wavelength in microns
+
+    Returns
+    -------
+    Alambda_AKs : float
+        Alambda/AKs
+
+    """
+    red_law_class = getattr(reddening, 'RedLaw' + red_law_name)
+    red_law = red_law_class()
+    red_law_method = getattr(red_law, red_law_name)
+    Alambda_AKs = red_law_method(lambda_eff, 1)
+
+    return Alambda_AKs
+
 
 def calc_f(lambda_eff):
     """
     Calculate that coefficient f that multiples E(B-V) to get the
     extinction in magnitudes
+
+    lambda_eff : float
+        Effective wavelength of filter in microns
     """
     B = get_Alambda_AKs('Damineli16', 0.445)
     V = get_Alambda_AKs('Damineli16', 0.551)

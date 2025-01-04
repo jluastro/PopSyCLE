@@ -4,6 +4,7 @@ from astropy.table import Table, Column
 from ast import literal_eval
 import h5py
 import pandas as pd
+import os
 
 
 def add_magnitudes(mags):
@@ -302,7 +303,7 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
     return t_both_mcut, t_both_mcut_one_peak, t_multiples_mcut_multi_peak
 
 def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['ubv_I', 'ubv_K', 'ubv_J', 'ubv_U', 'ubv_R', 'ubv_B', 'ubv_V', 'ubv_H'],
-                    new_hdf5_file = None, new_hdf5_file_comp = None):
+                    new_hdf5_file = None, new_hdf5_file_comp = None, symlink_aux_files = True):
     """
     This makes some fraction of BHs singles.
     Currently no binary star evolution, so all BHs end up in binaries.
@@ -338,6 +339,13 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
         New hdf5 file name.
         Default is None which saves it as
         hdf5_comp_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac).
+
+    symlink_aux_files : bool
+        Makes symbolic links to the following necessary auxiliary files with the new root:
+        _perform_pop_syn.log
+        _galaxia.log
+        _galaxia_params.txt
+        Default is True.
     """
     
     tmp_prim = h5py.File(hdf5_file, 'r')
@@ -348,7 +356,11 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
     if new_hdf5_file is None:
         new_hdf5_file = hdf5_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac)
     if new_hdf5_file_comp is None:
-        new_hdf5_file_comp = hdf5_comp_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac)
+        new_hdf5_file_comp = hdf5_comp_file[:-13] + '{}_bhb_frac_companions.h5'.format(bh_binary_frac)
+    if symlink_aux_files:
+        os.symlink(hdf5_file[:-3] + '_galaxia.log', new_hdf5_file[:-3] + '_galaxia.log')
+        os.symlink(hdf5_file[:-3] + '_galaxia_params.txt', new_hdf5_file[:-3] + '_galaxia_params.txt')
+        os.symlink(hdf5_file[:-3] + '_perform_pop_syn.log', new_hdf5_file[:-3] + '_perform_pop_syn.log')
 
     prim_copy = h5py.File(new_hdf5_file, 'w')
     prim_copy[list(keys)[-2]] = tmp_prim[list(keys)[-2]][:]
@@ -384,12 +396,12 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
 
             with h5py.File(new_hdf5_file, 'r+') as prim_hdf5:
                 prim_np = prim.reset_index().to_numpy()
-                prim_hdf5.create_dataset(i, data=prim_np)
+                prim_hdf5.create_dataset(i, data=prim_np.astype("|V256"))
 
             with h5py.File(new_hdf5_file_comp, 'r+') as comp_hdf5:
                 comp_np = comp.reset_index().to_numpy()
-                comp_hdf5.create_dataset(i, data=comp_np)
-
+                comp_hdf5.create_dataset(i, data=comp_np.astype("|V256"))
+                
     return
 
 

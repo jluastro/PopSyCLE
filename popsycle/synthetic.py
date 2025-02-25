@@ -5784,6 +5784,11 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
                             pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+    
+#    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
+#    mag_lens_sec = calc_app_mag(event_table[event_id]['rad_L'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
+#    mag_lens_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_L' % (photometric_system, filter_name)], mag_lens_sec)
+#
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec
     mL1 = event_table[event_id]['mass_L'] # msun (Primary lens current mass)
@@ -5799,13 +5804,14 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     alpha = comp_table['alpha'][comp_idx]
     mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = 20 #mag_lens_pri - mag_lens_sec
     model_name = 'PSBL_PhotAstrom_Par_Param7'
     
     psbl_parameter_dict = {'raL': raL, 'decL': decL, 'mL1': mL1, 'mL2': mL2, 
                            't0': t0, 'xS0': xS0, 'beta': beta, 'muL': muL, 
                            'muS': muS, 'dL': dL, 'dS': dS, 'sep': sep, 
                            'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff, 
-                           'model': model_name}
+                           'dmag_Lp_Ls' : dmag_Lp_Ls, 'model': model_name}
     return psbl_parameter_dict, obj_id_L, obj_id_S
     
 
@@ -5840,10 +5846,11 @@ def psbl_model_gen(psbl_parameter_dict):
     alpha = psbl_parameter_dict['alpha']
     mag_src = psbl_parameter_dict['mag_src']
     b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = psbl_parameter_dict['dmag_Lp_Ls']
 
     psbl = model.PSBL_PhotAstrom_Par_Param7(mL1, mL2, t0, xS0[0], xS0[1],
                                beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
-                               sep, alpha, [b_sff], [mag_src], 
+                               sep, alpha, [b_sff], [mag_src], [dmag_Lp_Ls],
                                raL=raL, decL=decL, 
                                root_tol = 0.00000001)
     return psbl
@@ -6057,6 +6064,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
     mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    dmag_Lp_Ls = 20 #FIXME
     model_name = 'BSBL_PhotAstrom_Par_Param2'
     
     bsbl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
@@ -6065,7 +6073,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
                            'dL': dL, 'dS': dS, 'sepL': sepL, 'alphaL': alphaL, 
                            'sepS': sepS, 'alphaS': alphaS,
                            'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 
-                           'b_sff': b_sff}
+                           'b_sff': b_sff, 'dmag_Lp_Ls': dmag_Lp_Ls}
         
     return bsbl_parameter_dict, obj_id_L, obj_id_S
 
@@ -6106,11 +6114,12 @@ def bsbl_model_gen(bsbl_parameter_dict):
     mag_src_sec = bsbl_parameter_dict['mag_src_sec']
     mag_src_pri = bsbl_parameter_dict['mag_src_pri']
     b_sff = bsbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = bsbl_parameter_dict['dmag_Lp_Ls']
 
     bsbl = model.BSBL_PhotAstrom_Par_Param2(mLp, mLs, t0, xS0_E, xS0_N,
                                               beta, muL_E, muL_N, muS_E, muS_N,
                                               dL, dS, sepL, alphaL, sepS, alphaS,
-                                              mag_src_pri, mag_src_sec, b_sff,
+                                              mag_src_pri, mag_src_sec, b_sff, dmag_Lp_Ls,
                                               raL=raL, decL=decL,
                                               root_tol=1e-4)
     return bsbl

@@ -84,6 +84,9 @@ IFMR_dict['SukhboldN20'] = ifmr.IFMR_N20_Sukhbold()
 # B = 440, V = 543, I = 809, J = 1266, H = 1673, K = 2215, U = 337, R = 651
 # ZTF photometric bands:
 # G = 472.274, R = 633.961, I = 788.613
+# RUBIN photometric bands https://github.com/lsst-pst/syseng_throughputs (nm):
+# u = 354.3, g = 477.0, r = 623.1, i = 762.5, z = 913.4
+# Calculated using calc_f
 ##########
 filt_dict = {}
 filt_dict['ubv_J'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
@@ -102,6 +105,12 @@ filt_dict['sdss_g'] = {'Damineli16': 3.401}
 filt_dict['sdss_r'] = {'Damineli16': 2.290}
 filt_dict['sdss_i'] = {'Damineli16': 1.650}
 filt_dict['sdss_z'] = {'Damineli16': 1.192}
+filt_dict['rubin_u'] = {'Damineli16': 4.880}
+filt_dict['rubin_g'] = {'Damineli16': 3.370}
+filt_dict['rubin_r'] = {'Damineli16': 2.296}
+filt_dict['rubin_i'] = {'Damineli16': 1.672}
+filt_dict['rubin_z'] = {'Damineli16': 1.309}
+filt_dict['rubin_y'] = {'Damineli16': 1.051}
 
 ##########
 # Dictionary for listing out supported photometric systems and filters
@@ -110,6 +119,7 @@ photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r', 'i']
 photometric_system_dict['sdss'] = ['u', 'g', 'r', 'i', 'z']
+photometric_system_dict['rubin'] = ['umag','gmag','rmag','imag','zmag','ymag']
 
 ##########
 # List of all supported photometric systems and filters with SPISEA labels
@@ -1429,6 +1439,13 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
             star_dict['sdss_r'] = ebf.read_ind(ebf_file, '/sdss_r', bin_idx)
             star_dict['sdss_i'] = ebf.read_ind(ebf_file, '/sdss_i', bin_idx)
             star_dict['sdss_z'] = ebf.read_ind(ebf_file, '/sdss_z', bin_idx)
+        if 'rubin' in additional_photometric_systems:
+            star_dict['rubin_u'] = ebf.read_ind(ebf_file, '/rubin_u', bin_idx)
+            star_dict['rubin_g'] = ebf.read_ind(ebf_file, '/rubin_g', bin_idx)
+            star_dict['rubin_r'] = ebf.read_ind(ebf_file, '/rubin_r', bin_idx)
+            star_dict['rubin_i'] = ebf.read_ind(ebf_file, '/rubin_i', bin_idx)
+            star_dict['rubin_z'] = ebf.read_ind(ebf_file, '/rubin_z', bin_idx)
+            star_dict['rubin_y'] = ebf.read_ind(ebf_file, '/rubin_y', bin_idx)
 
 
 def _get_bin_edges(l, b, surveyArea, bin_edges_number):
@@ -1585,6 +1602,8 @@ def _make_co_dict(log_age,
                 keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
             if 'sdss' in additional_photometric_systems:
                 keep_columns += ['m_sdss_u', 'm_sdss_g', 'm_sdss_r', 'm_sdss_i', 'm_sdss_z']
+            if 'rubin' in additional_photometric_systems:
+                keep_columns += ['m_rubin_u', 'm_rubin_g', 'm_rubin_r', 'm_rubin_i', 'm_rubin_z', 'm_rubin_y']
         co_table.keep_columns(keep_columns)
 
         # Fill out the rest of co_dict
@@ -1707,6 +1726,13 @@ def _make_co_dict(log_age,
                     co_dict['sdss_r'] = np.full(len(co_dict['vx']), np.nan)
                     co_dict['sdss_i'] = np.full(len(co_dict['vx']), np.nan)
                     co_dict['sdss_z'] = np.full(len(co_dict['vx']), np.nan)
+                if 'rubin' in additional_photometric_systems:
+                    co_dict['rubin_u'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_g'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_r'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_i'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_z'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_y'] = np.full(len(co_dict['vx']), np.nan)
 
             #########
             # Initialize values for compact object teff, specific gravity and bolometric luminosity
@@ -1759,6 +1785,12 @@ def _make_co_dict(log_age,
                         co_dict['sdss_r'][lum_co_sys_idx] = co_table['m_sdss_r'][lum_co_sys_idx].data
                         co_dict['sdss_i'][lum_co_sys_idx] = co_table['m_sdss_i'][lum_co_sys_idx].data
                         co_dict['sdss_z'][lum_co_sys_idx] = co_table['m_sdss_z'][lum_co_sys_idx].data
+                    if 'rubin' in additional_photometric_systems:
+                        co_dict['rubin_u'][lum_co_sys_idx] = co_table['m_rubin_u'][lum_co_sys_idx].data
+                        co_dict['rubin_g'][lum_co_sys_idx] = co_table['m_rubin_g'][lum_co_sys_idx].data
+                        co_dict['rubin_r'][lum_co_sys_idx] = co_table['m_rubin_r'][lum_co_sys_idx].data
+                        co_dict['rubin_i'][lum_co_sys_idx] = co_table['m_rubin_i'][lum_co_sys_idx].data
+                        co_dict['rubin_z'][lum_co_sys_idx] = co_table['m_rubin_z'][lum_co_sys_idx].data
 
                 # Memory cleaning
                 del co_table
@@ -2055,6 +2087,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
         if 'sdss' in additional_photometric_systems:
             my_filt_list += ['sdss,u', 'sdss,g', 'sdss,r', 'sdss,i', 'sdss,z']
+        if 'rubin' in additional_photometric_systems:
+            my_filt_list += ['rubin,u', 'rubin,g', 'rubin,r', 'rubin,i', 'rubin,z', 'rubin,y']
 
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.11 at start because MIST can't handle.
@@ -2950,6 +2984,13 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     companions_system_m_sdss_r = grouped_companions['m_sdss_r'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_sdss_i = grouped_companions['m_sdss_i'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_sdss_z = grouped_companions['m_sdss_z'].groups.aggregate(binary_utils.add_magnitudes)
+                if 'rubin' in additional_photometric_systems:
+                    companions_system_m_rubin_u = grouped_companions['m_rubin_u'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_g = grouped_companions['m_rubin_g'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_r = grouped_companions['m_rubin_r'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_i = grouped_companions['m_rubin_i'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_z = grouped_companions['m_rubin_z'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_z = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
                     
             
             star_dict['ubv_I'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
@@ -2971,6 +3012,12 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['sdss_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_r'][group_companions_system_idxs], companions_system_m_sdss_r])
                     star_dict['sdss_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_i'][group_companions_system_idxs], companions_system_m_sdss_i])
                     star_dict['sdss_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_z'][group_companions_system_idxs], companions_system_m_sdss_z])
+                if 'rubin' in additional_photometric_systems:
+                    star_dict['rubin_u'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_u'][group_companions_system_idxs], companions_system_m_rubin_u])
+                    star_dict['rubin_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_g'][group_companions_system_idxs], companions_system_m_rubin_g])
+                    star_dict['rubin_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_r'][group_companions_system_idxs], companions_system_m_rubin_r])
+                    star_dict['rubin_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_i'][group_companions_system_idxs], companions_system_m_rubin_i])
+                    star_dict['rubin_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_z'][group_companions_system_idxs], companions_system_m_rubin_z])
             
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]

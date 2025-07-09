@@ -49,6 +49,10 @@ from collections import Counter
 from operator import itemgetter
 from popsycle import binary_utils
 from astropy.io import fits
+from astropy.coordinates import solar_system_ephemeris
+
+# Use builtin ephemris for popsycle
+solar_system_ephemeris.set('builtin')
 
 ##########
 # Conversions.

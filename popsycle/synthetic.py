@@ -37,7 +37,7 @@ import numpy.lib.recfunctions as rfn
 import copy
 from distutils import spawn
 from popsycle import ebf
-from popsycle.filters import transform_ubv_to_ztf
+from popsycle.filters import transform_ubv_to_ztf, transform_ubv_to_rubin, transform_ubv_to_roman
 from popsycle import utils
 import astropy.units as unit
 import astropy.constants as const
@@ -85,7 +85,7 @@ IFMR_dict['SukhboldN20'] = ifmr.IFMR_N20_Sukhbold()
 # ZTF photometric bands:
 # G = 472.274, R = 633.961, I = 788.613
 # RUBIN photometric bands https://github.com/lsst-pst/syseng_throughputs (nm):
-# u = 354.3, g = 477.0, r = 623.1, i = 762.5, z = 913.4
+# u = 372.0, g = 480.3, r = 622.0, i = 755.8, z = 868.0, y = 974.9
 # Calculated using calc_f
 ##########
 filt_dict = {}
@@ -111,6 +111,14 @@ filt_dict['rubin_r'] = {'Damineli16': 2.296}
 filt_dict['rubin_i'] = {'Damineli16': 1.672}
 filt_dict['rubin_z'] = {'Damineli16': 1.309}
 filt_dict['rubin_y'] = {'Damineli16': 1.051}
+filt_dict['roman_f062'] = {'Damineli16': 2.307}
+filt_dict['roman_f087'] = {'Damineli16': 1.307}
+filt_dict['roman_f106'] = {'Damineli16': 0.889}
+filt_dict['roman_f129'] = {'Damineli16': 0.583}
+filt_dict['roman_f158'] = {'Damineli16': 0.372}
+filt_dict['roman_w146'] = {'Damineli16': 0.441}
+filt_dict['roman_f184'] = {'Damineli16': 0.258}
+filt_dict['roman_f213'] = {'Damineli16': 0.184}
 
 ##########
 # Dictionary for listing out supported photometric systems and filters
@@ -119,7 +127,8 @@ photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r', 'i']
 photometric_system_dict['sdss'] = ['u', 'g', 'r', 'i', 'z']
-photometric_system_dict['rubin'] = ['umag','gmag','rmag','imag','zmag','ymag']
+photometric_system_dict['rubin'] = ['u','g','r','i','z','y']
+photometric_system_dict['roman'] = ['f062','f087','f106','f129','f158','w146','f184','f213']
 
 ##########
 # List of all supported photometric systems and filters with SPISEA labels
@@ -1415,7 +1424,7 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
     star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
     star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
     ##########
-    # Add ztf magnitudes
+    # Add ztf, rubin, and/or roman magnitudes
     ##########
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
@@ -1433,19 +1442,66 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
             star_dict['ztf_i'] = ztf_i
 
             del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
+            
+        if 'rubin' in additional_photometric_systems:
+            # Pull out ubv magnitudes needed for photometric conversions
+            ubv_u   = star_dict['ubv_U']
+            ubv_b   = star_dict['ubv_B']
+            ubv_v   = star_dict['ubv_V']
+            ubv_r   = star_dict['ubv_R']
+            ubv_i   = star_dict['ubv_I']
+            ukirt_j = star_dict['ukirt_J']
+
+            rubin_u = transform_ubv_to_rubin('u', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_g = transform_ubv_to_rubin('g', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_r = transform_ubv_to_rubin('r', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_i = transform_ubv_to_rubin('i', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_z = transform_ubv_to_rubin('z', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_y = transform_ubv_to_rubin('y', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            star_dict['rubin_u'] = rubin_u
+            star_dict['rubin_g'] = rubin_g
+            star_dict['rubin_r'] = rubin_r
+            star_dict['rubin_i'] = rubin_i
+            star_dict['rubin_z'] = rubin_z
+            star_dict['rubin_y'] = rubin_y
+
+            del ubv_u,ubv_b, ubv_v, ubv_r, ubv_i, ukirt_j, rubin_u, rubin_g, rubin_r, rubin_i, rubin_z, rubin_y
+            
+        if 'roman' in additional_photometric_systems:
+            # Pull out ubv magnitudes needed for photometric conversions
+            ubv_v   = star_dict['ubv_V']
+            ubv_r   = star_dict['ubv_R']
+            ubv_i   = star_dict['ubv_I']
+            ukirt_j = star_dict['ukirt_J']
+            ukirt_h = star_dict['ukirt_H']
+            ukirt_k = star_dict['ukirt_K']
+
+            roman_f062 = filters.transform_ubv_to_roman('f062',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f087 = filters.transform_ubv_to_roman('f087',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f106 = filters.transform_ubv_to_roman('f106',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f129 = filters.transform_ubv_to_roman('f129',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f158 = filters.transform_ubv_to_roman('f158',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_w146 = filters.transform_ubv_to_roman('w146',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f184 = filters.transform_ubv_to_roman('f184',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f213 = filters.transform_ubv_to_roman('f213',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+
+            star_dict['roman_f062'] = roman_f062
+            star_dict['roman_f087'] = roman_f087
+            star_dict['roman_f106'] = roman_f106
+            star_dict['roman_f129'] = roman_f129
+            star_dict['roman_f158'] = roman_f158
+            star_dict['roman_w146'] = roman_w146
+            star_dict['roman_f184'] = roman_f184
+            star_dict['roman_f213'] = roman_f213
+
+            del ubv_v, ubv_r, ubv_i, ukirt_j, ukirt_h, ukirt_k, roman_f062, roman_f087, roman_f106, roman_f129, roman_f158, roman_w146, roman_f184, roman_f213    
+            
         if 'sdss' in additional_photometric_systems:
             star_dict['sdss_u'] = ebf.read_ind(ebf_file, '/sdss_u', bin_idx)
             star_dict['sdss_g'] = ebf.read_ind(ebf_file, '/sdss_g', bin_idx)
             star_dict['sdss_r'] = ebf.read_ind(ebf_file, '/sdss_r', bin_idx)
             star_dict['sdss_i'] = ebf.read_ind(ebf_file, '/sdss_i', bin_idx)
             star_dict['sdss_z'] = ebf.read_ind(ebf_file, '/sdss_z', bin_idx)
-        if 'rubin' in additional_photometric_systems:
-            star_dict['rubin_u'] = ebf.read_ind(ebf_file, '/rubin_u', bin_idx)
-            star_dict['rubin_g'] = ebf.read_ind(ebf_file, '/rubin_g', bin_idx)
-            star_dict['rubin_r'] = ebf.read_ind(ebf_file, '/rubin_r', bin_idx)
-            star_dict['rubin_i'] = ebf.read_ind(ebf_file, '/rubin_i', bin_idx)
-            star_dict['rubin_z'] = ebf.read_ind(ebf_file, '/rubin_z', bin_idx)
-            star_dict['rubin_y'] = ebf.read_ind(ebf_file, '/rubin_y', bin_idx)
 
 
 def _get_bin_edges(l, b, surveyArea, bin_edges_number):
@@ -1604,6 +1660,8 @@ def _make_co_dict(log_age,
                 keep_columns += ['m_sdss_u', 'm_sdss_g', 'm_sdss_r', 'm_sdss_i', 'm_sdss_z']
             if 'rubin' in additional_photometric_systems:
                 keep_columns += ['m_rubin_u', 'm_rubin_g', 'm_rubin_r', 'm_rubin_i', 'm_rubin_z', 'm_rubin_y']
+            if 'roman' in additional_photometric_systems:
+                keep_columns += ['m_roman_f062', 'm_roman_f087', 'm_roman_f106', 'm_roman_f129', 'm_roman_f158', 'm_roman_w146', 'm_roman_f184', 'm_roman_f213']
         co_table.keep_columns(keep_columns)
 
         # Fill out the rest of co_dict
@@ -1733,6 +1791,16 @@ def _make_co_dict(log_age,
                     co_dict['rubin_i'] = np.full(len(co_dict['vx']), np.nan)
                     co_dict['rubin_z'] = np.full(len(co_dict['vx']), np.nan)
                     co_dict['rubin_y'] = np.full(len(co_dict['vx']), np.nan)
+                if 'roman' in additional_photometric_systems:
+                    co_dict['roman_f062'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f087'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f106'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f129'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f158'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_w146'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f184'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f213'] = np.full(len(co_dict['vx']), np.nan)
+
 
             #########
             # Initialize values for compact object teff, specific gravity and bolometric luminosity
@@ -1791,6 +1859,15 @@ def _make_co_dict(log_age,
                         co_dict['rubin_r'][lum_co_sys_idx] = co_table['m_rubin_r'][lum_co_sys_idx].data
                         co_dict['rubin_i'][lum_co_sys_idx] = co_table['m_rubin_i'][lum_co_sys_idx].data
                         co_dict['rubin_z'][lum_co_sys_idx] = co_table['m_rubin_z'][lum_co_sys_idx].data
+                    if 'roman' in additional_photometric_systems:
+                        co_dict['roman_f062'][lum_co_sys_idx] = co_table['m_roman_f062'][lum_co_sys_idx].data
+                        co_dict['roman_f087'][lum_co_sys_idx] = co_table['m_roman_f087'][lum_co_sys_idx].data
+                        co_dict['roman_f106'][lum_co_sys_idx] = co_table['m_roman_f106'][lum_co_sys_idx].data
+                        co_dict['roman_f129'][lum_co_sys_idx] = co_table['m_roman_f129'][lum_co_sys_idx].data
+                        co_dict['roman_f158'][lum_co_sys_idx] = co_table['m_roman_f158'][lum_co_sys_idx].data
+                        co_dict['roman_w146'][lum_co_sys_idx] = co_table['m_roman_w146'][lum_co_sys_idx].data
+                        co_dict['roman_f184'][lum_co_sys_idx] = co_table['m_roman_f184'][lum_co_sys_idx].data
+                        co_dict['roman_f213'][lum_co_sys_idx] = co_table['m_roman_f213'][lum_co_sys_idx].data
 
                 # Memory cleaning
                 del co_table
@@ -2089,6 +2166,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             my_filt_list += ['sdss,u', 'sdss,g', 'sdss,r', 'sdss,i', 'sdss,z']
         if 'rubin' in additional_photometric_systems:
             my_filt_list += ['rubin,u', 'rubin,g', 'rubin,r', 'rubin,i', 'rubin,z', 'rubin,y']
+        if 'roman' in additional_photometric_systems:
+            my_filt_list += ['roman_f062', 'roman_f087', 'roman_f106', 'roman_f129', 'roman_f158', 'roman_w146', 'roman_f184', 'roman_f213']
 
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.11 at start because MIST can't handle.
@@ -2991,6 +3070,15 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     companions_system_m_rubin_i = grouped_companions['m_rubin_i'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_rubin_z = grouped_companions['m_rubin_z'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_rubin_z = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
+                if 'roman' in additional_photometric_systems:
+                    companions_system_m_roman_f062 = grouped_companions['m_roman_f062'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f087 = grouped_companions['m_roman_f087'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f106 = grouped_companions['m_roman_f106'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f129 = grouped_companions['m_roman_f129'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f158 = grouped_companions['m_roman_f158'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_w146 = grouped_companions['m_roman_w146'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f184 = grouped_companions['m_roman_f184'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f213 = grouped_companions['m_roman_f213'].groups.aggregate(binary_utils.add_magnitudes)
                     
             
             star_dict['ubv_I'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
@@ -3018,6 +3106,15 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['rubin_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_r'][group_companions_system_idxs], companions_system_m_rubin_r])
                     star_dict['rubin_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_i'][group_companions_system_idxs], companions_system_m_rubin_i])
                     star_dict['rubin_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_z'][group_companions_system_idxs], companions_system_m_rubin_z])
+                if 'roman' in additional_photometric_systems:
+                    star_dict['romann_f062'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f062'][group_companions_system_idxs], companions_system_m_romann_f062])
+                    star_dict['romann_f087'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f087'][group_companions_system_idxs], companions_system_m_romann_f087])
+                    star_dict['romann_f106'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f106'][group_companions_system_idxs], companions_system_m_romann_f106])
+                    star_dict['romann_f129'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f129'][group_companions_system_idxs], companions_system_m_romann_f129])
+                    star_dict['romann_f158'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f158'][group_companions_system_idxs], companions_system_m_romann_f158])
+                    star_dict['romann_w146'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_w146'][group_companions_system_idxs], companions_system_m_romann_w146])
+                    star_dict['romann_f184'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f184'][group_companions_system_idxs], companions_system_m_romann_f184])
+                    star_dict['romann_f213'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f213'][group_companions_system_idxs], companions_system_m_romann_f213])
             
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]

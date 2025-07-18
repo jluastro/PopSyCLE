@@ -614,7 +614,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
         ebf file : actually the ebf file from Galaxia
-
+   
     output_root : str
         The thing you want the output files to be named
         Examples include 
@@ -639,7 +639,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         ``N_bins = (bin_edges_number - 1)**2``.
         If set to None (default), then number of bins is
         ``bin_edges_number = int(60 * 2 * radius) + 1``
-
+   
     BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
@@ -663,12 +663,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-
+   
     overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
-
+    
     seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
@@ -1450,7 +1450,7 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
             ubv_v   = star_dict['ubv_V']
             ubv_r   = star_dict['ubv_R']
             ubv_i   = star_dict['ubv_I']
-            ukirt_j = star_dict['ukirt_J']
+            ukirt_j = star_dict['ubv_J']
 
             rubin_u = transform_ubv_to_rubin('u', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
             rubin_g = transform_ubv_to_rubin('g', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
@@ -1472,18 +1472,18 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
             ubv_v   = star_dict['ubv_V']
             ubv_r   = star_dict['ubv_R']
             ubv_i   = star_dict['ubv_I']
-            ukirt_j = star_dict['ukirt_J']
-            ukirt_h = star_dict['ukirt_H']
-            ukirt_k = star_dict['ukirt_K']
+            ukirt_j = star_dict['ubv_J']
+            ukirt_h = star_dict['ubv_H']
+            ukirt_k = star_dict['ubv_K']
 
-            roman_f062 = filters.transform_ubv_to_roman('f062',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_f087 = filters.transform_ubv_to_roman('f087',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_f106 = filters.transform_ubv_to_roman('f106',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_f129 = filters.transform_ubv_to_roman('f129',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_f158 = filters.transform_ubv_to_roman('f158',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_w146 = filters.transform_ubv_to_roman('w146',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_f184 = filters.transform_ubv_to_roman('f184',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
-            roman_f213 = filters.transform_ubv_to_roman('f213',ubv_V = V, ubv_R = R, ubv_I = I, ukirt_J = J, ukirt_H = H, ukirt_K = K)
+            roman_f062 = filters.transform_ubv_to_roman('f062',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f087 = filters.transform_ubv_to_roman('f087',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f106 = filters.transform_ubv_to_roman('f106',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f129 = filters.transform_ubv_to_roman('f129',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f158 = filters.transform_ubv_to_roman('f158',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_w146 = filters.transform_ubv_to_roman('w146',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f184 = filters.transform_ubv_to_roman('f184',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f213 = filters.transform_ubv_to_roman('f213',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
 
             star_dict['roman_f062'] = roman_f062
             star_dict['roman_f087'] = roman_f087

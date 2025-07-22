@@ -1139,7 +1139,9 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
     filter_name : str
         roman filter name of converted photometry
         Can be 'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146'
-        If converting to roman_i, then ubv_I must be provided
+        If converting to roman_f062, ubv_V, ubv_R, and ubv_I must be provided
+        If converting to roman_f087 or roman_f106, ubv_R and ubv_I must be provided
+        If converting to roman_129 or roman_w146, ubv_I must be provided
 
     ubv_V : array of floats
         ubv_V photometry of galaxia / SPISEA sources
@@ -1169,9 +1171,18 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
     if filter_name not in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']:
         raise Exception("filter_name must be in: ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']")
 
-    if filter_name == 'i' and ubv_I is None:
-        raise Exception('ubv_I must be provided to convert to roman_i')
-
+    if filter_name == 'f062' and (ubv_V is None or ubv_R is None or ubv_I is None):
+        raise Exception('ubv_V, ubv_R, and ubv_I must be provided to convert to roman_f062')
+    elif filter_name == 'f087' and (ubv_R is None or ubv_I is None):
+        raise Exception('ubv_R and ubv_I must be provided to convert to roman_f087')
+    elif filter_name == 'f106' and (ubv_R is None or ubv_I is None):
+        raise Exception('ubv_R and ubv_I must be provided to convert to roman_f106')        
+    elif filter_name == 'f129' and ubv_I is None:
+        raise Exception('ubv_I must be provided to convert to roman_f129')
+    elif filter_name == 'w146' and ubv_I is None:
+        raise Exception('ubv_I must be provided to convert to roman_w146')
+        
+        
     # Convert the ubv photometry into the right format
     
     if filter_name == 'f062':

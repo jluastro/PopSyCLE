@@ -1476,14 +1476,14 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
             ukirt_h = star_dict['ubv_H']
             ukirt_k = star_dict['ubv_K']
 
-            roman_f062 = filters.transform_ubv_to_roman('f062',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_f087 = filters.transform_ubv_to_roman('f087',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_f106 = filters.transform_ubv_to_roman('f106',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_f129 = filters.transform_ubv_to_roman('f129',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_f158 = filters.transform_ubv_to_roman('f158',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_w146 = filters.transform_ubv_to_roman('w146',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_f184 = filters.transform_ubv_to_roman('f184',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
-            roman_f213 = filters.transform_ubv_to_roman('f213',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f062 = transform_ubv_to_roman('f062',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f087 = transform_ubv_to_roman('f087',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f106 = transform_ubv_to_roman('f106',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f129 = transform_ubv_to_roman('f129',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f158 = transform_ubv_to_roman('f158',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_w146 = transform_ubv_to_roman('w146',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f184 = transform_ubv_to_roman('f184',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f213 = transform_ubv_to_roman('f213',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
 
             star_dict['roman_f062'] = roman_f062
             star_dict['roman_f087'] = roman_f087
@@ -2167,7 +2167,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         if 'rubin' in additional_photometric_systems:
             my_filt_list += ['rubin,u', 'rubin,g', 'rubin,r', 'rubin,i', 'rubin,z', 'rubin,y']
         if 'roman' in additional_photometric_systems:
-            my_filt_list += ['roman_f062', 'roman_f087', 'roman_f106', 'roman_f129', 'roman_f158', 'roman_w146', 'roman_f184', 'roman_f213']
+            my_filt_list += ['roman,wfi,f062', 'roman,wfi,f087', 'roman,wfi,f106', 'roman,wfi,f129', 'roman,wfi,f158', 'roman,wfi,w146', 'roman,wfi,f184', 'roman,wfi,f213']
 
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.11 at start because MIST can't handle.

@@ -5,6 +5,7 @@ from ast import literal_eval
 import h5py
 import pandas as pd
 import os
+from popsycle import synthetic
 
 
 def add_magnitudes(mags):
@@ -392,15 +393,52 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
             prim[prim['rem_id'] == 103] = bh_prim
             
             comp = pd.read_hdf(hdf5_comp_file, i).set_index(['system_idx'])
-            comp.drop(bh_prim_singlify_idxs)
+            comp.drop(index=bh_prim_singlify_idxs, axis=0, inplace=True)
 
-            with h5py.File(new_hdf5_file, 'r+') as prim_hdf5:
-                prim_np = prim.reset_index().to_numpy()
-                prim_hdf5.create_dataset(i, data=prim_np.astype("|V256"))
+            # Verify number of companions in table same as accounted for in primary table
+            assert(len(comp) == np.sum(prim['N_companions']))
 
-            with h5py.File(new_hdf5_file_comp, 'r+') as comp_hdf5:
-                comp_np = comp.reset_index().to_numpy()
-                comp_hdf5.create_dataset(i, data=comp_np.astype("|V256"))
+            prim.reset_index(inplace=True)
+            comp.reset_index(inplace=True)
+
+            #with h5py.File(new_hdf5_file, 'r+') as prim_hdf5:
+            prim_hdf5 = h5py.File(new_hdf5_file, 'r+')
+            compound_dtype = synthetic._generate_compound_dtype(prim.dtypes.to_dict())
+            #prim_np = prim.reset_index().to_numpy()
+            save_data = np.empty(len(prim), dtype=compound_dtype)
+            for colname in prim.keys():
+                save_data[colname] = prim[colname].to_numpy()
+            #save_data = prim_np
+            dataset = prim_hdf5.create_dataset(i, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=compound_dtype)
+            dataset.resize((len(prim),))
+            prim_hdf5[i][:] = save_data
+            prim_hdf5.close()
+
+            del prim, save_data
+
+            comp_hdf5 = h5py.File(new_hdf5_file_comp, 'r+')
+            compound_dtype = synthetic._generate_compound_dtype(comp.dtypes.to_dict())
+            save_data = np.empty(len(comp), dtype=compound_dtype)
+            for colname in comp.keys():
+                save_data[colname] = comp[colname].to_numpy()
+            dataset = comp_hdf5.create_dataset(i, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=compound_dtype)
+            dataset.resize((len(comp),))
+            comp_hdf5[i][:] = save_data
+            comp_hdf5.close()
+
+            del comp, save_data
+            
+                #prim_hdf5.create_dataset(i)#, data=prim_np.astype("|V256"))
+
+            #with h5py.File(new_hdf5_file_comp, 'r+') as comp_hdf5:
+            #    comp_np = comp.reset_index().to_numpy()
+            #    comp_hdf5.create_dataset(i)#, data=comp_np.astype("|V256"))
                 
     return
 

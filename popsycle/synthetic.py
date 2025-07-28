@@ -1265,6 +1265,9 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                              additional_photometric_systems=additional_photometric_systems,
                                                              t0=t0, verbose=verbose)
 
+        if companions_table is not None:
+            assert(np.sum(star_dict['N_companions']) + np.sum(co_dict['N_companions']) == len(companions_table))
+
         # Save companion table
         with lock:
             if companions_table is not None:
@@ -2289,6 +2292,9 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             cluster.companions.remove_rows(bad_companions)
         
         
+    if cluster is not None and multiplicity is not None:
+        assert(len(cluster.companions) == np.sum(cluster.star_systems['N_companions']))
+
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
 
@@ -3022,7 +3028,8 @@ def _make_companions_table(cluster, star_dict, co_dict,
             co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
 
             if verbose > 3: print(f'test2 {time.time() - t0:.2f} sec')
-
+            
+            assert(len(compact_companions) == np.sum(co_dict['N_companions']))
             del co_dict_tmp
         
         ###########
@@ -3120,6 +3127,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['romann_f184'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f184'][group_companions_system_idxs], companions_system_m_romann_f184])
                     star_dict['romann_f213'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f213'][group_companions_system_idxs], companions_system_m_romann_f213])
             
+            assert(len(companions_table) == np.sum(star_dict['N_companions']))
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
 

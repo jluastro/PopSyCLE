@@ -2201,7 +2201,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
         # Using MIST models to get white dwarfs
-        my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+        with lock:
+            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
@@ -2213,7 +2214,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
         # Checks if the list of filters are different
         if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
-            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+            with lock:
+                my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
                                              filters=my_filt_list,
                                              iso_dir=iso_dir,

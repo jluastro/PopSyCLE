@@ -1266,7 +1266,10 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                              t0=t0, verbose=verbose)
 
         if companions_table is not None:
-            assert(np.sum(star_dict['N_companions']) + np.sum(co_dict['N_companions']) == len(companions_table))
+            if star_dict is not None:
+                if co_dict is not None:
+                    assert(np.sum(star_dict['N_companions']) + np.sum(co_dict['N_companions']) == len(companions_table))
+                assert(np.sum(star_dict['N_companions'])  == len(companions_table))
 
         # Save companion table
         with lock:

@@ -1864,6 +1864,7 @@ def _make_co_dict(log_age,
                         co_dict['sdss_r'][lum_co_sys_idx] = co_table['m_sdss_r'][lum_co_sys_idx].data
                         co_dict['sdss_i'][lum_co_sys_idx] = co_table['m_sdss_i'][lum_co_sys_idx].data
                         co_dict['sdss_z'][lum_co_sys_idx] = co_table['m_sdss_z'][lum_co_sys_idx].data
+                        co_dict['sdss_y'][lum_co_sys_idx] = co_table['m_sdss_y'][lum_co_sys_idx].data
                     if 'rubin' in additional_photometric_systems:
                         co_dict['rubin_u'][lum_co_sys_idx] = co_table['m_rubin_u'][lum_co_sys_idx].data
                         co_dict['rubin_g'][lum_co_sys_idx] = co_table['m_rubin_g'][lum_co_sys_idx].data
@@ -3123,6 +3124,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['rubin_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_r'][group_companions_system_idxs], companions_system_m_rubin_r])
                     star_dict['rubin_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_i'][group_companions_system_idxs], companions_system_m_rubin_i])
                     star_dict['rubin_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_z'][group_companions_system_idxs], companions_system_m_rubin_z])
+                    star_dict['rubin_y'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_y'][group_companions_system_idxs], companions_system_m_rubin_y])
                 if 'roman' in additional_photometric_systems:
                     star_dict['romann_f062'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f062'][group_companions_system_idxs], companions_system_m_romann_f062])
                     star_dict['romann_f087'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f087'][group_companions_system_idxs], companions_system_m_romann_f087])

@@ -4178,9 +4178,10 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def _check_refine_events(input_root, filter_name,
-                         photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp, legacy, seed):
+def _check_refine_events(input_root, red_law, overwrite,
+                         output_file, hdf5_file_comp, legacy, seed,
+                         filter_name = None, photometric_system = None
+                         filter_dict = None):
     """
     Checks that the inputs of refine_events are valid
 
@@ -4219,12 +4220,18 @@ def _check_refine_events(input_root, filter_name,
 
     if not isinstance(input_root, str):
         raise Exception('input_root (%s) must be a string.' % str(input_root))
+ 
+    if filter_name is not None:
+        if not isinstance(filter_name, str):
+            raise Exception('filter_name (%s) must be a string or list.' % str(filter_name))
 
-    if not isinstance(filter_name, str):
-        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
-
-    if not isinstance(photometric_system, str):
-        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+    if photometric_system is not None:
+        if not isinstance(photometric_system, str):
+            raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+    
+    if filter_dict is not None:
+        if not isinstance(filters_dict, dict):
+            raise Exception('filters_dict (%s) must be a dictionary.' % str(filters_dict))
 
     if not isinstance(red_law, str):
         raise Exception('red_law (%s) must be a string.' % str(red_law))
@@ -4246,25 +4253,48 @@ def _check_refine_events(input_root, filter_name,
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
-    # Check to see that the filter name, photometric system, red_law are valid
-    if photometric_system not in photometric_system_dict:
-        exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. \n' \
-                        'Acceptable values are : '
-        for photometric_system in photometric_system_dict:
-            exception_str += '%s, ' % photometric_system
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+    # Check to see that the filter name, photometric system, filter dictionary, and/or red_law are valid
+    if photometric_system is not None:
+        if photometric_system not in photometric_system_dict:
+            exception_str = 'photometric_system must be a key in ' \
+                            'photometric_system_dict. \n' \
+                            'Acceptable values are : '
+            for photometric_system in photometric_system_dict:
+                exception_str += '%s, ' % photometric_system
+            exception_str = exception_str[:-2]
+            raise Exception(exception_str)
+            
+    if filter_name is not None:
+        if filter_name not in photometric_system_dict[photometric_system]:
+            exception_str = 'filter_name must be a value in ' \
+                            'photometric_system_dict[%s]. \n' \
+                            'Acceptable values are : ' % photometric_system
+            for filter_name in photometric_system_dict[photometric_system]:
+                exception_str += '%s, ' % filter_name
+            exception_str = exception_str[:-2]
+            raise Exception(exception_str)
+            
+    if filter_dict is not None:
+        for system in filters_dict:
+            if system not in photometric_system_dict:
+                exception_str = 'photometric_system must be a key in ' \
+                                'photometric_system_dict. \n' \
+                                'Acceptable values are : '
+                for photometric_system in photometric_system_dict:
+                    exception_str += '%s, ' % photometric_system
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
 
-    if filter_name not in photometric_system_dict[photometric_system]:
-        exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. \n' \
-                        'Acceptable values are : ' % photometric_system
-        for filter_name in photometric_system_dict[photometric_system]:
-            exception_str += '%s, ' % filter_name
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
-
+            for filt in filters_dict[system]:
+                if filt not in photometric_system_dict[system]:
+                    exception_str = 'filter_name must be a value in ' \
+                                    'photometric_system_dict[%s]. \n' \
+                                    'Acceptable values are : ' % system
+                    for filter_name in photometric_system_dict[system]:
+                        exception_str += '%s, ' % filter_name
+                    exception_str = exception_str[:-2]
+                    raise Exception(exception_str)
+            
     key = photometric_system + '_' + filter_name
     if red_law not in filt_dict[key]:
         exception_str = 'red_law must be a value in ' \

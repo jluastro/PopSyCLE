@@ -4178,10 +4178,8 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def _check_refine_events(input_root, red_law, overwrite,
-                         output_file, hdf5_file_comp, legacy, seed,
-                         filter_name = None, photometric_system = None
-                         filter_dict = None):
+def _check_refine_events(input_root,filter_dict, red_law, overwrite,
+                         output_file, hdf5_file_comp, legacy, seed):
     """
     Checks that the inputs of refine_events are valid
 
@@ -4220,18 +4218,9 @@ def _check_refine_events(input_root, red_law, overwrite,
 
     if not isinstance(input_root, str):
         raise Exception('input_root (%s) must be a string.' % str(input_root))
- 
-    if filter_name is not None:
-        if not isinstance(filter_name, str):
-            raise Exception('filter_name (%s) must be a string or list.' % str(filter_name))
-
-    if photometric_system is not None:
-        if not isinstance(photometric_system, str):
-            raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
     
-    if filter_dict is not None:
-        if not isinstance(filters_dict, dict):
-            raise Exception('filters_dict (%s) must be a dictionary.' % str(filters_dict))
+    if not isinstance(filters_dict, dict):
+        raise Exception('filters_dict (%s) must be a dictionary.' % str(filters_dict))
 
     if not isinstance(red_law, str):
         raise Exception('red_law (%s) must be a string.' % str(red_law))
@@ -4253,9 +4242,9 @@ def _check_refine_events(input_root, red_law, overwrite,
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
 
-    # Check to see that the filter name, photometric system, filter dictionary, and/or red_law are valid
-    if photometric_system is not None:
-        if photometric_system not in photometric_system_dict:
+    # Check to see that the filter dictionary, and red_law are valid
+    for system in filters_dict:
+        if system not in photometric_system_dict:
             exception_str = 'photometric_system must be a key in ' \
                             'photometric_system_dict. \n' \
                             'Acceptable values are : '
@@ -4263,37 +4252,16 @@ def _check_refine_events(input_root, red_law, overwrite,
                 exception_str += '%s, ' % photometric_system
             exception_str = exception_str[:-2]
             raise Exception(exception_str)
-            
-    if filter_name is not None:
-        if filter_name not in photometric_system_dict[photometric_system]:
-            exception_str = 'filter_name must be a value in ' \
-                            'photometric_system_dict[%s]. \n' \
-                            'Acceptable values are : ' % photometric_system
-            for filter_name in photometric_system_dict[photometric_system]:
-                exception_str += '%s, ' % filter_name
-            exception_str = exception_str[:-2]
-            raise Exception(exception_str)
-            
-    if filter_dict is not None:
-        for system in filters_dict:
-            if system not in photometric_system_dict:
-                exception_str = 'photometric_system must be a key in ' \
-                                'photometric_system_dict. \n' \
-                                'Acceptable values are : '
-                for photometric_system in photometric_system_dict:
-                    exception_str += '%s, ' % photometric_system
+
+        for filt in filters_dict[system]:
+            if filt not in photometric_system_dict[system]:
+                exception_str = 'filter_name must be a value in ' \
+                                'photometric_system_dict[%s]. \n' \
+                                'Acceptable values are : ' % system
+                for filter_name in photometric_system_dict[system]:
+                    exception_str += '%s, ' % filter_name
                 exception_str = exception_str[:-2]
                 raise Exception(exception_str)
-
-            for filt in filters_dict[system]:
-                if filt not in photometric_system_dict[system]:
-                    exception_str = 'filter_name must be a value in ' \
-                                    'photometric_system_dict[%s]. \n' \
-                                    'Acceptable values are : ' % system
-                    for filter_name in photometric_system_dict[system]:
-                        exception_str += '%s, ' % filter_name
-                    exception_str = exception_str[:-2]
-                    raise Exception(exception_str)
             
     key = photometric_system + '_' + filter_name
     if red_law not in filt_dict[key]:
@@ -4306,7 +4274,7 @@ def _check_refine_events(input_root, red_law, overwrite,
         raise Exception(exception_str)
 
 
-def refine_events(input_root, filter_name, photometric_system, red_law,
+def refine_events(input_root, filter_dict, red_law,
                   overwrite=False,
                   output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
     """
@@ -4377,15 +4345,14 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         'Either delete the .fits file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    _check_refine_events(input_root, filter_name,
-                         photometric_system, red_law,
+    _check_refine_events(input_root, filter_dict, red_law,
                          overwrite, output_file, hdf5_file_comp, legacy, seed)
-
+    
+    filters_string = '_'.join(['_'.join([system, '_'.join(filts)]) for system , filts in filters_dict.items()])
     if output_file == 'default':
-        output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
-                                                                           photometric_system,
-                                                                           filter_name,
-                                                                           red_law)
+        output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(input_root, 
+                                                                     output_filters_string,
+                                                                     red_law)
 
     t_0 = time.time()
 
@@ -4402,7 +4369,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                      perform_pop_syn_log_file]:
         if not os.path.exists(filename):
             raise Exception(f'{filename} cannot be found.')
-
+    
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
     
@@ -4417,11 +4384,16 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         
 
     # If photometric fields contain -99, convert to nan
-    _convert_photometric_99_to_nan(event_tab, photometric_system)
-    _convert_photometric_99_to_nan(blend_tab, photometric_system)
+    photometric_system = filters_dict.keys()
+    filter_name = filters_dict.values()
+    for system in photometric_system:
+        _convert_photometric_99_to_nan(event_tab, photometric_system)
+        _convert_photometric_99_to_nan(blend_tab, photometric_system)
 
     # Only keep events with luminous sources
-    event_tab = event_tab[~np.isnan(event_tab[photometric_system + '_' + filter_name + '_S'])]
+    for system in filters_dict:
+        for filters in filters_dict[system]:
+            event_tab = event_tab[~np.isnan(event_tab[system + '_' + filters + '_S'])]
 
     # Grab the obs_time from the calc_events log
     with open(calc_events_log_file, 'r') as my_file:
@@ -4490,7 +4462,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['t_E'] = t_E  # days
 
         # Add stuff to event_tab... shouldn't have any direct outputs
-        _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
+        for system in filter_dict:
+            for filters in filter_dict[system]:
+                _calc_observables(filters, red_law, event_tab, blend_tab, system)
 
         # Relative parallax
         pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
@@ -4628,7 +4602,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
     line1 = 'input_root : ' + input_root + '\n'
-    line2 = 'filter_name : ' + filter_name + '\n'
+    line2 = 'filter_dict : ' + ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filters_dict.items()]) + '\n'
     line3 = 'red_law : ' + red_law + '\n'
 
     line4 = 'VERSION INFORMATION' + '\n'
@@ -4648,12 +4622,14 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
-
-    with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, empty_line,
-                        line4, dash_line, line5, line6, line7, empty_line,
-                        line8, dash_line, line9, line10, line11, empty_line,
-                        line12, dash_line, line13, line14])
+    
+    for system in filter_dict:
+        for filters in filter_dict[system]:
+            with open(input_root + '_refined_events_' + system + '_' + filters + '_' + red_law + '.log', 'w') as out:
+                out.writelines([line0, dash_line, line1, line2, line3, empty_line,
+                                line4, dash_line, line5, line6, line7, empty_line,
+                                line8, dash_line, line9, line10, line11, empty_line,
+                                line12, dash_line, line13, line14])
 
     print('refine_events runtime : {0:f} s'.format(t_1 - t_0))
     return

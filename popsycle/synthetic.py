@@ -1864,13 +1864,13 @@ def _make_co_dict(log_age,
                         co_dict['sdss_r'][lum_co_sys_idx] = co_table['m_sdss_r'][lum_co_sys_idx].data
                         co_dict['sdss_i'][lum_co_sys_idx] = co_table['m_sdss_i'][lum_co_sys_idx].data
                         co_dict['sdss_z'][lum_co_sys_idx] = co_table['m_sdss_z'][lum_co_sys_idx].data
-                        co_dict['sdss_y'][lum_co_sys_idx] = co_table['m_sdss_y'][lum_co_sys_idx].data
                     if 'rubin' in additional_photometric_systems:
                         co_dict['rubin_u'][lum_co_sys_idx] = co_table['m_rubin_u'][lum_co_sys_idx].data
                         co_dict['rubin_g'][lum_co_sys_idx] = co_table['m_rubin_g'][lum_co_sys_idx].data
                         co_dict['rubin_r'][lum_co_sys_idx] = co_table['m_rubin_r'][lum_co_sys_idx].data
                         co_dict['rubin_i'][lum_co_sys_idx] = co_table['m_rubin_i'][lum_co_sys_idx].data
                         co_dict['rubin_z'][lum_co_sys_idx] = co_table['m_rubin_z'][lum_co_sys_idx].data
+                        co_dict['rubin_y'][lum_co_sys_idx] = co_table['m_rubin_y'][lum_co_sys_idx].data
                     if 'roman' in additional_photometric_systems:
                         co_dict['roman_f062'][lum_co_sys_idx] = co_table['m_roman_f062'][lum_co_sys_idx].data
                         co_dict['roman_f087'][lum_co_sys_idx] = co_table['m_roman_f087'][lum_co_sys_idx].data
@@ -3087,7 +3087,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     companions_system_m_rubin_r = grouped_companions['m_rubin_r'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_rubin_i = grouped_companions['m_rubin_i'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_rubin_z = grouped_companions['m_rubin_z'].groups.aggregate(binary_utils.add_magnitudes)
-                    companions_system_m_rubin_z = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_y = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
                 if 'roman' in additional_photometric_systems:
                     companions_system_m_roman_f062 = grouped_companions['m_roman_f062'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_roman_f087 = grouped_companions['m_roman_f087'].groups.aggregate(binary_utils.add_magnitudes)
@@ -4178,7 +4178,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def _check_refine_events(input_root,filter_dict, red_law, overwrite,
+def _check_refine_events(input_root,filter_dict, filter_name, photometric_system, red_law, overwrite,
                          output_file, hdf5_file_comp, legacy, seed):
     """
     Checks that the inputs of refine_events are valid
@@ -4219,8 +4219,17 @@ def _check_refine_events(input_root,filter_dict, red_law, overwrite,
     if not isinstance(input_root, str):
         raise Exception('input_root (%s) must be a string.' % str(input_root))
     
-    if not isinstance(filter_dict, dict):
-        raise Exception('filter_dict (%s) must be a dictionary.' % str(filter_dict))
+    if filter_dict is not None:
+        if not isinstance(filter_dict, dict):
+            raise Exception('filter_dict (%s) must be a dictionary.' % str(filter_dict))
+        
+    if filter_name is not None:
+        if not isinstance(filter_name, str):
+            raise Exception('filter_name (%s) must be a string.' % str(filter_name))        
+
+    if photometric_system is not None:
+        if not isinstance(photometric_system, str):
+            raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))   
 
     if not isinstance(red_law, str):
         raise Exception('red_law (%s) must be a string.' % str(red_law))
@@ -4241,8 +4250,19 @@ def _check_refine_events(input_root,filter_dict, red_law, overwrite,
     if seed is not None:
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
+    
+    # Check that either filter_dict is provided, or both filter_name and photometric_system are provided
+    if (filter_dict is not None) and ((filter_name is not None) or (photometric_system is not None)):
+        raise Exception('Both filter_dict and either filter_name or photometric_system was provided. \n'\
+                        'Please provide either filter_dict or filter_name + photometric_system')
+        
+    if (filter_name is None) ^ (photometric_system is None):
+        raise Exception('Either filter_name or photometric_system was provided without the other. Please provide both')
 
     # Check to see that the filter dictionary, and red_law are valid
+    if (filter_name is not None) and (photometric_system is not None):
+        filter_dict = {}
+        filter_dict[photometric_system] = [filter_name] 
     for system in filter_dict:
         if system not in photometric_system_dict:
             exception_str = 'photometric_system must be a key in ' \
@@ -4274,7 +4294,7 @@ def _check_refine_events(input_root,filter_dict, red_law, overwrite,
                 raise Exception(exception_str)
 
 
-def refine_events(input_root, filter_dict, red_law,
+def refine_events(input_root, red_law, filter_dict = None, filter_name = None, photometric_system = None,
                   overwrite=False,
                   output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
     """
@@ -4345,8 +4365,12 @@ def refine_events(input_root, filter_dict, red_law,
                         'Either delete the .fits file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    _check_refine_events(input_root, filter_dict, red_law,
+    _check_refine_events(input_root, filter_dict, filter_name, photometric_system, red_law,
                          overwrite, output_file, hdf5_file_comp, legacy, seed)
+    
+    if (filter_name is not None) & (photometric_system is not None):
+        filter_dict = {}
+        filter_dict[photometric_system] = [filter_name]
     
     filters_string = '_'.join(['_'.join([system, '_'.join(filts)]) for system , filts in filter_dict.items()])
     if output_file == 'default':

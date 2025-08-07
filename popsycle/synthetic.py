@@ -1864,13 +1864,13 @@ def _make_co_dict(log_age,
                         co_dict['sdss_r'][lum_co_sys_idx] = co_table['m_sdss_r'][lum_co_sys_idx].data
                         co_dict['sdss_i'][lum_co_sys_idx] = co_table['m_sdss_i'][lum_co_sys_idx].data
                         co_dict['sdss_z'][lum_co_sys_idx] = co_table['m_sdss_z'][lum_co_sys_idx].data
-                        co_dict['sdss_y'][lum_co_sys_idx] = co_table['m_sdss_y'][lum_co_sys_idx].data
                     if 'rubin' in additional_photometric_systems:
                         co_dict['rubin_u'][lum_co_sys_idx] = co_table['m_rubin_u'][lum_co_sys_idx].data
                         co_dict['rubin_g'][lum_co_sys_idx] = co_table['m_rubin_g'][lum_co_sys_idx].data
                         co_dict['rubin_r'][lum_co_sys_idx] = co_table['m_rubin_r'][lum_co_sys_idx].data
                         co_dict['rubin_i'][lum_co_sys_idx] = co_table['m_rubin_i'][lum_co_sys_idx].data
                         co_dict['rubin_z'][lum_co_sys_idx] = co_table['m_rubin_z'][lum_co_sys_idx].data
+                        co_dict['rubin_y'][lum_co_sys_idx] = co_table['m_rubin_y'][lum_co_sys_idx].data
                     if 'roman' in additional_photometric_systems:
                         co_dict['roman_f062'][lum_co_sys_idx] = co_table['m_roman_f062'][lum_co_sys_idx].data
                         co_dict['roman_f087'][lum_co_sys_idx] = co_table['m_roman_f087'][lum_co_sys_idx].data
@@ -3087,7 +3087,7 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     companions_system_m_rubin_r = grouped_companions['m_rubin_r'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_rubin_i = grouped_companions['m_rubin_i'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_rubin_z = grouped_companions['m_rubin_z'].groups.aggregate(binary_utils.add_magnitudes)
-                    companions_system_m_rubin_z = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_y = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
                 if 'roman' in additional_photometric_systems:
                     companions_system_m_roman_f062 = grouped_companions['m_roman_f062'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_roman_f087 = grouped_companions['m_roman_f087'].groups.aggregate(binary_utils.add_magnitudes)

@@ -665,18 +665,18 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              seed=seed)
     if not skip_refine_binary_events:
         photometric_system = list(popsycle_config['filter_dict'].keys())[0]
-        filt = popsycle_config['filter_dict'][photometric_system][0]
+        filt_name = popsycle_config['filter_dict'][photometric_system][0]
         refined_events_filename = '{0:s}_refined_events_' \
                               '{1:s}_{2:s}_{3:s}.' \
                               'fits'.format(output_root,
                                             photometric_system,
-                                            filt,
+                                            filt_name,
                                             popsycle_config['red_law'])
         refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
         _check_refine_binary_events(events=refined_events_filename,
                                     companions=refined_events_comp_filename,
-                                    filter_name=filt,
+                                    filter_name=filt_name,
                                     photometric_system=photometric_system,
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,

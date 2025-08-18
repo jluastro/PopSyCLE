@@ -4178,7 +4178,7 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def _check_refine_events(input_root,filter_dict, red_law, overwrite, output_file, 
+def _check_refine_events(input_root, filter_dict, red_law, overwrite, output_file, 
                          hdf5_file_comp, legacy, seed, filter_name=None, photometric_system=None):
     """
     Checks that the inputs of refine_events are valid

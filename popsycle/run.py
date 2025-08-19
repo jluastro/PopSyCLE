@@ -1181,7 +1181,7 @@ def run(output_root='root0',
 
         refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
-        synthetic.refine_binary_events(events=refined_events_filename, # CHANGE HERE
+        synthetic.refine_binary_events(events=refined_events_filename,
                                        companions=refined_events_comp_filename,
                                        filter_name=filter_name,
                                        photometric_system=photometric_system,

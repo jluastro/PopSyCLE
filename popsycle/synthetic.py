@@ -5428,7 +5428,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
     if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
-            comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan) 
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan) 
     
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='bin_delta_m') )

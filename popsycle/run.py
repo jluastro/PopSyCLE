@@ -253,12 +253,14 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
 
     filter_dict : dict
         Dictionary with desired photometric systems and filters to calculate microlensing events for.
-        The dictionary keys are photometric systems.
+        The dictionary keys are strings of photometric systems.
         The dictionary values are lists of strings filled with filters within that photometric system key.
         Example:
             To calculate the events for UBV U, and ZTF, u, g, r: 
                 filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
         NOTE: photometric_system and filter_name are deprecated, please use filter_dict.
+        NOTE: When running refine_binary_events, the first dictionary key and value are used.
+              The above example would use UBV U in refine_binary_events.
 
     red_law : str
         The name of the reddening law to use from SPISEA.

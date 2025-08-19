@@ -5325,7 +5325,7 @@ def _check_refine_binary_events(events, companions,
     if filter_name not in photometric_system_dict[photometric_system]:
         exception_str = 'filter_name must be a value in ' \
                         'photometric_system_dict[%s]. \n' \
-                        'Acceptable values are : ' % system
+                        'Acceptable values are : ' % photometric_system
         for filter_name in photometric_system_dict[photometric_system]:
             exception_str += '%s, ' % filter_name
         exception_str = exception_str[:-2]

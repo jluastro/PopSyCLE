@@ -50,6 +50,7 @@ from operator import itemgetter
 from popsycle import binary_utils
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
+from warnings import warn
 
 # Use builtin ephemris for popsycle
 solar_system_ephemeris.set('builtin')
@@ -4391,6 +4392,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
                          legacy, seed, filter_name=filter_name, photometric_system=photometric_system)
     
     if (filter_name is not None) & (photometric_system is not None):
+        warn('filter_name and photometric_system are deprecated, please use filter_dict', DeprecationWarning, stacklevel=2)
         filter_dict = {photometric_system:[filter_name]}
     
     filters_string = '_'.join(['_'.join([system, '_'.join(filts)]) for system , filts in filter_dict.items()])

@@ -618,6 +618,14 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     n_cores_popsycle = {'n_cores_perform_pop_syn' : n_cores_perform_pop_syn,
                         'n_cores_calc_events' : n_cores_calc_events,
                         'n_cores_refine_binary_events' : n_cores_refine_binary_events}
+    
+    # Prepare additional_photometric_systems
+    additional_photometric_systems = []
+    for photometric_system in popsycle_config['filter_dict']:
+        if photometric_system != 'ubv':
+            additional_photometric_systems += [photometric_system]
+    if additional_photometric_systems == []:
+        additional_photometric_systems = None
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
@@ -638,7 +646,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-                               additional_photometric_systems=[popsycle_config['photometric_system']],
+                               additional_photometric_systems=additional_photometric_systems,
                                n_proc=n_cores_perform_pop_syn,
                                binning = popsycle_config['binning'],
                                verbose = verbose,

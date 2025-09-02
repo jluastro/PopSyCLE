@@ -1310,6 +1310,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                              co_dict, output_root)
             _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                          stars_in_bin, output_root)
+            
 
         else:
             if co_dict is not None:
@@ -4395,11 +4396,17 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         warn('filter_name and photometric_system are deprecated, please use filter_dict', DeprecationWarning, stacklevel=2)
         filter_dict = {photometric_system:[filter_name]}
     
-    filters_string = '_'.join(['_'.join([system, '_'.join(filts)]) for system , filts in filter_dict.items()])
     if output_file == 'default':
-        output_file = '{0:s}_refined_events_{1:s}_{2:s}.fits'.format(input_root, 
-                                                                     filters_string,
-                                                                     red_law)
+        system = list(filter_dict.keys())[0]
+        filt = filter_dict[system][0]
+        if len(filter_dict) == 1 and len(filter_dict[system]) == 1: 
+            output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root, 
+                                                                               system,
+                                                                               filt,
+                                                                               red_law)
+        else:
+            output_file = '{0:s}_refined_events_multi_filt_{1:s}.fits'.format(input_root, 
+                                                                              red_law)
 
     t_0 = time.time()
 
@@ -4526,6 +4533,12 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+        
+        # Add the filter_dict as a header to store metadata # CHANGE HERE
+        filters_string = ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()])
+        with fits.open(output_file, mode='update') as hdul:
+            header = hdul[0].header
+            header['filter_dict'] = filters_string
     
     
 

@@ -1301,7 +1301,7 @@ def main():
     optional.add_argument('--skip-perform-pop-syn',
                           help="Skip running perform_pop_syn.",
                           action='store_true')
-    optional.add_argument('--skip-make-bhs-signle',
+    optional.add_argument('--skip-make-bhs-single',
                           help="Skip make_bhs_single.",
                           action='store_true')
     optional.add_argument('--skip-calc-events',

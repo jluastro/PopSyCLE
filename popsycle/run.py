@@ -20,7 +20,7 @@ from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
 from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
-from popsylce import binary_utils
+from popsycle import binary_utils
 
 
 def _return_filename_dict(output_root, multiplicity = None):
@@ -207,7 +207,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   photometric_system='ubv',
                                   filter_name='R', red_law='Damineli16',
                                   multiplicity=None,
-                                  bbh_frac = 'default'
+                                  bbh_frac = 'default',
                                   binning = True,
                                   config_filename='popsycle_config.yaml'):
     """
@@ -838,7 +838,7 @@ exit $exitcode
     if skip_perform_pop_syn:
         optional_cmds += '--skip-perform-pop-syn '
 
-     if skip_perform_pop_syn:
+    if skip_make_bhs_single:
         optional_cmds += '--skip-make-bhs-single '
 
     if skip_calc_events:

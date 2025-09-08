@@ -20,9 +20,10 @@ from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
 from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
+from popsylce import binary_utils
 
 
-def _return_filename_dict(output_root):
+def _return_filename_dict(output_root, multiplicity = None):
     """
     Return the filenames of the files output by the pipeline
 
@@ -34,6 +35,11 @@ def _return_filename_dict(output_root):
            '{output_root}.h5'
            '{output_root}.ebf'
            '{output_root}_events.h5'
+           
+    multiplicity : None or object, optional
+        Multiplicity object is either None or the multiplicity object.
+        If it's not none, an hdf5 and fits companion filename will be added.
+        Default is None.
 
     Returns
     -------
@@ -56,6 +62,10 @@ def _return_filename_dict(output_root):
         'blends_filename': blends_filename,
         'noevents_filename': noevents_filename
     }
+
+    if multiplicity is not None:
+        filename_dict['hdf5_companions_filename'] = hdf5_filename[:-3] + '_companions.h5'
+        filename_dict['companions_filename'] = events_filename[:-11] + 'companions.fits'
 
     return filename_dict
 
@@ -197,6 +207,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   photometric_system='ubv',
                                   filter_name='R', red_law='Damineli16',
                                   multiplicity=None,
+                                  bbh_frac = 'default'
                                   binning = True,
                                   config_filename='popsycle_config.yaml'):
     """
@@ -266,6 +277,11 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         If a resovled multiplicity object is specified,
         the table will be generated with resolved multiples.
         Default is None.
+
+    bbh_frac : str or float
+        If make_bhs_single() is run, this is the fraction of binary black holes.
+        If bbh_frac = 'default', then make_bhs_single() will not be run.
+        Default is 'default'.
     
     binning : bool
         If set to True, bins files as specified by bin_edges_numbers or default.
@@ -306,6 +322,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'filter_name': filter_name,
               'red_law': red_law,
               'multiplicity': multiplicity,
+              'bbh_frac' : bbh_frac,
               'binning':binning}
     generate_config_file(config_filename, config)
 
@@ -440,6 +457,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           seed=None, overwrite=False, submitFlag=True,
                           returnJobID=True, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
+                          skip_make_bhs_single = True,
                           skip_calc_events=False, skip_refine_events=False,
                           skip_refine_binary_events=False,
                           verbose = 0):
@@ -542,6 +560,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         the resulting h5 file is already present.
         Default is False
 
+    skip_make_bhs_single : bool, optional
+        If True, pipeline will not run make_bhs_single and the default
+        black hole binary fraction from perform_pop_syn will be kept.
+        Default is True
+
     skip_calc_events : bool, optional
         If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
@@ -608,6 +631,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     else:
         skip_refine_binary_events = True
         hdf5_file_comp = None
+
+    # Dont run make_bhs_single() if the bbh_frac is left default
+    if popsycle_config['bbh_frac'] == 'default':
+        skip_make_bhs_single = True
 
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
@@ -811,6 +838,9 @@ exit $exitcode
     if skip_perform_pop_syn:
         optional_cmds += '--skip-perform-pop-syn '
 
+     if skip_perform_pop_syn:
+        optional_cmds += '--skip-make-bhs-single '
+
     if skip_calc_events:
         optional_cmds += '--skip-calc-events '
 
@@ -983,9 +1013,6 @@ def run(output_root='root0',
         Exiting...""".format(popsycle_config_filename))
         sys.exit(1)
 
-    # Return the dictionary containing PopSyCLE output filenames
-    filename_dict = _return_filename_dict(output_root)
-
     # Prepare additional_photometric_systems
     additional_photometric_systems = None
     if popsycle_config['photometric_system'] != 'ubv':
@@ -1001,6 +1028,9 @@ def run(output_root='root0',
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
         hdf5_file_comp = None
+
+    # Return the dictionary containing PopSyCLE output filenames
+    filename_dict = _return_filename_dict(output_root, multiplicity)
 
     # Check pipeline stages for valid inputs
     if not skip_galaxia:
@@ -1104,6 +1134,24 @@ def run(output_root='root0',
             overwrite=overwrite,
             seed=seed,
             multiplicity=multiplicity)
+
+    if not skip_make_bhs_single:
+        print('-- Executing make_bhs_single')
+        try:
+            binary_utils.make_bhs_single(
+                filename_dict['hdf5_filename'],
+                filename_dict['hdf5_companions_filename'],
+                popsycle_config['bbh_frac'])
+                #FIXME TAKE PHOTO DICT)
+        except:
+             binary_utils.make_bhs_single(
+                filename_dict['hdf5_filename'],
+                filename_dict['hdf5_companions_filename'],
+                popsycle_config['bbh_frac'],
+                symlink_aux_files = False)
+                #FIXME TAKE PHOTO DICT)   
+            
+            
 
     if not skip_calc_events:
         # Remove calc_events output if already exists and overwrite=True
@@ -1253,6 +1301,9 @@ def main():
     optional.add_argument('--skip-perform-pop-syn',
                           help="Skip running perform_pop_syn.",
                           action='store_true')
+    optional.add_argument('--skip-make-bhs-signle',
+                          help="Skip make_bhs_single.",
+                          action='store_true')
     optional.add_argument('--skip-calc-events',
                           help="Skip running calc_events.",
                           action='store_true')
@@ -1275,6 +1326,7 @@ def main():
         overwrite=args.overwrite,
         skip_galaxia=args.skip_galaxia,
         skip_perform_pop_syn=args.skip_perform_pop_syn,
+        skip_make_bhs_single=args.make_bhs_single,
         skip_calc_events=args.skip_calc_events,
         skip_refine_events=args.skip_refine_events,
         skip_refine_binary_events=args.skip_refine_binary_events)

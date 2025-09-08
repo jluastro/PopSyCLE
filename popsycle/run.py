@@ -975,6 +975,7 @@ def run(output_root='root0',
         overwrite=False,
         skip_galaxia=False,
         skip_perform_pop_syn=False,
+        skip_make_bhs_single=True,
         skip_calc_events=False,
         skip_refine_events=False,
         skip_refine_binary_events=False):
@@ -1326,7 +1327,7 @@ def main():
         overwrite=args.overwrite,
         skip_galaxia=args.skip_galaxia,
         skip_perform_pop_syn=args.skip_perform_pop_syn,
-        skip_make_bhs_single=args.make_bhs_single,
+        skip_make_bhs_single=args.skip_make_bhs_single,
         skip_calc_events=args.skip_calc_events,
         skip_refine_events=args.skip_refine_events,
         skip_refine_binary_events=args.skip_refine_binary_events)

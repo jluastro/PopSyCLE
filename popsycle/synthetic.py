@@ -50,6 +50,7 @@ from operator import itemgetter
 from popsycle import binary_utils
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
+from warnings import warn
 
 # Use builtin ephemris for popsycle
 solar_system_ephemeris.set('builtin')
@@ -1309,6 +1310,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                              co_dict, output_root)
             _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                          stars_in_bin, output_root)
+            
 
         else:
             if co_dict is not None:
@@ -4178,9 +4180,8 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def _check_refine_events(input_root, filter_name,
-                         photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp, legacy, seed):
+def _check_refine_events(input_root, filter_dict, red_law, overwrite, output_file, 
+                         hdf5_file_comp, legacy, seed, filter_name=None, photometric_system=None):
     """
     Checks that the inputs of refine_events are valid
 
@@ -4189,14 +4190,14 @@ def _check_refine_events(input_root, filter_name,
     input_root : str
         The root path and name of the *_events.fits and *_blends.fits.
         Don't include those suffixes yet.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
+        
+    filter_dict : dict
+        Dictionary with desired photometric systems and filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled with filters within that photometric system key.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
         The name of the reddening law to use from SPISEA.
@@ -4215,16 +4216,34 @@ def _check_refine_events(input_root, filter_name,
     seed : None or int
         If not None, this forces the random orbit time for binaries to be fixed every time.
         If seed is added but there are no binaries, the seed will have no consequence.
+        
+    filter_name : str, optional, DEPRECATED
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str, optional, DEPRECATED
+        The name of the photometric system in which the filter exists.
     """
 
     if not isinstance(input_root, str):
         raise Exception('input_root (%s) must be a string.' % str(input_root))
+    
+    if filter_dict is not None:
+        if not isinstance(filter_dict, dict):
+            raise Exception('filter_dict (%s) must be a dictionary.' % str(filter_dict))
+        if not all(isinstance(key,str) for key in filter_dict):
+            raise Exception('All filter_dict keys must be strings.')
+        if not all(isinstance(filt,str) for key,val in filter_dict.items() for filt in val):
+            raise Exception('All filter_dict vaues must be lists of strings.')
+        
+    if filter_name is not None:
+        if not isinstance(filter_name, str):
+            raise Exception('filter_name (%s) must be a string.' % str(filter_name))        
 
-    if not isinstance(filter_name, str):
-        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
-
-    if not isinstance(photometric_system, str):
-        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+    if photometric_system is not None:
+        if not isinstance(photometric_system, str):
+            raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))   
 
     if not isinstance(red_law, str):
         raise Exception('red_law (%s) must be a string.' % str(red_law))
@@ -4245,40 +4264,55 @@ def _check_refine_events(input_root, filter_name,
     if seed is not None:
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
+    
+    # Check that either filter_dict is provided, or both filter_name and photometric_system are provided
+    if filter_dict is None and ((filter_name is None) or (photometric_system is None)):
+        raise Exception('Either filter_dict or filter_name + photometric_system must be provided.')
+        
+    if (filter_dict is not None) and ((filter_name is not None) or (photometric_system is not None)):
+        raise Exception('Both filter_dict and either filter_name or photometric_system was provided. \n'\
+                        'Please provide either filter_dict or filter_name + photometric_system')
+        
+    if (filter_name is None) ^ (photometric_system is None):
+        raise Exception('Either filter_name or photometric_system was provided without the other. Please provide both')
 
-    # Check to see that the filter name, photometric system, red_law are valid
-    if photometric_system not in photometric_system_dict:
-        exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. \n' \
-                        'Acceptable values are : '
-        for photometric_system in photometric_system_dict:
-            exception_str += '%s, ' % photometric_system
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+    # Check to see that the filter dictionary, and red_law are valid
+    if (filter_name is not None) and (photometric_system is not None):
+        filter_dict = {}
+        filter_dict[photometric_system] = [filter_name] 
+    for system in filter_dict:
+        if system not in photometric_system_dict:
+            exception_str = 'photometric_system must be a key in ' \
+                            'photometric_system_dict. \n' \
+                            'Acceptable values are : '
+            for photometric_system in photometric_system_dict:
+                exception_str += '%s, ' % photometric_system
+            exception_str = exception_str[:-2]
+            raise Exception(exception_str)
 
-    if filter_name not in photometric_system_dict[photometric_system]:
-        exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. \n' \
-                        'Acceptable values are : ' % photometric_system
-        for filter_name in photometric_system_dict[photometric_system]:
-            exception_str += '%s, ' % filter_name
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+        for filt in filter_dict[system]:
+            if filt not in photometric_system_dict[system]:
+                exception_str = 'filter_name must be a value in ' \
+                                'photometric_system_dict[%s]. \n' \
+                                'Acceptable values are : ' % system
+                for filter_name in photometric_system_dict[system]:
+                    exception_str += '%s, ' % filter_name
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
+            
+            key = system + '_' + filt
+            if red_law not in filt_dict[key]:
+                exception_str = 'red_law must be a value in ' \
+                                'filt_dict[%s]. \n' \
+                                'Acceptable values are : ' % key
+                for red_law in filt_dict[key]:
+                    exception_str += '%s, ' % red_law
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
 
-    key = photometric_system + '_' + filter_name
-    if red_law not in filt_dict[key]:
-        exception_str = 'red_law must be a value in ' \
-                        'filt_dict[%s]. \n' \
-                        'Acceptable values are : ' % key
-        for red_law in filt_dict[key]:
-            exception_str += '%s, ' % red_law
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
 
-
-def refine_events(input_root, filter_name, photometric_system, red_law,
-                  overwrite=False,
-                  output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
+def refine_events(input_root, red_law, filter_dict = None, filter_name = None, photometric_system = None,
+                  overwrite=False, output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -4290,14 +4324,14 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         The root path and name of the \*_events.fits, \*_blends.fits,
         \*_galaxia_params.txt, \*_calc_events.log, and \_*_perform_pop_syn.log.
         Don't include those suffixes yet.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
+        
+    filter_dict : dict
+        Dictionary with desired photometric systems and filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled with filters within that photometric system key.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
         The name of the reddening law to use from SPISEA.
@@ -4325,6 +4359,14 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         If not None, this forces the random orbit time for binaries to be fixed every time.
         If seed is added but there are no binaries, the seed will have no consequence.
         Default is None.
+    
+    filter_name : str, optional, DEPRECATED
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str, optional, DEPRECATED
+        The name of the photometric system in which the filter exists.
 
     Returns
     -------
@@ -4347,15 +4389,24 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         'Either delete the .fits file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    _check_refine_events(input_root, filter_name,
-                         photometric_system, red_law,
-                         overwrite, output_file, hdf5_file_comp, legacy, seed)
-
+    _check_refine_events(input_root, filter_dict, red_law, overwrite, output_file, hdf5_file_comp,
+                         legacy, seed, filter_name=filter_name, photometric_system=photometric_system)
+    
+    if (filter_name is not None) & (photometric_system is not None):
+        warn('filter_name and photometric_system are deprecated, please use filter_dict', DeprecationWarning, stacklevel=2)
+        filter_dict = {photometric_system:[filter_name]}
+    
     if output_file == 'default':
-        output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
-                                                                           photometric_system,
-                                                                           filter_name,
-                                                                           red_law)
+        system = list(filter_dict.keys())[0]
+        filt = filter_dict[system][0]
+        if len(filter_dict) == 1 and len(filter_dict[system]) == 1:
+            output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root, 
+                                                                               system,
+                                                                               filt,
+                                                                               red_law)
+        else:
+            output_file = '{0:s}_refined_events_multi_filt_{1:s}.fits'.format(input_root, 
+                                                                              red_law)
 
     t_0 = time.time()
 
@@ -4372,7 +4423,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                      perform_pop_syn_log_file]:
         if not os.path.exists(filename):
             raise Exception(f'{filename} cannot be found.')
-
+    
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
     
@@ -4387,11 +4438,16 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         
 
     # If photometric fields contain -99, convert to nan
-    _convert_photometric_99_to_nan(event_tab, photometric_system)
-    _convert_photometric_99_to_nan(blend_tab, photometric_system)
+    photometric_system = filter_dict.keys()
+    filter_name = filter_dict.values()
+    for system in photometric_system:
+        _convert_photometric_99_to_nan(event_tab, system)
+        _convert_photometric_99_to_nan(blend_tab, system)
 
     # Only keep events with luminous sources
-    event_tab = event_tab[~np.isnan(event_tab[photometric_system + '_' + filter_name + '_S'])]
+    for system in filter_dict:
+        for filters in filter_dict[system]:
+            event_tab = event_tab[~np.isnan(event_tab[system + '_' + filters + '_S'])]
 
     # Grab the obs_time from the calc_events log
     with open(calc_events_log_file, 'r') as my_file:
@@ -4460,7 +4516,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['t_E'] = t_E  # days
 
         # Add stuff to event_tab... shouldn't have any direct outputs
-        _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
+        for system in filter_dict:
+            for filters in filter_dict[system]:
+                _calc_observables(filters, red_law, event_tab, blend_tab, system)
 
         # Relative parallax
         pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
@@ -4475,6 +4533,12 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+        
+        # Add the filter_dict as a header to store metadata # CHANGE HERE
+        filters_string = ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()])
+        with fits.open(output_file, mode='update') as hdul:
+            header = hdul[0].header
+            header['filters'] = filters_string
     
     
 
@@ -4598,7 +4662,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
     line1 = 'input_root : ' + input_root + '\n'
-    line2 = 'filter_name : ' + filter_name + '\n'
+    line2 = 'filter_dict : ' + ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()]) + '\n'
     line3 = 'red_law : ' + red_law + '\n'
 
     line4 = 'VERSION INFORMATION' + '\n'
@@ -4612,14 +4676,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
     line12 = 'FILES CREATED' + '\n'
-    line13 = output_file + ' : refined events'
+    line13 = output_file + ' : refined events' + '\n'
     line14 = '\n' #By default no companion file created
     
     if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
-
-    with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
+    
+    system = list(filter_dict.keys())[0]
+    filt = filter_dict[system][0]
+    if len(filter_dict) == 1 and len(filter_dict[system]) == 1:
+        filter_string = system + '_' + filt
+    else:
+        filter_string = 'multi_filt'
+    with open(input_root + '_refined_events_' + filters_string + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, line10, line11, empty_line,
@@ -5197,7 +5267,7 @@ def _check_refine_binary_events(events, companions,
     photometric_system : str
         The name of the photometric system in which the filter exists.
     
-    filter_name : str
+    filter_name : str 
         The name of the filter in which to calculate all the
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
@@ -5234,11 +5304,11 @@ def _check_refine_binary_events(events, companions,
     if not isinstance(companions, str):
         raise Exception('companions (%s) must be a string.' % str(companions))
     
-    if not isinstance(photometric_system, str):
-        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
-    
     if not isinstance(filter_name, str):
-        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
+        raise Exception('filter_name (%s) must be a string.' % str(filter_name))        
+
+    if not isinstance(photometric_system, str):
+        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))  
 
     if not isinstance(output_file, str):
         raise Exception('output_file (%s) must be a string.' % str(output_file))
@@ -5299,7 +5369,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     companions : str
         fits file containing the companions calculated from refine_events
     
-    photometric_system : str
+    photometric_system : str 
         The name of the photometric system in which the filter exists.
     
     filter_name : str
@@ -5378,7 +5448,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
     if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
-        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan) 
     
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='bin_delta_m') )
@@ -5424,13 +5494,14 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     event_table_df['companion_idx_list'] = empty_lists
     
     inputs = np.empty(multiples_lightcurves, dtype = object)
+    
     for i in range(len(grouped_comps.groups)):
         obj_id_L = grouped_comps.groups.keys[i][0]
         obj_id_S = grouped_comps.groups.keys[i][1]
         obj_id_L_S = (obj_id_L, obj_id_S)
         event_table_df['companion_idx_list'].loc[obj_id_L_S] = list(grouped_comps.groups[i]['companion_idx'])
         inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
-                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite]
+                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite] 
     
     if multi_proc:
         results = pool.starmap(one_lightcurve_analysis, inputs)

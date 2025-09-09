@@ -4399,7 +4399,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
     if output_file == 'default':
         system = list(filter_dict.keys())[0]
         filt = filter_dict[system][0]
-        if len(filter_dict) == 1 and len(filter_dict[system]) == 1: 
+        if len(filter_dict) == 1 and len(filter_dict[system]) == 1:
             output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root, 
                                                                                system,
                                                                                filt,
@@ -4538,7 +4538,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         filters_string = ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()])
         with fits.open(output_file, mode='update') as hdul:
             header = hdul[0].header
-            header['filter_dict'] = filters_string
+            header['filters'] = filters_string
     
     
 
@@ -4676,14 +4676,19 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
     line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
     line12 = 'FILES CREATED' + '\n'
-    line13 = output_file + ' : refined events'
+    line13 = output_file + ' : refined events' + '\n'
     line14 = '\n' #By default no companion file created
     
     if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
     
-
+    system = list(filter_dict.keys())[0]
+    filt = filter_dict[system][0]
+    if len(filter_dict) == 1 and len(filter_dict[system]) == 1:
+        filter_string = system + '_' + filt
+    else:
+        filter_string = 'multi_filt'
     with open(input_root + '_refined_events_' + filters_string + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,

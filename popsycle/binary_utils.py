@@ -401,14 +401,11 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
             prim.reset_index(inplace=True)
             comp.reset_index(inplace=True)
 
-            #with h5py.File(new_hdf5_file, 'r+') as prim_hdf5:
             prim_hdf5 = h5py.File(new_hdf5_file, 'r+')
             compound_dtype = synthetic._generate_compound_dtype(prim.dtypes.to_dict())
-            #prim_np = prim.reset_index().to_numpy()
             save_data = np.empty(len(prim), dtype=compound_dtype)
             for colname in prim.keys():
                 save_data[colname] = prim[colname].to_numpy()
-            #save_data = prim_np
             dataset = prim_hdf5.create_dataset(i, shape=(0,),
                                         chunks=(1e4,),
                                         maxshape=(None,),

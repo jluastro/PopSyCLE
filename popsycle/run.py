@@ -1174,18 +1174,29 @@ def run(output_root='root0',
 
     if not skip_make_bhs_single:
         print('-- Executing make_bhs_single')
+        photometric_system_dict = {}
+        photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
+        photometric_system_dict['ztf'] = ['g', 'r', 'i']
+        photometric_system_dict['sdss'] = ['u', 'g', 'r', 'i', 'z']
+        photometric_system_dict['rubin'] = ['u','g','r','i','z','y']
+        photometric_system_dict['roman'] = ['f062','f087','f106','f129','f158','w146','f184','f213']
+        phots = ['ubv_'+ filt for filt in photometric_system_dict['ubv']]
+        for system in additional_photometric_systems:
+            phots += [system+'_'+filt for filt in photometric_system_dict[system]]
         try:
             binary_utils.make_bhs_single(
                 filename_dict['hdf5_filename'],
                 filename_dict['hdf5_companions_filename'],
-                popsycle_config['bbh_frac'])
+                popsycle_config['bbh_frac'],
+                phots = phots)
                 #FIXME TAKE PHOTO DICT)
         except:
              binary_utils.make_bhs_single(
                 filename_dict['hdf5_filename'],
                 filename_dict['hdf5_companions_filename'],
                 popsycle_config['bbh_frac'],
-                symlink_aux_files = False)
+                symlink_aux_files = False,
+                phots = phots)
                 #FIXME TAKE PHOTO DICT)   
             
             

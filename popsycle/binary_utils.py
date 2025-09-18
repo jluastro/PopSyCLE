@@ -2,6 +2,10 @@ import numpy as np
 import warnings
 from astropy.table import Table, Column
 from ast import literal_eval
+import h5py
+import pandas as pd
+import os
+from popsycle import synthetic
 
 
 def add_magnitudes(mags):
@@ -299,6 +303,141 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
 
     return t_both_mcut, t_both_mcut_one_peak, t_multiples_mcut_multi_peak
 
+def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['ubv_I', 'ubv_K', 'ubv_J', 'ubv_U', 'ubv_R', 'ubv_B', 'ubv_V', 'ubv_H'],
+                    new_hdf5_file = None, new_hdf5_file_comp = None, symlink_aux_files = True):
+    """
+    This makes some fraction of BHs singles.
+    Currently no binary star evolution, so all BHs end up in binaries.
+    We drop the companions from the companion table and set the BH parameters
+    to those of a single BH.
+    These are saved to a new file.
+
+    To be run after perform_pop_syn.
+
+    Parameters
+    ----------
+    hdf5_file : str
+        File name of hdf5 file to modify.
+
+    hdf5_comp_file : str
+        File name of hdf5 companion file to modify.
+
+    bh_binary_frac : float
+        Binary fraction to be kept of BHs.
+        Default is 0.1.
+
+    phots : list of str
+        Photometry values to be made nan for BHs.
+        Should include all photometry values in table.
+        Default is all those in ubv system.
+
+    new_hdf5_file : str or None
+        New hdf5 file name.
+        Default is None which saves it as 
+        hdf5_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac).
+        
+    new_hdf5_file_comp : str or None
+        New hdf5 file name.
+        Default is None which saves it as
+        hdf5_comp_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac).
+
+    symlink_aux_files : bool
+        Makes symbolic links to the following necessary auxiliary files with the new root:
+        _perform_pop_syn.log
+        _galaxia.log
+        _galaxia_params.txt
+        Default is True.
+    """
+    
+    tmp_prim = h5py.File(hdf5_file, 'r')
+    keys = tmp_prim.keys()  
+    tmp_comp = h5py.File(hdf5_comp_file, 'r')
+    keys_comp = tmp_comp.keys()
+
+    if new_hdf5_file is None:
+        new_hdf5_file = hdf5_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac)
+    if new_hdf5_file_comp is None:
+        new_hdf5_file_comp = hdf5_comp_file[:-13] + '{}_bhb_frac_companions.h5'.format(bh_binary_frac)
+    if symlink_aux_files:
+        os.symlink(hdf5_file[:-3] + '_galaxia.log', new_hdf5_file[:-3] + '_galaxia.log')
+        os.symlink(hdf5_file[:-3] + '_galaxia_params.txt', new_hdf5_file[:-3] + '_galaxia_params.txt')
+        os.symlink(hdf5_file[:-3] + '_perform_pop_syn.log', new_hdf5_file[:-3] + '_perform_pop_syn.log')
+
+    prim_copy = h5py.File(new_hdf5_file, 'w')
+    prim_copy[list(keys)[-2]] = tmp_prim[list(keys)[-2]][:]
+    prim_copy[list(keys)[-1]] = tmp_prim[list(keys)[-1]][:]
+    prim_copy.close()
+    
+    comp_copy = h5py.File(new_hdf5_file_comp, 'w')
+    comp_copy[list(keys)[-2]] = tmp_comp[list(keys)[-2]][:]
+    comp_copy[list(keys)[-1]] = tmp_comp[list(keys)[-1]][:]
+    comp_copy.close()
+
+    del tmp_prim
+    del tmp_comp
+
+    for i in list(keys)[1:-2]:
+        if i[0] == 'l':
+            prim = pd.read_hdf(hdf5_file, i).set_index(['obj_id'])
+            bh_prim = prim[prim['rem_id'] == 103]
+            #idxs of bhs that will be made single
+            bh_prim_singlify_idxs = np.random.choice(bh_prim.index, size = int(len(bh_prim)*(1-bh_binary_frac)), replace = False)
+            
+            bh_prim.loc[bh_prim_singlify_idxs, ('isMultiple')] = 0
+            bh_prim.loc[bh_prim_singlify_idxs, ('N_companions')] = 0
+            bh_prim.loc[bh_prim_singlify_idxs, ('systemMass')] = bh_prim.loc[bh_prim_singlify_idxs, ('mass')]
+            # set photometry to nan
+            for phot in phots:
+                bh_prim.loc[bh_prim_singlify_idxs, (phot)] = np.nan
+    
+            prim[prim['rem_id'] == 103] = bh_prim
+            
+            comp = pd.read_hdf(hdf5_comp_file, i).set_index(['system_idx'])
+            comp.drop(index=bh_prim_singlify_idxs, axis=0, inplace=True)
+
+            # Verify number of companions in table same as accounted for in primary table
+            assert(len(comp) == np.sum(prim['N_companions']))
+
+            prim.reset_index(inplace=True)
+            comp.reset_index(inplace=True)
+
+            prim_hdf5 = h5py.File(new_hdf5_file, 'r+')
+            compound_dtype = synthetic._generate_compound_dtype(prim.dtypes.to_dict())
+            save_data = np.empty(len(prim), dtype=compound_dtype)
+            for colname in prim.keys():
+                save_data[colname] = prim[colname].to_numpy()
+            dataset = prim_hdf5.create_dataset(i, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=compound_dtype)
+            dataset.resize((len(prim),))
+            prim_hdf5[i][:] = save_data
+            prim_hdf5.close()
+
+            del prim, save_data
+
+            comp_hdf5 = h5py.File(new_hdf5_file_comp, 'r+')
+            compound_dtype = synthetic._generate_compound_dtype(comp.dtypes.to_dict())
+            save_data = np.empty(len(comp), dtype=compound_dtype)
+            for colname in comp.keys():
+                save_data[colname] = comp[colname].to_numpy()
+            dataset = comp_hdf5.create_dataset(i, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=compound_dtype)
+            dataset.resize((len(comp),))
+            comp_hdf5[i][:] = save_data
+            comp_hdf5.close()
+
+            del comp, save_data
+            
+                #prim_hdf5.create_dataset(i)#, data=prim_np.astype("|V256"))
+
+            #with h5py.File(new_hdf5_file_comp, 'r+') as comp_hdf5:
+            #    comp_np = comp.reset_index().to_numpy()
+            #    comp_hdf5.create_dataset(i)#, data=comp_np.astype("|V256"))
+                
+    return
 
 
 

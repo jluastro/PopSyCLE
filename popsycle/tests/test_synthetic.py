@@ -137,8 +137,7 @@ def srun_refine_events(srun_calc_events):
     input_root = srun_calc_events
 
     synthetic.refine_events(input_root=input_root,
-                            filter_name='I',
-                            photometric_system='ubv',
+                            filter_dict={'ubv':['I']},
                             red_law='Damineli16',
                             overwrite=True,
                             output_file='default')
@@ -235,8 +234,7 @@ def mrun_refine_events(mrun_calc_events):
     input_root = mrun_calc_events
 
     synthetic.refine_events(input_root=input_root,
-                            filter_name='I',
-                            photometric_system='ubv',
+                            filter_dict={'ubv':['I']},
                             red_law='Damineli16',
                             hdf5_file_comp=input_root + '_companions.h5',
                             overwrite=True,

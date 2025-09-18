@@ -21,7 +21,7 @@ from astropy.coordinates import Angle  # Angles
 from astropy.table import Table, Column, MaskedColumn
 from astropy.table import vstack
 from spisea.imf import imf
-from spisea import synthetic, evolution, reddening, ifmr
+from spisea import synthetic, evolution, ifmr
 from spisea.imf.multiplicity import MultiplicityResolvedDK
 from scipy.spatial import cKDTree
 import time
@@ -31,15 +31,16 @@ import subprocess
 import os
 from sklearn import neighbors
 import itertools
-from multiprocessing import Pool, Value, Lock, Manager
+from multiprocessing import Pool, Value, Lock
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
 from distutils import spawn
 from popsycle import ebf
-from popsycle.filters import transform_ubv_to_ztf
+from popsycle.filters import transform_ubv_to_ztf, transform_ubv_to_rubin, transform_ubv_to_roman
 from popsycle import utils
 import astropy.units as unit
+import astropy.constants as const
 from popsycle import orbits
 import pandas as pd
 from bagle import model
@@ -48,6 +49,11 @@ from collections import Counter
 from operator import itemgetter
 from popsycle import binary_utils
 from astropy.io import fits
+from astropy.coordinates import solar_system_ephemeris
+from warnings import warn
+
+# Use builtin ephemris for popsycle
+solar_system_ephemeris.set('builtin')
 
 ##########
 # Conversions.
@@ -76,11 +82,16 @@ IFMR_dict['SukhboldN20'] = ifmr.IFMR_N20_Sukhbold()
 # Dictionary for extinction law coefficients f_i, as a function of filter
 # Damineli values from photometric bands (nm):
 # B = 445, V = 551, I = 806, J = 1220, H = 1630, K = 2190, U = 365, R = 658
+# SDSS photometric bands https://skyserver.sdss.org/dr1/en/proj/advanced/color/sdssfilters.asp (nm):
+# u = 354.3, g = 477.0, r = 623.1, i = 762.5, z = 913.4
 # Calculated using calc_f
 # Schlegel and Schlafly photometric bands:
 # B = 440, V = 543, I = 809, J = 1266, H = 1673, K = 2215, U = 337, R = 651
 # ZTF photometric bands:
 # G = 472.274, R = 633.961, I = 788.613
+# RUBIN photometric bands https://github.com/lsst-pst/syseng_throughputs (nm):
+# u = 372.0, g = 480.3, r = 622.0, i = 755.8, z = 868.0, y = 974.9
+# Calculated using calc_f
 ##########
 filt_dict = {}
 filt_dict['ubv_J'] = {'Schlafly11': 0.709, 'Schlegel99': 0.902, 'Damineli16': 0.662}
@@ -94,6 +105,25 @@ filt_dict['ubv_R'] = {'Schlafly11': 2.169, 'Schlegel99': 2.634, 'Damineli16': 2.
 filt_dict['ztf_g'] = {'Damineli16': 3.453}
 filt_dict['ztf_r'] = {'Damineli16': 2.228}
 filt_dict['ztf_i'] = {'Damineli16': 1.553}
+filt_dict['sdss_u'] = {'Damineli16': 5.262}
+filt_dict['sdss_g'] = {'Damineli16': 3.401}
+filt_dict['sdss_r'] = {'Damineli16': 2.290}
+filt_dict['sdss_i'] = {'Damineli16': 1.650}
+filt_dict['sdss_z'] = {'Damineli16': 1.192}
+filt_dict['rubin_u'] = {'Damineli16': 4.880}
+filt_dict['rubin_g'] = {'Damineli16': 3.370}
+filt_dict['rubin_r'] = {'Damineli16': 2.296}
+filt_dict['rubin_i'] = {'Damineli16': 1.672}
+filt_dict['rubin_z'] = {'Damineli16': 1.309}
+filt_dict['rubin_y'] = {'Damineli16': 1.051}
+filt_dict['roman_f062'] = {'Damineli16': 2.307}
+filt_dict['roman_f087'] = {'Damineli16': 1.307}
+filt_dict['roman_f106'] = {'Damineli16': 0.889}
+filt_dict['roman_f129'] = {'Damineli16': 0.583}
+filt_dict['roman_f158'] = {'Damineli16': 0.372}
+filt_dict['roman_w146'] = {'Damineli16': 0.441}
+filt_dict['roman_f184'] = {'Damineli16': 0.258}
+filt_dict['roman_f213'] = {'Damineli16': 0.184}
 
 ##########
 # Dictionary for listing out supported photometric systems and filters
@@ -101,6 +131,9 @@ filt_dict['ztf_i'] = {'Damineli16': 1.553}
 photometric_system_dict = {}
 photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
 photometric_system_dict['ztf'] = ['g', 'r', 'i']
+photometric_system_dict['sdss'] = ['u', 'g', 'r', 'i', 'z']
+photometric_system_dict['rubin'] = ['u','g','r','i','z','y']
+photometric_system_dict['roman'] = ['f062','f087','f106','f129','f158','w146','f184','f213']
 
 ##########
 # List of all supported photometric systems and filters with SPISEA labels
@@ -586,7 +619,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     ebf_file : str or ebf file
         str : name of the ebf file from Galaxia
         ebf file : actually the ebf file from Galaxia
-
+   
     output_root : str
         The thing you want the output files to be named
         Examples include 
@@ -611,7 +644,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         ``N_bins = (bin_edges_number - 1)**2``.
         If set to None (default), then number of bins is
         ``bin_edges_number = int(60 * 2 * radius) + 1``
-
+   
     BH_kick_speed_mean : float, optional
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
@@ -635,12 +668,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         If set to True, bins files as specified by bin_edges_numbers or default.
         If set to False, no bins (SET TO FALSE IF DOING FULL SKY DOWNSAMPLED).
         Default is True.
-
+   
     overwrite : bool, optional
         If set to True, overwrites output files. If set to False, exits the
         function if output files are already on disk.
         Default is False.
-
+    
     seed : int, optional
         If set to non-None, all random sampling will be seeded with the
         specified seed, forcing identical output for SPISEA and PopSyCLE.
@@ -1236,6 +1269,13 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                              additional_photometric_systems=additional_photometric_systems,
                                                              t0=t0, verbose=verbose)
 
+        if companions_table is not None:
+            if star_dict is not None:
+                if co_dict is not None:
+                    assert(np.sum(star_dict['N_companions']) + np.sum(co_dict['N_companions']) == len(companions_table))
+                else:
+                    assert(np.sum(star_dict['N_companions'])  == len(companions_table))
+
         # Save companion table
         with lock:
             if companions_table is not None:
@@ -1273,6 +1313,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                              co_dict, output_root)
             _bin_lb_hdf5(lat_bin_edges, long_bin_edges,
                          stars_in_bin, output_root)
+            
 
         else:
             if co_dict is not None:
@@ -1399,7 +1440,7 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
     star_dict['ubv_V'] = ebf.read_ind(ebf_file, '/ubv_V', bin_idx)
     star_dict['ubv_R'] = ebf.read_ind(ebf_file, '/ubv_R', bin_idx)
     ##########
-    # Add ztf magnitudes
+    # Add ztf, rubin, and/or roman magnitudes
     ##########
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
@@ -1417,6 +1458,66 @@ def _load_galaxia_into_star_dict(star_dict, bin_idx, ebf_file, additional_photom
             star_dict['ztf_i'] = ztf_i
 
             del ubv_b, ubv_v, ubv_r, ubv_i, ztf_g, ztf_r, ztf_i
+            
+        if 'rubin' in additional_photometric_systems:
+            # Pull out ubv magnitudes needed for photometric conversions
+            ubv_u   = star_dict['ubv_U']
+            ubv_b   = star_dict['ubv_B']
+            ubv_v   = star_dict['ubv_V']
+            ubv_r   = star_dict['ubv_R']
+            ubv_i   = star_dict['ubv_I']
+            ukirt_j = star_dict['ubv_J']
+
+            rubin_u = transform_ubv_to_rubin('u', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_g = transform_ubv_to_rubin('g', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_r = transform_ubv_to_rubin('r', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_i = transform_ubv_to_rubin('i', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_z = transform_ubv_to_rubin('z', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            rubin_y = transform_ubv_to_rubin('y', ubv_b, ubv_v, ubv_r, ubv_u, ubv_i, ukirt_j)
+            star_dict['rubin_u'] = rubin_u
+            star_dict['rubin_g'] = rubin_g
+            star_dict['rubin_r'] = rubin_r
+            star_dict['rubin_i'] = rubin_i
+            star_dict['rubin_z'] = rubin_z
+            star_dict['rubin_y'] = rubin_y
+
+            del ubv_u,ubv_b, ubv_v, ubv_r, ubv_i, ukirt_j, rubin_u, rubin_g, rubin_r, rubin_i, rubin_z, rubin_y
+            
+        if 'roman' in additional_photometric_systems:
+            # Pull out ubv magnitudes needed for photometric conversions
+            ubv_v   = star_dict['ubv_V']
+            ubv_r   = star_dict['ubv_R']
+            ubv_i   = star_dict['ubv_I']
+            ukirt_j = star_dict['ubv_J']
+            ukirt_h = star_dict['ubv_H']
+            ukirt_k = star_dict['ubv_K']
+
+            roman_f062 = transform_ubv_to_roman('f062',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f087 = transform_ubv_to_roman('f087',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f106 = transform_ubv_to_roman('f106',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f129 = transform_ubv_to_roman('f129',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f158 = transform_ubv_to_roman('f158',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_w146 = transform_ubv_to_roman('w146',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f184 = transform_ubv_to_roman('f184',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+            roman_f213 = transform_ubv_to_roman('f213',ubv_V = ubv_v, ubv_R = ubv_r, ubv_I = ubv_i, ukirt_J = ukirt_j, ukirt_H = ukirt_h, ukirt_K = ukirt_k)
+
+            star_dict['roman_f062'] = roman_f062
+            star_dict['roman_f087'] = roman_f087
+            star_dict['roman_f106'] = roman_f106
+            star_dict['roman_f129'] = roman_f129
+            star_dict['roman_f158'] = roman_f158
+            star_dict['roman_w146'] = roman_w146
+            star_dict['roman_f184'] = roman_f184
+            star_dict['roman_f213'] = roman_f213
+
+            del ubv_v, ubv_r, ubv_i, ukirt_j, ukirt_h, ukirt_k, roman_f062, roman_f087, roman_f106, roman_f129, roman_f158, roman_w146, roman_f184, roman_f213    
+            
+        if 'sdss' in additional_photometric_systems:
+            star_dict['sdss_u'] = ebf.read_ind(ebf_file, '/sdss_u', bin_idx)
+            star_dict['sdss_g'] = ebf.read_ind(ebf_file, '/sdss_g', bin_idx)
+            star_dict['sdss_r'] = ebf.read_ind(ebf_file, '/sdss_r', bin_idx)
+            star_dict['sdss_i'] = ebf.read_ind(ebf_file, '/sdss_i', bin_idx)
+            star_dict['sdss_z'] = ebf.read_ind(ebf_file, '/sdss_z', bin_idx)
 
 
 def _get_bin_edges(l, b, surveyArea, bin_edges_number):
@@ -1571,6 +1672,12 @@ def _make_co_dict(log_age,
         if additional_photometric_systems is not None:
             if 'ztf' in additional_photometric_systems:
                 keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
+            if 'sdss' in additional_photometric_systems:
+                keep_columns += ['m_sdss_u', 'm_sdss_g', 'm_sdss_r', 'm_sdss_i', 'm_sdss_z']
+            if 'rubin' in additional_photometric_systems:
+                keep_columns += ['m_rubin_u', 'm_rubin_g', 'm_rubin_r', 'm_rubin_i', 'm_rubin_z', 'm_rubin_y']
+            if 'roman' in additional_photometric_systems:
+                keep_columns += ['m_roman_f062', 'm_roman_f087', 'm_roman_f106', 'm_roman_f129', 'm_roman_f158', 'm_roman_w146', 'm_roman_f184', 'm_roman_f213']
         co_table.keep_columns(keep_columns)
 
         # Fill out the rest of co_dict
@@ -1687,6 +1794,29 @@ def _make_co_dict(log_age,
                     co_dict['ztf_g'] = np.full(len(co_dict['vx']), np.nan)
                     co_dict['ztf_r'] = np.full(len(co_dict['vx']), np.nan)
                     co_dict['ztf_i'] = np.full(len(co_dict['vx']), np.nan)
+                if 'sdss' in additional_photometric_systems:
+                    co_dict['sdss_u'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['sdss_g'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['sdss_r'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['sdss_i'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['sdss_z'] = np.full(len(co_dict['vx']), np.nan)
+                if 'rubin' in additional_photometric_systems:
+                    co_dict['rubin_u'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_g'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_r'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_i'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_z'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['rubin_y'] = np.full(len(co_dict['vx']), np.nan)
+                if 'roman' in additional_photometric_systems:
+                    co_dict['roman_f062'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f087'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f106'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f129'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f158'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_w146'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f184'] = np.full(len(co_dict['vx']), np.nan)
+                    co_dict['roman_f213'] = np.full(len(co_dict['vx']), np.nan)
+
 
             #########
             # Initialize values for compact object teff, specific gravity and bolometric luminosity
@@ -1733,6 +1863,28 @@ def _make_co_dict(log_age,
                         co_dict['ztf_g'][lum_co_sys_idx] = co_table['m_ztf_g'][lum_co_sys_idx].data
                         co_dict['ztf_r'][lum_co_sys_idx] = co_table['m_ztf_r'][lum_co_sys_idx].data
                         co_dict['ztf_i'][lum_co_sys_idx] = co_table['m_ztf_i'][lum_co_sys_idx].data
+                    if 'sdss' in additional_photometric_systems:
+                        co_dict['sdss_u'][lum_co_sys_idx] = co_table['m_sdss_u'][lum_co_sys_idx].data
+                        co_dict['sdss_g'][lum_co_sys_idx] = co_table['m_sdss_g'][lum_co_sys_idx].data
+                        co_dict['sdss_r'][lum_co_sys_idx] = co_table['m_sdss_r'][lum_co_sys_idx].data
+                        co_dict['sdss_i'][lum_co_sys_idx] = co_table['m_sdss_i'][lum_co_sys_idx].data
+                        co_dict['sdss_z'][lum_co_sys_idx] = co_table['m_sdss_z'][lum_co_sys_idx].data
+                    if 'rubin' in additional_photometric_systems:
+                        co_dict['rubin_u'][lum_co_sys_idx] = co_table['m_rubin_u'][lum_co_sys_idx].data
+                        co_dict['rubin_g'][lum_co_sys_idx] = co_table['m_rubin_g'][lum_co_sys_idx].data
+                        co_dict['rubin_r'][lum_co_sys_idx] = co_table['m_rubin_r'][lum_co_sys_idx].data
+                        co_dict['rubin_i'][lum_co_sys_idx] = co_table['m_rubin_i'][lum_co_sys_idx].data
+                        co_dict['rubin_z'][lum_co_sys_idx] = co_table['m_rubin_z'][lum_co_sys_idx].data
+                        co_dict['rubin_y'][lum_co_sys_idx] = co_table['m_rubin_y'][lum_co_sys_idx].data
+                    if 'roman' in additional_photometric_systems:
+                        co_dict['roman_f062'][lum_co_sys_idx] = co_table['m_roman_f062'][lum_co_sys_idx].data
+                        co_dict['roman_f087'][lum_co_sys_idx] = co_table['m_roman_f087'][lum_co_sys_idx].data
+                        co_dict['roman_f106'][lum_co_sys_idx] = co_table['m_roman_f106'][lum_co_sys_idx].data
+                        co_dict['roman_f129'][lum_co_sys_idx] = co_table['m_roman_f129'][lum_co_sys_idx].data
+                        co_dict['roman_f158'][lum_co_sys_idx] = co_table['m_roman_f158'][lum_co_sys_idx].data
+                        co_dict['roman_w146'][lum_co_sys_idx] = co_table['m_roman_w146'][lum_co_sys_idx].data
+                        co_dict['roman_f184'][lum_co_sys_idx] = co_table['m_roman_f184'][lum_co_sys_idx].data
+                        co_dict['roman_f213'][lum_co_sys_idx] = co_table['m_roman_f213'][lum_co_sys_idx].data
 
                 # Memory cleaning
                 del co_table
@@ -2027,6 +2179,12 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
     if additional_photometric_systems is not None:
         if 'ztf' in additional_photometric_systems:
             my_filt_list += ['ztf,g', 'ztf,r', 'ztf,i']
+        if 'sdss' in additional_photometric_systems:
+            my_filt_list += ['sdss,u', 'sdss,g', 'sdss,r', 'sdss,i', 'sdss,z']
+        if 'rubin' in additional_photometric_systems:
+            my_filt_list += ['rubin,u', 'rubin,g', 'rubin,r', 'rubin,i', 'rubin,z', 'rubin,y']
+        if 'roman' in additional_photometric_systems:
+            my_filt_list += ['roman,wfi,f062', 'roman,wfi,f087', 'roman,wfi,f106', 'roman,wfi,f129', 'roman,wfi,f158', 'roman,wfi,w146', 'roman,wfi,f184', 'roman,wfi,f213']
 
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.11 at start because MIST can't handle.
@@ -2050,7 +2208,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
         # Using MIST models to get white dwarfs
-        my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+        with lock:
+            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
@@ -2062,7 +2221,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
         # Checks if the list of filters are different
         if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
-            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+            with lock:
+                my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                              evo_model=evolution.MISTv1(),
                                              filters=my_filt_list,
                                              iso_dir=iso_dir,
@@ -2144,6 +2304,9 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             cluster.companions.remove_rows(bad_companions)
         
         
+    if cluster is not None and multiplicity is not None:
+        assert(len(cluster.companions) == np.sum(cluster.star_systems['N_companions']))
+
     return cluster, unmade_cluster_counter, unmade_cluster_mass
 
 
@@ -2877,7 +3040,8 @@ def _make_companions_table(cluster, star_dict, co_dict,
             co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
 
             if verbose > 3: print(f'test2 {time.time() - t0:.2f} sec')
-
+            
+            assert(len(compact_companions) == np.sum(co_dict['N_companions']))
             del co_dict_tmp
         
         ###########
@@ -2916,6 +3080,28 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     companions_system_m_ztf_g = grouped_companions['m_ztf_g'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_ztf_r = grouped_companions['m_ztf_r'].groups.aggregate(binary_utils.add_magnitudes)
                     companions_system_m_ztf_i = grouped_companions['m_ztf_i'].groups.aggregate(binary_utils.add_magnitudes)
+                if 'sdss' in additional_photometric_systems:
+                    companions_system_m_sdss_u = grouped_companions['m_sdss_u'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_sdss_g = grouped_companions['m_sdss_g'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_sdss_r = grouped_companions['m_sdss_r'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_sdss_i = grouped_companions['m_sdss_i'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_sdss_z = grouped_companions['m_sdss_z'].groups.aggregate(binary_utils.add_magnitudes)
+                if 'rubin' in additional_photometric_systems:
+                    companions_system_m_rubin_u = grouped_companions['m_rubin_u'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_g = grouped_companions['m_rubin_g'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_r = grouped_companions['m_rubin_r'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_i = grouped_companions['m_rubin_i'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_z = grouped_companions['m_rubin_z'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_rubin_y = grouped_companions['m_rubin_y'].groups.aggregate(binary_utils.add_magnitudes)
+                if 'roman' in additional_photometric_systems:
+                    companions_system_m_roman_f062 = grouped_companions['m_roman_f062'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f087 = grouped_companions['m_roman_f087'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f106 = grouped_companions['m_roman_f106'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f129 = grouped_companions['m_roman_f129'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f158 = grouped_companions['m_roman_f158'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_w146 = grouped_companions['m_roman_w146'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f184 = grouped_companions['m_roman_f184'].groups.aggregate(binary_utils.add_magnitudes)
+                    companions_system_m_roman_f213 = grouped_companions['m_roman_f213'].groups.aggregate(binary_utils.add_magnitudes)
                     
             
             star_dict['ubv_I'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ubv_I'][group_companions_system_idxs], companions_system_m_ubv_I])
@@ -2931,7 +3117,30 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['ztf_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_g'][group_companions_system_idxs], companions_system_m_ztf_g])
                     star_dict['ztf_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_r'][group_companions_system_idxs], companions_system_m_ztf_r])
                     star_dict['ztf_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['ztf_i'][group_companions_system_idxs], companions_system_m_ztf_i])
+                if 'sdss' in additional_photometric_systems:
+                    star_dict['sdss_u'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_u'][group_companions_system_idxs], companions_system_m_sdss_u])
+                    star_dict['sdss_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_g'][group_companions_system_idxs], companions_system_m_sdss_g])
+                    star_dict['sdss_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_r'][group_companions_system_idxs], companions_system_m_sdss_r])
+                    star_dict['sdss_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_i'][group_companions_system_idxs], companions_system_m_sdss_i])
+                    star_dict['sdss_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['sdss_z'][group_companions_system_idxs], companions_system_m_sdss_z])
+                if 'rubin' in additional_photometric_systems:
+                    star_dict['rubin_u'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_u'][group_companions_system_idxs], companions_system_m_rubin_u])
+                    star_dict['rubin_g'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_g'][group_companions_system_idxs], companions_system_m_rubin_g])
+                    star_dict['rubin_r'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_r'][group_companions_system_idxs], companions_system_m_rubin_r])
+                    star_dict['rubin_i'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_i'][group_companions_system_idxs], companions_system_m_rubin_i])
+                    star_dict['rubin_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_z'][group_companions_system_idxs], companions_system_m_rubin_z])
+                    star_dict['rubin_y'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_y'][group_companions_system_idxs], companions_system_m_rubin_y])
+                if 'roman' in additional_photometric_systems:
+                    star_dict['romann_f062'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f062'][group_companions_system_idxs], companions_system_m_romann_f062])
+                    star_dict['romann_f087'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f087'][group_companions_system_idxs], companions_system_m_romann_f087])
+                    star_dict['romann_f106'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f106'][group_companions_system_idxs], companions_system_m_romann_f106])
+                    star_dict['romann_f129'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f129'][group_companions_system_idxs], companions_system_m_romann_f129])
+                    star_dict['romann_f158'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f158'][group_companions_system_idxs], companions_system_m_romann_f158])
+                    star_dict['romann_w146'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_w146'][group_companions_system_idxs], companions_system_m_romann_w146])
+                    star_dict['romann_f184'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f184'][group_companions_system_idxs], companions_system_m_romann_f184])
+                    star_dict['romann_f213'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f213'][group_companions_system_idxs], companions_system_m_romann_f213])
             
+            assert(len(companions_table) == np.sum(star_dict['N_companions']))
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]
 
@@ -3974,9 +4183,8 @@ def _convert_photometric_99_to_nan(table, photometric_system='ubv'):
             table[name][cond] = np.nan
 
 
-def _check_refine_events(input_root, filter_name,
-                         photometric_system, red_law, overwrite,
-                         output_file, hdf5_file_comp, legacy, seed):
+def _check_refine_events(input_root, filter_dict, red_law, overwrite, output_file, 
+                         hdf5_file_comp, legacy, seed, filter_name=None, photometric_system=None):
     """
     Checks that the inputs of refine_events are valid
 
@@ -3985,14 +4193,14 @@ def _check_refine_events(input_root, filter_name,
     input_root : str
         The root path and name of the *_events.fits and *_blends.fits.
         Don't include those suffixes yet.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
+        
+    filter_dict : dict
+        Dictionary with desired photometric systems and filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled with filters within that photometric system key.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
         The name of the reddening law to use from SPISEA.
@@ -4011,16 +4219,34 @@ def _check_refine_events(input_root, filter_name,
     seed : None or int
         If not None, this forces the random orbit time for binaries to be fixed every time.
         If seed is added but there are no binaries, the seed will have no consequence.
+        
+    filter_name : str, optional, DEPRECATED
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str, optional, DEPRECATED
+        The name of the photometric system in which the filter exists.
     """
 
     if not isinstance(input_root, str):
         raise Exception('input_root (%s) must be a string.' % str(input_root))
+    
+    if filter_dict is not None:
+        if not isinstance(filter_dict, dict):
+            raise Exception('filter_dict (%s) must be a dictionary.' % str(filter_dict))
+        if not all(isinstance(key,str) for key in filter_dict):
+            raise Exception('All filter_dict keys must be strings.')
+        if not all(isinstance(filt,str) for key,val in filter_dict.items() for filt in val):
+            raise Exception('All filter_dict vaues must be lists of strings.')
+        
+    if filter_name is not None:
+        if not isinstance(filter_name, str):
+            raise Exception('filter_name (%s) must be a string.' % str(filter_name))        
 
-    if not isinstance(filter_name, str):
-        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
-
-    if not isinstance(photometric_system, str):
-        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
+    if photometric_system is not None:
+        if not isinstance(photometric_system, str):
+            raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))   
 
     if not isinstance(red_law, str):
         raise Exception('red_law (%s) must be a string.' % str(red_law))
@@ -4041,41 +4267,56 @@ def _check_refine_events(input_root, filter_name,
     if seed is not None:
         if not isinstance(seed, int):
             raise Exception('seed (%s) must be None or an integer.' % str(seed))
+    
+    # Check that either filter_dict is provided, or both filter_name and photometric_system are provided
+    if filter_dict is None and ((filter_name is None) or (photometric_system is None)):
+        raise Exception('Either filter_dict or filter_name + photometric_system must be provided.')
+        
+    if (filter_dict is not None) and ((filter_name is not None) or (photometric_system is not None)):
+        raise Exception('Both filter_dict and either filter_name or photometric_system was provided. \n'\
+                        'Please provide either filter_dict or filter_name + photometric_system')
+        
+    if (filter_name is None) ^ (photometric_system is None):
+        raise Exception('Either filter_name or photometric_system was provided without the other. Please provide both')
 
-    # Check to see that the filter name, photometric system, red_law are valid
-    if photometric_system not in photometric_system_dict:
-        exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. \n' \
-                        'Acceptable values are : '
-        for photometric_system in photometric_system_dict:
-            exception_str += '%s, ' % photometric_system
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+    # Check to see that the filter dictionary, and red_law are valid
+    if (filter_name is not None) and (photometric_system is not None):
+        filter_dict = {}
+        filter_dict[photometric_system] = [filter_name] 
+    for system in filter_dict:
+        if system not in photometric_system_dict:
+            exception_str = 'photometric_system must be a key in ' \
+                            'photometric_system_dict. \n' \
+                            'Acceptable values are : '
+            for photometric_system in photometric_system_dict:
+                exception_str += '%s, ' % photometric_system
+            exception_str = exception_str[:-2]
+            raise Exception(exception_str)
 
-    if filter_name not in photometric_system_dict[photometric_system]:
-        exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. \n' \
-                        'Acceptable values are : ' % photometric_system
-        for filter_name in photometric_system_dict[photometric_system]:
-            exception_str += '%s, ' % filter_name
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+        for filt in filter_dict[system]:
+            if filt not in photometric_system_dict[system]:
+                exception_str = 'filter_name must be a value in ' \
+                                'photometric_system_dict[%s]. \n' \
+                                'Acceptable values are : ' % system
+                for filter_name in photometric_system_dict[system]:
+                    exception_str += '%s, ' % filter_name
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
+            
+            key = system + '_' + filt
+            if red_law not in filt_dict[key]:
+                exception_str = 'red_law must be a value in ' \
+                                'filt_dict[%s]. \n' \
+                                'Acceptable values are : ' % key
+                for red_law in filt_dict[key]:
+                    exception_str += '%s, ' % red_law
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
 
-    key = photometric_system + '_' + filter_name
-    if red_law not in filt_dict[key]:
-        exception_str = 'red_law must be a value in ' \
-                        'filt_dict[%s]. \n' \
-                        'Acceptable values are : ' % key
-        for red_law in filt_dict[key]:
-            exception_str += '%s, ' % red_law
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
 
-
-def refine_events(input_root, filter_name, photometric_system, red_law,
-                  overwrite=False,
-                  output_file='default', hdf5_file_comp=None, legacy = False, seed = None,
-                  galactic_model_code='galaxia'):
+def refine_events(input_root, red_law, filter_dict = None, filter_name = None, photometric_system = None,
+                  overwrite=False, output_file='default', hdf5_file_comp=None, legacy = False, seed = None, 
+                  galactic_model_code = 'galaxia'):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -4084,16 +4325,17 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     Parameters
     ----------
     input_root : str
-        The root path and name of the \*_events.fits and \*_blends.fits.
+        The root path and name of the \*_events.fits, \*_blends.fits,
+        \*_galaxia_params.txt, \*_calc_events.log, and \_*_perform_pop_syn.log.
         Don't include those suffixes yet.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
+        
+    filter_dict : dict
+        Dictionary with desired photometric systems and filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled with filters within that photometric system key.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
         The name of the reddening law to use from SPISEA.
@@ -4121,6 +4363,14 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         If not None, this forces the random orbit time for binaries to be fixed every time.
         If seed is added but there are no binaries, the seed will have no consequence.
         Default is None.
+    
+    filter_name : str, optional, DEPRECATED
+        The name of the filter in which to calculate all the
+        microlensing events. The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+
+    photometric_system : str, optional, DEPRECATED
+        The name of the photometric system in which the filter exists.
 
     Returns
     -------
@@ -4143,15 +4393,24 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                         'Either delete the .fits file, or pick a new name.')
 
     # Error handling/complaining if input types are not right.
-    _check_refine_events(input_root, filter_name,
-                         photometric_system, red_law,
-                         overwrite, output_file, hdf5_file_comp, legacy, seed)
-
+    _check_refine_events(input_root, filter_dict, red_law, overwrite, output_file, hdf5_file_comp,
+                         legacy, seed, filter_name=filter_name, photometric_system=photometric_system)
+    
+    if (filter_name is not None) & (photometric_system is not None):
+        warn('filter_name and photometric_system are deprecated, please use filter_dict', DeprecationWarning, stacklevel=2)
+        filter_dict = {photometric_system:[filter_name]}
+    
     if output_file == 'default':
-        output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root,
-                                                                           photometric_system,
-                                                                           filter_name,
-                                                                           red_law)
+        system = list(filter_dict.keys())[0]
+        filt = filter_dict[system][0]
+        if len(filter_dict) == 1 and len(filter_dict[system]) == 1:
+            output_file = '{0:s}_refined_events_{1:s}_{2:s}_{3:s}.fits'.format(input_root, 
+                                                                               system,
+                                                                               filt,
+                                                                               red_law)
+        else:
+            output_file = '{0:s}_refined_events_multi_filt_{1:s}.fits'.format(input_root, 
+                                                                              red_law)
 
     t_0 = time.time()
 
@@ -4160,6 +4419,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     galaxia_params_file = input_root + '_'+galactic_model_code+'_params.txt'
     calc_events_log_file = input_root + '_calc_events.log'
     perform_pop_syn_log_file = input_root + '_perform_pop_syn.log'
+
 
     if galactic_model_code=='galaxia':
         for filename in [event_fits_file,
@@ -4176,7 +4436,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
                          calc_events_log_file]:
             if not os.path.exists(filename):
                 raise Exception(f'{filename} cannot be found.')
-
+                
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
     
@@ -4191,11 +4451,16 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         
 
     # If photometric fields contain -99, convert to nan
-    _convert_photometric_99_to_nan(event_tab, photometric_system)
-    _convert_photometric_99_to_nan(blend_tab, photometric_system)
+    photometric_system = filter_dict.keys()
+    filter_name = filter_dict.values()
+    for system in photometric_system:
+        _convert_photometric_99_to_nan(event_tab, system)
+        _convert_photometric_99_to_nan(blend_tab, system)
 
     # Only keep events with luminous sources
-    event_tab = event_tab[~np.isnan(event_tab[photometric_system + '_' + filter_name + '_S'])]
+    for system in filter_dict:
+        for filters in filter_dict[system]:
+            event_tab = event_tab[~np.isnan(event_tab[system + '_' + filters + '_S'])]
 
     # Grab the obs_time from the calc_events log
     with open(calc_events_log_file, 'r') as my_file:
@@ -4267,7 +4532,9 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['t_E'] = t_E  # days
 
         # Add stuff to event_tab... shouldn't have any direct outputs
-        _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system)
+        for system in filter_dict:
+            for filters in filter_dict[system]:
+                _calc_observables(filters, red_law, event_tab, blend_tab, system)
 
         # Relative parallax
         pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
@@ -4282,6 +4549,12 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+        
+        # Add the filter_dict as a header to store metadata # CHANGE HERE
+        filters_string = ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()])
+        with fits.open(output_file, mode='update') as hdul:
+            header = hdul[0].header
+            header['filters'] = filters_string
     
     
 
@@ -4405,7 +4678,7 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
 
     line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
     line1 = 'input_root : ' + input_root + '\n'
-    line2 = 'filter_name : ' + filter_name + '\n'
+    line2 = 'filter_dict : ' + ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()]) + '\n'
     line3 = 'red_law : ' + red_law + '\n'
 
     line4 = 'VERSION INFORMATION' + '\n'
@@ -4419,14 +4692,20 @@ def refine_events(input_root, filter_name, photometric_system, red_law,
     line11 = str(N_events_survey) + ' : candidate events in survey window' + '\n'
 
     line12 = 'FILES CREATED' + '\n'
-    line13 = output_file + ' : refined events'
+    line13 = output_file + ' : refined events' + '\n'
     line14 = '\n' #By default no companion file created
     
     if hdf5_file_comp is not None:
         if len(companion_table) > 0:
             line14 = output_file[:-5] + "_companions.fits" + ' : companions refined events'
-
-    with open(input_root + '_refined_events_' + photometric_system + '_' + filter_name + '_' + red_law + '.log', 'w') as out:
+    
+    system = list(filter_dict.keys())[0]
+    filt = filter_dict[system][0]
+    if len(filter_dict) == 1 and len(filter_dict[system]) == 1:
+        filter_string = system + '_' + filt
+    else:
+        filter_string = 'multi_filt'
+    with open(input_root + '_refined_events_' + filters_string + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, line10, line11, empty_line,
@@ -4563,11 +4842,8 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
 
     # Convert absolute magnitudes to fluxes, and fix bad values
     flux_N = 10 ** (app_N / -2.5)
-    if type(flux_N) == MaskedColumn:
-        flux_N = np.nan_to_num(flux_N.filled(np.nan))
-    else:
-        flux_N = np.nan_to_num(flux_N)
-        
+    flux_N = utils.nan_to_zero(flux_N)
+
     # Get total flux
     flux_N_tot = np.sum(flux_N)
 
@@ -4615,15 +4891,9 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     flux_L = 10 ** (app_L / -2.5)
     flux_S = 10 ** (app_S / -2.5)
 
-    if type(flux_L) == MaskedColumn:
-        flux_L = np.nan_to_num(flux_L.filled(np.nan))
-    else:
-        flux_L = np.nan_to_num(flux_L)
+    flux_L = utils.nan_to_zero(flux_L)
 
-    if type(flux_S) == MaskedColumn:
-        flux_S = np.nan_to_num(flux_S.filled(np.nan))
-    else:
-        flux_S = np.nan_to_num(flux_S)
+    flux_S = utils.nan_to_zero(flux_S)
 
     ##########
     # Find the blends.
@@ -5013,7 +5283,7 @@ def _check_refine_binary_events(events, companions,
     photometric_system : str
         The name of the photometric system in which the filter exists.
     
-    filter_name : str
+    filter_name : str 
         The name of the filter in which to calculate all the
         microlensing events. The filter name convention is set
         in the global filt_dict parameter at the top of this module.
@@ -5050,11 +5320,11 @@ def _check_refine_binary_events(events, companions,
     if not isinstance(companions, str):
         raise Exception('companions (%s) must be a string.' % str(companions))
     
-    if not isinstance(photometric_system, str):
-        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))
-    
     if not isinstance(filter_name, str):
-        raise Exception('filter_name (%s) must be a string.' % str(filter_name))
+        raise Exception('filter_name (%s) must be a string.' % str(filter_name))        
+
+    if not isinstance(photometric_system, str):
+        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))  
 
     if not isinstance(output_file, str):
         raise Exception('output_file (%s) must be a string.' % str(output_file))
@@ -5115,7 +5385,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     companions : str
         fits file containing the companions calculated from refine_events
     
-    photometric_system : str
+    photometric_system : str 
         The name of the photometric system in which the filter exists.
     
     filter_name : str
@@ -5188,9 +5458,13 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     comp_table['companion_idx'] = np.arange(len(comp_table))
 
+    comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
+    comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
+    comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
+
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
-    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
-        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan)
+    if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
+        comp_table['m_%s_%s' % (photometric_system, filter_name)] = comp_table['m_%s_%s' % (photometric_system, filter_name)].filled(np.nan) 
     
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='n_peaks') )
     event_table.add_column( Column(np.zeros(len(event_table), dtype=float), name='bin_delta_m') )
@@ -5211,7 +5485,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     
     lightcurve_table = Table(names=('obj_id_L', 'obj_id_S', 'companion_id_L', 'companion_id_S', 'class', 'n_peaks', 'bin_delta_m', 
                                      'tE_sys', 'tE_primary', 'primary_t', 'avg_t', 'std_t', 'asymmetry', 'mp_rows', 'used_lightcurve'),
-                            dtype = (float, float, float, float, str, float, float, float, float, float, float, float, float, dict, bool))
+                            dtype = (int, int, float, float, str, float, float, float, float, float, float, float, float, dict, bool))
     
     # This table is for events with more than one peak to characterize those peaks
     # comp_id is position of companion in companion table for reference
@@ -5221,7 +5495,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     # delta m is the change in magnitude between the peak and baseline
     # ratio is the magnitude ratio between min peak/max peak
     mult_peaks = Table(names=('companion_idx', 'obj_id_L', 'obj_id_S', 'n_peaks', 't', 'tE', 'delta_m', 'ratio'),
-                       dtype = (object, float, float, float, float, float, float, float))
+                       dtype = (object, int, int, float, float, float, float, float))
     
     multiples_lightcurves = sum((event_table['isMultiple_S'] == 1) | (event_table['isMultiple_L'] == 1))
     
@@ -5236,15 +5510,14 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     event_table_df['companion_idx_list'] = empty_lists
     
     inputs = np.empty(multiples_lightcurves, dtype = object)
+    
     for i in range(len(grouped_comps.groups)):
         obj_id_L = grouped_comps.groups.keys[i][0]
         obj_id_S = grouped_comps.groups.keys[i][1]
         obj_id_L_S = (obj_id_L, obj_id_S)
         event_table_df['companion_idx_list'].loc[obj_id_L_S] = list(grouped_comps.groups[i]['companion_idx'])
         inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
-                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite]
-    
-    one_lightcurve_analysis
+                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite] 
     
     if multi_proc:
         results = pool.starmap(one_lightcurve_analysis, inputs)
@@ -5476,10 +5749,10 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
             model = bspl_model_gen(model_parameter_dict)
             param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
-            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan, 
+            lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan,
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
-            
+
             del global_comp_idx, param_dict,
             lightcurve_dict, model, model_parameter_dict, name
 
@@ -5762,6 +6035,11 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
                             pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
                               pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
+    
+#    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
+#    mag_lens_sec = calc_app_mag(event_table[event_id]['rad_L'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
+#    mag_lens_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_L' % (photometric_system, filter_name)], mag_lens_sec)
+#
     raL = L_coords.icrs.ra.value # Lens R.A.
     decL = L_coords.icrs.dec.value # Lens dec
     mL1 = event_table[event_id]['mass_L'] # msun (Primary lens current mass)
@@ -5777,13 +6055,14 @@ def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometri
     alpha = comp_table['alpha'][comp_idx]
     mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = 20 #mag_lens_pri - mag_lens_sec
     model_name = 'PSBL_PhotAstrom_Par_Param7'
     
     psbl_parameter_dict = {'raL': raL, 'decL': decL, 'mL1': mL1, 'mL2': mL2, 
                            't0': t0, 'xS0': xS0, 'beta': beta, 'muL': muL, 
                            'muS': muS, 'dL': dL, 'dS': dS, 'sep': sep, 
                            'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff, 
-                           'model': model_name}
+                           'dmag_Lp_Ls' : dmag_Lp_Ls, 'model': model_name}
     return psbl_parameter_dict, obj_id_L, obj_id_S
     
 
@@ -5818,10 +6097,11 @@ def psbl_model_gen(psbl_parameter_dict):
     alpha = psbl_parameter_dict['alpha']
     mag_src = psbl_parameter_dict['mag_src']
     b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = psbl_parameter_dict['dmag_Lp_Ls']
 
     psbl = model.PSBL_PhotAstrom_Par_Param7(mL1, mL2, t0, xS0[0], xS0[1],
                                beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
-                               sep, alpha, [b_sff], [mag_src], 
+                               sep, alpha, [b_sff], [mag_src], [dmag_Lp_Ls],
                                raL=raL, decL=decL, 
                                root_tol = 0.00000001)
     return psbl
@@ -6035,6 +6315,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
     mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
     mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    dmag_Lp_Ls = 20 #FIXME
     model_name = 'BSBL_PhotAstrom_Par_Param2'
     
     bsbl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
@@ -6043,7 +6324,7 @@ def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx
                            'dL': dL, 'dS': dS, 'sepL': sepL, 'alphaL': alphaL, 
                            'sepS': sepS, 'alphaS': alphaS,
                            'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 
-                           'b_sff': b_sff}
+                           'b_sff': b_sff, 'dmag_Lp_Ls': dmag_Lp_Ls}
         
     return bsbl_parameter_dict, obj_id_L, obj_id_S
 
@@ -6084,11 +6365,12 @@ def bsbl_model_gen(bsbl_parameter_dict):
     mag_src_sec = bsbl_parameter_dict['mag_src_sec']
     mag_src_pri = bsbl_parameter_dict['mag_src_pri']
     b_sff = bsbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = bsbl_parameter_dict['dmag_Lp_Ls']
 
     bsbl = model.BSBL_PhotAstrom_Par_Param2(mLp, mLs, t0, xS0_E, xS0_N,
                                               beta, muL_E, muL_N, muS_E, muS_N,
                                               dL, dS, sepL, alphaL, sepS, alphaS,
-                                              mag_src_pri, mag_src_sec, b_sff,
+                                              mag_src_pri, mag_src_sec, b_sff, dmag_Lp_Ls,
                                               raL=raL, decL=decL,
                                               root_tol=1e-4)
     return bsbl
@@ -6378,7 +6660,8 @@ def einstein_radius(M, d_L, d_S):
     -------
         Einstein radius, in mas
     """
-    return 2.85 * M ** 0.5 * (1 / d_L - 1 / d_S) ** 0.5
+    inv_dist_diff = (1 / (d_L*unit.kpc) - 1 / (d_S*unit.kpc))
+    return (unit.rad*(np.sqrt((4*const.G/(const.c**2)) * M*unit.M_sun * inv_dist_diff))).to('mas').value
 
 
 def calc_sph_motion(vx, vy, vz, r, b, l):
@@ -6575,29 +6858,4 @@ def calc_ext(E, f):
 
     return m_E
 
-
-def get_Alambda_AKs(red_law_name, lambda_eff):
-    """
-    Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
-    Naming convention is not consistent. Change SPISEA or add if statements?
-
-    Parameters
-    ----------
-    red_law_name : str
-        The name of the reddening law
-    lambda_eff : float
-        Wavelength in microns
-
-    Returns
-    -------
-    Alambda_AKs : float
-        Alambda/AKs
-
-    """
-    red_law_class = getattr(reddening, 'RedLaw' + red_law_name)
-    red_law = red_law_class()
-    red_law_method = getattr(red_law, red_law_name)
-    Alambda_AKs = red_law_method(lambda_eff, 1)
-
-    return Alambda_AKs
 

@@ -1110,8 +1110,8 @@ def run(output_root='root0',
         if len(popsycle_config['filter_dict'])==1:
             list_ = list(popsycle_config['filter_dict'].keys())[0]
             if len(popsycle_config['filter_dict'][list_]) == 1:
-                photometric_system = popsycle_config['filter_dict'].keys[0]
-                filter_name = popsycle_config['filter_dict'][photometric_system]
+                photometric_system = list_
+                filter_name = popsycle_config['filter_dict'][photometric_system][0]
                 refined_events_filename = '{0:s}_refined_events_' \
                                           '{1:s}_{2:s}_{3:s}.' \
                                           'fits'.format(output_root,

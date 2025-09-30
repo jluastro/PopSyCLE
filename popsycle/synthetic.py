@@ -1000,8 +1000,11 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     popstar_path = os.path.dirname(inspect.getfile(imf))
     popsycle_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                              cwd=popsycle_path).decode('ascii').strip()
-    popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+    try:
+        popstar_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                            cwd=popstar_path).decode('ascii').strip()
+    except:
+        popstar_hash = 'Cannot access SPISEA hash'
     dash_line = '-----------------------------' + '\n'
     empty_line = '\n'
 
@@ -4312,7 +4315,8 @@ def _check_refine_events(input_root, filter_dict, red_law, overwrite, output_fil
 
 
 def refine_events(input_root, red_law, filter_dict = None, filter_name = None, photometric_system = None,
-                  overwrite=False, output_file='default', hdf5_file_comp=None, legacy = False, seed = None):
+                  overwrite=False, output_file='default', hdf5_file_comp=None, legacy = False, seed = None, 
+                  galactic_model_code = 'galaxia'):
     """
     Takes the output Astropy table from calc_events, and from that
     calculates the time of closest approach. Will also return source-lens
@@ -4412,18 +4416,27 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
 
     event_fits_file = input_root + '_events.fits'
     blend_fits_file = input_root + '_blends.fits'
-    galaxia_params_file = input_root + '_galaxia_params.txt'
+    galaxia_params_file = input_root + '_'+galactic_model_code+'_params.txt'
     calc_events_log_file = input_root + '_calc_events.log'
     perform_pop_syn_log_file = input_root + '_perform_pop_syn.log'
 
-    for filename in [event_fits_file,
-                     blend_fits_file,
-                     galaxia_params_file,
-                     calc_events_log_file,
-                     perform_pop_syn_log_file]:
-        if not os.path.exists(filename):
-            raise Exception(f'{filename} cannot be found.')
-    
+
+    if galactic_model_code=='galaxia':
+        for filename in [event_fits_file,
+                         blend_fits_file,
+                         galaxia_params_file,
+                         calc_events_log_file,
+                         perform_pop_syn_log_file]:
+            if not os.path.exists(filename):
+                raise Exception(f'{filename} cannot be found.')
+    else:
+        for filename in [event_fits_file,
+                         blend_fits_file,
+                         galaxia_params_file,
+                         calc_events_log_file]:
+            if not os.path.exists(filename):
+                raise Exception(f'{filename} cannot be found.')
+                
     event_tab = Table.read(event_fits_file)
     blend_tab = Table.read(blend_fits_file)
     
@@ -4466,16 +4479,19 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
                 break
 
     # Grab the random seed from the perform_pop_syn log
-    with open(perform_pop_syn_log_file, 'r') as my_file:
-        for num, line in enumerate(my_file):
+    try:
+        with open(perform_pop_syn_log_file, 'r') as my_file:
+            for num, line in enumerate(my_file):
 
-            if 'seed ' == line.split(',')[0]:
-                pps_seed = line.split(',')[1].replace('\n', '')
-                try:
-                    pps_seed = int(pps_seed)
-                except:
-                    pps_seed = np.nan
-                break
+                if 'seed ' == line.split(',')[0]:
+                    pps_seed = line.split(',')[1].replace('\n', '')
+                    try:
+                        pps_seed = int(pps_seed)
+                    except:
+                        pps_seed = np.nan
+                    break
+    except:
+        pps_seed=np.nan
     
     # Sets random seed to nan for legacy files unless
     #  some value was set manually

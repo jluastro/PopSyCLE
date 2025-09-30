@@ -21,6 +21,7 @@ from popsycle.synthetic import _check_refine_events
 from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
 from popsycle import binary_utils
+from popsycle import phot_utils
 
 
 def _return_filename_dict(output_root, multiplicity = None):
@@ -1174,12 +1175,7 @@ def run(output_root='root0',
                 
     if not skip_make_bhs_single:
         print('-- Executing make_bhs_single')
-        photometric_system_dict = {}
-        photometric_system_dict['ubv'] = ['J', 'H', 'K', 'U', 'B', 'V', 'I', 'R']
-        photometric_system_dict['ztf'] = ['g', 'r', 'i']
-        photometric_system_dict['sdss'] = ['u', 'g', 'r', 'i', 'z']
-        photometric_system_dict['rubin'] = ['u','g','r','i','z','y']
-        photometric_system_dict['roman'] = ['f062','f087','f106','f129','f158','w146','f184','f213']
+        photometric_system_dict = phot_utils.make_photometric_system_dict()
         phots = ['ubv_'+ filt for filt in photometric_system_dict['ubv']]
         for system in additional_photometric_systems:
             phots += [system+'_'+filt for filt in photometric_system_dict[system]]

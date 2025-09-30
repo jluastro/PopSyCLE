@@ -783,3 +783,5 @@ def merge_ebf_filters(ebf_file1, ebf_file2, phot_sys1, phot_sys2):
         ebf.write(ebf_file1, '/' + i, ebf1[key], "a")
 
     return
+
+

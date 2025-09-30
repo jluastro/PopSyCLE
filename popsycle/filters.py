@@ -747,7 +747,7 @@ def transform_ubv_to_rubin(filter_name, ubv_B, ubv_V, ubv_R, ubv_U=None, ubv_I=N
 def generate_ubv_to_roman_grid(iso_dir, filter_name):
     """
     Creates the 2D transformational matrix necessary for generating 
-    roman f062, f087, f106, f129, f158, w146, f184, and f213
+    roman f062, f087, f106, f129, f158, f146, f184, and f213
     magnitudes from the UBV filters.
 
     2D transformational matrix is valid for values of:
@@ -764,7 +764,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
             -0.5 < ubv_I   - ukirt_J < 2.5
             -0.5 < ukirt_J - ukirt_H < 2.5
         
-        Roman w146:
+        Roman f146 - equivalent to w146:
             -0.5 < ubv_I   - ukirt_H < 3.5
             -0.5 < ukirt_H - ukirt_K < 3.5
         
@@ -797,10 +797,10 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
         y-axis : ukirt_H - ukirt_K
         z-axis : roman_f158 - ukirt_H
         
-    ubv-to-roman-w146
+    ubv-to-roman-f146
         x-axis : ubv_I - ukirt_H
         y-axis : ukirt_H - ukirt_K
-        z-axis : roman_w146 - ukirt_H
+        z-axis : roman_f146 - ukirt_H
         
     ubv-to-roman-f184
         x-axis : ukirt_J - ukirt_H
@@ -820,7 +820,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
     filter_name : str
         The name of the filter in which to calculate all the
         microlensing events. Must be either 
-        'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146'.
+        'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146'.
 
     """
 
@@ -836,7 +836,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
 
     # Also specify filters for synthetic photometry
     filt_list = ['roman,wfi,f062', 'roman,wfi,f087', 'roman,wfi,f106', 'roman,wfi,f129', 
-                 'roman,wfi,f158', 'roman,wfi,w146', 'roman,wfi,f184', 'roman,wfi,f213',
+                 'roman,wfi,f158', 'roman,wfi,f146', 'roman,wfi,f184', 'roman,wfi,f213',
                  'ubv,V', 'ubv,R', 'ubv,I', 'ukirt,J', 'ukirt,H', 'ukirt,K']
     filt_list_reformat = ['m_%s' % f.replace(',wfi,', '_') if f[:5] == 'roman' else 'm_%s' % f.replace(',','_') for f in filt_list]
 
@@ -866,7 +866,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
     roman_f106 = np.array([])
     roman_f129 = np.array([])
     roman_f158 = np.array([])
-    roman_w146 = np.array([])
+    roman_f146 = np.array([])
     roman_f184 = np.array([])
     roman_f213 = np.array([])
 
@@ -912,7 +912,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
     roman_f106 = np.append(roman_f106, clust['m_roman_f106'])#[clust_cond])
     roman_f129 = np.append(roman_f129, clust['m_roman_f129'])#[clust_cond])
     roman_f158 = np.append(roman_f158, clust['m_roman_f158'])#[clust_cond])
-    roman_w146 = np.append(roman_w146, clust['m_roman_w146'])#[clust_cond])
+    roman_f146 = np.append(roman_f146, clust['m_roman_f146'])#[clust_cond])
     roman_f184 = np.append(roman_f184, clust['m_roman_f184'])#[clust_cond])
     roman_f213 = np.append(roman_f213, clust['m_roman_f213'])#[clust_cond])
 
@@ -927,21 +927,21 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
         delta_m = roman_f129 - ukirt_j
     elif filter_name == 'f158':
         delta_m = roman_f158 - ukirt_h
-    elif filter_name == 'w146':
-        delta_m = roman_w146 - ukirt_h
+    elif filter_name == 'f146':
+        delta_m = roman_f146 - ukirt_h
     elif filter_name == 'f184':
         delta_m = roman_f184 - ukirt_h
     elif filter_name == 'f213':
         delta_m = roman_f213 - ukirt_k
     else:
-        raise Exception("filter_name must be in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']")
+        raise Exception("filter_name must be in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146']")
         
 
 
     # Colors in both x and y direction go from 0 to 6 magnitudes
     # x_grid_arr: ubv_v - ubv_r
     # y_grid_arr: ubv_b - ubv_v
-    if filter_name == 'f062' or filter_name == 'f087' or filter_name == 'w146' or filter_name == 'f106': 
+    if filter_name == 'f062' or filter_name == 'f087' or filter_name == 'f146' or filter_name == 'f106': 
         x_grid_arr = np.linspace(-0.5, 3.5, 1000)
         y_grid_arr = np.linspace(-0.5, 3.5, 1000)
     elif filter_name == 'f129':
@@ -962,7 +962,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
         x, y = ubv_r - ubv_i, ubv_i - ukirt_j
     elif filter_name == 'f129':
         x, y = ubv_i - ukirt_j, ukirt_j - ukirt_h
-    elif filter_name == 'w146':
+    elif filter_name == 'f146':
         x, y = ubv_i - ukirt_h, ukirt_h - ukirt_k
     else:
         x, y = ukirt_j - ukirt_h, ukirt_h - ukirt_k
@@ -1010,7 +1010,7 @@ def generate_ubv_to_roman_grid(iso_dir, filter_name):
 def load_ubv_to_roman_grid(filter_name):
     """
     Loads the 2D transformational matrix necessary for generating 
-    roman f062, f087, f106, f129, f158, w146, f184, and f213
+    roman f062, f087, f106, f129, f158, f146, f184, and f213
     magnitudes from the UBV filters, as well as the kdtree of those values.
 
     2D transformational matrix is valid for values of:
@@ -1027,7 +1027,7 @@ def load_ubv_to_roman_grid(filter_name):
             -0.5 < ubv_I   - ukirt_J < 2.5
             -0.5 < ukirt_J - ukirt_H < 2.5
         
-        Roman w146:
+        Roman f146 - same as w146:
             -0.5 < ubv_I   - ukirt_H < 3.5
             -0.5 < ukirt_H - ukirt_K < 3.5
         
@@ -1060,10 +1060,10 @@ def load_ubv_to_roman_grid(filter_name):
         y-axis : ukirt_H - ukirt_K
         z-axis : roman_f158 - ukirt_H
         
-    ubv-to-roman-w146
+    ubv-to-roman-f146
         x-axis : ubv_I - ukirt_H
         y-axis : ukirt_H - ukirt_K
-        z-axis : roman_w146 - ukirt_H
+        z-axis : roman_f146 - ukirt_H
         
     ubv-to-roman-f184
         x-axis : ukirt_J - ukirt_H
@@ -1080,7 +1080,7 @@ def load_ubv_to_roman_grid(filter_name):
     filter_name : str
         The name of the filter in which to calculate all the
         microlensing events. Must be either 
-        'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146'.
+        'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146'.
 
     Returns
     -------
@@ -1093,12 +1093,15 @@ def load_ubv_to_roman_grid(filter_name):
 
     """
     # Check for correct filter
-    if filter_name not in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']:
-        raise Exception("filter_name must be in: ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']")
+    if filter_name not in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146']:
+        raise Exception("filter_name must be in: ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146']")
 
     # Load the ubv_to_roman_grid from the file
     data_dir = '%s/data' % os.path.dirname(inspect.getfile(load_ubv_to_roman_grid))
-    ubv_to_roman_filename = '%s/ubv_to_roman-%s_grid.npz' % (data_dir, filter_name)
+    if filter_name == 'f146':
+        ubv_to_roman_filename = '%s/ubv_to_roman-w146_grid.npz' % (data_dir)
+    else:
+        ubv_to_roman_filename = '%s/ubv_to_roman-%s_grid.npz' % (data_dir, filter_name)
     ubv_to_roman_grid_file = np.load(ubv_to_roman_filename)
 
     # Generate a kdtree at the locations of all of the grid points
@@ -1126,7 +1129,7 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
             -0.5 < ubv_I   - ukirt_J < 2.5
             -0.5 < ukirt_J - ukirt_H < 2.5
         
-        Roman w146:
+        Roman f146 - equivalent to w146:
             -0.5 < ubv_I   - ukirt_H < 3.5
             -0.5 < ukirt_H - ukirt_K < 3.5
         
@@ -1138,10 +1141,10 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
     ----------
     filter_name : str
         roman filter name of converted photometry
-        Can be 'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146'
+        Can be 'f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146'
         If converting to roman_f062, ubv_V, ubv_R, and ubv_I must be provided
         If converting to roman_f087 or roman_f106, ubv_R and ubv_I must be provided
-        If converting to roman_129 or roman_w146, ubv_I must be provided
+        If converting to roman_129 or roman_f146, ubv_I must be provided
 
     ubv_V : array of floats
         ubv_V photometry of galaxia / SPISEA sources
@@ -1168,8 +1171,8 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
 
     """
     # Check for correct filter
-    if filter_name not in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']:
-        raise Exception("filter_name must be in: ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'w146']")
+    if filter_name not in ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146']:
+        raise Exception("filter_name must be in: ['f062', 'f087', 'f106', 'f129', 'f158', 'f184', 'f213', 'f146']")
 
     if filter_name == 'f062' and (ubv_V is None or ubv_R is None or ubv_I is None):
         raise Exception('ubv_V, ubv_R, and ubv_I must be provided to convert to roman_f062')
@@ -1179,8 +1182,8 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
         raise Exception('ubv_R and ubv_I must be provided to convert to roman_f106')        
     elif filter_name == 'f129' and ubv_I is None:
         raise Exception('ubv_I must be provided to convert to roman_f129')
-    elif filter_name == 'w146' and ubv_I is None:
-        raise Exception('ubv_I must be provided to convert to roman_w146')
+    elif filter_name == 'f146' and ubv_I is None:
+        raise Exception('ubv_I must be provided to convert to roman_f146')
         
         
     # Convert the ubv photometry into the right format
@@ -1193,7 +1196,7 @@ def transform_ubv_to_roman(filter_name, ukirt_J, ukirt_H, ukirt_K, ubv_V=None, u
         x_data, y_data = ubv_R - ubv_I, ubv_I - ukirt_J
     elif filter_name == 'f129':
         x_data, y_data = ubv_I - ukirt_J, ukirt_J - ukirt_H
-    elif filter_name == 'w146':
+    elif filter_name == 'f146':
         x_data, y_data = ubv_I - ukirt_H, ukirt_H - ukirt_K
     else:
         x_data, y_data = ukirt_J - ukirt_H, ukirt_H - ukirt_K

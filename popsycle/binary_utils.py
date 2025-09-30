@@ -379,7 +379,7 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
     for i in list(keys)[1:-2]:
         if i[0] == 'l':
             prim = pd.read_hdf(hdf5_file, i).set_index(['obj_id'])
-            bh_prim = prim[prim['rem_id'] == 103]
+            bh_prim = prim[(prim['rem_id'] == 103) & (prim['isMultiple'] == 1)]
             #idxs of bhs that will be made single
             bh_prim_singlify_idxs = np.random.choice(bh_prim.index, size = int(len(bh_prim)*(1-bh_binary_frac)), replace = False)
             

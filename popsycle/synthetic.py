@@ -3131,14 +3131,14 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['rubin_z'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_z'][group_companions_system_idxs], companions_system_m_rubin_z])
                     star_dict['rubin_y'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['rubin_y'][group_companions_system_idxs], companions_system_m_rubin_y])
                 if 'roman' in additional_photometric_systems:
-                    star_dict['romann_f062'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f062'][group_companions_system_idxs], companions_system_m_romann_f062])
-                    star_dict['romann_f087'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f087'][group_companions_system_idxs], companions_system_m_romann_f087])
-                    star_dict['romann_f106'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f106'][group_companions_system_idxs], companions_system_m_romann_f106])
-                    star_dict['romann_f129'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f129'][group_companions_system_idxs], companions_system_m_romann_f129])
-                    star_dict['romann_f158'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f158'][group_companions_system_idxs], companions_system_m_romann_f158])
-                    star_dict['romann_w146'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_w146'][group_companions_system_idxs], companions_system_m_romann_w146])
-                    star_dict['romann_f184'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f184'][group_companions_system_idxs], companions_system_m_romann_f184])
-                    star_dict['romann_f213'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['romann_f213'][group_companions_system_idxs], companions_system_m_romann_f213])
+                    star_dict['roman_f062'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f062'][group_companions_system_idxs], companions_system_m_roman_f062])
+                    star_dict['roman_f087'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f087'][group_companions_system_idxs], companions_system_m_roman_f087])
+                    star_dict['roman_f106'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f106'][group_companions_system_idxs], companions_system_m_roman_f106])
+                    star_dict['roman_f129'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f129'][group_companions_system_idxs], companions_system_m_roman_f129])
+                    star_dict['roman_f158'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f158'][group_companions_system_idxs], companions_system_m_roman_f158])
+                    star_dict['roman_w146'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_w146'][group_companions_system_idxs], companions_system_m_roman_w146])
+                    star_dict['roman_f184'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f184'][group_companions_system_idxs], companions_system_m_roman_f184])
+                    star_dict['roman_f213'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f213'][group_companions_system_idxs], companions_system_m_roman_f213])
             
             assert(len(companions_table) == np.sum(star_dict['N_companions']))
             # Switch companion table to point to obj_id instead of idx

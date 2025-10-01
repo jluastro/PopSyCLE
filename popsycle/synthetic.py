@@ -2164,11 +2164,11 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
                                          metallicity=feh)
-
+        """
         # Check that the isochrone has all of the filters in filt_list
         # If not, force recreating the isochrone with recomp=True
         my_iso_filters = [f for f in my_iso.points.colnames if 'm_' in f]
-        my_filt_list_fmt = ['m_%s' % f.replace(',', '_') for f in my_filt_list]
+        my_filt_list_fmt = ['m_%s' % f.replace(',', '_').replace('_wfi', '') for f in my_filt_list]
         # Checks if the list of filters are different
         if len(set(my_filt_list_fmt) - set(my_iso_filters)) > 0:
             with lock:
@@ -2178,6 +2178,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
                                              iso_dir=iso_dir,
                                              recomp=True,
                                              metallicity=feh)
+        """
 
         # !!! Keep trunc_kroupa out here !!! Death and destruction otherwise.
         # DON'T MOVE IT OUT!

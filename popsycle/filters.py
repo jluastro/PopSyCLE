@@ -403,22 +403,22 @@ def generate_ubv_to_rubin_grid(iso_dir,filter_name):
         y-axis : ubv_B - ubv_V
         z-axis : rubin_g - ubv_V
 
-    ubv-to-roman-r
+    ubv-to-rubin-r
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
         z-axis : rubin_r - ubv_R
         
-    ubv-to-roman-i
+    ubv-to-rubin-i
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
         z-axis : rubin_i - ubv_I
     
-    ubv-to-roman-z
+    ubv-to-rubin-z
         x-axis : ubv_V - ubv_R
         y-axis : ubv_B - ubv_V
         z-axis : rubin_z - ubv_I
         
-    ubv-to-roman-y
+    ubv-to-rubin-y
         x-axis : ubv_I - ukirt_J
         y-axis : ubv_R - ubv_I
         z-axis : rubin_y - ukirt_J

@@ -36,5 +36,3 @@ def test_get_bagle_model_list():
 def test_psbl_multi_lightcurve():
     pass
 
-def test_
-

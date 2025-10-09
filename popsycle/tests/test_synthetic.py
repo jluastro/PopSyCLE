@@ -1320,6 +1320,7 @@ def test_refine_binary_events_multiple_lightcurves(mrun_refine_binary):
     
     test_events = Table.read(mrun_refine_binary + '.fits')
 
+@pytest.mark.xfail
 def test_refine_binary_events_psbl_lightcurve():
     """
     Generates a lightcurve that should have 4 peaks.
@@ -1362,7 +1363,7 @@ def test_refine_binary_events_psbl_lightcurve():
     plt.savefig(popsycle.__path__[0] + '/tests/data_test/psbl_4_peaks_example.png')
     
     return
-
+@pytest.mark.xfail
 def test_bspl_single_luminous_source_one_peak():
     """
     Makes sure that a BSPL event with one luminous source

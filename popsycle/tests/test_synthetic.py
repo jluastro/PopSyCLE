@@ -52,7 +52,7 @@ def galaxia():
 
     return output_root
 
-@pytest.fixture(name = 'galaxia', scope="module")
+@pytest.fixture(name = 'galaxia', scope="session")
 def galaxia_fixture():
     return galaxia()
     
@@ -82,7 +82,7 @@ def srun_galaxia(galaixa):
 
     return output_root
 
-@pytest.fixture(name = 'srun_galaxia', scope="module")
+@pytest.fixture(name = 'srun_galaxia', scope="session")
 def srun_galaxia_fixture(galaxia):
     return srun_galaxia(galaxia)
 
@@ -105,7 +105,7 @@ def srun_popsyn(srun_galaxia):
 
     return output_root
 
-@pytest.fixture(name = 'srun_popsyn', scope="module")
+@pytest.fixture(name = 'srun_popsyn', scope="session")
 def srun_popsyn_fixture(srun_galaxia):
     return srun_popsyn(srun_galaxia)
 
@@ -127,7 +127,7 @@ def srun_calc_events(srun_popsyn):
 
     return output_root
 
-@pytest.fixture(name = 'srun_calc_events', scope="module")
+@pytest.fixture(name = 'srun_calc_events', scope="session")
 def srun_calc_events_fixture(srun_popsyn):
     return srun_calc_events(srun_popsyn)
 
@@ -146,7 +146,7 @@ def srun_refine_events(srun_calc_events):
 
     return output_root
 
-@pytest.fixture(name = 'srun_refine_events', scope="module")
+@pytest.fixture(name = 'srun_refine_events', scope="session")
 def srun_refine_events_fixture(srun_calc_events):
     return srun_refine_events(srun_calc_events)
 
@@ -174,7 +174,7 @@ def mrun_galaxia(galaixa):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_galaxia', scope="module")
+@pytest.fixture(name = 'mrun_galaxia', scope="session")
 def mrun_galaxia_fixture(galaxia):
     return mrun_galaxia(galaxia)
 
@@ -200,7 +200,7 @@ def mrun_popsyn(mrun_galaxia):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_popsyn', scope="module")
+@pytest.fixture(name = 'mrun_popsyn', scope="session")
 def mrun_popsyn_fixture(mrun_galaxia):
     return mrun_popsyn(mrun_galaxia)
 
@@ -224,7 +224,7 @@ def mrun_calc_events(mrun_popsyn):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_calc_events', scope="module")
+@pytest.fixture(name = 'mrun_calc_events', scope="session")
 def mrun_calc_events_fixture(mrun_popsyn):
     return mrun_calc_events(mrun_popsyn)
 
@@ -245,7 +245,7 @@ def mrun_refine_events(mrun_calc_events):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_refine_events', scope="module")
+@pytest.fixture(name = 'mrun_refine_events', scope="session")
 def mrun_refine_events_fixture(mrun_calc_events):
     return mrun_refine_events(mrun_calc_events)
 
@@ -263,7 +263,7 @@ def mrun_refine_binary(mrun_refine_events):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_refine_binary', scope="module")
+@pytest.fixture(name = 'mrun_refine_binary', scope="session")
 def mrun_refine_binary_fixture(mrun_refine_events):
     return mrun_refine_binary(mrun_refine_events)
 

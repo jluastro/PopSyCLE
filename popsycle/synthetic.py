@@ -47,7 +47,7 @@ from bagle import model
 from scipy.signal import find_peaks
 from collections import Counter
 from operator import itemgetter
-from popsycle import binary_utils, phot_utils
+from popsycle import binary_utils, phot_utils, lightcurves
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
 from warnings import warn
@@ -4641,7 +4641,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         filter_string = system + '_' + filt
     else:
         filter_string = 'multi_filt'
-    with open(input_root + '_refined_events_' + filters_string + '_' + red_law + '.log', 'w') as out:
+    with open(input_root + '_refined_events_' + filter_string + '_' + red_law + '.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, empty_line,
                         line4, dash_line, line5, line6, line7, empty_line,
                         line8, dash_line, line9, line10, line11, empty_line,
@@ -4955,16 +4955,17 @@ def _add_binary_angles(companion_table, event_table):
     del event_table_df
     
     start_time_bin_angles = time.time()    
-    alphas, phi_pi_Es, phis = calculate_binary_angles(companion_tmp_df_joined)
+    alphas, phi_pi_Es, phis, tps = calculate_binary_angles(companion_tmp_df_joined)
         
     companion_tmp_df_joined['alpha'] = alphas
     companion_tmp_df_joined['phi_pi_E'] = phi_pi_Es
     companion_tmp_df_joined['phi'] = phis
+    companion_tmp_df_joined['tp'] = tps
     
     # reset index adds obj_id_L and obj_id_S back as their own columns
     # doing list(cluster.companions.columns) + those other names means that it only takes columns 
     # that were in cluster.companions and obj_id_L, obj_id_S, alpha,...
-    companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi']]
+    companion_tmp_df = companion_tmp_df_joined.reset_index()[list(companion_tmp_df.columns) + ['obj_id_L', 'obj_id_S'] + ['alpha', 'phi_pi_E', 'phi', 'tp']]
     #print('full bin angles loop', time.time() - start_time_bin_angles)
     
     del companion_tmp_df_joined
@@ -5002,6 +5003,7 @@ def calculate_binary_angles(joined_table):
     alphas = []
     phi_pi_Es = []
     phis = []
+    tps = []
     
     for index, row in joined_table.iterrows():
         
@@ -5026,6 +5028,8 @@ def calculate_binary_angles(joined_table):
         orb.p = row['P'] # [years]
         orb.t0 = np.random.rand()*row['P'] + row['t0'] # [years] This is initial
         orb.mass = row['systemMass_{}'.format(prim_type)] # [Msun]
+
+        tps.append(orb.t0)
         
         
         # Position of the companion when primary at origin
@@ -5130,7 +5134,7 @@ def calculate_binary_angles(joined_table):
         phi_pi_Es.append(phi_pi_E)
         phis.append(phi)
     
-    return alphas, phi_pi_Es, phis
+    return alphas, phi_pi_Es, phis, tps
 
 def _add_multiples_parameters(companion_table, event_table):
     """
@@ -5640,6 +5644,15 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
     else:
         raise Exception('one_lightcurve_analysis() only analyizes binary events')
 
+    event_table_row = event_table_row[0]
+    obj_id_L, obj_id_S = event_table_row.name
+    event_table_row = event_table_row.to_frame().T
+    event_table_row['obj_id_L'] = obj_id_L
+    event_table_row['obj_id_S'] = obj_id_S
+    event_table_row = Table.from_pandas(event_table_row)
+
+    comp_table_rows = Table.from_pandas(comp_table_rows)
+
     lightcurve_parameters = []
     max_delta_m = np.nan
     if event_type == 'BSBL':
@@ -5650,10 +5663,11 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             for comp_idx_L in comp_idxs_L:
                 global_comp_idx_L = comp_table_rows['companion_idx'][comp_idx_L]
                 name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(global_comp_idx_L, global_comp_idx_S)
-                model_parameter_dict, _, _ = get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
+                model_parameter_dict, _, _, model_name = lightcurves.get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
                                                                       photometric_system, filter_name, red_law, event_id = 0)
-                model = bsbl_model_gen(model_parameter_dict)
-                param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx_L, global_comp_idx_S]), 
+                mod_class = getattr(model, model_name)
+                mod = mod_class(**model_parameter_dict)
+                param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx_L, global_comp_idx_S]), 
                                                       obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
                 lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx_L], 
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx_S], 'class' : event_type}
@@ -5668,9 +5682,11 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         for comp_idx in range(len(comp_table_rows)):
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
             name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(global_comp_idx)
-            model_parameter_dict, _, _ = get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, event_id = 0)
-            model = psbl_model_gen(model_parameter_dict)
-            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            model_parameter_dict, _, _, model_name = lightcurves.get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx,
+                                                                                                photometric_system, filter_name, event_id = 0)
+            mod_class = getattr(model, model_name)
+            mod = mod_class(**model_parameter_dict)
+            param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx], 
                                    'companion_id_S' : np.nan, 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
@@ -5682,9 +5698,11 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
         for comp_idx in range(len(comp_table_rows)):
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
             name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(global_comp_idx)
-            model_parameter_dict, _, _ = get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, photometric_system, filter_name, red_law, event_id = 0)
-            model = bspl_model_gen(model_parameter_dict)
-            param_dict = lightcurve_parameter_gen(model, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            model_parameter_dict, _, _, model_name = lightcurves.get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, 
+                                                                                                photometric_system, filter_name, red_law, event_id = 0)
+            mod_class = getattr(model, model_name)
+            mod = mod_class(**model_parameter_dict)
+            param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan,
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
@@ -5918,398 +5936,6 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
         param_dict['mp_rows'] = rows
         
     return param_dict
-
-def get_psbl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, event_id = None):
-    """
-    Find the parameters for PSBL_PhotAstrom_Par_Param7 from 
-    event_table and comp_table.
-
-    Parameters
-    ----------
-    event_table : Astropy table
-        Table containing the events calculated from refine_events.
-    
-    comp_table : Astropy table
-        Table containing the companions calculated from refine_events.
-    
-    comp_idx : int
-        Index into the comp_table of the companion for which the psbl is being calculated.
-    
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-    
-    event_id : float or None, optional
-        Corresponding event_id in event_table to companion id.
-        Default is None.
-        
-    Returns
-    -------
-    psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters
-        
-    obj_id_L : int
-        Object id of the lens associated with event
-        
-    obj_id_S : int
-        Object id of the source associated with event
-        
-    """
-    obj_id_L = comp_table['obj_id_L'][comp_idx]
-    obj_id_S = comp_table['obj_id_S'][comp_idx]
-    
-    if event_id is None:
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
-        
-    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
-                            pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
-                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
-    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
-                            pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
-                              pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
-    
-#    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
-#    mag_lens_sec = calc_app_mag(event_table[event_id]['rad_L'], abs_mag_sec, event_table[event_id]['exbv_L'], f_i)
-#    mag_lens_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_L' % (photometric_system, filter_name)], mag_lens_sec)
-#
-    raL = L_coords.icrs.ra.value # Lens R.A.
-    decL = L_coords.icrs.dec.value # Lens dec
-    mL1 = event_table[event_id]['mass_L'] # msun (Primary lens current mass)
-    mL2 = comp_table['mass'][comp_idx] # msun (Companion lens current mass)
-    t0 = event_table[event_id]['t0'] # mjd
-    xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
-    beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
-    muL = np.array([L_coords.icrs.pm_ra_cosdec.value, L_coords.icrs.pm_dec.value]) #lens proper motion mas/year
-    muS = np.array([S_coords.icrs.pm_ra_cosdec.value, S_coords.icrs.pm_dec.value]) #source proper motion mas/year
-    dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
-    dS = event_table[event_id]['rad_S']*10**3 #Distance to source
-    sep = comp_table['sep'][comp_idx] #mas (separation between primary and companion)
-    alpha = comp_table['alpha'][comp_idx]
-    mag_src = event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)]
-    b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES ALL BINARY LENSES ARE BLENDED
-    dmag_Lp_Ls = 20 #mag_lens_pri - mag_lens_sec
-    model_name = 'PSBL_PhotAstrom_Par_Param7'
-    
-    psbl_parameter_dict = {'raL': raL, 'decL': decL, 'mL1': mL1, 'mL2': mL2, 
-                           't0': t0, 'xS0': xS0, 'beta': beta, 'muL': muL, 
-                           'muS': muS, 'dL': dL, 'dS': dS, 'sep': sep, 
-                           'alpha': alpha, 'mag_src': mag_src, 'b_sff': b_sff, 
-                           'dmag_Lp_Ls' : dmag_Lp_Ls, 'model': model_name}
-    return psbl_parameter_dict, obj_id_L, obj_id_S
-    
-
-def psbl_model_gen(psbl_parameter_dict):
-    """
-    Generate psbl_photastrom_par_param1 model from parameter dict
-    
-    Parameters
-    ----------
-    psbl_parameter_dict : dict
-        Dictionary of the PSBL_PhotAstrom_Par_Param7 parameters 
-        
-    Returns
-    -------
-    psbl model
-    """
-    ##########
-    # Calculate binary model and photometry
-    ##########
-    raL = psbl_parameter_dict['raL'] # Lens R.A.
-    decL = psbl_parameter_dict['decL'] # Lens dec
-    mL1 = psbl_parameter_dict['mL1'] # msun (Primary lens current mass)
-    mL2 = psbl_parameter_dict['mL2'] # msun (Companion lens current mass)
-    t0 = psbl_parameter_dict['t0'] # mjd
-    xS0 = psbl_parameter_dict['xS0'] #arbitrary offset (arcsec)
-    beta = psbl_parameter_dict['beta']
-    muL = psbl_parameter_dict['muL'] #lens proper motion mas/year
-    muS = psbl_parameter_dict['muS'] #source proper motion mas/year
-    dL = psbl_parameter_dict['dL'] #Distance to lens
-    dS = psbl_parameter_dict['dS'] #Distance to source
-    sep = psbl_parameter_dict['sep'] #mas (separation between primary and companion)
-    alpha = psbl_parameter_dict['alpha']
-    mag_src = psbl_parameter_dict['mag_src']
-    b_sff = psbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
-    dmag_Lp_Ls = psbl_parameter_dict['dmag_Lp_Ls']
-
-    psbl = model.PSBL_PhotAstrom_Par_Param7(mL1, mL2, t0, xS0[0], xS0[1],
-                               beta, muL[0], muL[1], muS[0], muS[1], dL, dS,
-                               sep, alpha, [b_sff], [mag_src], [dmag_Lp_Ls],
-                               raL=raL, decL=decL, 
-                               root_tol = 0.00000001)
-    return psbl
-
-
-def get_bspl_lightcurve_parameters(event_table, comp_table, comp_idx, photometric_system, filter_name, red_law, event_id = None):
-    """
-    Find the parameters for BSPL_PhotAstrom_Par_Param1 from 
-    event_table and comp_table.
-
-    Parameters
-    ----------
-    event_table : Astropy table
-        Table containing the events calculated from refine_events.
-    
-    comp_table : Astropy table
-        Table containing the companions calculated from refine_events.
-    
-    comp_idx : int
-        Index into the comp_table of the companion for which the psbl is being calculated.
-    
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-    
-    red_law : str
-        Redenning law
-    
-    event_id : float or None, optional
-        Corresponding event_id in event_table to companion id
-        
-    Returns
-    -------
-    bspl_parameter_dict : dict
-        Dictionary of the BSPL_PhotAstrom_Par_Param1 parameters
-        
-    obj_id_L : int
-        Object id of the lens associated with event
-        
-    obj_id_S : int
-        Object id of the source associated with event
-        
-    """
-    obj_id_L = comp_table['obj_id_L'][comp_idx]
-    obj_id_S = comp_table['obj_id_S'][comp_idx]
-    
-    if event_id is None:
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
-    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
-                            pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
-                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')
-    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
-                            pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
-                              pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
-    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx]
-    
-    raL = L_coords.icrs.ra.value # Lens R.A.
-    decL = L_coords.icrs.dec.value # Lens dec
-    mL = event_table[event_id]['mass_L'] # msun (Lens current mass)
-    t0 = event_table[event_id]['t0'] # mjd
-    beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
-    dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
-    dL_dS = dL/(event_table[event_id]['rad_S']*10**3) #Distance to lens/Distance to source
-    xS0 = np.array([0, 0]) #arbitrary offset (arcsec)
-    muL_E = L_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
-    muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
-    muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
-    muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
-    sep = comp_table['sep'][comp_idx] #mas (separation between primary and companion)
-    alpha = comp_table['alpha'][comp_idx]
-    mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
-    mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
-    b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
-    model_name = 'BSPL_PhotAstrom_Par_Param1'
-    
-    bspl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mL': mL,
-                           't0': t0, 'xS0': xS0, 'beta': beta, 
-                           'muL_E': muL_E, 'muL_N': muL_N, 'muS_E': muS_E, 'muS_N': muS_N,
-                           'dL': dL, 'dL_dS': dL_dS, 'sep': sep, 
-                           'alpha': alpha, 'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 
-                           'b_sff': b_sff}
-    
-    return bspl_parameter_dict, obj_id_L, obj_id_S
-
-def bspl_model_gen(bspl_parameter_dict):
-    """
-    Generate bspl_photastrom_par_param1 model from parameter dict
-    
-    Parameters
-    ----------
-    bspl_parameter_dict : dict
-        Dictionary of the BSPL_PhotAstrom_Par_Param1 parameters 
-        
-    Returns
-    -------
-    bspl model
-    """
-    ##########
-    # Calculate binary model and photometry
-    ##########
-    raL = bspl_parameter_dict['raL'] # Lens R.A.
-    decL = bspl_parameter_dict['decL'] # Lens dec
-    mL = bspl_parameter_dict['mL'] # msun (Lens current mass)
-    t0 = bspl_parameter_dict['t0'] # mjd
-    beta = bspl_parameter_dict['beta']
-    dL = bspl_parameter_dict['dL'] #Distance to lens
-    dL_dS = bspl_parameter_dict['dL_dS'] #Distance to lens/Distance to source
-    xS0 = bspl_parameter_dict['xS0'] #arbitrary offset (arcsec)
-    muL_E = bspl_parameter_dict['muL_E'] #lens proper motion mas/year
-    muL_N = bspl_parameter_dict['muL_N'] #lens proper motion mas/year
-    muS_E = bspl_parameter_dict['muS_E'] #lens proper motion mas/year
-    muS_N = bspl_parameter_dict['muS_N'] #lens proper motion mas/year
-    sep = bspl_parameter_dict['sep'] #mas (separation between primary and companion)
-    alpha = bspl_parameter_dict['alpha']
-    mag_src_sec = bspl_parameter_dict['mag_src_sec']
-    mag_src_pri = bspl_parameter_dict['mag_src_pri']
-    b_sff = bspl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
-
-    bspl = model.BSPL_PhotAstrom_Par_Param1(mL, t0, beta, dL, dL_dS, 
-                                   xS0[0], xS0[1], muL_E, muL_N, muS_E, muS_N,
-                                   sep, alpha, [mag_src_pri], [mag_src_sec], [b_sff],
-                                   raL=raL, decL=decL)
-    
-    return bspl
-
-def get_bsbl_lightcurve_parameters(event_table, comp_table, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law, event_id = None):
-    """
-    Find the parameters for BSPL_PhotAstrom_Par_Param2 from 
-    event_table and comp_table.
-
-    Parameters
-    ----------
-    event_table : Astropy table
-        Table containing the events calculated from refine_events.
-    
-    comp_table : Astropy table
-        Table containing the companions calculated from refine_events.
-    
-    comp_idx_L : int
-        Index into the comp_table of the lens companion for which the model is being calculated.
-        
-    comp_idx_S : int
-        Index into the comp_table of the source companion for which the model is being calculated.
-    
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
-    
-    red_law : str
-        Redenning law
-        
-    event_id : float or None, optional
-        Corresponding event_id in event_table to companion id.
-        Default is None.
-        
-    Returns
-    -------
-    bsbl_parameter_dict : dict
-        Dictionary of the BSBL_PhotAstrom_Par_Param2 parameters
-        
-    obj_id_L : int
-        Object id of the lens associated with event
-        
-    obj_id_S : int
-        Object id of the source associated with event
-        
-    """
-    obj_id_L = comp_table['obj_id_L'][comp_idx_L] # This is equivalent to doing comp_idx_S
-    obj_id_S = comp_table['obj_id_S'][comp_idx_S]
-
-    if event_id is None:
-        event_id = (np.where(np.logical_and((event_table['obj_id_L'] == obj_id_L), (event_table['obj_id_S'] == obj_id_S)))[0])[0]
-    
-    L_coords = SkyCoord(l = event_table[event_id]['glon_L']*unit.degree, b = event_table[event_id]['glat_L']*unit.degree, 
-                            pm_l_cosb = event_table[event_id]['mu_lcosb_L']*unit.mas/unit.year, 
-                            pm_b = event_table[event_id]['mu_b_L']*unit.mas/unit.year, frame ='galactic')    
-    S_coords = SkyCoord(l = event_table[event_id]['glon_S']*unit.degree, b = event_table[event_id]['glat_S']*unit.degree, 
-                            pm_l_cosb = event_table[event_id]['mu_lcosb_S']*unit.mas/unit.year, 
-                              pm_b = event_table[event_id]['mu_b_S']*unit.mas/unit.year, frame ='galactic')
-
-    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = comp_table['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
-
-    raL = L_coords.icrs.ra.value # Lens R.A.
-    decL = L_coords.icrs.dec.value # Lens dec
-    mLp = event_table[event_id]['mass_L'] # msun (Lens current mass)
-    mLs = comp_table['mass'][comp_idx_L] # msun (Companion lens current mass)
-    t0 = event_table[event_id]['t0'] # mjd
-    beta = event_table[event_id]['u0']*event_table[event_id]['theta_E']#5.0
-    dL = event_table[event_id]['rad_L']*10**3 #Distance to lens
-    dS = event_table[event_id]['rad_S']*10**3 #Distance to source
-    xS0_E = 0.0 #arbitrary offset (arcsec)
-    xS0_N = 0.0 #arbitrary offset (arcsec)
-    muL_E = L_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
-    muL_N = L_coords.icrs.pm_dec.value #lens proper motion mas/year
-    muS_E = S_coords.icrs.pm_ra_cosdec.value #lens proper motion mas/year
-    muS_N = S_coords.icrs.pm_dec.value #lens proper motion mas/year
-    sepL = comp_table['sep'][comp_idx_L] #mas (separation between primary and companion)
-    alphaL = comp_table['alpha'][comp_idx_L] # PA of binary on the sky
-    sepS = comp_table['sep'][comp_idx_S] #mas (separation between primary and companion)
-    alphaS = comp_table['alpha'][comp_idx_S] # PA of source binary on the sky
-    mag_src_sec = calc_app_mag(event_table[event_id]['rad_S'], abs_mag_sec, event_table[event_id]['exbv_S'], f_i)
-    mag_src_pri = binary_utils.subtract_magnitudes(event_table[event_id]['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
-    b_sff = event_table[event_id]['f_blend_%s' % filter_name] #ASSUMES THAT SOURCE BINARIES ARE BLENDED
-    dmag_Lp_Ls = 20 #FIXME
-    model_name = 'BSBL_PhotAstrom_Par_Param2'
-    
-    bsbl_parameter_dict = {'model': model_name, 'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
-                           't0': t0, 'xS0_E': xS0_E, 'xS0_N': xS0_N, 'beta': beta, 
-                           'muL_E': muL_E, 'muL_N': muL_N, 'muS_E': muS_E, 'muS_N': muS_N,
-                           'dL': dL, 'dS': dS, 'sepL': sepL, 'alphaL': alphaL, 
-                           'sepS': sepS, 'alphaS': alphaS,
-                           'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 
-                           'b_sff': b_sff, 'dmag_Lp_Ls': dmag_Lp_Ls}
-        
-    return bsbl_parameter_dict, obj_id_L, obj_id_S
-
-def bsbl_model_gen(bsbl_parameter_dict):
-    """
-    Generate bsbl_photastrom_par_param1 model from parameter dict
-    
-    Parameters
-    ----------
-    bspl_parameter_dict : dict
-        Dictionary of the BSBL_PhotAstrom_Par_Param1 parameters 
-        
-    Returns
-    -------
-    bsbl model
-    """
-    ##########
-    # Calculate binary model and photometry
-    ##########
-    raL = bsbl_parameter_dict['raL'] # Lens R.A.
-    decL = bsbl_parameter_dict['decL'] # Lens dec
-    mLp = bsbl_parameter_dict['mLp'] # msun (Lens current mass)
-    mLs = bsbl_parameter_dict['mLs'] # msun (Lens companion current mass)
-    t0 = bsbl_parameter_dict['t0'] # mjd
-    beta = bsbl_parameter_dict['beta']
-    dL = bsbl_parameter_dict['dL'] #Distance to lens
-    dS = bsbl_parameter_dict['dS'] #Distance to source
-    xS0_E = bsbl_parameter_dict['xS0_E'] #arbitrary offset (arcsec)
-    xS0_N = bsbl_parameter_dict['xS0_N'] #arbitrary offset (arcsec)
-    muL_E = bsbl_parameter_dict['muL_E'] #lens proper motion mas/year
-    muL_N = bsbl_parameter_dict['muL_N'] #lens proper motion mas/year
-    muS_E = bsbl_parameter_dict['muS_E'] #lens proper motion mas/year
-    muS_N = bsbl_parameter_dict['muS_N'] #lens proper motion mas/year
-    sepL = bsbl_parameter_dict['sepL'] #mas (separation between primary and companion)
-    alphaL = bsbl_parameter_dict['alphaL']
-    sepS = bsbl_parameter_dict['sepS'] #mas (separation between primary and companion)
-    alphaS = bsbl_parameter_dict['alphaS']
-    mag_src_sec = bsbl_parameter_dict['mag_src_sec']
-    mag_src_pri = bsbl_parameter_dict['mag_src_pri']
-    b_sff = bsbl_parameter_dict['b_sff'] #ASSUMES ALL BINARY LENSES ARE BLENDED
-    dmag_Lp_Ls = bsbl_parameter_dict['dmag_Lp_Ls']
-
-    bsbl = model.BSBL_PhotAstrom_Par_Param2(mLp, mLs, t0, xS0_E, xS0_N,
-                                              beta, muL_E, muL_N, muS_E, muS_N,
-                                              dL, dS, sepL, alphaL, sepS, alphaS,
-                                              mag_src_pri, mag_src_sec, b_sff, dmag_Lp_Ls,
-                                              raL=raL, decL=decL,
-                                              root_tol=1e-4)
-    return bsbl
 
 ##################################################################
 ############ Reading/writing and format functions  ###############

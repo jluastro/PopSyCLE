@@ -50,10 +50,10 @@ from operator import itemgetter
 from popsycle import binary_utils, phot_utils, lightcurves
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
-from warnings import warn
+from warnings import warn, filterwarnings
 
 from astropy.io.fits.verify import VerifyWarning
-warnings.filterwarnings('ignore', category=VerifyWarning, append=True)
+filterwarnings('ignore', category=VerifyWarning, append=True)
 
 # Use builtin ephemris for popsycle
 solar_system_ephemeris.set('builtin')

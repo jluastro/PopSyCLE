@@ -5755,7 +5755,7 @@ def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
     """
     
     fits_file = phot_dir + '/' + name + '_phot.fits'
-    with fits.open(fits_file, 'update') as f:
+    with fits.open(fits_file, 'update', memmap=False) as f:
         hdr = f[0].header
         for key in list(model_parameter_dict.keys()):
             try:

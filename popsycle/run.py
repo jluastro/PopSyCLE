@@ -711,7 +711,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         if len(popsycle_config['filter_dict'])==1:
             list_ = list(popsycle_config['filter_dict'].keys())[0]
             if len(popsycle_config['filter_dict'][list_]) == 1:
-                photometric_system = popsycle_config['filter_dict'].keys[0]
+                photometric_system = list(popsycle_config['filter_dict'].keys())[0]
                 filter_name = popsycle_config['filter_dict'][photometric_system]
                 refined_events_filename = '{0:s}_refined_events_' \
                                           '{1:s}_{2:s}_{3:s}.' \
@@ -721,9 +721,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                                         popsycle_config['red_law'])
         refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
+        photometric_system = list(popsycle_config['filter_dict'].keys())[0]
+        filter_name = popsycle_config['filter_dict'][photometric_system][0]
         _check_refine_binary_events(events=refined_events_filename,
                                     companions=refined_events_comp_filename,
-                                    filter_name=filt_name,
+                                    filter_name=filter_name,
                                     photometric_system=photometric_system,
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,

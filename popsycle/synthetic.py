@@ -44,6 +44,7 @@ import astropy.constants as const
 from popsycle import orbits
 import pandas as pd
 from bagle import model
+from bagle.orbits import EccAnomalyError
 from scipy.signal import find_peaks
 from collections import Counter
 from operator import itemgetter
@@ -5669,9 +5670,14 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
                 model_parameter_dict, _, _, model_name = lightcurves.get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
                                                                       photometric_system, filter_name, red_law, event_id = 0)
                 mod_class = getattr(model, model_name)
-                mod = mod_class(**model_parameter_dict)
+                try:
+                    mod = mod_class(**model_parameter_dict)
+                    ecc_ann_convergence_fail = False
+                except EccAnomalyError:
+                    mod = None
+                    ecc_ann_convergence_fail = True
                 param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx_L, global_comp_idx_S]), 
-                                                      obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+                                                      obj_id_L, obj_id_S, ecc_ann_convergence_fail, name, save_phot, phot_dir, overwrite)
                 lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx_L], 
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx_S], 'class' : event_type}
                 lightcurve_parameters.append([param_dict, lightcurve_dict])
@@ -5688,8 +5694,14 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             model_parameter_dict, _, _, model_name = lightcurves.get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx,
                                                                                                 photometric_system, filter_name, event_id = 0)
             mod_class = getattr(model, model_name)
-            mod = mod_class(**model_parameter_dict)
-            param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            try:
+                mod = mod_class(**model_parameter_dict)
+                ecc_ann_convergence_fail = False
+            except EccAnomalyError:
+                mod = None
+                ecc_ann_convergence_fail = True
+            param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, ecc_ann_convergence_fail,
+                                                  name, save_phot, phot_dir, overwrite)
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : comp_table_rows['companion_idx'][comp_idx], 
                                    'companion_id_S' : np.nan, 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
@@ -5704,8 +5716,14 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             model_parameter_dict, _, _, model_name = lightcurves.get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, 
                                                                                                 photometric_system, filter_name, red_law, event_id = 0)
             mod_class = getattr(model, model_name)
-            mod = mod_class(**model_parameter_dict)
-            param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, name, save_phot, phot_dir, overwrite)
+            try:
+                mod = mod_class(**model_parameter_dict)
+                ecc_ann_convergence_fail = False
+            except EccAnomalyError:
+                mod = None
+                ecc_ann_convergence_fail = True
+            param_dict = lightcurve_parameter_gen(mod, model_parameter_dict, np.array([global_comp_idx]), obj_id_L, obj_id_S, ecc_ann_convergence_fail,
+                                                  name, save_phot, phot_dir, overwrite)
             lightcurve_dict = {'obj_id_L' : obj_id_L, 'obj_id_S' : obj_id_S, 'companion_id_L' : np.nan,
                                    'companion_id_S' : comp_table_rows['companion_idx'][comp_idx], 'class' : event_type}
             lightcurve_parameters.append([param_dict, lightcurve_dict])
@@ -5765,7 +5783,7 @@ def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
 
     return
 
-def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, obj_id_S,
+def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, obj_id_S, ecc_ann_convergence_fail = False,
                              name=None, save_phot=False, phot_dir=None, overwrite=False):
     """
     Find the parameters
@@ -5787,6 +5805,11 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     
     obj_id_S : int
         Object id of the source associated with event
+
+    ecc_ann_convergence_fail : bool, optional
+        If eccentric anomoly convergence has failed in BAGLE
+        saves default values for lightcurve.
+        Default is False.
     
     name : str or None, optional
         Name of fits file to be saved.
@@ -5818,6 +5841,9 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     param_dict = {'n_peaks' : 0, 'bin_delta_m' : np.nan, 'tE_sys' : np.nan, 
                   'tE_primary' : np.nan, 'primary_t' : np.nan, 'avg_t' : np.nan, 
                   'std_t' : np.nan, 'asymmetry' : np.nan, 'mp_rows' : [], 'used_lightcurve' : 0}
+    
+    if ecc_ann_convergence_fail:
+        return param_dict
 
     # Handles the case of modeling a triple source as a binary source,
     # But it's CO + CO + star and you're modeling the CO + CO pair (so no flux)

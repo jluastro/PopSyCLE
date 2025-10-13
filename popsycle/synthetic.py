@@ -52,6 +52,9 @@ from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
 from warnings import warn
 
+from astropy.io.fits.verify import VerifyWarning
+warnings.filterwarnings('ignore', category=VerifyWarning, append=True)
+
 # Use builtin ephemris for popsycle
 solar_system_ephemeris.set('builtin')
 

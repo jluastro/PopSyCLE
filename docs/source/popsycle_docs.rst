@@ -652,10 +652,10 @@ magnitude.)
 |                            |    U, I, B, V, R      |                       |
 |                            |    absolute magnitude |                       |
 +----------------------------+-----------------------+-----------------------+
-|       Optional             |    Additional         |    mag                |
+|  Optional                  |    Additional         |    mag                |
 |  photsystem_filtname       |    photometric system |                       |
-|     (_L, \_S)              |    absolute magnitude |                       |
-|<br>(see :ref:`filters`)<br>|                       |                       |
+|  (_L, \_S)                 |    absolute magnitude |                       |
+|  (see :ref:`filters`)      |                       |                       |
 +----------------------------+-----------------------+-----------------------+
 |    vr (_L, \_S)            |    Galactic radial    |    km/s               |
 |                            |    velocity           |                       |

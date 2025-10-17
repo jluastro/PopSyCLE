@@ -2,13 +2,33 @@ Change Log
 ==========
 
 =========================
+v2.0.2 (2024-12-24)
+=========================
+
+* Functions to manipulate lightcurves
+    * Generate BAGLE models and parameters given a table of events
+* HDF5 analysis utilities
+    * Return a table with lists of star systems and their RA, Dec, z position, and system apparent magnitude. This is useful for making stellar density maps, computing microlens event occurrence rates, etc.
+    * Count number of stars in hdf5 file
+    * Makes a fraction of black holes single after perform_pop_syn. This is a temporary fix since there is no binary evolution and all the black holes end up in binaries.
+* Bug Fixes
+    * Issues involving masked columns causing masked blends and magnitudes instead of nans or correctly added ones
+    * Column names of magnitudes of companion table
+
+=========================
+v2.0.1 (2024-03-12)
+=========================
+
+Small utility bug fixes
+
+=========================
 v2.0.0 (2024-01-29)
 =========================
 
 New Features:
 -------------
 * Multiplicity
-    * See Abrams et al., in prep for details
+    * See `Abrams et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025ApJ...980..103A/abstract`_
     * See `new example <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_multiples.ipynb>`_ for details of how to call functions to add multiple systems. 
         
         * run_galaxia() is not modified, but all other function calls can be optionally changed to add multiple systems.

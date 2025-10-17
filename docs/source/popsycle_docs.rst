@@ -423,9 +423,9 @@ magnitude.)
 |                       |    system absolute    |                       |
 |                       |    magnitude          |                       |
 +-----------------------+-----------------------+-----------------------+
-|  Optional             |    Additional         |    mag                |
+|  Optional             |   Additional          |    mag                |
 |  photsystem_filtname  |   photometric system  |                       |
-|  (see :ref:`filters`) |    absolute magnitude |                       |
+|  (see :ref:`filters`) |   absolute magnitude  |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr                 |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |

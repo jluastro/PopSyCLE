@@ -276,8 +276,32 @@ confusing, so here is a short guide to the basics.
 .. image:: popsycle_docs_images/media/pipeline_w_multiples.png
    :align: center
 
+.. _filters:
+
+====================
+4 Avaliabile Filters
+====================
++-----------------------+-----------------------+-----------------------+
+|    **Photometric      |    **Filters**        |    **Status**         |
+|      System**         |                       |                       |
++=======================+=======================+=======================+
+|    UBV                |  J, H, K, U,          |  Included by Default  |
+|                       |  I, B, V, R           |                       |
++-----------------------+-----------------------+-----------------------+
+|    ztf                |    g, r, i            |  Optional via grid    |
++-----------------------+-----------------------+-----------------------+
+|    rubin              |    u, g, i, r, z, y   |  Optional via grid    |
++-----------------------+-----------------------+-----------------------+
+|    roman              |  f062, f087, f106,    |  Optional via grid    |
+|                       |  f129, f158, f146,    |                       |
+|                       |  f184', f213'         |                       |
++-----------------------+-----------------------+-----------------------+
+|    sdss               |    u, g, i, r, z      |  w/ Galaxia           |
+|                       |                       |  - in progress        |
++-----------------------+-----------------------+-----------------------+
+
 ==========
-4 Outputs
+5 Outputs
 ==========
 
 In addition to the outputs described below, each function produces
@@ -399,9 +423,9 @@ magnitude.)
 |                       |    system absolute    |                       |
 |                       |    magnitude          |                       |
 +-----------------------+-----------------------+-----------------------+
-|    ztf_g, r, i        |    ztf photometric    |    mag                |
-|    (optional)         |    system g, r, i     |                       |
-|                       |    absoltue magnitude |                       |
+|   Optional            |    Additional         |    mag                |
+| photsystem_filtnmame  |   photometric system  |                       |
+|  (see :ref:`filters`) |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr                 |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |
@@ -487,8 +511,8 @@ magnitude.)
 |                       |    in filters from    |                       |
 |                       |    SPISEA system      |                       |
 +-----------------------+-----------------------+-----------------------+
-|    m_ztf_g, r, i      |    System magnitude   |    mag                |
-|                       |    in filters from    |                       |
+| m_photsystem_filtnmame|    System magnitude   |    mag                |
+| (see :ref:`filters`)  |    in filters from    |                       |
 |                       |    SPISEA system      |                       |
 +-----------------------+-----------------------+-----------------------+
 |    log_a              |    Log of the system  |    log(AU)            |
@@ -628,9 +652,9 @@ magnitude.)
 |                       |    U, I, B, V, R      |                       |
 |                       |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
-| ztf_g, r, i (_L,      |    ztf photometric    |    mag                |
-| \_S) (optional)       |    system g, r, i     |                       |
-|                       |    absoltue magnitude |                       |
+|       Optional        |    Additional         |    mag                |
+|  photsystem_filtnmame |    photometric system |                       |
+|     (_L, \_S)         |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr (_L, \_S)       |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |
@@ -774,9 +798,9 @@ magnitude.)
 |                       |    U, I, B, V, R      |                       |
 |                       |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
-|    ztf_g, r, i_N      |    ztf photometric    |    mag                |
-|    (optional)         |    system g, r, i     |                       |
-|                       |    absoltue magnitude |                       |
+|        Optional       |    Additional         |    mag                |
+| photsystem_filtnmame_N|    photometric system |                       |
+|  (see :ref:`filters`) |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr_N               |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |
@@ -1269,7 +1293,7 @@ magnitude.)
     A light curve is symmetric when k = 0.
     
 ====================
-5 Coordinate Systems
+6 Coordinate Systems
 ====================
 There are two different coordinate systems used, Heliocentric and Galactic. 
 Heliocentric coordinates are Cartesian coordinates with the sun at the origin. The positive :math:`x` axis is pointing toward the Galactic Center, and the positive :math:`z` axis is pointing toward the Galactic North Pole.

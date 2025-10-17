@@ -229,7 +229,7 @@ def add_observable_peaks_column(t_prim, t_comp_rb, t_comp_rb_mp, t_lightcurves, 
 
     return t_prim
 
-def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv_filter, S_LSN):
+def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, photometric_system, filter_name, S_LSN):
     """
     Make observational cuts on PopSyCLE runs with multiple systems
 
@@ -255,7 +255,10 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
     u0_cut : float
         Maximum u0.
 
-    ubv_filter : str
+    photometric_system : str
+        Photometric system when cutting on min_mag.
+
+    filter_name : str
         Filter name used when cutting on min_mag and delta_m_cut.
 
     S_LSN : str
@@ -275,9 +278,9 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
     """
     #S_LSN is source or baseline mag cut
     if S_LSN == 'S':
-        mag_cut = t_prim['ubv_{}_app_S'.format(ubv_filter)] <= min_mag
+        mag_cut = t_prim['{}_{}_app_S'.format(photometric_system, filter_name)] <= min_mag
     elif S_LSN == 'LSN':
-        mag_cut = t_prim['ubv_{}_app_LSN'.format(ubv_filter)] <= min_mag
+        mag_cut = t_prim['{}_{}_app_LSN'.format(photometric_system, filter_name)] <= min_mag
     
     u0_cut = np.abs(t_prim['u0']) < u0_cut
     
@@ -286,7 +289,7 @@ def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv
     assert(len(t_prim) == (sum(binary_filt) + sum(single_filt)))
 
     if delta_m_cut is not None:
-        delta_m_cut = ((t_prim['bin_delta_m'] > 0.1) & binary_filt) | ((t_prim['delta_m_{}'.format(ubv_filter)] > 0.1) & single_filt)
+        delta_m_cut = ((t_prim['bin_delta_m'] > 0.1) & binary_filt) | ((t_prim['delta_m_{}'.format(filter_name)] > 0.1) & single_filt)
         total_cut = mag_cut & u0_cut & delta_m_cut
     else:
         total_cut = mag_cut & u0_cut

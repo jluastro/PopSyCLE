@@ -294,7 +294,7 @@ confusing, so here is a short guide to the basics.
 +-----------------------+-----------------------+-----------------------+
 |    roman              |  f062, f087, f106,    |  Optional via grid    |
 |                       |  f129, f158, f146,    |                       |
-|                       |  f184', f213'         |                       |
+|                       |  f184, f213           |                       |
 +-----------------------+-----------------------+-----------------------+
 |    sdss               |    u, g, i, r, z      |  w/ Galaxia           |
 |                       |                       |  - in progress        |
@@ -424,7 +424,7 @@ magnitude.)
 |                       |    magnitude          |                       |
 +-----------------------+-----------------------+-----------------------+
 |   Optional            |    Additional         |    mag                |
-| photsystem_filtnmame  |   photometric system  |                       |
+| photsystem_filtname   |   photometric system  |                       |
 |  (see :ref:`filters`) |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr                 |    Galactic radial    |    km/s               |
@@ -511,7 +511,7 @@ magnitude.)
 |                       |    in filters from    |                       |
 |                       |    SPISEA system      |                       |
 +-----------------------+-----------------------+-----------------------+
-| m_photsystem_filtnmame|    System magnitude   |    mag                |
+| m_photsystem_filtname |    System magnitude   |    mag                |
 | (see :ref:`filters`)  |    in filters from    |                       |
 |                       |    SPISEA system      |                       |
 +-----------------------+-----------------------+-----------------------+
@@ -653,8 +653,9 @@ magnitude.)
 |                       |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |       Optional        |    Additional         |    mag                |
-|  photsystem_filtnmame |    photometric system |                       |
+|  photsystem_filtname  |    photometric system |                       |
 |     (_L, \_S)         |    absolute magnitude |                       |
+|   (see :ref:`filters`)|                       |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr (_L, \_S)       |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |
@@ -799,7 +800,7 @@ magnitude.)
 |                       |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |        Optional       |    Additional         |    mag                |
-| photsystem_filtnmame_N|    photometric system |                       |
+| photsystem_filtname_N |    photometric system |                       |
 |  (see :ref:`filters`) |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr_N               |    Galactic radial    |    km/s               |

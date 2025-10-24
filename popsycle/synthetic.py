@@ -3080,6 +3080,22 @@ def _make_companions_table(cluster, star_dict, co_dict,
                     star_dict['roman_f184'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f184'][group_companions_system_idxs], companions_system_m_roman_f184])
                     star_dict['roman_f213'][group_companions_system_idxs] = binary_utils.add_magnitudes([star_dict['roman_f213'][group_companions_system_idxs], companions_system_m_roman_f213])
             
+            # Removes unused columns to conserve memory.
+            keep_columns = ['system_idx', 'zams_mass', 'Teff', 'L', 'logg', 'isWR', 'mass', 'phase', 'metallicity',
+                            'm_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U', 'm_ubv_V', 'm_ukirt_H', 'm_ukirt_J', 'm_ukirt_K',
+                            'log_a', 'e', 'i', 'Omega', 'omega']
+
+            if additional_photometric_systems is not None:
+                if 'ztf' in additional_photometric_systems:
+                    keep_columns += ['m_ztf_g', 'm_ztf_r', 'm_ztf_i']
+                if 'sdss' in additional_photometric_systems:
+                    keep_columns += ['m_sdss_u', 'm_sdss_g', 'm_sdss_r', 'm_sdss_i', 'm_sdss_z']
+                if 'rubin' in additional_photometric_systems:
+                    keep_columns += ['m_rubin_u', 'm_rubin_g', 'm_rubin_r', 'm_rubin_i', 'm_rubin_z', 'm_rubin_y']
+                if 'roman' in additional_photometric_systems:
+                    keep_columns += ['m_roman_f062', 'm_roman_f087', 'm_roman_f106', 'm_roman_f129', 'm_roman_f158', 'm_roman_f146', 'm_roman_f184', 'm_roman_f213']
+            companions_table.keep_columns(keep_columns)
+            
             assert(len(companions_table) == np.sum(star_dict['N_companions']))
             # Switch companion table to point to obj_id instead of idx
             companions_table['system_idx'] = star_dict['obj_id'][companions_table['system_idx']]

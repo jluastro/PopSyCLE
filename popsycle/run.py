@@ -686,6 +686,9 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
             additional_photometric_systems += [photometric_system]
     if additional_photometric_systems == []:
         additional_photometric_systems = None
+    
+    # Return the dictionary containing PopSyCLE output filenames
+    filename_dict = _return_filename_dict(output_root, popsycle_config['filter_dict'], popsycle_config['red_law'], multiplicity)
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)

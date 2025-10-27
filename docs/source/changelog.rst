@@ -28,7 +28,7 @@ v2.0.0 (2024-01-29)
 New Features:
 -------------
 * Multiplicity
-    * See `Abrams et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025ApJ...980..103A/abstract`_
+    * See `Abrams et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025ApJ...980..103A/abstract>`_
     * See `new example <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_multiples.ipynb>`_ for details of how to call functions to add multiple systems. 
         
         * run_galaxia() is not modified, but all other function calls can be optionally changed to add multiple systems.

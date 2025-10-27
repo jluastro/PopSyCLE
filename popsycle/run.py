@@ -1183,15 +1183,15 @@ def run(output_root='root0',
         print('-- Executing make_bhs_single')
         photometric_system_dict = phot_utils.make_photometric_system_dict()
         phots = ['ubv_'+ filt for filt in photometric_system_dict['ubv']]
-        for system in additional_photometric_systems:
-            phots += [system+'_'+filt for filt in photometric_system_dict[system]]
+        if additional_photometric_systems is not None: 
+            for system in additional_photometric_systems:
+                phots += [system+'_'+filt for filt in photometric_system_dict[system]]
         try:
             binary_utils.make_bhs_single(
                 filename_dict['hdf5_filename'],
                 filename_dict['hdf5_companions_filename'],
                 popsycle_config['bbh_frac'],
                 phots = phots)
-                #FIXME TAKE PHOTO DICT)
         except:
              binary_utils.make_bhs_single(
                 filename_dict['hdf5_filename'],
@@ -1199,7 +1199,6 @@ def run(output_root='root0',
                 popsycle_config['bbh_frac'],
                 symlink_aux_files = False,
                 phots = phots)
-                #FIXME TAKE PHOTO DICT)   
             
             
 

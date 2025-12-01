@@ -158,7 +158,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
                 # Get the individual companions associated with this used lightcurve.
                 comps_i_all = grouped_comps.get_group(index_i)
                 comps_i = comps_i_all.loc[(comps_i_all['companion_idx'] == lcurve_i['companion_id_L']) |
-                                      (comps_i_all['companion_idx'] == lcurve_i['companion_id_S'])]
+                                          (comps_i_all['companion_idx'] == lcurve_i['companion_id_S'])]
                 comps_i = Table.from_pandas(comps_i)
 
             except KeyError:

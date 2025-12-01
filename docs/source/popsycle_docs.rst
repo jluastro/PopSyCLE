@@ -276,8 +276,32 @@ confusing, so here is a short guide to the basics.
 .. image:: popsycle_docs_images/media/pipeline_w_multiples.png
    :align: center
 
+.. _filters:
+
+====================
+4 Avaliabile Filters
+====================
++-----------------------+-----------------------+-----------------------+
+|    **Photometric      |    **Filters**        |    **Status**         |
+|      System**         |                       |                       |
++=======================+=======================+=======================+
+|    UBV                |  J, H, K, U,          |  Included by Default  |
+|                       |  I, B, V, R           |                       |
++-----------------------+-----------------------+-----------------------+
+|    ztf                |    g, r, i            |  Optional via grid    |
++-----------------------+-----------------------+-----------------------+
+|    rubin              |    u, g, i, r, z, y   |  Optional via grid    |
++-----------------------+-----------------------+-----------------------+
+|    roman              |  f062, f087, f106,    |  Optional via grid    |
+|                       |  f129, f158, f146,    |                       |
+|                       |  f184, f213           |                       |
++-----------------------+-----------------------+-----------------------+
+|    sdss               |    u, g, i, r, z      |  w/ Galaxia           |
+|                       |                       |  - in progress        |
++-----------------------+-----------------------+-----------------------+
+
 ==========
-4 Outputs
+5 Outputs
 ==========
 
 In addition to the outputs described below, each function produces
@@ -399,9 +423,9 @@ magnitude.)
 |                       |    system absolute    |                       |
 |                       |    magnitude          |                       |
 +-----------------------+-----------------------+-----------------------+
-|    ztf_g, r, i        |    ztf photometric    |    mag                |
-|    (optional)         |    system g, r, i     |                       |
-|                       |    absoltue magnitude |                       |
+|  Optional             |   Additional          |    mag                |
+|  photsystem_filtname  |   photometric system  |                       |
+|  (see :ref:`filters`) |   absolute magnitude  |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr                 |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |
@@ -487,8 +511,8 @@ magnitude.)
 |                       |    in filters from    |                       |
 |                       |    SPISEA system      |                       |
 +-----------------------+-----------------------+-----------------------+
-|    m_ztf_g, r, i      |    System magnitude   |    mag                |
-|                       |    in filters from    |                       |
+| m_photsystem_filtname |    System magnitude   |    mag                |
+| (see :ref:`filters`)  |    in filters from    |                       |
 |                       |    SPISEA system      |                       |
 +-----------------------+-----------------------+-----------------------+
 |    log_a              |    Log of the system  |    log(AU)            |
@@ -540,126 +564,127 @@ magnitude.)
     
        Default name: *root*\ \_events.fits
 
-+-----------------------+-----------------------+-----------------------+
-|    **Tag name**       |    **Brief            |    **Units**          |
-|                       |    Description**      |                       |
-+=======================+=======================+=======================+
-|    zams_mass (_L,     |    ZAMS mass          |    M⊙                 |
-|    \_S)               |                       |                       |
-+-----------------------+-----------------------+-----------------------+
-|    mass (_L, \_S)     |    Current mass       |    M⊙                 |
-+-----------------------+-----------------------+-----------------------+
-|    systemMass (_L,    |    Sum of mass of     |    M⊙                 |
-|    \_S)               |    primary and        |                       |
-|                       |    companions (if     |                       |
-|                       |    existent)          |                       |
-+-----------------------+-----------------------+-----------------------+
-|    px (_L, \_S)       |    Heliocentric x     |    kpc                |
-|                       |    position           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    py (_L, \_S)       |    Heliocentric y     |    kpc                |
-|                       |    position           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    pz (_L, \_S)       |    Heliocentric z     |    kpc                |
-|                       |    position           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    vx (_L, \_S)       |    Heliocentric x     |    km/s               |
-|                       |    velocity           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    vy (_L, \_S)       |    Heliocentric y     |    km/s               |
-|                       |    velocity           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    vz (_L, \_S)       |    Heliocentric z     |    km/s               |
-|                       |    velocity           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    age (_L, \_S)      |    Age                |    log(age/yr)        |
-+-----------------------+-----------------------+-----------------------+
-|    popid (_L, \_S)    |    Population ID -    |    N/A                |
-|                       |    integer indicating |                       |
-|                       |    the population     |                       |
-|                       |    type ranging from  |                       |
-|                       |    0 to 9             |                       |
-+-----------------------+-----------------------+-----------------------+
-|    exbv (_L, \_S)     |    Extinction E(B-V)  |    mag                |
-|                       |    at the location of |                       |
-|                       |    star given by 3-D  |                       |
-|                       |    Schlegel           |                       |
-|                       |    extinction maps    |                       |
-+-----------------------+-----------------------+-----------------------+
-|    glat (_L, \_S)     |    Galactic latitude  |    deg                |
-+-----------------------+-----------------------+-----------------------+
-|    glon (_L, \_S)     |    Galactic longitude |    deg                |
-+-----------------------+-----------------------+-----------------------+
-|    mbol (_L, \_S)     |    Bolometric         |    log(L/L⊙)          |
-|                       |    magnitude          |                       |
-+-----------------------+-----------------------+-----------------------+
-|    grav (_L, \_S)     |    Surface gravity    |    log(gravity)       |
-+-----------------------+-----------------------+-----------------------+
-|    teff (_L, \_S)     |    Effective          |    Log(T/Kelvin)      |
-|                       |    temperature        |                       |
-+-----------------------+-----------------------+-----------------------+
-|    feh (_L, \_S)      |    Metallicity        |    [Fe/H]             |
-+-----------------------+-----------------------+-----------------------+
-|    rad (_L, \_S)      |    Galactic radial    |    kpc                |
-|                       |    distance           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    isMultiple (_L,    |    True if the system |    N/A                |
-|    \_S)               |    has companions,    |                       |
-|                       |    False if the       |                       |
-|                       |    system does not    |                       |
-+-----------------------+-----------------------+-----------------------+
-|    N_companions (_L,  |    Number of          |    N/A                |
-|    \_S)               |    companions         |                       |
-+-----------------------+-----------------------+-----------------------+
-|    rem_id (_L, \_S)   |    Integer indicating |    N/A                |
-|                       |    the remnant object |                       |
-|                       |    type (more details |                       |
-|                       |    in tag             |                       |
-|                       |    description)       |                       |
-+-----------------------+-----------------------+-----------------------+
-|    obj_id (_L, \_S)   |    Object ID-- unique |    N/A                |
-|                       |    integer to         |                       |
-|                       |    identify           |                       |
-|                       |    star/compact       |                       |
-|                       |    object             |                       |
-+-----------------------+-----------------------+-----------------------+
-|    ubv_J, H, K, U, I, |    UBV photometric    |    mag                |
-|    B, V, R (_L, \_S)  |    system, J, H, K,   |                       |
-|                       |    U, I, B, V, R      |                       |
-|                       |    absolute magnitude |                       |
-+-----------------------+-----------------------+-----------------------+
-| ztf_g, r, i (_L,      |    ztf photometric    |    mag                |
-| \_S) (optional)       |    system g, r, i     |                       |
-|                       |    absoltue magnitude |                       |
-+-----------------------+-----------------------+-----------------------+
-|    vr (_L, \_S)       |    Galactic radial    |    km/s               |
-|                       |    velocity           |                       |
-+-----------------------+-----------------------+-----------------------+
-|    mu_b (_L, \_S)     |    Galactic proper    |    mas/yr             |
-|                       |    motion, b          |                       |
-|                       |    component          |                       |
-+-----------------------+-----------------------+-----------------------+
-|    mu_lcosb (_L, \_S) |    Galactic proper    |    mas/yr             |
-|                       |    motion, l          |                       |
-|                       |    component          |                       |
-+-----------------------+-----------------------+-----------------------+
-|    theta_E            |    (Angular) Einstein |    mas                |
-|                       |    radius             |                       |
-+-----------------------+-----------------------+-----------------------+
-|    mu_rel             |    Relative           |    mas/yr             |
-|                       |    source-lens proper |                       |
-|                       |    motion             |                       |
-+-----------------------+-----------------------+-----------------------+
-|    u0                 |    (Unitless) minimum |    | dimensionless    |
-|                       |    source-lens        |    | (normalized to   |
-|                       |    separation,        |      θE)              |
-|                       |    *during* the       |                       |
-|                       |    survey             |                       |
-+-----------------------+-----------------------+-----------------------+
-|    t0                 | Time at which minimum |    days               |
-|                       | source-lens           |                       |
-|                       | separation occurs     |                       |
-+-----------------------+-----------------------+-----------------------+
++----------------------------+-----------------------+-----------------------+
+|    **Tag name**            |    **Brief            |    **Units**          |
+|                            |    Description**      |                       |
++============================+=======================+=======================+
+|    zams_mass (_L,          |    ZAMS mass          |    M⊙                 |
+|    \_S)                    |                       |                       |
++----------------------------+-----------------------+-----------------------+
+|    mass (_L, \_S)          |    Current mass       |    M⊙                 |
++----------------------------+-----------------------+-----------------------+
+|    systemMass (_L,         |    Sum of mass of     |    M⊙                 |
+|    \_S)                    |    primary and        |                       |
+|                            |    companions (if     |                       |
+|                            |    existent)          |                       |
++----------------------------+-----------------------+-----------------------+
+|    px (_L, \_S)            |    Heliocentric x     |    kpc                |
+|                            |    position           |                       |
++----------------------------+-----------------------+-----------------------+
+|    py (_L, \_S)            |    Heliocentric y     |    kpc                |
+|                            |    position           |                       |
++----------------------------+-----------------------+-----------------------+
+|    pz (_L, \_S)            |    Heliocentric z     |    kpc                |
+|                            |    position           |                       |
++----------------------------+-----------------------+-----------------------+
+|    vx (_L, \_S)            |    Heliocentric x     |    km/s               |
+|                            |    velocity           |                       |
++----------------------------+-----------------------+-----------------------+
+|    vy (_L, \_S)            |    Heliocentric y     |    km/s               |
+|                            |    velocity           |                       |
++----------------------------+-----------------------+-----------------------+
+|    vz (_L, \_S)            |    Heliocentric z     |    km/s               |
+|                            |    velocity           |                       |
++----------------------------+-----------------------+-----------------------+
+|    age (_L, \_S)           |    Age                |    log(age/yr)        |
++----------------------------+-----------------------+-----------------------+
+|    popid (_L, \_S)         |    Population ID -    |    N/A                |
+|                            |    integer indicating |                       |
+|                            |    the population     |                       |
+|                            |    type ranging from  |                       |
+|                            |    0 to 9             |                       |
++----------------------------+-----------------------+-----------------------+
+|    exbv (_L, \_S)          |    Extinction E(B-V)  |    mag                |
+|                            |    at the location of |                       |
+|                            |    star given by 3-D  |                       |
+|                            |    Schlegel           |                       |
+|                            |    extinction maps    |                       |
++----------------------------+-----------------------+-----------------------+
+|    glat (_L, \_S)          |    Galactic latitude  |    deg                |
++----------------------------+-----------------------+-----------------------+
+|    glon (_L, \_S)          |    Galactic longitude |    deg                |
++----------------------------+-----------------------+-----------------------+
+|    mbol (_L, \_S)          |    Bolometric         |    log(L/L⊙)          |
+|                            |    magnitude          |                       |
++----------------------------+-----------------------+-----------------------+
+|    grav (_L, \_S)          |    Surface gravity    |    log(gravity)       |
++----------------------------+-----------------------+-----------------------+
+|    teff (_L, \_S)          |    Effective          |    Log(T/Kelvin)      |
+|                            |    temperature        |                       |
++----------------------------+-----------------------+-----------------------+
+|    feh (_L, \_S)           |    Metallicity        |    [Fe/H]             |
++----------------------------+-----------------------+-----------------------+
+|    rad (_L, \_S)           |    Galactic radial    |    kpc                |
+|                            |    distance           |                       |
++----------------------------+-----------------------+-----------------------+
+|    isMultiple (_L,         |    True if the system |    N/A                |
+|    \_S)                    |    has companions,    |                       |
+|                            |    False if the       |                       |
+|                            |    system does not    |                       |
++----------------------------+-----------------------+-----------------------+
+|    N_companions (_L,       |    Number of          |    N/A                |
+|    \_S)                    |    companions         |                       |
++----------------------------+-----------------------+-----------------------+
+|    rem_id (_L, \_S)        |    Integer indicating |    N/A                |
+|                            |    the remnant object |                       |
+|                            |    type (more details |                       |
+|                            |    in tag             |                       |
+|                            |    description)       |                       |
++----------------------------+-----------------------+-----------------------+
+|    obj_id (_L, \_S)        |    Object ID-- unique |    N/A                |
+|                            |    integer to         |                       |
+|                            |    identify           |                       |
+|                            |    star/compact       |                       |
+|                            |    object             |                       |
++----------------------------+-----------------------+-----------------------+
+|    ubv_J, H, K, U, I,      |    UBV photometric    |    mag                |
+|    B, V, R (_L, \_S)       |    system, J, H, K,   |                       |
+|                            |    U, I, B, V, R      |                       |
+|                            |    absolute magnitude |                       |
++----------------------------+-----------------------+-----------------------+
+|  Optional                  |    Additional         |    mag                |
+|  photsystem_filtname       |    photometric system |                       |
+|  (_L, \_S)                 |    absolute magnitude |                       |
+|  (see :ref:`filters`)      |                       |                       |
++----------------------------+-----------------------+-----------------------+
+|    vr (_L, \_S)            |    Galactic radial    |    km/s               |
+|                            |    velocity           |                       |
++----------------------------+-----------------------+-----------------------+
+|    mu_b (_L, \_S)          |    Galactic proper    |    mas/yr             |
+|                            |    motion, b          |                       |
+|                            |    component          |                       |
++----------------------------+-----------------------+-----------------------+
+|    mu_lcosb (_L, \_S)      |    Galactic proper    |    mas/yr             |
+|                            |    motion, l          |                       |
+|                            |    component          |                       |
++----------------------------+-----------------------+-----------------------+
+|    theta_E                 |    (Angular) Einstein |    mas                |
+|                            |    radius             |                       |
++----------------------------+-----------------------+-----------------------+
+|    mu_rel                  |    Relative           |    mas/yr             |
+|                            |    source-lens proper |                       |
+|                            |    motion             |                       |
++----------------------------+-----------------------+-----------------------+
+|    u0                      |    (Unitless) minimum |    | dimensionless    |
+|                            |    source-lens        |    | (normalized to   |
+|                            |    separation,        |      θE)              |
+|                            |    *during* the       |                       |
+|                            |    survey             |                       |
++----------------------------+-----------------------+-----------------------+
+|    t0                      | Time at which minimum |    days               |
+|                            | source-lens           |                       |
+|                            | separation occurs     |                       |
++----------------------------+-----------------------+-----------------------+
 
 ..
 
@@ -774,9 +799,9 @@ magnitude.)
 |                       |    U, I, B, V, R      |                       |
 |                       |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
-|    ztf_g, r, i_N      |    ztf photometric    |    mag                |
-|    (optional)         |    system g, r, i     |                       |
-|                       |    absoltue magnitude |                       |
+| Optional              |    Additional         |    mag                |
+| photsystem_filtname_N |    photometric system |                       |
+| (see :ref:`filters`)  |    absolute magnitude |                       |
 +-----------------------+-----------------------+-----------------------+
 |    vr_N               |    Galactic radial    |    km/s               |
 |                       |    velocity           |                       |
@@ -1269,7 +1294,7 @@ magnitude.)
     A light curve is symmetric when k = 0.
     
 ====================
-5 Coordinate Systems
+6 Coordinate Systems
 ====================
 There are two different coordinate systems used, Heliocentric and Galactic. 
 Heliocentric coordinates are Cartesian coordinates with the sun at the origin. The positive :math:`x` axis is pointing toward the Galactic Center, and the positive :math:`z` axis is pointing toward the Galactic North Pole.

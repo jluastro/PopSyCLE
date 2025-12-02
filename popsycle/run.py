@@ -20,9 +20,11 @@ from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
 from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
+from popsycle import binary_utils
+from popsycle import phot_utils
 
 
-def _return_filename_dict(output_root):
+def _return_filename_dict(output_root, filter_dict, red_law, multiplicity = None):
     """
     Return the filenames of the files output by the pipeline
 
@@ -34,6 +36,19 @@ def _return_filename_dict(output_root):
            '{output_root}.h5'
            '{output_root}.ebf'
            '{output_root}_events.h5'
+   
+    filter_dict : dict
+        Dictionary with desired photometric systems and filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled with filters within that photometric system key.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
+           
+    multiplicity : None or object, optional
+        Multiplicity object is either None or the multiplicity object.
+        If it's not none, an hdf5 and fits companion filename will be added.
+        Default is None.
 
     Returns
     -------
@@ -48,15 +63,43 @@ def _return_filename_dict(output_root):
     blends_filename = '%s_blends.fits' % output_root
     noevents_filename = '%s_NOEVENTS.txt' % output_root
 
+    photometric_system = list(filter_dict.keys())[0]
+    filter_name = filter_dict[photometric_system][0]
+    refined_binary_events_filename = '{0:s}_refined_binary_events_' \
+                                     '{1:s}_{2:s}_{3:s}.' \
+                                     'fits'.format(output_root,
+                                                   photometric_system,
+                                                   filter_name,
+                                                   red_law)
+    # refined_events_filename defaults to using multi_filt, 
+    # unless filter_dict contains only one filter
+    if (len(filter_dict)==1) & (len(filter_dict[photometric_system]) == 1):
+        refined_events_filename = '{0:s}_refined_events_' \
+                                  '{1:s}_{2:s}_{3:s}.' \
+                                  'fits'.format(output_root,
+                                                photometric_system,
+                                                filter_name,
+                                                red_law)
+    else:
+        refined_events_filename = '{0:s}_refined_events_' \
+                                  'multi_filt_{1:s}.' \
+                                  'fits'.format(output_root,
+                                                red_law)
+
     # Add the filenames to a dictionary
     filename_dict = {
         'ebf_filename': ebf_filename,
         'hdf5_filename': hdf5_filename,
         'events_filename': events_filename,
         'blends_filename': blends_filename,
-        'noevents_filename': noevents_filename
+        'noevents_filename': noevents_filename,
+        'refined_events_filename': refined_events_filename,
+        'refined_binary_events_filename': refined_binary_events_filename
     }
 
+    if multiplicity is not None:
+        filename_dict['hdf5_companions_filename'] = hdf5_filename[:-3] + '_companions.h5'
+        filename_dict['companions_filename'] = events_filename[:-11] + 'companions.fits'
     return filename_dict
 
 
@@ -194,9 +237,10 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
                                   NS_kick_speed_mean=400,
-                                  photometric_system='ubv',
-                                  filter_name='R', red_law='Damineli16',
+                                  filter_dict={'ubv':['R']},
+                                  red_law='Damineli16',
                                   multiplicity=None,
+                                  bbh_frac = 'default',
                                   binning = True,
                                   config_filename='popsycle_config.yaml'):
     """
@@ -251,13 +295,16 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
         https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
 
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
-        in the global filt_dict parameter at the top of this module.
+    filter_dict : dict
+        Dictionary with desired photometric systems and filters to calculate microlensing events for.
+        The dictionary keys are strings of photometric systems.
+        The dictionary values are lists of strings filled with filters within that photometric system key.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
+        NOTE: photometric_system and filter_name are deprecated, please use filter_dict.
+        NOTE: When running refine_binary_events, the first dictionary key and value are used.
+              The above example would use UBV U in refine_binary_events.
 
     red_law : str
         The name of the reddening law to use from SPISEA.
@@ -266,6 +313,11 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         If a resovled multiplicity object is specified,
         the table will be generated with resolved multiples.
         Default is None.
+
+    bbh_frac : str or float
+        If make_bhs_single() is run, this is the fraction of binary black holes.
+        If bbh_frac = 'default', then make_bhs_single() will not be run.
+        Default is 'default'.
     
     binning : bool
         If set to True, bins files as specified by bin_edges_numbers or default.
@@ -302,10 +354,10 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
               'NS_kick_speed_mean': NS_kick_speed_mean,
-              'photometric_system': photometric_system,
-              'filter_name': filter_name,
+              'filter_dict': filter_dict,
               'red_law': red_law,
               'multiplicity': multiplicity,
+              'bbh_frac' : bbh_frac,
               'binning':binning}
     generate_config_file(config_filename, config)
 
@@ -440,6 +492,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           seed=None, overwrite=False, submitFlag=True,
                           returnJobID=True, dependencyJobID=None,
                           skip_galaxia=False, skip_perform_pop_syn=False,
+                          skip_make_bhs_single = True,
                           skip_calc_events=False, skip_refine_events=False,
                           skip_refine_binary_events=False,
                           verbose = 0):
@@ -542,6 +595,11 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         the resulting h5 file is already present.
         Default is False
 
+    skip_make_bhs_single : bool, optional
+        If True, pipeline will not run make_bhs_single and the default
+        black hole binary fraction from perform_pop_syn will be kept.
+        Default is True
+
     skip_calc_events : bool, optional
         If True, pipeline will not run calc_events and assume that the
         resulting events and blends files are already present.
@@ -609,6 +667,10 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         skip_refine_binary_events = True
         hdf5_file_comp = None
 
+    # Dont run make_bhs_single() if the bbh_frac is left default
+    if popsycle_config['bbh_frac'] == 'default':
+        skip_make_bhs_single = True
+
     # Load the slurm configuration file
     slurm_config = load_config_file(slurm_config_filename)
     
@@ -616,6 +678,17 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     n_cores_popsycle = {'n_cores_perform_pop_syn' : n_cores_perform_pop_syn,
                         'n_cores_calc_events' : n_cores_calc_events,
                         'n_cores_refine_binary_events' : n_cores_refine_binary_events}
+    
+    # Prepare additional_photometric_systems
+    additional_photometric_systems = []
+    for photometric_system in popsycle_config['filter_dict']:
+        if photometric_system != 'ubv':
+            additional_photometric_systems += [photometric_system]
+    if additional_photometric_systems == []:
+        additional_photometric_systems = None
+    
+    # Return the dictionary containing PopSyCLE output filenames
+    filename_dict = _return_filename_dict(output_root, popsycle_config['filter_dict'], popsycle_config['red_law'], multiplicity)
 
     # Check pipeline stages for valid inputs
     _check_slurm_config(slurm_config, walltime)
@@ -636,7 +709,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
                                NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
-                               additional_photometric_systems=[popsycle_config['photometric_system']],
+                               additional_photometric_systems=additional_photometric_systems,
                                n_proc=n_cores_perform_pop_syn,
                                binning = popsycle_config['binning'],
                                verbose = verbose,
@@ -656,8 +729,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_events:
         _check_refine_events(input_root='test',
-                             filter_name=popsycle_config['filter_name'],
-                             photometric_system=popsycle_config['photometric_system'],
+                             filter_dict=popsycle_config['filter_dict'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
                              legacy=False,
@@ -665,18 +737,16 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                              hdf5_file_comp=hdf5_file_comp,
                              seed=seed)
     if not skip_refine_binary_events:
-        refined_events_filename = '{0:s}_refined_events_' \
-                              '{1:s}_{2:s}_{3:s}.' \
-                              'fits'.format(output_root,
-                                            popsycle_config['photometric_system'],
-                                            popsycle_config['filter_name'],
-                                            popsycle_config['red_law'])
-        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        # refined_events_filename defaults to using multi_filt, 
+        # unless popsycle_config['filter_dict'] contains only one filter
+        refined_events_comp_filename = filename_dict['refined_events_filename'].replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
-        _check_refine_binary_events(events=refined_events_filename,
+        photmetric_system = list(popsycle_config['filter_dict'])[0]
+        filter_name = popsycle_config['filter_dict'][photometric_system][0]
+        _check_refine_binary_events(events=filename_dict['refined_events_filename'],
                                     companions=refined_events_comp_filename,
-                                    photometric_system=popsycle_config['photometric_system'],
-                                    filter_name=popsycle_config['filter_name'],
+                                    filter_name=filter_name,
+                                    photometric_system=photometric_system,
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
@@ -810,6 +880,9 @@ exit $exitcode
 
     if skip_perform_pop_syn:
         optional_cmds += '--skip-perform-pop-syn '
+
+    if skip_make_bhs_single:
+        optional_cmds += '--skip-make-bhs-single '
 
     if skip_calc_events:
         optional_cmds += '--skip-calc-events '
@@ -945,6 +1018,7 @@ def run(output_root='root0',
         overwrite=False,
         skip_galaxia=False,
         skip_perform_pop_syn=False,
+        skip_make_bhs_single=True,
         skip_calc_events=False,
         skip_refine_events=False,
         skip_refine_binary_events=False):
@@ -977,20 +1051,20 @@ def run(output_root='root0',
     popsycle_config = load_config_file(popsycle_config_filename)
     if popsycle_config['bin_edges_number'] == 'None':
         popsycle_config['bin_edges_number'] = None
-    if popsycle_config['photometric_system'] not in synthetic.photometric_system_dict:
-        print("""Error: 'photometric_system' in {0} must be a valid option 
-        in 'photometric_system_dict'. 
-        Exiting...""".format(popsycle_config_filename))
-        sys.exit(1)
-
-    # Return the dictionary containing PopSyCLE output filenames
-    filename_dict = _return_filename_dict(output_root)
+    for photometric_system in popsycle_config['filter_dict']:
+        if photometric_system not in synthetic.photometric_system_dict:
+            print("""Error: photometric system: {0} in filter_dict in {1} must be a valid option 
+            in 'photometric_system_dict'. 
+            Exiting...""".format(photometric_system, popsycle_config_filename))
+            sys.exit(1)
 
     # Prepare additional_photometric_systems
-    additional_photometric_systems = None
-    if popsycle_config['photometric_system'] != 'ubv':
-        additional_photometric_systems = [popsycle_config['photometric_system']]
-
+    additional_photometric_systems = []
+    for photometric_system in popsycle_config['filter_dict']:
+        if photometric_system != 'ubv':
+            additional_photometric_systems += [photometric_system]
+    if additional_photometric_systems == []:
+        additional_photometric_systems = None
     # Load multiplicity from popsycle_config
     multiplicity = multiplicity_list[popsycle_config['multiplicity']]
     # Additional multiplicity classes may require a different method of instantiation
@@ -1001,6 +1075,9 @@ def run(output_root='root0',
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
         hdf5_file_comp = None
+
+    # Return the dictionary containing PopSyCLE output filenames
+    filename_dict = _return_filename_dict(output_root, popsycle_config['filter_dict'], popsycle_config['red_law'], multiplicity)
 
     # Check pipeline stages for valid inputs
     if not skip_galaxia:
@@ -1038,8 +1115,7 @@ def run(output_root='root0',
                            hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_events:
         _check_refine_events(input_root=output_root,
-                             filter_name=popsycle_config['filter_name'],
-                             photometric_system=popsycle_config['photometric_system'],
+                             filter_dict=popsycle_config['filter_dict'],
                              red_law=popsycle_config['red_law'],
                              overwrite=overwrite,
                              legacy=False,
@@ -1047,18 +1123,16 @@ def run(output_root='root0',
                              hdf5_file_comp=hdf5_file_comp,
                              seed=seed)
     if not skip_refine_binary_events:
-        refined_events_filename = '{0:s}_refined_events_' \
-                              '{1:s}_{2:s}_{3:s}.' \
-                              'fits'.format(output_root,
-                                            popsycle_config['photometric_system'],
-                                            popsycle_config['filter_name'],
-                                            popsycle_config['red_law'])
-        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        # refined_events_filename defaults to using multi_filt, 
+        # unless popsycle_config['filter_dict'] contains only one filter
+        refined_events_comp_filename = filename_dict['refined_events_filename'].replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
-        _check_refine_binary_events(events=refined_events_filename,
+        photmetric_system = list(popsycle_config['filter_dict'])[0]
+        filter_name = popsycle_config['filter_dict'][photometric_system][0]
+        _check_refine_binary_events(events=filename_dict['refined_events_filename'],
                                     companions=refined_events_comp_filename,
-                                    photometric_system=popsycle_config['photometric_system'],
-                                    filter_name=popsycle_config['filter_name'],
+                                    filter_name=filter_name,
+                                    photometric_system=photometric_system,
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
@@ -1103,7 +1177,30 @@ def run(output_root='root0',
             n_proc=n_cores_perform_pop_syn,
             overwrite=overwrite,
             seed=seed,
-            multiplicity=multiplicity)
+            multiplicity=multiplicity) 
+                
+    if not skip_make_bhs_single:
+        print('-- Executing make_bhs_single')
+        photometric_system_dict = phot_utils.make_photometric_system_dict()
+        phots = ['ubv_'+ filt for filt in photometric_system_dict['ubv']]
+        if additional_photometric_systems is not None: 
+            for system in additional_photometric_systems:
+                phots += [system+'_'+filt for filt in photometric_system_dict[system]]
+        try:
+            binary_utils.make_bhs_single(
+                filename_dict['hdf5_filename'],
+                filename_dict['hdf5_companions_filename'],
+                popsycle_config['bbh_frac'],
+                phots = phots)
+        except:
+             binary_utils.make_bhs_single(
+                filename_dict['hdf5_filename'],
+                filename_dict['hdf5_companions_filename'],
+                popsycle_config['bbh_frac'],
+                symlink_aux_files = False,
+                phots = phots)
+            
+            
 
     if not skip_calc_events:
         # Remove calc_events output if already exists and overwrite=True
@@ -1139,16 +1236,13 @@ def run(output_root='root0',
             t1 = time.time()
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(0)
+            
+    # refined_events_filename defaults to using multi_filt, 
+    # unless popsycle_config['filter_dict'] contains only one filter
 
-    refined_events_filename = '{0:s}_refined_events_' \
-                              '{1:s}_{2:s}_{3:s}.' \
-                              'fits'.format(output_root,
-                                            popsycle_config['photometric_system'],
-                                            popsycle_config['filter_name'],
-                                            popsycle_config['red_law'])
     if not skip_refine_events:
         # Remove refine_events output if already exists and overwrite=True
-        if _check_for_output(refined_events_filename, overwrite):
+        if _check_for_output(filename_dict['refined_events_filename'], overwrite):
             t1 = time.time()
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
@@ -1156,8 +1250,7 @@ def run(output_root='root0',
         # Run refine_events
         print('-- Executing refine_events')
         synthetic.refine_events(input_root=output_root,
-                                filter_name=popsycle_config['filter_name'],
-                                photometric_system=popsycle_config['photometric_system'],
+                                filter_dict=popsycle_config['filter_dict'],
                                 red_law=popsycle_config['red_law'],
                                 overwrite=overwrite,
                                 output_file='default',
@@ -1165,20 +1258,20 @@ def run(output_root='root0',
                                 seed=seed)
 
     if multiplicity is not None and not skip_refine_binary_events:
-        if not os.path.exists(refined_events_filename):
+        if not os.path.exists(filename_dict['refined_events_filename']):
             print('Refined events %s missing and therefore '
                   'cannot run refine_binary_events. Skipping...'
-                  % refined_events_filename)
+                  % filename_dict['refined_events_filename'])
             t1 = time.time()
             print('run.py runtime : {0:f} s'.format(t1 - t0))
             sys.exit(1)
 
-        refined_events_comp_filename = refined_events_filename.replace('.fits', '_companions.fits')
+        refined_events_comp_filename = filename_dict['refined_events_filename'].replace('.fits', '_companions.fits')
         phot_dir = '%s_bin_phot' % output_root
-        synthetic.refine_binary_events(events=refined_events_filename,
+        synthetic.refine_binary_events(events=filename_dict['refined_events_filename'],
                                        companions=refined_events_comp_filename,
-                                       photometric_system=popsycle_config['photometric_system'],
-                                       filter_name=popsycle_config['filter_name'],
+                                       filter_name=filter_name,
+                                       photometric_system=photometric_system,
                                        n_proc=n_cores_refine_binary_events,
                                        overwrite=overwrite,
                                        output_file='default', save_phot=True,
@@ -1253,6 +1346,9 @@ def main():
     optional.add_argument('--skip-perform-pop-syn',
                           help="Skip running perform_pop_syn.",
                           action='store_true')
+    optional.add_argument('--skip-make-bhs-single',
+                          help="Skip make_bhs_single.",
+                          action='store_true')
     optional.add_argument('--skip-calc-events',
                           help="Skip running calc_events.",
                           action='store_true')
@@ -1275,6 +1371,7 @@ def main():
         overwrite=args.overwrite,
         skip_galaxia=args.skip_galaxia,
         skip_perform_pop_syn=args.skip_perform_pop_syn,
+        skip_make_bhs_single=args.skip_make_bhs_single,
         skip_calc_events=args.skip_calc_events,
         skip_refine_events=args.skip_refine_events,
         skip_refine_binary_events=args.skip_refine_binary_events)

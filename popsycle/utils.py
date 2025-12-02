@@ -13,6 +13,8 @@ from popsycle import synthetic, orbits
 import copy
 import time
 import datetime
+from spisea import reddening
+from popsycle import ebf
 
 
 def add_precision64(input_array, power):
@@ -472,11 +474,39 @@ def calc_centroid_shift(glat_S, glon_S, glat_N, glon_N, f_L, f_S, f_N, u):
 
     return delta_c_obs
 
+def get_Alambda_AKs(red_law_name, lambda_eff):
+    """
+    Get Alambda/AKs. NOTE: this doesn't work for every law in SPISEA!
+    Naming convention is not consistent. Change SPISEA or add if statements?
+
+    Parameters
+    ----------
+    red_law_name : str
+        The name of the reddening law
+    lambda_eff : float
+        Wavelength in microns
+
+    Returns
+    -------
+    Alambda_AKs : float
+        Alambda/AKs
+
+    """
+    red_law_class = getattr(reddening, 'RedLaw' + red_law_name)
+    red_law = red_law_class()
+    red_law_method = getattr(red_law, red_law_name)
+    Alambda_AKs = red_law_method(lambda_eff, 1)
+
+    return Alambda_AKs
+
 
 def calc_f(lambda_eff):
     """
     Calculate that coefficient f that multiples E(B-V) to get the
     extinction in magnitudes
+
+    lambda_eff : float
+        Effective wavelength of filter in microns
     """
     B = get_Alambda_AKs('Damineli16', 0.445)
     V = get_Alambda_AKs('Damineli16', 0.551)
@@ -712,3 +742,46 @@ def nan_to_zero(flux):
         flux = np.nan_to_num(flux)
 
     return flux
+
+def merge_ebf_filters(ebf_file1, ebf_file2, phot_sys1, phot_sys2):
+    """
+    Merges together the ebf files for two sets of filters
+    generated with the SAME SEED and SAME ISOCHRONE GEN METHOD
+    (i.e. the same CMD form - stev.oapd.inaf.it/cgi-bin/cmd).
+
+    Parameters
+    ----------
+    ebf_file1 : str
+        File name of ebf file of one set of filters. 
+        This will also be the output file with all mags.
+        
+    ebf_file2 : str
+        File name of ebf file of second set of filters.
+
+    phot_sys1 : str
+        Name of phot sys of ebf_file1 - i.e. 'ubv'.
+
+    phot_sys2 : str
+        Name of phot sys of ebf_file2 - i.e. 'sdss'.
+    """
+
+    ebf1 = ebf.read(ebf_file1, '/')
+    ebf2 = ebf.read(ebf_file2, '/')
+
+    # lowercase since this is what galaxia ouputs
+    phot_sys1 = phot_sys1.lower()
+    phot_sys2 = phot_sys2.lower()
+
+    if len(ebf1['age']) != len(ebf2['age']): #age chosen as arbitrary column
+        raise Exception('ebf files must be generated with the same seed and same isochrone method so stars match')
+
+    mag_keys = [key for key in list(ebf2.keys()) if phot_sys2 in key]
+    for key in mag_keys:
+        ebf1[key] = ebf2[key]
+    
+    for key in mag_keys:
+        ebf.write(ebf_file1, '/' + i, ebf1[key], "a")
+
+    return
+
+

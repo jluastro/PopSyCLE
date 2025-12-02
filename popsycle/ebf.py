@@ -1131,9 +1131,9 @@ class _EbfTable(object):
             self.close()
             raise RuntimeError('EBF error: __expand,  htable is closed')
         else:
-            values1[keys1.index('/.ebf/htable')]=self.data[1]            
+            values1[keys1.index(b'/.ebf/htable')]=self.data[1]
             for key1,value1 in zip(keys1,values1):    
-                self.__add(key1,value1)                
+                self.__add(str(key1),value1)
                 
         self.close()                       
         self.__setup(self.mode)    

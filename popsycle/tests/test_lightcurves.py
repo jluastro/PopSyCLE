@@ -26,9 +26,13 @@ def test_get_bagle_model_list():
                                                   photom_sys, filter_name, red_law,
                                                   n_multi_proc=n_multi_proc)
 
-    assert isinstance(model_list[0], model.PSBL_PhotAstrom_Par_Param7)
+    assert isinstance(model_list[0], model.PSBL_PhotAstrom_Par_EllOrbs_Param7)
     assert len(model_list) == len(events_tab)
 
     return
 
+
+#FIXME Add test for lightcurve production
+def test_psbl_multi_lightcurve():
+    pass
 

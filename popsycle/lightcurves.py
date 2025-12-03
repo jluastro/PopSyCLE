@@ -81,42 +81,36 @@ from multiprocessing import Pool, Value, Lock
 def get_bagle_model_list(event_table, comp_table, lcurve_table,
                          photometric_system, filter_name, red_law, n_multi_proc=6):
     """
-    Create BAGLE model instances for table of events.
-
     Parameters
     ----------
-    event_table : astropy.table.Table
-        Event table from synthetic.py refine_events.
+    event_table: Table
+        The table containing event data such as object IDs for lenses and sources.
 
-    comp_table : astropy.table.Table
-        Companions table that contains all lens or source companions for the events table.
+    comp_table: Table
+        The table containing companion data.
 
-    lcurve_table : astropy.table.Table
-        Lightcurves generated for the binary events (from refine_binary_events). This is needed
-        to figure out which of the companions (in the case of triples) is used in advance.
+    lcurve_table: Table or None
+        The table containing light curve data associated with the events.
 
-    photometric_system : str
-        Name of the photometric system, i.e. 'ubv'.
+    photometric_system: str
+        The photometric system to be used for modeling.
 
-    filter_name : str
-        Name of filter associated with photometric system, i.e. 'I'.
+    filter_name: str
+        The name of the filter to be used in the photometric system.
 
-    red_law : str
-        Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
+    red_law: str
+        The reddening law to be applied for the model.
 
-    Returns
-    -------
-    A list of BAGLE model instances.
-
+    n_multi_proc: int, optional, default=6
+        The number of multiprocessing processes to be used for model generation.
     """
     # Set event table index for easier cross-matching.
     event_table_df = event_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'], drop=False)
 
-    if lcurve_table is None:
-        pass
-    else:
-        # Convert other tables to pandas.
+    # Convert other tables to pandas.
+    if lcurve_table is not None:
         lcurv_table_df = lcurve_table.to_pandas()
+        comps_table_df = comp_table.to_pandas()
 
         # Group lightcurves associated with the same event.
         grouped_lcurv = lcurv_table_df.groupby(['obj_id_L', 'obj_id_S'])
@@ -130,12 +124,6 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         lcurv_used['obj_id_S'] = lcurv_used['obj_id_S'].astype('int')
         lcurv_used.set_index(['obj_id_L', 'obj_id_S'], inplace=True)
 
-    if comp_table is None:
-        pass
-    else:
-        # Convert other tables to pandas
-        comps_table_df = comp_table.to_pandas()
-    
         comps_table_df['companion_idx'] = comps_table_df['companion_idx'].astype('float')
 
         # Group the companions by the index for easier access.
@@ -148,9 +136,9 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         event_i = Table.from_pandas(event_table_df.iloc[[i]]) # return astropy table, not series
         index_i = event_table_df.index[i]
 
-        if ((lcurve_table is None) or (comp_table is None)):
-            inputs[i] = [event_i, None, photometric_system, filter_name, red_law]
-        else:
+        comps_i = None   # initialization.
+
+        if lcurve_table is not None:
             try:
                 # Get the used lightcurve row.
                 lcurve_i = lcurv_used.loc[index_i]

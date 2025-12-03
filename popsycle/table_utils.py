@@ -1,6 +1,140 @@
 import pandas as pd
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, vstack, Column
+import os
+
+def combine_re_popsycle_tables(base_dir, filter_str, red_law, modifier_str = '', with_multiples = False):
+    """
+    Combine together tables from different fields in PopSyCLE after refine events
+    and adds a field id column.
+
+    Inputs
+    ------
+    base_dir : str
+        Base directory of field folders.
+        (example : /g3/PopSyCLE_sims/roman_v2025/).
+
+    filter_str : str
+        Filter string (i.e. 'ubv_I', 'multi_filt')
+
+    red_law : str
+        Reddening law (i.e. Damineli16)
+
+    modifier_str : str, Optional
+        String after field name (i.e. '_0.1_bhb_frac').
+        Default is ''.
+
+    with_multiples : bool, Optional
+        Also combines companions table if True.
+
+    Returns
+    -------
+    events : Astropy table
+        Combined PopSyCLE event table.
+
+    companions : Astropy table, Optional
+        Combined PopSyCLE companions table.
+        Only returns if with_multiples == True.
+    
+    """
+    fields = os.listdir(base_dir)
+    
+    event_tables = []
+    
+    if with_multiples:
+        companion_tables = []
+    for field in fields:
+        try:
+            base_dir_field = base_dir + '{}/{}'.format(field, field) + modifier_str
+            events = Table.read(base_dir_field + '_refined_events_' + filter_str + '_' + red_law + '.fits')
+            events.add_column( Column((np.repeat(field, len(events))), name='field_id') )
+            event_tables.append(events)
+
+            if with_multiples:
+                companions = Table.read(base_dir_field + '_refined_events_'  + filter_str + '_' + red_law + '_companions.fits')
+                companions.add_column( Column((np.repeat(field, len(companions))), name='field_id') )
+                companion_tables.append(companions)
+                
+        except FileNotFoundError:
+            print('Files not found for field folder: ', field)
+            pass
+        
+    events = vstack(event_tables)
+    if with_multiples:
+        companions = vstack(companion_tables)
+        return events, companions
+    else:
+        return events
+
+def combine_rbe_popsycle_tables(base_dir, filter_str, red_law, modifier_str = ''):
+    """
+    Combine together tables from different fields in PopSyCLE after refine binary events
+    and adds a field id column.
+
+    Inputs
+    ------
+    base_dir : str
+        Base directory of field folders.
+        (example : /g3/PopSyCLE_sims/roman_v2025/).
+
+    filter_str : str
+        Filter string (i.e. 'ubv_I', 'multi_filt')
+
+    red_law : str
+        Reddening law (i.e. Damineli16)
+
+    modifier_str : str, Optional
+        String after field name (i.e. '_0.1_bhb_frac').
+        Default is ''.
+
+    Returns
+    -------
+    events : Astropy table
+        Combined PopSyCLE event table.
+
+    companions : Astropy table
+        Combined PopSyCLE companions table.
+
+    multi_peak : Astropy table
+        Combined PopSyCLE table of the multi peaks.
+
+    lcs : Astropy table
+        Combined PopSyCLE table of lightcurves.
+    
+    """
+    fields = os.listdir(base_dir)
+    
+    event_tables = []
+    companion_tables = []
+    multi_peak_tables = []
+    lc_tables = []
+    for field in fields:
+        try:
+            base_dir_field = base_dir + '{}/{}'.format(field, field) + modifier_str
+            events = Table.read(base_dir_field + '_refined_events_' + filter_str + '_' + red_law + '_rb.fits')
+            companions = Table.read(base_dir_field + '_refined_events_'  + filter_str + '_' + red_law + '_companions_rb.fits')
+            multi_peak = Table.read(base_dir_field + '_refined_events_'  + filter_str + '_' + red_law + '_companions_rb_multi_peaks.fits')
+            lcs = Table.read(base_dir_field + '_refined_events_'  + filter_str + '_' + red_law +  '_rb_lightcurves.fits')
+        
+            events.add_column( Column((np.repeat(field, len(events))), name='field_id') )
+            companions.add_column( Column((np.repeat(field, len(companions))), name='field_id') )
+            multi_peak.add_column( Column((np.repeat(field, len(multi_peak))), name='field_id') )
+            lcs.add_column( Column((np.repeat(field, len(lcs))), name='field_id') )
+    
+            event_tables.append(events)
+            companion_tables.append(companions)
+            multi_peak_tables.append(multi_peak)
+            lc_tables.append(lcs)
+        except FileNotFoundError:
+            print('Files not found for field folder: ', field)
+            pass
+        
+    events = vstack(event_tables)
+    companions = vstack(companion_tables)
+    multi_peak = vstack(multi_peak_tables)
+    lcs = vstack(lc_tables)
+
+    return events, companions, multi_peak, lcs
 
 def trim_popsycle_tables(idx, event_tab, comps_tab, lcurv_tab):
     """

@@ -21,7 +21,7 @@ from astropy.coordinates import Angle  # Angles
 from astropy.table import Table, Column, MaskedColumn
 from astropy.table import vstack
 from spisea.imf import imf
-from spisea import synthetic, evolution, ifmr
+from spisea import ifmr, synthetic, evolution
 from spisea.imf.multiplicity import MultiplicityResolvedDK
 from scipy.spatial import cKDTree
 import time

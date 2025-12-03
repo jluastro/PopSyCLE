@@ -79,7 +79,8 @@ from multiprocessing import Pool, Value, Lock
 
 
 def get_bagle_model_list(event_table, comp_table, lcurve_table,
-                         photometric_system, filter_name, red_law, n_multi_proc=6):
+                         photometric_system, filter_name, red_law, n_multi_proc=6,
+                         return_name_and_dict = False):
     """
     Create BAGLE model instances for table of events.
 
@@ -103,6 +104,10 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
 
     red_law : str
         Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
+
+    return_name_and_dict : bool, Optional
+        If True, returns name of model and parameter dict list instead of model list.
+        Default is False.
 
     Returns
     -------
@@ -149,7 +154,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         index_i = event_table_df.index[i]
 
         if ((lcurve_table is None) or (comp_table is None)):
-            inputs[i] = [event_i, None, photometric_system, filter_name, red_law]
+            inputs[i] = [event_i, None, photometric_system, filter_name, red_law, return_name_and_dict]
         else:
             try:
                 # Get the used lightcurve row.
@@ -164,7 +169,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
             except KeyError:
                 comps_i = None
 
-            inputs[i] = [event_i, comps_i, photometric_system, filter_name, red_law]
+            inputs[i] = [event_i, comps_i, photometric_system, filter_name, red_law, return_name_and_dict]
 
     if n_multi_proc > 1:
         # Set up the multiprocessing
@@ -184,7 +189,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     return all_models
 
 
-def get_bagle_model(event, companions, photometric_system, filter_name, red_law):
+def get_bagle_model(event, companions, photometric_system, filter_name, red_law, return_name_and_dict = False):
     """
     Get a BAGLE model instance for a single event (and its associated companions).
 
@@ -206,8 +211,20 @@ def get_bagle_model(event, companions, photometric_system, filter_name, red_law)
 
     red_law : str
 
+    return_name_and_dict : bool, Optional
+        If True, returns name of model and parameter dict instead of model.
+        Default is False.
+
     Returns
     -------
+    mod : BAGLE model object
+        Returns by default
+
+    model_name : str
+        Name of BAGLE model, returned if return_name_and_dict = True
+
+    parameter_dict : dict
+        Dictionary of BAGLE model parameters, returned if return_name_and_dict = True 
 
     """
     event = event[0]
@@ -215,6 +232,9 @@ def get_bagle_model(event, companions, photometric_system, filter_name, red_law)
     model_name, parameter_dict = get_bagle_model_name_and_params(event, companions,
                                                                  photometric_system, filter_name, red_law)
 
+    if return_name_and_dict:
+        return model_name, parameter_dict
+    
     mod_class = getattr(model, model_name)
     mod = mod_class(**parameter_dict)
 

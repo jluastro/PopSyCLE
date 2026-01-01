@@ -52,6 +52,8 @@ from popsycle import binary_utils, phot_utils, lightcurves
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
 from warnings import warn, filterwarnings
+import synthpop
+from synthpop.synthpop_utils.synthpop_logging import logger
 
 from astropy.io.fits.verify import VerifyWarning
 filterwarnings('ignore', category=VerifyWarning, append=True)
@@ -395,6 +397,208 @@ def run_galaxia(output_root, longitude, latitude, area,
         out.writelines([line0, dash_line, line1, line2, line3, line3b, line4,
                         empty_line, line8, dash_line, line9, line10, line11,
                         empty_line, line12, dash_line, line13,
+                        empty_line, line17, dash_line, line18])
+
+# Synthpop Section
+
+def _check_run_synthpop(config_file, name_for_output="default", 
+                        l_deg: float = None, b_deg: float = None,
+                        field_shape: str = 'box',
+                        field_scale: float = None,
+                        field_scale_unit: str = "deg",):
+    """
+    Check that the inputs to synthpop are valid
+
+    Parameters
+    -----------
+    config_file : str
+
+    """
+
+    # Check the config_file for correct type and existence
+    if not isinstance(config_file, str):
+        raise Exception('config_file (%s) must be a string.' % str(config_file))
+
+    if not isinstance(name_for_output, str):
+        raise Exception('name_for_output (%s) must be a string.' % str(name_for_output))
+
+    if l_deg is not None:
+        if not isinstance(l_deg, (float,int)):
+                raise Exception('l (%s) must be a float.' % str(l))
+    if b_deg is not None:
+        if not isinstance(b_deg, (float,int)):
+                raise Exception('b (%s) must be a float.' % str(b))
+    if field_scale is not None:
+        if not isinstance(field_scale, (float,int)):
+                raise Exception('field_scale (%s) must be a float.' % str(field_scale))
+    if not isinstance(field_scale_unit, str):
+                raise Exception('field_scale_unit (%s) must be a string.' % str(field_scale_unit))
+    if not isinstance(field_shape, str):
+                raise Exception('field_shape (%s) must be a string.' % str(field_shape))
+
+def write_synthpop_params(config_file, name_for_output,
+                          l_deg: float = None, 
+                          b_deg: float = None,
+                          field_shape: str = 'box',
+                          field_scale: float = None,
+                          field_scale_unit: str = 'deg',):
+    """
+    Creates the parameter file that Synthpop requires for running.
+
+    Parameters
+    ----------
+    config_file : str
+
+    Returns
+    -------
+    <output_root>_synthpop_params.txt : str
+        A text file with the parameters that Synthpop requires to run.
+    """
+
+    params = [
+        "configFile %s" % config_file,
+        "nameForOutput %s" % name_for_output,
+        "l %s" % l_deg,
+        "b %s" % b_deg,
+        "fieldScale %s" % field_scale,
+        "fieldScaleUnit %s" % field_scale_unit,
+        "fieldShape %s" % field_shape,
+    ]
+
+    synthpop_param_fname = '%s_synthpop_params.txt' % name_for_output
+
+    print('** Generating %s **' % synthpop_param_fname)
+
+    with open(synthpop_param_fname, 'w') as f:
+        for param in params:
+            f.write(param + '\n')
+            print('-- %s' % param)
+
+def process_location_popsycle(
+    self, l_deg: float = None, 
+    b_deg: float = None,
+    field_shape: str = 'box',
+    field_scale: float = None,
+    field_scale_unit: str = 'deg',
+    save_data = False,
+) -> pd.DataFrame:
+        """
+        Performs the field generation for a given position.
+
+        Parameters
+        ----------
+        l_deg, b_deg : float [deg]
+            galactic coordinates
+        field_shape : str
+            shape of the field
+        field_scale : float or tuple or np.ndarray
+            scale of the field (radius or half-width(s))
+        field_scale_unit : str
+            Unit of the provided field_scale
+        save_data : bool
+            If True the DataFrame is saved to disk
+            If False the DataFrame are only returned,
+
+        Returns
+        -------
+        field_df : DataFrame
+            Generated stars as Pandas Dataframe
+        """
+        self.output_root = f"{self.get_filename(l_deg, b_deg)}_psc"
+        
+        latitude = l_deg
+        longitude = b_deg
+        surveyArea = field_scale
+        if field_scale_unit=='sr':
+            surveyArea *= (180/np.pi)**2
+
+        prim_datasets = pd.DataFrame()
+        companion_datasets = pd.DataFrame()
+
+        _, lat_bin_edges, long_bin_edges = _get_bin_edges(latitude, longitude, surveyArea, bin_edges_number=None)
+
+
+        for i in range(len(lat_bin_edges)):
+            for j in range(len(long_bin_edges)):
+                field_df, companions_df = self.process_location(l_deg=lat_bin_edges[i], b_deg=long_bin_edges[j],
+                                                            field_shape=field_shape,
+                                                            field_scale=surveyArea/len(lat_bin_edges),
+                                                            field_scale_unit=field_scale_unit,
+                                                            save_data = False)
+                prim_datasets = pd.concat([prim_datasets, field_df], ignore_index=True)
+                companion_datasets = pd.concat([companion_datasets, companions_df], ignore_index=True)
+
+        prim_datasets.reset_index()
+        companion_datasets.reset_index()
+
+        with h5py.File(f"{self.output_root}_companions.h5", 'w') as h5file:
+            h5file['lat_bin_edges'] = lat_bin_edges
+            h5file['long_bin_edges'] = long_bin_edges
+
+        _bin_lb_hdf5(lat_bin_edges, long_bin_edges, companion_datasets, f"{self.output_root}_companions")
+        
+        with h5py.File(f"{self.output_root}.h5", 'w') as h5file:
+            h5file['lat_bin_edges'] = lat_bin_edges
+            h5file['long_bin_edges'] = long_bin_edges
+
+        _bin_lb_hdf5(lat_bin_edges, long_bin_edges, prim_datasets, self.output_root)
+        logger.info(f"PopSyCLE formatted output saved in {self.output_root}.h5")
+                
+        return prim_datasets, companion_datasets
+
+def run_synthpop(config_file, name_for_output="default", l_deg=None, 
+                 b_deg=None, field_shape="box", field_scale=1e-3, field_scale_unit='deg', 
+                 save_data=False, *args, **kwargs):
+    """
+    Runs synthpop
+
+    Parameters
+    ----------
+    config_file : str
+    
+    """
+    # Error handling/complaining if input types are not right.
+    _check_run_synthpop(config_file, name_for_output, l_deg, b_deg, field_shape, field_scale, field_scale_unit)
+
+    # Writes out galaxia params to disk
+    write_synthpop_params(config_file, name_for_output, l_deg, b_deg, field_shape, field_scale, field_scale_unit)
+
+    # Create SynthPop model
+    mod = synthpop.SynthPop(config_file, *args, **kwargs)
+
+    t0 = time.time()
+
+    mod.init_populations()
+
+    if l_deg is None or b_deg is None or field_scale is None:
+        cat = mod.process_all()
+    else:
+        cat, distr = process_location_popsycle(mod, l_deg, b_deg, field_shape, field_scale, field_scale_unit, save_data)
+
+    t1 = time.time()
+    ##########
+    # Make log file
+    ##########
+
+    now = datetime.datetime.now()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'l_deg , ' + str(l_deg) + '\n'
+    line2 = 'b_deg , ' + str(b_deg) + '\n'
+    line3 = 'field_scale , ' + str(field_scale) + '\n'
+    line3b = 'config file , ' + config_file + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+
+    line17 = 'FILES CREATED' + '\n'
+    line18 = name_for_output + '.ebf : ebf file' + '\n'
+
+    with open(name_for_output + '_synthpop.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line3b, 
+                        line12, dash_line, line13,
                         empty_line, line17, dash_line, line18])
 
 

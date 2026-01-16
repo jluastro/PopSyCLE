@@ -405,7 +405,7 @@ def _check_run_synthpop(config_file, name_for_output="default",
                         l_deg: float = None, b_deg: float = None,
                         field_shape: str = 'box',
                         field_scale: float = None,
-                        field_scale_unit: str = "deg",):
+                        field_scale_unit: str = "deg"):
     """
     Check that the inputs to synthpop are valid
 
@@ -436,12 +436,14 @@ def _check_run_synthpop(config_file, name_for_output="default",
     if not isinstance(field_shape, str):
                 raise Exception('field_shape (%s) must be a string.' % str(field_shape))
 
-def write_synthpop_params(config_file, name_for_output,
+def write_synthpop_params(mod, config_file,
+                          name_for_output,
                           l_deg: float = None, 
                           b_deg: float = None,
                           field_shape: str = 'box',
                           field_scale: float = None,
-                          field_scale_unit: str = 'deg',):
+                          field_scale_unit: str = 'deg',
+                         **kwargs):
     """
     Creates the parameter file that Synthpop requires for running.
 
@@ -454,7 +456,7 @@ def write_synthpop_params(config_file, name_for_output,
     <output_root>_synthpop_params.txt : str
         A text file with the parameters that Synthpop requires to run.
     """
-
+    
     params = [
         "configFile %s" % config_file,
         "nameForOutput %s" % name_for_output,
@@ -464,23 +466,46 @@ def write_synthpop_params(config_file, name_for_output,
         "fieldScaleUnit %s" % field_scale_unit,
         "fieldShape %s" % field_shape,
     ]
+    if 'output_filename_pattern' in kwargs:
+        file_keys = {
+            "time": datetime.datetime.now().time(),
+            "date": datetime.datetime.now().date(),
+            "l_deg": l_deg,
+            "b_deg": b_deg,
+            "model_name": mod.parms.model_name,
+            "name_for_output": name_for_output,
+            }
+        if mod.parms.scale_factor != 1:
+            scale_factor_ending = f"_scaled{mod.parms.scale_factor:.3f}"
+        else:
+            scale_factor_ending = ""
 
-    synthpop_param_fname = '%s_synthpop_params.txt' % name_for_output
+        name_for_output = mod.parms.output_filename_pattern.format(**file_keys) + scale_factor_ending
+
+    synthpop_param_fname = '%s_psc_synthpop_params.txt' % name_for_output
+
+    if 'output_location' in kwargs:
+        output_location = kwargs['output_location']
+    else:
+        output_location = mod.parms.output_location
+
+    synthpop_param_loc = os.path.join(output_location, synthpop_param_fname)
 
     print('** Generating %s **' % synthpop_param_fname)
 
-    with open(synthpop_param_fname, 'w') as f:
+    with open(synthpop_param_loc, 'w') as f:
         for param in params:
             f.write(param + '\n')
             print('-- %s' % param)
 
 def process_location_popsycle(
-    self, l_deg: float = None, 
+    self, name_for_output, l_deg: float = None, 
     b_deg: float = None,
     field_shape: str = 'box',
     field_scale: float = None,
     field_scale_unit: str = 'deg',
-    save_data = False,
+    save_data = False, bin_edges_number = None,
+    **kwargs
 ) -> pd.DataFrame:
         """
         Performs the field generation for a given position.
@@ -504,7 +529,36 @@ def process_location_popsycle(
         field_df : DataFrame
             Generated stars as Pandas Dataframe
         """
-        self.output_root = f"{self.get_filename(l_deg, b_deg)}_psc"
+            
+        if 'output_filename_pattern' in kwargs:
+            file_keys = {
+                "time": datetime.datetime.now().time(),
+                "date": datetime.datetime.now().date(),
+                "l_deg": l_deg,
+                "b_deg": b_deg,
+                "model_name": self.parms.model_name,
+                "name_for_output": name_for_output,
+                }
+            if self.parms.scale_factor != 1:
+                scale_factor_ending = f"_scaled{self.parms.scale_factor:.3f}"
+            else:
+                scale_factor_ending = ""
+    
+            name_for_output = f"{self.parms.output_filename_pattern.format(**file_keys) + scale_factor_ending}_psc"
+        else:
+            name_for_output = f"{self.get_filename(l_deg, b_deg)}_psc"
+
+        if 'output_location' in kwargs:
+            output_location = kwargs['output_location']
+        else:
+            output_location = ""
+
+        if 'star_generator' in kwargs:
+            star_generator = kwargs['star_generator']
+        else:
+            star_generator = self.parms.star_generator
+    
+        output_root = os.path.join(output_location, name_for_output)
         
         latitude = l_deg
         longitude = b_deg
@@ -514,36 +568,57 @@ def process_location_popsycle(
 
         prim_datasets = pd.DataFrame()
         companion_datasets = pd.DataFrame()
+        popsycle_datasets = pd.DataFrame()
+        popsycle_bin_datasets = pd.DataFrame()
 
-        _, lat_bin_edges, long_bin_edges = _get_bin_edges(latitude, longitude, surveyArea, bin_edges_number=None)
+        _, lat_bin_edges, long_bin_edges = _get_bin_edges(latitude, longitude, surveyArea, bin_edges_number)
 
+        index = 0
 
         for i in range(len(lat_bin_edges)):
             for j in range(len(long_bin_edges)):
-                field_df, companions_df = self.process_location(l_deg=lat_bin_edges[i], b_deg=long_bin_edges[j],
-                                                            field_shape=field_shape,
-                                                            field_scale=surveyArea/len(lat_bin_edges),
-                                                            field_scale_unit=field_scale_unit,
-                                                            save_data = False)
+                popsycle_df, popsycle_bin_df = self.process_location(l_deg=long_bin_edges[i],
+                                                              b_deg=lat_bin_edges[j],
+                                                              field_shape=field_shape,
+                                                              field_scale=surveyArea/(len(lat_bin_edges)*len(long_bin_edges)),
+                                                              field_scale_unit=field_scale_unit,
+                                                              save_data=False,
+                                                              popsycle_kwargs = {'save_h5':False, 'index':index},
+                                                                    star_generator = star_generator)
+                """field_df = field_dfs[0]
+                companions_df = field_dfs[1]
+                popsycle_df = popsycle_dfs[0]
+                popsycle_bin_df = popsycle_dfs[1]
                 prim_datasets = pd.concat([prim_datasets, field_df], ignore_index=True)
-                companion_datasets = pd.concat([companion_datasets, companions_df], ignore_index=True)
-
-        prim_datasets.reset_index()
-        companion_datasets.reset_index()
-
-        with h5py.File(f"{self.output_root}_companions.h5", 'w') as h5file:
-            h5file['lat_bin_edges'] = lat_bin_edges
-            h5file['long_bin_edges'] = long_bin_edges
-
-        _bin_lb_hdf5(lat_bin_edges, long_bin_edges, companion_datasets, f"{self.output_root}_companions")
-        
-        with h5py.File(f"{self.output_root}.h5", 'w') as h5file:
-            h5file['lat_bin_edges'] = lat_bin_edges
-            h5file['long_bin_edges'] = long_bin_edges
-
-        _bin_lb_hdf5(lat_bin_edges, long_bin_edges, prim_datasets, self.output_root)
-        logger.info(f"PopSyCLE formatted output saved in {self.output_root}.h5")
+                companion_datasets = pd.concat([companion_datasets, companions_df], ignore_index=True)"""
                 
+                popsycle_datasets = pd.concat([popsycle_datasets, popsycle_df], ignore_index=True)
+                popsycle_bin_datasets = pd.concat([popsycle_bin_datasets, popsycle_bin_df], ignore_index=True)
+
+                index = popsycle_datasets['obj_id'].max() + 1
+
+        if os.path.exists(output_root + '_synthpop_params.txt'):
+                with open(output_root + '_synthpop_params.txt', 'r') as params_file:
+                    lines = params_file.read()
+        else:
+            lines = ""
+        with open(output_root + '_synthpop_params.txt', 'w') as params_file:
+                params_file.write(f"seed {self.parms.random_seed}\n")
+                params_file.write(lines)
+
+        with h5py.File(f"{output_root}_companions.h5", 'w') as h5file:
+            h5file['lat_bin_edges'] = lat_bin_edges
+            h5file['long_bin_edges'] = long_bin_edges
+
+        _bin_lb_hdf5(lat_bin_edges, long_bin_edges, popsycle_bin_datasets, f"{output_root}_companions")
+        
+        with h5py.File(f"{output_root}.h5", 'w') as h5file:
+            h5file['lat_bin_edges'] = lat_bin_edges
+            h5file['long_bin_edges'] = long_bin_edges
+
+        _bin_lb_hdf5(lat_bin_edges, long_bin_edges, popsycle_datasets, output_root)
+        logger.info(f"PopSyCLE formatted output saved in {output_root}.h5")
+
         return prim_datasets, companion_datasets
 
 def run_synthpop(config_file, name_for_output="default", l_deg=None, 
@@ -560,11 +635,11 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     # Error handling/complaining if input types are not right.
     _check_run_synthpop(config_file, name_for_output, l_deg, b_deg, field_shape, field_scale, field_scale_unit)
 
-    # Writes out galaxia params to disk
-    write_synthpop_params(config_file, name_for_output, l_deg, b_deg, field_shape, field_scale, field_scale_unit)
-
     # Create SynthPop model
     mod = synthpop.SynthPop(config_file, *args, **kwargs)
+
+    # Writes out galaxia params to disk
+    write_synthpop_params(mod, config_file, name_for_output, l_deg, b_deg, field_shape, field_scale, field_scale_unit, **kwargs)
 
     t0 = time.time()
 
@@ -573,7 +648,8 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     if l_deg is None or b_deg is None or field_scale is None:
         cat = mod.process_all()
     else:
-        cat, distr = process_location_popsycle(mod, l_deg, b_deg, field_shape, field_scale, field_scale_unit, save_data)
+        cat, distr = process_location_popsycle(mod, name_for_output, l_deg, b_deg, field_shape, field_scale, field_scale_unit,
+                                               save_data, **kwargs)
 
     t1 = time.time()
     ##########

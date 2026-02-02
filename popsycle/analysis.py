@@ -180,10 +180,10 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
     hdf5_file : str
         Filename of an hdf5 file.
 
-    use_stars_per_bin : str
-        Order of magnitude number of stars per bin to use for the 
+    max_stars_per_bin : str
+        Maxinum number of stars per bin to use for the 
         calculation. Prevents excessive memory/computation use.
-        Default is 1e3.
+        Default is 3e3.
 
     Returns
     -------

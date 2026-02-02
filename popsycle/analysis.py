@@ -128,7 +128,49 @@ def count_stars_hdf5(hdf5_file, filt='ubv_I', mag_threshold=21):
 
     return N_stars
 
-def events_for_popclass(h5_file, use_stars_per_bin=1e3):
+def count_stars_all(h5_file):
+    """
+    Finds the number of stars or systems in the field.
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+
+    Returns
+    -------
+    n_stars : int
+        Number of stars.
+    """
+    hf = h5py.File(h5_file, 'r')
+    n_stars = 0
+    for k in list(hf.keys()):
+        if '_' not in k:
+            n_stars += hf[k].shape[0]
+    return n_stars
+
+def count_stars_all_per_bin(h5_file):
+    """
+    Finds the number of stars or systems per bin.
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+
+    Returns
+    -------
+    n_stars : list
+        Number of stars per bin.
+    """
+    hf = h5py.File(h5_file, 'r')
+    n_stars = []
+    for k in list(hf.keys()):
+        if '_' not in k:
+            n_stars.append(hf[k].shape[0])
+    return n_stars
+
+def events_for_popclass(h5_file, max_stars_per_bin=3e3):
     """
     Draw microlensing events for random lens, source pairs from a 
     PopSyCLE singles-only catalog. 
@@ -159,14 +201,15 @@ def events_for_popclass(h5_file, use_stars_per_bin=1e3):
     piEs = []
     tEs = []
     weights = []
+    stars_per_bin = count_stars_all_per_bin(h5_file)
+    scale_stars_used = np.maximum(1,int(np.floor(np.max(stars_per_bin)/max_stars_per_bin)))
     for k in list(hf.keys()):
         if '_' not in k:
             print('running', k)
             dat = hf[k]
 
             if dat.shape[0] > 0:
-                ds = int(np.floor(dat.shape[0]/use_stars_per_bin))
-                patch = dat[::ds]
+                patch = dat[::scale_stars_used]
                 dists = patch['rad']
                 mul = patch['mu_lcosb']
                 mub = patch['mu_b']
@@ -195,3 +238,4 @@ def events_for_popclass(h5_file, use_stars_per_bin=1e3):
                 weights.append(thetamu)
     print(f'Drew {len(np.concatenate(thetaEs))} events total')
     return np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
+

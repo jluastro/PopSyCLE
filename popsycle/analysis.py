@@ -127,3 +127,71 @@ def count_stars_hdf5(hdf5_file, filt='ubv_I', mag_threshold=21):
     N_stars = len(gdx)
 
     return N_stars
+
+def events_for_popclass(h5_file, use_stars_per_bin=1e3):
+    """
+    Draw microlensing events for random lens, source pairs from a 
+    PopSyCLE singles-only catalog. 
+    
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+
+    use_stars_per_bin : str
+        Order of magnitude number of stars per bin to use for the 
+        calculation. Prevents excessive memory/computation use.
+        Default is 1e3.
+
+    Returns
+    -------
+    thetaEs : np.array
+        array of Einstein ring radii for events (mas)
+    piEs : np.array
+        array of microlensing parallaxes for events (unitless)
+    tEs : np.array
+        array of timescales for events (days)
+    weights : np.array
+        array of relative weights for events (mu_rel * thetaE)
+    """
+    hf = h5py.File(h5_file, 'r')
+    thetaEs = []
+    piEs = []
+    tEs = []
+    weights = []
+    for k in list(hf.keys()):
+        if '_' not in k:
+            print('running', k)
+            dat = hf[k]
+
+            if dat.shape[0] > 0:
+                ds = int(np.floor(dat.shape[0]/use_stars_per_bin))
+                patch = dat[::ds]
+                dists = patch['rad']
+                mul = patch['mu_lcosb']
+                mub = patch['mu_b']
+                masses = patch['mass']
+                idx = np.arange(len(masses))
+                del patch
+
+                src_idxs, lens_idxs = np.meshgrid(idx, idx)
+                src_idxs, lens_idxs = src_idxs.ravel(), lens_idxs.ravel()
+
+                dist_comp = (dists[src_idxs] > dists[lens_idxs]) #source further than lens
+                use_srcs = src_idxs[dist_comp]
+                use_lens = lens_idxs[dist_comp]
+
+                # Microlensing math
+                pi_rel = (1/dists[use_lens] - 1/dists[use_srcs])
+                c, G, mSun, pctom = 299792458, 6.6743e-11, 1.98840987e+30, 3.08567758e+16
+                theta_e = np.sqrt(4*G*mSun*masses[use_lens]*pi_rel/(1000*pctom*c**2)) * 180/np.pi * 60**2 * 1000
+                pi_e = pi_rel / theta_e
+                mu_rel = np.sqrt((mul[use_lens]-mul[use_srcs])**2 + (mub[use_lens]-mub[use_srcs])**2)
+                t_e = theta_e/mu_rel * 365.25 # years -> days
+                thetamu = theta_e*mu_rel
+                thetaEs.append(theta_e)
+                piEs.append(pi_e)
+                tEs.append(t_e)
+                weights.append(thetamu)
+    print(f'Drew {len(np.concatenate(thetaEs))} events total')
+    return np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)

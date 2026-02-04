@@ -659,7 +659,7 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
                       'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 'b_sff': b_sff,
                      'omegaL_pri': omegaL, 'big_omegaL_sec': big_omegaL, 'iL': iL, 'eL': eL, 'tpL': tpL, 'aL': aL,
                      'omegaS_pri': omegaS, 'big_omegaS_sec': big_omegaS, 'iS': iS, 'eS': eS, 'tpS': tpS, 'aS': aS,
-                     'HIERARCH dmag_Lp_Ls': dmag_Lp_Ls, 'mass_source_p': mass_source_p, 'mass_source_s': mass_source_s}
+                     'dmag_Lp_Ls': dmag_Lp_Ls, 'mass_source_p': mass_source_p, 'mass_source_s': mass_source_s}
     
 
     return parameter_dict, obj_id_L, obj_id_S, model_name

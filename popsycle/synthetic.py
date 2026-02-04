@@ -5226,7 +5226,7 @@ def _add_multiples_parameters(companion_table, event_table):
 
 
 def _check_refine_binary_events(events, companions,
-                                photometric_system, filter_name,
+                                filter_dict,
                                 overwrite, output_file,
                                 save_phot, phot_dir, n_proc, multi_proc):
     """
@@ -5280,11 +5280,16 @@ def _check_refine_binary_events(events, companions,
     if not isinstance(companions, str):
         raise Exception('companions (%s) must be a string.' % str(companions))
     
-    if not isinstance(filter_name, str):
-        raise Exception('filter_name (%s) must be a string.' % str(filter_name))        
+    if filter_dict is not None:
+        if not isinstance(filter_dict, dict):
+            raise Exception('filter_dict (%s) must be a dictionary.' % str(filter_dict))
+        if not all(isinstance(key,str) for key in filter_dict):
+            raise Exception('All filter_dict keys must be strings.')
+        if not all(isinstance(filt,str) for key,val in filter_dict.items() for filt in val):
+            raise Exception('All filter_dict vaues must be lists of strings.')     
 
-    if not isinstance(photometric_system, str):
-        raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))  
+#     if not isinstance(photometric_system, str):
+#         raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))  
 
     if not isinstance(output_file, str):
         raise Exception('output_file (%s) must be a string.' % str(output_file))
@@ -5308,26 +5313,30 @@ def _check_refine_binary_events(events, companions,
     if n_proc > 1 and multi_proc == False:
         raise Exception('if multi_proc is False, n_proc must = 1')
 
-    # Check to see that the filter name, photometric system, red_law are valid
-    if photometric_system not in photometric_system_dict:
-        exception_str = 'photometric_system must be a key in ' \
-                        'photometric_system_dict. \n' \
-                        'Acceptable values are : '
-        for photometric_system in photometric_system_dict:
-            exception_str += '%s, ' % photometric_system
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+    # Check to see that the filter name and photometric system in filter_dict and red_law are valid
+    for system in filter_dict:
+        if system not in photometric_system_dict:
+            exception_str = 'photometric_system must be a key in ' \
+                            'photometric_system_dict. \n' \
+                            'Acceptable values are : '
+            for photometric_system in photometric_system_dict:
+                exception_str += '%s, ' % photometric_system
+            exception_str = exception_str[:-2]
+            raise Exception(exception_str)
 
-    if filter_name not in photometric_system_dict[photometric_system]:
-        exception_str = 'filter_name must be a value in ' \
-                        'photometric_system_dict[%s]. \n' \
-                        'Acceptable values are : ' % photometric_system
-        for filter_name in photometric_system_dict[photometric_system]:
-            exception_str += '%s, ' % filter_name
-        exception_str = exception_str[:-2]
-        raise Exception(exception_str)
+        for filt in filter_dict[system]:
+            if filt not in photometric_system_dict[system]:
+                exception_str = 'filter_name must be a value in ' \
+                                'photometric_system_dict[%s]. \n' \
+                                'Acceptable values are : ' % system
+                for filter_name in photometric_system_dict[system]:
+                    exception_str += '%s, ' % filter_name
+                exception_str = exception_str[:-2]
+                raise Exception(exception_str)
+            
+            key = system + '_' + filt
 
-def refine_binary_events(events, companions, photometric_system, filter_name,
+def refine_binary_events(events, companions, filter_dict,
                          red_law = 'Damineli16',
                          overwrite = False, output_file = 'default',
                          save_phot = False, phot_dir = None,
@@ -5399,6 +5408,9 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     """
     start_time = time.time()
     
+    photometric_system = list(filter_dict.keys())[0]
+    filter_name = filter_dict[photometric_system][0]
+    
     if not overwrite and os.path.isfile(output_file):
         raise Exception('That refined_events.fits file name is taken! '
                         'Either delete the .fits file, or pick a new name.')
@@ -5408,7 +5420,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         
     # Error handling/complaining if input types are not right.
     _check_refine_binary_events(events, companions, 
-                         photometric_system, filter_name,
+                         filter_dict,
                          overwrite, output_file,
                          save_phot, phot_dir, n_proc, multi_proc)
         
@@ -5477,7 +5489,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
         obj_id_L_S = (obj_id_L, obj_id_S)
         event_table_df['companion_idx_list'].loc[obj_id_L_S] = list(grouped_comps.groups[i]['companion_idx'])
         inputs[i] = [[event_table_df.loc[obj_id_L_S]], grouped_comps.groups[i].to_pandas(), obj_id_L, obj_id_S, 
-                     photometric_system, filter_name, red_law, save_phot, phot_dir, overwrite] 
+                     filter_dict, red_law, save_phot, phot_dir, overwrite] 
     
     if multi_proc:
         results = pool.starmap(one_lightcurve_analysis, inputs)
@@ -5596,7 +5608,7 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
     return
 
 def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S,
-                            photometric_system, filter_name, red_law,
+                            filter_dict, red_law,
                             save_phot = False, phot_dir = None, overwrite = False):
     """
     Generate BAGLE model, photometry, and generate binary lightcurve parameters.
@@ -5683,8 +5695,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             for comp_idx_L in comp_idxs_L:
                 global_comp_idx_L = comp_table_rows['companion_idx'][comp_idx_L]
                 name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}_compS_{}".format(global_comp_idx_L, global_comp_idx_S)
-                model_parameter_dict, _, _, model_name = lightcurves.get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), 
-                                                                      photometric_system, filter_name, red_law, event_id = 0)
+                model_parameter_dict, _, _, model_name = lightcurves.get_bsbl_lightcurve_parameters(event_table_row, comp_table_rows, int(comp_idx_L), int(comp_idx_S), filter_dict, red_law, event_id = 0)
                 mod_class = getattr(model, model_name)
                 try:
                     mod = mod_class(**model_parameter_dict)
@@ -5708,7 +5719,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
             name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compL_{}".format(global_comp_idx)
             model_parameter_dict, _, _, model_name = lightcurves.get_psbl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx,
-                                                                                                photometric_system, filter_name, event_id = 0)
+                                                                                                filter_dict, event_id = 0)
             mod_class = getattr(model, model_name)
             try:
                 mod = mod_class(**model_parameter_dict)
@@ -5730,7 +5741,7 @@ def one_lightcurve_analysis(event_table_row, comp_table_rows, obj_id_L, obj_id_S
             global_comp_idx = comp_table_rows['companion_idx'][comp_idx]
             name = "L_{}_S_{}".format(obj_id_L, obj_id_S) + "compS_{}".format(global_comp_idx)
             model_parameter_dict, _, _, model_name = lightcurves.get_bspl_lightcurve_parameters(event_table_row, comp_table_rows, comp_idx, 
-                                                                                                photometric_system, filter_name, red_law, event_id = 0)
+                                                                                                filter_dict, red_law, event_id = 0)
             mod_class = getattr(model, model_name)
             try:
                 mod = mod_class(**model_parameter_dict)
@@ -5789,13 +5800,13 @@ def model_param_dict2fits_header(model_parameter_dict, phot_dir, name):
     """
     
     fits_file = phot_dir + '/' + name + '_phot.fits'
+    
+    param_table = Table([model_parameter_dict])
+    param_table_hdu = fits.table_to_hdu(param_table)
+    
     with fits.open(fits_file, 'update', memmap=False) as f:
-        hdr = f[0].header
-        for key in list(model_parameter_dict.keys()):
-            try:
-                hdr[key] = model_parameter_dict[key]
-            except ValueError:
-                hdr[key] = str(model_parameter_dict[key])
+        f.append(param_table_hdu)
+        f.writeto(fits_file, overwrite=True)
 
     return
 
@@ -5864,7 +5875,7 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     # Handles the case of modeling a triple source as a binary source,
     # But it's CO + CO + star and you're modeling the CO + CO pair (so no flux)
     if 'mag_src_sec' in list(model_parameter_dict.keys()):
-        if np.isnan(model_parameter_dict['mag_src_sec']) and np.isnan(model_parameter_dict['mag_src_pri']):
+        if np.isnan(model_parameter_dict['mag_src_sec'][0]) and np.isnan(model_parameter_dict['mag_src_pri'][0]):
             return param_dict
         
     # These covers extreme cases that will never

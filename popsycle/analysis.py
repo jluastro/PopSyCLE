@@ -187,6 +187,8 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
 
     Returns
     -------
+    rem_ids : np.array
+        array of lens types
     thetaEs : np.array
         array of Einstein ring radii for events (mas)
     piEs : np.array
@@ -197,6 +199,7 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
         array of relative weights for events (mu_rel * thetaE)
     """
     hf = h5py.File(h5_file, 'r')
+    rem_ids = []
     thetaEs = []
     piEs = []
     tEs = []
@@ -214,6 +217,7 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
                 mul = patch['mu_lcosb']
                 mub = patch['mu_b']
                 masses = patch['mass']
+                rem_id_catalog = patch['rem_id']
                 idx = np.arange(len(masses))
                 del patch
 
@@ -223,6 +227,7 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
                 dist_comp = (dists[src_idxs] > dists[lens_idxs]) #source further than lens
                 use_srcs = src_idxs[dist_comp]
                 use_lens = lens_idxs[dist_comp]
+                rem_id = rem_id_catalog[use_lens]
 
                 # Microlensing math
                 pi_rel = (1/dists[use_lens] - 1/dists[use_srcs])
@@ -232,10 +237,11 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
                 mu_rel = np.sqrt((mul[use_lens]-mul[use_srcs])**2 + (mub[use_lens]-mub[use_srcs])**2)
                 t_e = theta_e/mu_rel * 365.25 # years -> days
                 thetamu = theta_e*mu_rel
+                rem_ids.append(rem_id)
                 thetaEs.append(theta_e)
                 piEs.append(pi_e)
                 tEs.append(t_e)
                 weights.append(thetamu)
     print(f'Drew {len(np.concatenate(thetaEs))} events total')
-    return np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
+    return np.concatenate(rem_ids), np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
 

@@ -1325,7 +1325,7 @@ def main():
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
     optional.add_argument('--multi-proc-refine-binary-events', type=bool,
-                          help='Controls multi processing for refine bianary events '
+                          help='Controls multi processing for refine binary events '
                           'even if n-cores=1',
                           default=True)
     optional.add_argument('--seed', type=int,

@@ -79,7 +79,7 @@ from multiprocessing import Pool, Value, Lock
 
 
 def get_bagle_model_list(event_table, comp_table, lcurve_table,
-                         photometric_system, filter_name, red_law, n_multi_proc=6):
+                         filter_dict, red_law, n_multi_proc=6):
     """
     Create BAGLE model instances for table of events.
 
@@ -95,11 +95,17 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         Lightcurves generated for the binary events (from refine_binary_events). This is needed
         to figure out which of the companions (in the case of triples) is used in advance.
 
-    photometric_system : str
-        Name of the photometric system, i.e. 'ubv'.
-
-    filter_name : str
-        Name of filter associated with photometric system, i.e. 'I'.
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
         Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
@@ -149,7 +155,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         index_i = event_table_df.index[i]
 
         if ((lcurve_table is None) or (comp_table is None)):
-            inputs[i] = [event_i, None, photometric_system, filter_name, red_law]
+            inputs[i] = [event_i, None, filter_dict, red_law]
         else:
             try:
                 # Get the used lightcurve row.
@@ -164,7 +170,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
             except KeyError:
                 comps_i = None
 
-            inputs[i] = [event_i, comps_i, photometric_system, filter_name, red_law]
+            inputs[i] = [event_i, comps_i, filter_dict, red_law]
 
     if n_multi_proc > 1:
         # Set up the multiprocessing
@@ -184,7 +190,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     return all_models
 
 
-def get_bagle_model(event, companions, photometric_system, filter_name, red_law):
+def get_bagle_model(event, companions, filter_dict, red_law):
     """
     Get a BAGLE model instance for a single event (and its associated companions).
 
@@ -200,9 +206,17 @@ def get_bagle_model(event, companions, photometric_system, filter_name, red_law)
         to generate the event. If an event has triples involved, the irrelevant (or less
         important) companions should be trimmed first.
 
-    photometric_system : str
-
-    filter_name : str
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
 
@@ -213,7 +227,7 @@ def get_bagle_model(event, companions, photometric_system, filter_name, red_law)
     event = event[0]
 
     model_name, parameter_dict = get_bagle_model_name_and_params(event, companions,
-                                                                 photometric_system, filter_name, red_law)
+                                                                 filter_dict, red_law)
 
     mod_class = getattr(model, model_name)
     mod = mod_class(**parameter_dict)
@@ -248,13 +262,17 @@ def get_pspl_lightcurve_parameters(events, filter_dict, event_id = None):
     events : Astropy table
         Table containing the events calculated from refine_events.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     event_id : float or None, optional
         Index of event table of event. If len(events) > 1, this must be specified.
@@ -327,13 +345,17 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, filter_dict, 
     comp_idx_L : int
         Index into the comp_table of the companion for which the psbl is being calculated.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     event_id : float or None, optional
         Corresponding event_id in event_table to companion id.
@@ -432,13 +454,17 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, filter_dict, 
     comp_idx_S : int
         Index into the comp_table of the companion for which the bspl is being calculated.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     red_law : str
         Redenning law
@@ -550,13 +576,17 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
     comp_idx_S : int
         Index into the comp_table of the source companion for which the model is being calculated.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     red_law : str
         Redenning law
@@ -681,9 +711,17 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         to generate the event. If an event has triples involved, the irrelevant (or less
         important) companions should be trimmed first.
 
-    photometric_system : str
-
-    filter_name : str
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
 

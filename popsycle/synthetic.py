@@ -54,6 +54,7 @@ from popsycle import binary_utils, phot_utils, lightcurves
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
 from warnings import warn, filterwarnings
+from contextlib import nullcontext
 
 from astropy.io.fits.verify import VerifyWarning
 filterwarnings('ignore', category=VerifyWarning, append=True)
@@ -573,7 +574,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     multiplicity=None, evo_model='default',
                     binning = True,
                     overwrite=False, seed=None,
-                    n_proc=1, verbose=0):
+                    n_proc=1, multi_proc =True, verbose=0):
     """
     Given some galaxia output, creates compact objects. Sorts the stars and
     compact objects into latitude/longitude bins, and saves them in an HDF5 file.
@@ -777,15 +778,22 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     next_id_stars_val_in = Value('i', 0)
     next_id_co_val_in = Value('i', n_stars)
 
-    # Single-Threaded
+    # Handle single and multi threaded
+    global multi_proc_pps
+    multi_proc_pps = multi_proc
     # _mp_init_worker(mp_lock, next_id_stars_val_in, next_id_co_val_in)
 
     # Multi-Threaded
     # Setup up a pool for multiprocessing.
-    mp_lock = Lock()
-    mp_pool = Pool(processes=n_proc,
-                   initializer=_mp_init_worker,
-                   initargs=(mp_lock, next_id_stars_val_in, next_id_co_val_in))
+    if multi_proc:
+        mp_lock = Lock()
+        mp_pool = Pool(processes=n_proc,
+                       initializer=_mp_init_worker,
+                       initargs=(mp_lock, next_id_stars_val_in, next_id_co_val_in))
+    else:
+        global next_id_stars_val, next_id_co_val
+        next_id_stars_val = next_id_stars_val_in
+        next_id_co_val = next_id_co_val_in
 
     ##########
     # Loop through population ID (i.e. bulge, disk, halo, ...) in order to
@@ -917,14 +925,18 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             additional_photometric_systems,
                             t0, binning, seed, output_root, verbose)
 
-                    # proc_tmp = Process(target=_process_popsyn_stars_in_bin, args=args)
-                    mp_res_tmp = mp_pool.apply_async(_process_popsyn_stars_in_bin, args=args)
-
+                    if multi_proc:
+                        mp_res_tmp = mp_pool.apply_async(_process_popsyn_stars_in_bin, args=args)
+                    else:
+                       mp_res_tmp = _process_popsyn_stars_in_bin(*args)
                     mp_proc.append(mp_res_tmp)
 
             # Complete this age bin.
             # Gather results from parallel runs over this whole age_bin
-            results = [proc.get() for proc in mp_proc]
+            if multi_proc:
+                results = [proc.get() for proc in mp_proc]
+            else:
+                results = mp_proc
             
             if len(results) > 0:
                 co_counter += sum(list(zip(*results))[0])
@@ -1172,9 +1184,10 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     # Fill up star_dict
     ##########
     star_dict = {}
-
+    cm = lock if multi_proc_pps else nullcontext()
+                                     
     # Multi-Threaded (works in Single-Threaded too)
-    with lock:
+    with cm:
         star_dict['obj_id'] = np.arange(len(bin_idx)) + next_id_stars_val.value
         next_id_stars_val.value += len(bin_idx)
 
@@ -1249,7 +1262,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                     assert(np.sum(star_dict['N_companions'])  == len(companions_table))
 
         # Save companion table
-        with lock:
+        with cm:
             if companions_table is not None:
                 # Save and bin in l, b all companions
                 # Or just save if binning = False
@@ -1277,7 +1290,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     #  Or just save if binning = False
     ##########
     n_co_new = 0
-    with lock:
+    with cm:
         if binning == True:
             if co_dict is not None:
                 n_co_new = len(co_dict['mass'])
@@ -1866,7 +1879,8 @@ def _make_co_dict(log_age,
             co_dict['popid'] = star_dict['popid'][0] * np.ones(len(co_dict['vx']))
 
             # Multi-Threaded (works in Single-Threaded too)
-            with lock:
+            cm = lock if multi_proc_pps else nullcontext()
+            with cm:
                 co_dict['obj_id'] = np.arange(len(co_dict['vx'])) + next_id_co_val.value
                 next_id_co_val.value += len(co_dict['vx'])
 
@@ -2181,7 +2195,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
         # Using MIST models to get white dwarfs
-        with lock:
+        cm = lock if multi_proc_pps else nullcontext()
+        with cm:
             if isinstance(evo_model, COSMIC):
                 atm_func = atmospheres.get_merged_atmosphere_w_bb_supplement
                 my_iso = synthetic.IsochronePhotExternalEvolution(log_age, 0, 10,
@@ -2249,9 +2264,6 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         if multiplicity is not None:
             last_multiple_idx = np.where(cluster.star_systems['isMultiple'] == 1)[0][-1]
             # take the last matching index so triples aren't separated
-            print(last_multiple_idx)
-            print(cluster.companions['system_idx'])
-            print(np.where(cluster.companions['system_idx'] == last_multiple_idx)[0])
             companion_cutoff_index = np.where(cluster.companions['system_idx'] == last_multiple_idx)[0][-1] + 1
             cluster.companions = cluster.companions[:companion_cutoff_index]
         
@@ -2991,29 +3003,26 @@ def _make_companions_table(cluster, star_dict, co_dict,
             co_idx_in_sys_table = np.where(cluster.star_systems['phase'] > 100)[0]
             co_dict_tmp = cluster.star_systems[co_idx_in_sys_table]
 
-            # Repeat the indices into co_dict times the number of companions
-            co_idx = np.arange(0, len(co_dict_tmp))
-            co_idx_for_dup_sys_table = np.repeat(co_idx, co_dict_tmp['N_companions'])
-
-            # Reset the companion system_idx to be the correct obj_id
-            print(co_idx_for_dup_sys_table)
-            print(co_dict['obj_id'])
-            print(compact_companions['system_idx'])
-            print(co_dict_tmp['N_companions'])
-            compact_companions['system_idx'] = co_dict['obj_id'][co_idx_for_dup_sys_table]
-
-            # sums mass of companions if there are triples
-            grouped_co_companions = compact_companions.group_by(['system_idx'])
-            print(grouped_co_companions)
-            CO_companions_system_mass = grouped_co_companions['mass'].groups.aggregate(np.sum)
-            grouped_system_idxs = np.array(grouped_co_companions.groups.keys['system_idx'])
-            # Returns the intersecting obj_ids/system_idxs, indices in CO_table that correspond with the overlap, 
-            # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
-            CO_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id']), grouped_system_idxs, return_indices = True)
-            
-            # indexes on grouped_companions.groups.keys since this is one system_idx per system 
-            # (i.e. no duplicated if there are triples)
-            co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
+            # Only do next step if at least one compact object has a companion
+            if not np.all(co_dict_tmp['N_companions'] == 0):
+                # Repeat the indices into co_dict times the number of companions
+                co_idx = np.arange(0, len(co_dict_tmp))
+                co_idx_for_dup_sys_table = np.repeat(co_idx, co_dict_tmp['N_companions'])
+    
+                # Reset the companion system_idx to be the correct obj_id
+                compact_companions['system_idx'] = co_dict['obj_id'][co_idx_for_dup_sys_table]
+    
+                # sums mass of companions if there are triples
+                grouped_co_companions = compact_companions.group_by(['system_idx'])
+                CO_companions_system_mass = grouped_co_companions['mass'].groups.aggregate(np.sum)
+                grouped_system_idxs = np.array(grouped_co_companions.groups.keys['system_idx'])
+                # Returns the intersecting obj_ids/system_idxs, indices in CO_table that correspond with the overlap, 
+                # and indices in companion_table that overlap (this last one should be just np.arange(len(companion_table)))
+                CO_idx_w_companions = np.intersect1d(np.array(co_dict['obj_id']), grouped_system_idxs, return_indices = True)
+                
+                # indexes on grouped_companions.groups.keys since this is one system_idx per system 
+                # (i.e. no duplicated if there are triples)
+                co_dict['systemMass'][CO_idx_w_companions[1]] += CO_companions_system_mass
 
             if verbose > 3: print(f'test2 {time.time() - t0:.2f} sec')
             

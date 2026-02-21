@@ -409,7 +409,7 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            multiplicity, evo_model,
                            binning,
                            overwrite, seed,
-                           n_proc, verbose):
+                           n_proc, multi_proc, verbose):
     """
     Checks that the inputs of perform_pop_syn are valid
 
@@ -478,6 +478,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         calculations are memory intensive and n_proc > few should likely not be
         used to avoid memory overruns that may result in data corruption.
 
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to make the objects.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
+
     verbose : int
         Level of debugging information to print to stderr. Set to 0 for minimal
         information. Coarse timing at 2 and fine timing at 4.
@@ -535,6 +541,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     
     if not isinstance(binning, bool):
         raise Exception('binning (%s) must be a boolean.' % str(binning))
+
+    if not isinstance(multi_proc, bool):
+        raise Exception('multi_proc (%s) must be a boolean.' % str(multi_proc))
+    
+    if n_proc > 1 and multi_proc == False:
+        raise Exception('if multi_proc is False, n_proc must = 1')
     
     if not isinstance(overwrite, bool):
         raise Exception('overwrite (%s) must be a boolean.' % str(overwrite))
@@ -650,6 +662,12 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         used to avoid memory overruns that may result in data corruption.
         Default is 1.
 
+    multi_proc : bool
+        Even if n_proc = 1, a pool is still created. If multi_proc = False,
+        instead there is just a for-loop to make the objects.
+        If multi_proc == False, n_proc must = 1.
+        Default is True.
+
     verbose : int
         Level of debugging information to print to stderr. Set to 0 for minimal
         information. Coarse timing at 2 and fine timing at 4.
@@ -692,7 +710,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            multiplicity, evo_model,
                            binning,
                            overwrite, seed,
-                           n_proc, verbose)
+                           n_proc, multi_proc, verbose)
 
     if isinstance(evo_model, COSMIC):
         print('COSMIC USED FOR EVOLUTION - IFMR NOT USED')

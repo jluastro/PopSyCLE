@@ -22,6 +22,8 @@ from astropy.table import Table, Column, MaskedColumn
 from astropy.table import vstack
 from spisea.imf import imf
 from spisea import ifmr, synthetic, evolution
+from spisea.evolution import COSMIC
+from spisea import atmospheres
 from spisea.imf.multiplicity import MultiplicityResolvedDK
 from scipy.spatial import cKDTree
 import time
@@ -403,7 +405,8 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           multiplicity, binning,
+                           multiplicity, evo_model,
+                           binning,
                            overwrite, seed,
                            n_proc, verbose):
     """
@@ -522,6 +525,12 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
     if multiplicity is not None:
         if not isinstance(multiplicity, MultiplicityResolvedDK):
             raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
+
+    if evo_model is not None:
+        if isinstance(evo_model, COSMIC) and multiplicity is None:
+            raise Exception('If evo_model is COSMIC, multiplicity must be defined')
+        if not isinstance(evo_model, COSMIC) and evo_model != 'default':
+            raise Exception('evo_model must be "default" (MIST) or COSMIC')
     
     if not isinstance(binning, bool):
         raise Exception('binning (%s) must be a boolean.' % str(binning))
@@ -561,7 +570,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     bin_edges_number=None,
                     BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                     additional_photometric_systems=None,
-                    multiplicity=None, binning = True,
+                    multiplicity=None, evo_model='default',
+                    binning = True,
                     overwrite=False, seed=None,
                     n_proc=1, verbose=0):
     """
@@ -678,9 +688,13 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                            bin_edges_number,
                            BH_kick_speed_mean, NS_kick_speed_mean,
                            additional_photometric_systems,
-                           multiplicity, binning,
+                           multiplicity, evo_model,
+                           binning,
                            overwrite, seed,
                            n_proc, verbose)
+
+    if isinstance(evo_model, COSMIC):
+        print('COSMIC USED FOR EVOLUTION - IFMR NOT USED')
 
     ##########
     # Start of code
@@ -899,7 +913,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             ebf_file,
                             kdt_star_p, exbv_arr4kdt,
                             iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
-                            multiplicity,
+                            multiplicity, evo_model,
                             additional_photometric_systems,
                             t0, binning, seed, output_root, verbose)
 
@@ -969,7 +983,10 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
     line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
-    line7 = 'IFMR , ' + str(IFMR) + '\n'
+    if isinstance(evo_model, COSMIC):
+        line7 = 'evo_model, COSMIC' + '\n'
+    else:
+        line7 = 'IFMR , ' + str(IFMR) + '\n'
     line8 = 'seed , ' + str(seed) + '\n'
 
     line9 = 'VERSION INFORMATION' + '\n'
@@ -1040,7 +1057,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                  popid_array, age_array, lat_bin_edges, long_bin_edges,
                                  ebf_file, kdt_star_p, exbv_arr4kdt,
                                  iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
-                                 multiplicity, additional_photometric_systems, t0,
+                                 multiplicity, evo_model, additional_photometric_systems, t0,
                                  binning, seed,
                                  output_root, verbose=0):
     
@@ -1199,6 +1216,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                                                      log_age=age_of_bin,
                                                                                      currentClusterMass=mass_in_bin,
                                                                                      multiplicity=multiplicity,
+                                                                                     evo_model=evo_model,
                                                                                      IFMR=IFMR,
                                                                                      feh=metallicity_of_bin, seed=seed,
                                                                                      additional_photometric_systems=additional_photometric_systems)
@@ -2069,7 +2087,8 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
 
 
 def _make_cluster(iso_dir, log_age, currentClusterMass,
-                  multiplicity=None, IFMR = 'Raithel18',
+                  multiplicity=None, evo_model='default',
+                  IFMR = 'Raithel18',
                   feh = 0, seed=None, additional_photometric_systems=None):
     """
     Creates SPISEA ResolvedCluster() object.
@@ -2163,7 +2182,17 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         # (irrelevant, photometry not used)
         # Using MIST models to get white dwarfs
         with lock:
-            my_iso = synthetic.IsochronePhot(log_age, 0, 10,
+            if isinstance(evo_model, COSMIC):
+                atm_func = atmospheres.get_merged_atmosphere_w_bb_supplement
+                my_iso = synthetic.IsochronePhotExternalEvolution(log_age, 0, 10,
+                                                                  evo_model=evolution.COSMIC(),
+                                                                  metallicity=feh,
+                                                                  atm_func=atm_func,
+                                                                  filters=my_filt_list,
+                                                                  atm_grid_dir=iso_dir)
+                
+            else:
+                my_iso = synthetic.IsochronePhot(log_age, 0, 10,
                                          evo_model=evolution.MISTv1(),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
@@ -2203,7 +2232,6 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             SPISEA_present_day_star_mass = np.sum(cluster.star_systems[cluster.star_systems['phase'] < 100]['mass'])
             SPISEA_total_mass = np.sum(cluster.star_systems['mass'])
         
-        
         # When it overshoots loop through the stars until we get to the appropriate mass
         # since it's in a random order this should be fine
         # this will keep the compact objects that are interspursed along the way, 
@@ -2221,6 +2249,9 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         if multiplicity is not None:
             last_multiple_idx = np.where(cluster.star_systems['isMultiple'] == 1)[0][-1]
             # take the last matching index so triples aren't separated
+            print(last_multiple_idx)
+            print(cluster.companions['system_idx'])
+            print(np.where(cluster.companions['system_idx'] == last_multiple_idx)[0])
             companion_cutoff_index = np.where(cluster.companions['system_idx'] == last_multiple_idx)[0][-1] + 1
             cluster.companions = cluster.companions[:companion_cutoff_index]
         
@@ -2965,10 +2996,15 @@ def _make_companions_table(cluster, star_dict, co_dict,
             co_idx_for_dup_sys_table = np.repeat(co_idx, co_dict_tmp['N_companions'])
 
             # Reset the companion system_idx to be the correct obj_id
+            print(co_idx_for_dup_sys_table)
+            print(co_dict['obj_id'])
+            print(compact_companions['system_idx'])
+            print(co_dict_tmp['N_companions'])
             compact_companions['system_idx'] = co_dict['obj_id'][co_idx_for_dup_sys_table]
 
             # sums mass of companions if there are triples
             grouped_co_companions = compact_companions.group_by(['system_idx'])
+            print(grouped_co_companions)
             CO_companions_system_mass = grouped_co_companions['mass'].groups.aggregate(np.sum)
             grouped_system_idxs = np.array(grouped_co_companions.groups.keys['system_idx'])
             # Returns the intersecting obj_ids/system_idxs, indices in CO_table that correspond with the overlap, 

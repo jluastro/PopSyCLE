@@ -33,7 +33,7 @@ import subprocess
 import os
 from sklearn import neighbors
 import itertools
-from multiprocessing import Pool, Value, Lock
+from multiprocessing import Pool, Value, Lock, Manager
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
@@ -797,14 +797,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     next_id_co_val_in = Value('i', n_stars)
 
     # Handle single and multi threaded
-    global multi_proc_pps
-    multi_proc_pps = multi_proc
+    if not multi_proc:
+        mp_lock = None
+    #global multi_proc_pps
+    #multi_proc_pps = multi_proc
     # _mp_init_worker(mp_lock, next_id_stars_val_in, next_id_co_val_in)
 
     # Multi-Threaded
     # Setup up a pool for multiprocessing.
     if multi_proc:
-        mp_lock = Lock()
+        manager = Manager()
+        mp_lock = manager.Lock()
         mp_pool = Pool(processes=n_proc,
                        initializer=_mp_init_worker,
                        initargs=(mp_lock, next_id_stars_val_in, next_id_co_val_in))
@@ -870,7 +873,8 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             # should suffice; however, whole-sky runs might need more and currently
             # may have less accurate extinctions.
             exbv_arr4kdt, kdt_star_p = _make_extinction_kdtree(ebf_file, popid_idx[age_idx])
-
+                
+            
             if IFMR == 'Raithel18':
                 # Only run at solar metallicity for Raithel18
                 # -99 to 99 will capture all possible values of metallicity, but the Galaxia range is closer to -2 to 2
@@ -882,6 +886,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                 # By starting at -99 and ending at 99 we will capture all possible metallicty values, but the true distribution is much narrower
                 feh_bins = [-99, -1.279, -0.500, 0.00, 99]
                 feh_vals = [-1.39, -0.89, -0.25, 0.30]
+                if isinstance(evo_model, COSMIC):
+                    feh_bins = [-99, -1.279, -0.500, 0.00, 99]
+                    feh_vals = [-1.39, -0.89, -0.25, 0.176]
 
             mp_proc = [] # This will hold the multiprocessing task results for this age bin.
 
@@ -941,7 +948,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
                             multiplicity, evo_model,
                             additional_photometric_systems,
-                            t0, binning, seed, output_root, verbose)
+                            t0, binning, seed, output_root, verbose, mp_lock)
 
                     if multi_proc:
                         mp_res_tmp = mp_pool.apply_async(_process_popsyn_stars_in_bin, args=args)
@@ -967,8 +974,9 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
             gc.collect()
 
     # Multi-Threaded: clean up pool
-    mp_pool.close()
-    mp_pool.join()
+    if multi_proc:
+        mp_pool.close()
+        mp_pool.join()
     
     t1 = time.time()
     print('perform_pop_syn runtime : {0:f} s'.format(t1 - t0))
@@ -1089,7 +1097,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                  iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
                                  multiplicity, evo_model, additional_photometric_systems, t0,
                                  binning, seed,
-                                 output_root, verbose=0):
+                                 output_root, verbose=0, mp_lock = None):
     
     """
     Processess the objects in a bin including 
@@ -1202,7 +1210,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     # Fill up star_dict
     ##########
     star_dict = {}
-    cm = lock if multi_proc_pps else nullcontext()
+    cm = lock if mp_lock is not None else nullcontext()
                                      
     # Multi-Threaded (works in Single-Threaded too)
     with cm:
@@ -1244,13 +1252,14 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
     for key, val in star_dict.items():
         stars_in_bin[key] = val
     cluster_tmp, unmade_cluster_counter_new, unmade_cluster_mass_new = _make_cluster(iso_dir=iso_dir,
-                                                                                     log_age=age_of_bin,
-                                                                                     currentClusterMass=mass_in_bin,
-                                                                                     multiplicity=multiplicity,
-                                                                                     evo_model=evo_model,
-                                                                                     IFMR=IFMR,
-                                                                                     feh=metallicity_of_bin, seed=seed,
-                                                                                     additional_photometric_systems=additional_photometric_systems)
+                                                                                 log_age=age_of_bin,
+                                                                                 currentClusterMass=mass_in_bin,
+                                                                                 multiplicity=multiplicity,
+                                                                                 evo_model=evo_model,
+                                                                                 IFMR=IFMR,
+                                                                                 feh=metallicity_of_bin, seed=seed,
+                                                                                 additional_photometric_systems=additional_photometric_systems,
+                                                                                 mp_lock=mp_lock)
     # Make a temporary table of the compact object primaries. Will eventually be appended to star_dict.
     co_dict, next_id_co = _make_co_dict(age_of_bin,
                                         cluster_tmp,
@@ -1260,7 +1269,8 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                         NS_kick_speed_mean=NS_kick_speed_mean,
                                         additional_photometric_systems=additional_photometric_systems,
                                         multiplicity=multiplicity,
-                                        seed=seed)
+                                        seed=seed,
+                                        mp_lock=mp_lock)
 
     #########
     # If there are multiples make companions table
@@ -1588,7 +1598,8 @@ def _make_co_dict(log_age,
                   BH_kick_speed_mean=50, NS_kick_speed_mean=400,
                   additional_photometric_systems=None,
                   multiplicity=None,
-                  seed=None):
+                  seed=None,
+                  mp_lock=None):
     
     """
     Perform population synthesis.
@@ -1897,7 +1908,7 @@ def _make_co_dict(log_age,
             co_dict['popid'] = star_dict['popid'][0] * np.ones(len(co_dict['vx']))
 
             # Multi-Threaded (works in Single-Threaded too)
-            cm = lock if multi_proc_pps else nullcontext()
+            cm = lock if mp_lock is not None else nullcontext()
             with cm:
                 co_dict['obj_id'] = np.arange(len(co_dict['vx'])) + next_id_co_val.value
                 next_id_co_val.value += len(co_dict['vx'])
@@ -2121,7 +2132,7 @@ def _no_bins_hdf5(obj_arr, output_root, companion_obj_arr = None):
 def _make_cluster(iso_dir, log_age, currentClusterMass,
                   multiplicity=None, evo_model='default',
                   IFMR = 'Raithel18',
-                  feh = 0, seed=None, additional_photometric_systems=None):
+                  feh = 0, seed=None, additional_photometric_systems=None, mp_lock =None):
     """
     Creates SPISEA ResolvedCluster() object.
 
@@ -2213,7 +2224,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         # -- arbitrarily chose AKs = 0, distance = 10 pc
         # (irrelevant, photometry not used)
         # Using MIST models to get white dwarfs
-        cm = lock if multi_proc_pps else nullcontext()
+        cm = lock if mp_lock is not None else nullcontext()
         with cm:
             if isinstance(evo_model, COSMIC):
                 atm_func = atmospheres.get_merged_atmosphere_w_bb_supplement

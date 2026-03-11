@@ -155,7 +155,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         index_i = event_table_df.index[i]
 
         if ((lcurve_table is None) or (comp_table is None)):
-            inputs[i] = [event_i, None, filter_dict, red_law]
+            inputs[i] = [event_i, comp_table, filter_dict, red_law]
         else:
             try:
                 # Get the used lightcurve row.
@@ -226,8 +226,7 @@ def get_bagle_model(event, companions, filter_dict, red_law):
     """
     event = event[0]
 
-    model_name, parameter_dict = get_bagle_model_name_and_params(event, companions,
-                                                                 filter_dict, red_law)
+    model_name, parameter_dict = get_bagle_model_name_and_params(event, companions, filter_dict, red_law)
 
     mod_class = getattr(model, model_name)
     mod = mod_class(**parameter_dict)
@@ -694,7 +693,7 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
 
     return parameter_dict, obj_id_L, obj_id_S, model_name
 
-def get_bagle_model_name_and_params(event, companions, photometric_system, filter_name, red_law):
+def get_bagle_model_name_and_params(event, companions, filter_dict, red_law):
     """
     For a single event and its associated companions, get the BAGLE model name
     and parameters (in a dictionary).
@@ -747,7 +746,7 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         event_type = 'PSPL'
 
     if event_type == 'PSPL':
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_pspl_lightcurve_parameters(event, photometric_system, filter_name)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_pspl_lightcurve_parameters(event, filter_dict)
 
     if event_type == 'PSBL':
         # There should only be a single lens companion.
@@ -758,7 +757,7 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         else:
             comp_idx_L = comp_idxs_L[0]
 
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_psbl_lightcurve_parameters(event, companions, comp_idx_L, photometric_system, filter_name)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_psbl_lightcurve_parameters(event, companions, comp_idx_L, filter_dict)
 
     if event_type == 'BSPL':
         comp_idxs_S = np.where(companions['prim_type'] == b"S")[0]
@@ -768,7 +767,7 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         else:
             comp_idx_S = comp_idxs_S[0]
 
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_bspl_lightcurve_parameters(event, companions, comp_idx_S, photometric_system, filter_name, red_law)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_bspl_lightcurve_parameters(event, companions, comp_idx_S, filter_dict, red_law)
 
     if event_type == 'BSBL':
         # There should only be a single source companion.
@@ -785,6 +784,6 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         else:
             comp_idx_L = comp_idxs_L[0]
 
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_bsbl_lightcurve_parameters(event, companions, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_bsbl_lightcurve_parameters(event, companions, comp_idx_L, comp_idx_S, filter_dict, red_law)
 
     return model_name, parameter_dict

@@ -79,7 +79,7 @@ from multiprocessing import Pool, Value, Lock
 
 
 def get_bagle_model_list(event_table, comp_table, lcurve_table,
-                         photometric_system, filter_name, red_law, n_multi_proc=6,
+                         filter_dict, red_law, n_multi_proc=6,
                          return_name_and_dict = False):
     """
     Parameters
@@ -93,11 +93,17 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     lcurve_table: Table or None
         The table containing light curve data associated with the events.
 
-    photometric_system: str
-        The photometric system to be used for modeling.
-
-    filter_name: str
-        The name of the filter to be used in the photometric system.
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
         Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
@@ -146,7 +152,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         index_i = event_table_df.index[i]
 
         if ((lcurve_table is None) or (comp_table is None)):
-            inputs[i] = [event_i, None, photometric_system, filter_name, red_law, return_name_and_dict]
+            inputs[i] = [event_i, None, filter_dict, red_law, return_name_and_dict]
         else:
             try:
                 # Get the used lightcurve row.
@@ -161,7 +167,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
             except KeyError:
                 comps_i = None
 
-            inputs[i] = [event_i, comps_i, photometric_system, filter_name, red_law, return_name_and_dict]
+            inputs[i] = [event_i, comps_i, filter_dict, red_law, return_name_and_dict]
 
     if n_multi_proc > 1:
         # Set up the multiprocessing
@@ -181,7 +187,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     return all_models
 
 
-def get_bagle_model(event, companions, photometric_system, filter_name, red_law, return_name_and_dict = False):
+def get_bagle_model(event, companions, filter_dict, red_law, return_name_and_dict = False):
     """
     Get a BAGLE model instance for a single event (and its associated companions).
 
@@ -197,9 +203,17 @@ def get_bagle_model(event, companions, photometric_system, filter_name, red_law,
         to generate the event. If an event has triples involved, the irrelevant (or less
         important) companions should be trimmed first.
 
-    photometric_system : str
-
-    filter_name : str
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
 
@@ -221,8 +235,7 @@ def get_bagle_model(event, companions, photometric_system, filter_name, red_law,
     """
     event = event[0]
 
-    model_name, parameter_dict = get_bagle_model_name_and_params(event, companions,
-                                                                 photometric_system, filter_name, red_law)
+    model_name, parameter_dict = get_bagle_model_name_and_params(event, companions, filter_dict, red_law)
 
     if return_name_and_dict:
         return model_name, parameter_dict
@@ -250,7 +263,7 @@ def coords_and_prop_motion(event):
 
     return raL, decL, muL, muS
 
-def get_pspl_lightcurve_parameters(events, photometric_system, filter_name, event_id = None):
+def get_pspl_lightcurve_parameters(events, filter_dict, event_id = None):
     """
     Find the parameters for PSPL_PhotAstrom_Par_Param1 from 
     event_table.
@@ -260,13 +273,17 @@ def get_pspl_lightcurve_parameters(events, photometric_system, filter_name, even
     events : Astropy table
         Table containing the events calculated from refine_events.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     event_id : float or None, optional
         Index of event table of event. If len(events) > 1, this must be specified.
@@ -308,8 +325,12 @@ def get_pspl_lightcurve_parameters(events, photometric_system, filter_name, even
     beta = event['u0'] * event['theta_E']  # mas
     dL = event['rad_L'] * 10 ** 3  # Distance to lens
     dS = event['rad_S'] * 10 ** 3  # Distance to source
-    mag_src = [event['%s_%s_app_S' % (photometric_system, filter_name)]]
-    b_sff = [event['f_blend_%s' % filter_name]]
+    mag_src = []
+    b_sff = []
+    for photometric_system in filter_dict:
+        for filter_name in filter_dict[photometric_system]:
+            mag_src += [event['%s_%s_app_S' % (photometric_system, filter_name)]]
+            b_sff += [event['f_blend_%s' % filter_name]]
 
     parameter_dict = {'raL': raL, 'decL': decL, 'mL': mL,
                       't0': t0, 'beta': beta, 'dL': dL, 'dL_dS': dL / dS,
@@ -319,7 +340,7 @@ def get_pspl_lightcurve_parameters(events, photometric_system, filter_name, even
 
     return parameter_dict, obj_id_L, obj_id_S, model_name
 
-def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, photometric_system, filter_name, event_id = None):
+def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, filter_dict, event_id = None):
     """
     Find the parameters for PSBL_PhotAstrom_Par_EllOrbs_Param7 from 
     event_table and comp_table.
@@ -335,13 +356,17 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, photometric_s
     comp_idx_L : int
         Index into the comp_table of the companion for which the psbl is being calculated.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     event_id : float or None, optional
         Corresponding event_id in event_table to companion id.
@@ -391,29 +416,35 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, photometric_s
     beta_p = event['u0'] * event['theta_E']  # 5.0
     dL = event['rad_L'] * 10 ** 3  # Distance to lens
     dS = event['rad_S'] * 10 ** 3  # Distance to source
-    mag_src = [event['%s_%s_app_S' % (photometric_system, filter_name)]]
-    b_sff = [event['f_blend_%s' % filter_name]]  # ASSUMES ALL BINARY LENSES ARE BLENDED
     omega = companions['omega'][comp_idx_L]
     big_omega = companions['Omega'][comp_idx_L]
     i = companions['i'][comp_idx_L]
     e = companions['e'][comp_idx_L]
     tp = companions['tp'][comp_idx_L]
     a = 10**(companions['log_a'][comp_idx_L])
-    dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
     
+    mag_src = []
+    b_sff = []  # ASSUMES ALL BINARY LENSES ARE BLENDED
+    dmag_Lp_Ls = []
+    for photometric_system in filter_dict:
+        for filter_name in filter_dict[photometric_system]:
+            filt = photometric_system+'_'+filter_name
+            mag_src += [event['%s_%s_app_S' % (photometric_system, filter_name)]]
+            b_sff += [event['f_blend_%s' % filter_name]]
+            dmag_Lp_Ls += [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
+            
 
     parameter_dict = {'raL': raL, 'decL': decL,
                       'mLp': mLp, 'mLs': mLs, 't0_p': t0_p,
                       'xS0_E': xS0[0], 'xS0_N': xS0[1], 'beta_p': beta_p,
                       'muL_E': muL[0], 'muL_N': muL[1], 'muS_E': muS[0], 'muS_N': muS[1],
                       'dL': dL, 'dS': dS, 
-                      #'sep': sep, 'alpha': alpha, 
                       'mag_src': mag_src, 'b_sff': b_sff, 'omega_pri': omega, 'big_omega_sec': big_omega,
                      'i': i, 'e': e, 'tp': tp, 'a': a, 'dmag_Lp_Ls': dmag_Lp_Ls}
 
     return parameter_dict, obj_id_L, obj_id_S, model_name
 
-def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, photometric_system, filter_name, red_law, event_id = None):
+def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, filter_dict, red_law, event_id = None):
     """
     Find the parameters for BSPL_PhotAstrom_Par_EllOrbs_Param4 from 
     event_table and comp_table.
@@ -429,13 +460,17 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, photometric_s
     comp_idx_S : int
         Index into the comp_table of the companion for which the bspl is being calculated.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     red_law : str
         Redenning law
@@ -479,9 +514,6 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, photometric_s
     
     model_name = 'BSPL_PhotAstrom_Par_EllOrbs_Param4'
 
-    filt_dict = phot_utils.make_filt_dict()
-    f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
 
     mL = event['mass_L']  # msun (Lens current mass)
     t0_p = event['t0']  # mjd
@@ -489,10 +521,6 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, photometric_s
     dL = event['rad_L'] * 10 ** 3  # Distance to lens
     dL_dS = dL / (event['rad_S'] * 10 ** 3)  # Distance to lens/Distance to source
     xS0 = np.array([0, 0])  # arbitrary offset (arcsec)
-    mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
-    mag_src_pri = binary_utils.subtract_magnitudes(
-        event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
-    b_sff = event['f_blend_%s' % filter_name]  # ASSUMES THAT SOURCE BINARIES ARE BLENDED
     omega = companions['omega'][comp_idx_S]
     big_omega = companions['Omega'][comp_idx_S]
     i = companions['i'][comp_idx_S]
@@ -502,16 +530,33 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, photometric_s
     mass_source_p = event['mass_S']
     mass_source_s = companions['mass'][comp_idx_S]
     
+    
+    b_sff = [] # ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    mag_src_sec = []
+    mag_src_pri = []
+    filt_dict = phot_utils.make_filt_dict()
+    for photometric_system in filter_dict:
+        for filter_name in filter_dict[photometric_system]:
+            filt = photometric_system+'_'+filter_name
+            f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+            abs_mag_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
+            mag_src_sec_tmp = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
+            
+            mag_src_sec += [mag_src_sec_tmp]
+            mag_src_pri += [binary_utils.subtract_magnitudes(
+                event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec_tmp)] 
+            b_sff += [event['f_blend_%s' % filter_name]]
+    
     parameter_dict = {'raL': raL, 'decL': decL, 'mL': mL,
                       't0': t0_p, 'beta': beta_p, 'dL': dL, 'dL_dS': dL_dS,
                       'xS0_E': xS0[0], 'xS0_N': xS0[1],
                       'muL_E': muL[0], 'muL_N': muL[1], 'muS_E': muS[0], 'muS_N': muS[1],
-                      'mag_src_pri': [mag_src_pri], 'mag_src_sec': [mag_src_sec], 'b_sff': [b_sff], 'omega_pri': omega, 'big_omega_sec': big_omega, 
+                      'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 'b_sff': b_sff, 'omega_pri': omega, 'big_omega_sec': big_omega, 
                       'i': i, 'e': e, 'log_a': log_a, 'mass_source_p': mass_source_p, 'mass_source_s': mass_source_s, 'tp': tp}
 
     return parameter_dict, obj_id_L, obj_id_S, model_name
 
-def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law, event_id = None):
+def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, filter_dict, red_law, event_id = None):
     """
     Find the parameters for BSBL_PhotAstrom_Par_EllOrbs_Param3 from 
     event_table and comp_table.
@@ -530,13 +575,17 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
     comp_idx_S : int
         Index into the comp_table of the source companion for which the model is being calculated.
     
-    photometric_system : str
-        The name of the photometric system in which the filter exists.
-    
-    filter_name : str
-        The name of the filter in which to calculate all the
-        microlensing events. The filter name convention is set
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
         in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
     
     red_law : str
         Redenning law
@@ -581,8 +630,6 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
 
     model_name = 'BSBL_PhotAstrom_Par_EllOrbs_Param3'
 
-    f_i = synthetic.filt_dict[photometric_system + '_' + filter_name][red_law]
-    abs_mag_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
     
     mLp = event['mass_L']  # msun (Lens current mass)
     mLs = companions['mass'][comp_idx_L]  # msun (Companion lens current mass)
@@ -592,10 +639,6 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
     dS = event['rad_S'] * 10 ** 3  # Distance to source
     xS0_E = 0.0  # arbitrary offset (arcsec)
     xS0_N = 0.0  # arbitrary offset (arcsec)
-    mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
-    mag_src_pri = binary_utils.subtract_magnitudes(
-        event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
-    b_sff = event['f_blend_%s' % filter_name]  # ASSUMES THAT SOURCE BINARIES ARE BLENDED
     omegaL = companions['omega'][comp_idx_L]
     big_omegaL = companions['Omega'][comp_idx_L]
     iL = companions['i'][comp_idx_L]
@@ -608,15 +651,33 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
     eS = companions['e'][comp_idx_S]
     tpS = companions['tp'][comp_idx_S]
     aS = 10**(companions['log_a'][comp_idx_S])
-    dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
     mass_source_p = event['mass_S']
     mass_source_s = companions['mass'][comp_idx_S]
+    
+    b_sff = [] # ASSUMES THAT SOURCE BINARIES ARE BLENDED
+    mag_src_sec = []
+    mag_src_pri = []
+    dmag_Lp_Ls = []
+    filt_dict = phot_utils.make_filt_dict()
+    for photometric_system in filter_dict:
+        for filter_name in filter_dict[photometric_system]:
+            filt = photometric_system+'_'+filter_name
+            f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+            abs_mag_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
+            
+            mag_src_sec_tmp = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
+            mag_src_sec += [mag_src_sec_tmp]
+            mag_src_pri += [binary_utils.subtract_magnitudes(
+                event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec_tmp)]
+            b_sff += [event['f_blend_%s' % filter_name]]
+            dmag_Lp_Ls += [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
+            
 
     parameter_dict = {'raL': raL, 'decL': decL, 'mLp': mLp, 'mLs': mLs,
                       't0_p': t0_p, 'xS0_E': xS0_E, 'xS0_N': xS0_N, 'beta_p': beta_p,
                       'muL_E': muL[0], 'muL_N': muL[1], 'muS_E': muS[0], 'muS_N': muS[1],
                       'dL': dL, 'dS': dS, 
-                      'mag_src_pri': [mag_src_pri], 'mag_src_sec': [mag_src_sec], 'b_sff': [b_sff],
+                      'mag_src_pri': mag_src_pri, 'mag_src_sec': mag_src_sec, 'b_sff': b_sff,
                      'omegaL_pri': omegaL, 'big_omegaL_sec': big_omegaL, 'iL': iL, 'eL': eL, 'tpL': tpL, 'aL': aL,
                      'omegaS_pri': omegaS, 'big_omegaS_sec': big_omegaS, 'iS': iS, 'eS': eS, 'tpS': tpS, 'aS': aS,
                      'dmag_Lp_Ls': dmag_Lp_Ls, 'mass_source_p': mass_source_p, 'mass_source_s': mass_source_s}
@@ -624,7 +685,7 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
 
     return parameter_dict, obj_id_L, obj_id_S, model_name
 
-def get_bagle_model_name_and_params(event, companions, photometric_system, filter_name, red_law):
+def get_bagle_model_name_and_params(event, companions, filter_dict, red_law):
     """
     For a single event and its associated companions, get the BAGLE model name
     and parameters (in a dictionary).
@@ -641,9 +702,17 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         to generate the event. If an event has triples involved, the irrelevant (or less
         important) companions should be trimmed first.
 
-    photometric_system : str
-
-    filter_name : str
+    filter_dict : dict
+        Dictionary with desired photometric systems and 
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled 
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r: 
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
 
     red_law : str
 
@@ -669,7 +738,7 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         event_type = 'PSPL'
 
     if event_type == 'PSPL':
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_pspl_lightcurve_parameters(event, photometric_system, filter_name)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_pspl_lightcurve_parameters(event, filter_dict)
 
     if event_type == 'PSBL':
         # There should only be a single lens companion.
@@ -680,7 +749,7 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         else:
             comp_idx_L = comp_idxs_L[0]
 
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_psbl_lightcurve_parameters(event, companions, comp_idx_L, photometric_system, filter_name)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_psbl_lightcurve_parameters(event, companions, comp_idx_L, filter_dict)
 
     if event_type == 'BSPL':
         comp_idxs_S = np.where(companions['prim_type'] == b"S")[0]
@@ -690,7 +759,7 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         else:
             comp_idx_S = comp_idxs_S[0]
 
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_bspl_lightcurve_parameters(event, companions, comp_idx_S, photometric_system, filter_name, red_law)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_bspl_lightcurve_parameters(event, companions, comp_idx_S, filter_dict, red_law)
 
     if event_type == 'BSBL':
         # There should only be a single source companion.
@@ -707,6 +776,6 @@ def get_bagle_model_name_and_params(event, companions, photometric_system, filte
         else:
             comp_idx_L = comp_idxs_L[0]
 
-        parameter_dict, obj_id_L, obj_id_S, model_name = get_bsbl_lightcurve_parameters(event, companions, comp_idx_L, comp_idx_S, photometric_system, filter_name, red_law)
+        parameter_dict, obj_id_L, obj_id_S, model_name = get_bsbl_lightcurve_parameters(event, companions, comp_idx_L, comp_idx_S, filter_dict, red_law)
 
     return model_name, parameter_dict

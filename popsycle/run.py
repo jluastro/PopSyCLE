@@ -745,8 +745,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
         filter_name = popsycle_config['filter_dict'][photometric_system][0]
         _check_refine_binary_events(events=filename_dict['refined_events_filename'],
                                     companions=refined_events_comp_filename,
-                                    filter_name=filter_name,
-                                    photometric_system=photometric_system,
+                                    filter_dict=popsycle_config['filter_dict'],
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
@@ -1131,8 +1130,7 @@ def run(output_root='root0',
         filter_name = popsycle_config['filter_dict'][photometric_system][0]
         _check_refine_binary_events(events=filename_dict['refined_events_filename'],
                                     companions=refined_events_comp_filename,
-                                    filter_name=filter_name,
-                                    photometric_system=photometric_system,
+                                    filter_dict=popsycle_config['filter_dict'],
                                     n_proc=n_cores_refine_binary_events,
                                     overwrite=overwrite,
                                     output_file='default', save_phot=True,
@@ -1270,8 +1268,7 @@ def run(output_root='root0',
         phot_dir = '%s_bin_phot' % output_root
         synthetic.refine_binary_events(events=filename_dict['refined_events_filename'],
                                        companions=refined_events_comp_filename,
-                                       filter_name=filter_name,
-                                       photometric_system=photometric_system,
+                                       filter_dict=popsycle_config['filter_dict'],
                                        n_proc=n_cores_refine_binary_events,
                                        overwrite=overwrite,
                                        output_file='default', save_phot=True,
@@ -1328,7 +1325,7 @@ def main():
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
     optional.add_argument('--multi-proc-refine-binary-events', type=bool,
-                          help='Controls multi processing for refine bianry events '
+                          help='Controls multi processing for refine binary events '
                           'even if n-cores=1',
                           default=True)
     optional.add_argument('--seed', type=int,

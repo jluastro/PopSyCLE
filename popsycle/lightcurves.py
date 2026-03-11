@@ -79,21 +79,19 @@ from multiprocessing import Pool, Value, Lock
 
 
 def get_bagle_model_list(event_table, comp_table, lcurve_table,
-                         filter_dict, red_law, n_multi_proc=6):
+                         filter_dict, red_law, n_multi_proc=6,
+                         return_name_and_dict = False):
     """
-    Create BAGLE model instances for table of events.
-
     Parameters
     ----------
-    event_table : astropy.table.Table
-        Event table from synthetic.py refine_events.
+    event_table: Table
+        The table containing event data such as object IDs for lenses and sources.
 
-    comp_table : astropy.table.Table
-        Companions table that contains all lens or source companions for the events table.
+    comp_table: Table
+        The table containing companion data.
 
-    lcurve_table : astropy.table.Table
-        Lightcurves generated for the binary events (from refine_binary_events). This is needed
-        to figure out which of the companions (in the case of triples) is used in advance.
+    lcurve_table: Table or None
+        The table containing light curve data associated with the events.
 
     filter_dict : dict
         Dictionary with desired photometric systems and 
@@ -110,19 +108,24 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     red_law : str
         Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
 
+    return_name_and_dict : bool, Optional
+        If True, returns name of model and parameter dict list instead of model list.
+        Default is False.
+
     Returns
     -------
     A list of BAGLE model instances.
 
+    n_multi_proc: int, optional, default=6
+        The number of multiprocessing processes to be used for model generation.
     """
     # Set event table index for easier cross-matching.
     event_table_df = event_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'], drop=False)
 
-    if lcurve_table is None:
-        pass
-    else:
-        # Convert other tables to pandas.
+    # Convert other tables to pandas.
+    if lcurve_table is not None:
         lcurv_table_df = lcurve_table.to_pandas()
+        comps_table_df = comp_table.to_pandas()
 
         # Group lightcurves associated with the same event.
         grouped_lcurv = lcurv_table_df.groupby(['obj_id_L', 'obj_id_S'])
@@ -136,12 +139,6 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         lcurv_used['obj_id_S'] = lcurv_used['obj_id_S'].astype('int')
         lcurv_used.set_index(['obj_id_L', 'obj_id_S'], inplace=True)
 
-    if comp_table is None:
-        pass
-    else:
-        # Convert other tables to pandas
-        comps_table_df = comp_table.to_pandas()
-    
         comps_table_df['companion_idx'] = comps_table_df['companion_idx'].astype('float')
 
         # Group the companions by the index for easier access.
@@ -155,7 +152,11 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         index_i = event_table_df.index[i]
 
         if ((lcurve_table is None) or (comp_table is None)):
+<<<<<<< HEAD
             inputs[i] = [event_i, comp_table, filter_dict, red_law]
+=======
+            inputs[i] = [event_i, None, filter_dict, red_law, return_name_and_dict]
+>>>>>>> 7f6fb4bc38b70fecac8691487904d1599154becf
         else:
             try:
                 # Get the used lightcurve row.
@@ -164,13 +165,13 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
                 # Get the individual companions associated with this used lightcurve.
                 comps_i_all = grouped_comps.get_group(index_i)
                 comps_i = comps_i_all.loc[(comps_i_all['companion_idx'] == lcurve_i['companion_id_L']) |
-                                      (comps_i_all['companion_idx'] == lcurve_i['companion_id_S'])]
+                                          (comps_i_all['companion_idx'] == lcurve_i['companion_id_S'])]
                 comps_i = Table.from_pandas(comps_i)
 
             except KeyError:
                 comps_i = None
 
-            inputs[i] = [event_i, comps_i, filter_dict, red_law]
+            inputs[i] = [event_i, comps_i, filter_dict, red_law, return_name_and_dict]
 
     if n_multi_proc > 1:
         # Set up the multiprocessing
@@ -190,7 +191,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     return all_models
 
 
-def get_bagle_model(event, companions, filter_dict, red_law):
+def get_bagle_model(event, companions, filter_dict, red_law, return_name_and_dict = False):
     """
     Get a BAGLE model instance for a single event (and its associated companions).
 
@@ -220,14 +221,29 @@ def get_bagle_model(event, companions, filter_dict, red_law):
 
     red_law : str
 
+    return_name_and_dict : bool, Optional
+        If True, returns name of model and parameter dict instead of model.
+        Default is False.
+
     Returns
     -------
+    mod : BAGLE model object
+        Returns by default
+
+    model_name : str
+        Name of BAGLE model, returned if return_name_and_dict = True
+
+    parameter_dict : dict
+        Dictionary of BAGLE model parameters, returned if return_name_and_dict = True 
 
     """
     event = event[0]
 
     model_name, parameter_dict = get_bagle_model_name_and_params(event, companions, filter_dict, red_law)
 
+    if return_name_and_dict:
+        return model_name, parameter_dict
+    
     mod_class = getattr(model, model_name)
     mod = mod_class(**parameter_dict)
 

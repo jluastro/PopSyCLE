@@ -416,19 +416,15 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, filter_dict, 
     beta_p = event['u0'] * event['theta_E']  # 5.0
     dL = event['rad_L'] * 10 ** 3  # Distance to lens
     dS = event['rad_S'] * 10 ** 3  # Distance to source
-#     mag_src = [event['%s_%s_app_S' % (photometric_system, filter_name)]]
-#     b_sff = [event['f_blend_%s' % filter_name]]  # ASSUMES ALL BINARY LENSES ARE BLENDED
     omega = companions['omega'][comp_idx_L]
     big_omega = companions['Omega'][comp_idx_L]
     i = companions['i'][comp_idx_L]
     e = companions['e'][comp_idx_L]
     tp = companions['tp'][comp_idx_L]
     a = 10**(companions['log_a'][comp_idx_L])
-#     dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
     
-    #FIX HERE
     mag_src = []
-    b_sff = []
+    b_sff = []  # ASSUMES ALL BINARY LENSES ARE BLENDED
     dmag_Lp_Ls = []
     for photometric_system in filter_dict:
         for filter_name in filter_dict[photometric_system]:
@@ -443,7 +439,6 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, filter_dict, 
                       'xS0_E': xS0[0], 'xS0_N': xS0[1], 'beta_p': beta_p,
                       'muL_E': muL[0], 'muL_N': muL[1], 'muS_E': muS[0], 'muS_N': muS[1],
                       'dL': dL, 'dS': dS, 
-                      #'sep': sep, 'alpha': alpha, 
                       'mag_src': mag_src, 'b_sff': b_sff, 'omega_pri': omega, 'big_omega_sec': big_omega,
                      'i': i, 'e': e, 'tp': tp, 'a': a, 'dmag_Lp_Ls': dmag_Lp_Ls}
 
@@ -519,9 +514,6 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, filter_dict, 
     
     model_name = 'BSPL_PhotAstrom_Par_EllOrbs_Param4'
 
-#     filt_dict = phot_utils.make_filt_dict()
-#     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
-#     abs_mag_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
 
     mL = event['mass_L']  # msun (Lens current mass)
     t0_p = event['t0']  # mjd
@@ -529,10 +521,6 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, filter_dict, 
     dL = event['rad_L'] * 10 ** 3  # Distance to lens
     dL_dS = dL / (event['rad_S'] * 10 ** 3)  # Distance to lens/Distance to source
     xS0 = np.array([0, 0])  # arbitrary offset (arcsec)
-#     mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
-#     mag_src_pri = binary_utils.subtract_magnitudes(
-#         event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
-#     b_sff = event['f_blend_%s' % filter_name]  # ASSUMES THAT SOURCE BINARIES ARE BLENDED
     omega = companions['omega'][comp_idx_S]
     big_omega = companions['Omega'][comp_idx_S]
     i = companions['i'][comp_idx_S]
@@ -542,8 +530,8 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, filter_dict, 
     mass_source_p = event['mass_S']
     mass_source_s = companions['mass'][comp_idx_S]
     
-    #FIX HERE
-    b_sff = []
+    
+    b_sff = [] # ASSUMES THAT SOURCE BINARIES ARE BLENDED
     mag_src_sec = []
     mag_src_pri = []
     filt_dict = phot_utils.make_filt_dict()
@@ -642,8 +630,6 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
 
     model_name = 'BSBL_PhotAstrom_Par_EllOrbs_Param3'
 
-#     f_i = synthetic.filt_dict[photometric_system + '_' + filter_name][red_law]
-#     abs_mag_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
     
     mLp = event['mass_L']  # msun (Lens current mass)
     mLs = companions['mass'][comp_idx_L]  # msun (Companion lens current mass)
@@ -653,10 +639,6 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
     dS = event['rad_S'] * 10 ** 3  # Distance to source
     xS0_E = 0.0  # arbitrary offset (arcsec)
     xS0_N = 0.0  # arbitrary offset (arcsec)
-#     mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
-#     mag_src_pri = binary_utils.subtract_magnitudes(
-#         event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
-#     b_sff = event['f_blend_%s' % filter_name]  # ASSUMES THAT SOURCE BINARIES ARE BLENDED
     omegaL = companions['omega'][comp_idx_L]
     big_omegaL = companions['Omega'][comp_idx_L]
     iL = companions['i'][comp_idx_L]
@@ -669,12 +651,10 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
     eS = companions['e'][comp_idx_S]
     tpS = companions['tp'][comp_idx_S]
     aS = 10**(companions['log_a'][comp_idx_S])
-#     dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
     mass_source_p = event['mass_S']
     mass_source_s = companions['mass'][comp_idx_S]
     
-    #FIX HERE
-    b_sff = []
+    b_sff = [] # ASSUMES THAT SOURCE BINARIES ARE BLENDED
     mag_src_sec = []
     mag_src_pri = []
     dmag_Lp_Ls = []

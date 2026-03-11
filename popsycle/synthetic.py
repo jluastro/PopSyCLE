@@ -5286,10 +5286,7 @@ def _check_refine_binary_events(events, companions,
         if not all(isinstance(key,str) for key in filter_dict):
             raise Exception('All filter_dict keys must be strings.')
         if not all(isinstance(filt,str) for key,val in filter_dict.items() for filt in val):
-            raise Exception('All filter_dict vaues must be lists of strings.')     
-
-#     if not isinstance(photometric_system, str):
-#         raise Exception('photometric_system (%s) must be a string.' % str(photometric_system))  
+            raise Exception('All filter_dict vaues must be lists of strings.')      
 
     if not isinstance(output_file, str):
         raise Exception('output_file (%s) must be a string.' % str(output_file))

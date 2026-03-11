@@ -152,11 +152,7 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         index_i = event_table_df.index[i]
 
         if ((lcurve_table is None) or (comp_table is None)):
-<<<<<<< HEAD
-            inputs[i] = [event_i, comp_table, filter_dict, red_law]
-=======
             inputs[i] = [event_i, None, filter_dict, red_law, return_name_and_dict]
->>>>>>> 7f6fb4bc38b70fecac8691487904d1599154becf
         else:
             try:
                 # Get the used lightcurve row.

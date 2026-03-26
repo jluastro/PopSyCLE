@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import argparse
 from argparse import RawTextHelpFormatter
+import ast
 import yaml
 import sys
 import time
@@ -22,6 +23,42 @@ from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
 from popsycle import binary_utils
 from popsycle import phot_utils
+
+
+def _get_multiplicity_from_config(popsycle_config):
+    """
+    Instantiate the multiplicity object from popsycle_config.
+
+    Parameters
+    ----------
+    popsycle_config : dict
+        Dictionary loaded from popsycle config yaml.
+
+    Returns
+    -------
+    multiplicity : object or None
+        Instantiated multiplicity object, or None.
+    """
+    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
+    if multiplicity is None:
+        return None
+
+    multiplicity_resolveddk_params = popsycle_config.get('multiplicity_resolveddk_params',
+                                                         "{'CSF_max': 2, 'companion_max': True}")
+    if multiplicity_resolveddk_params in [None, 'None']:
+        multiplicity_resolveddk_params = {}
+    elif isinstance(multiplicity_resolveddk_params, str):
+        try:
+            multiplicity_resolveddk_params = ast.literal_eval(multiplicity_resolveddk_params)
+        except Exception:
+            raise Exception('multiplicity_resolveddk_params must be a string representation '
+                            'of a dictionary (for example: '
+                            '"{\'CSF_max\': 2, \'companion_max\': True}").')
+
+    if not isinstance(multiplicity_resolveddk_params, dict):
+        raise Exception('multiplicity_resolveddk_params must evaluate to a dictionary.')
+
+    return multiplicity(**multiplicity_resolveddk_params)
 
 
 def _return_filename_dict(output_root, filter_dict, red_law, multiplicity = None):
@@ -240,6 +277,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   filter_dict={'ubv':['R']},
                                   red_law='Damineli16',
                                   multiplicity=None,
+                                  multiplicity_resolveddk_params="{'CSF_max': 2, 'companion_max': True}",
                                   bbh_frac = 'default',
                                   binning = True,
                                   config_filename='popsycle_config.yaml'):
@@ -314,6 +352,13 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         the table will be generated with resolved multiples.
         Default is None.
 
+    multiplicity_resolveddk_params : str
+        String representation of kwargs used to instantiate
+        `MultiplicityResolvedDK` when multiplicity is set to `'ResolvedDK'`.
+        Example:
+            "{'CSF_max': 2, 'companion_max': True}"
+        Default keeps previous behavior (maximum of triples).
+
     bbh_frac : str or float
         If make_bhs_single() is run, this is the fraction of binary black holes.
         If bbh_frac = 'default', then make_bhs_single() will not be run.
@@ -357,6 +402,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'filter_dict': filter_dict,
               'red_law': red_law,
               'multiplicity': multiplicity,
+              'multiplicity_resolveddk_params': multiplicity_resolveddk_params,
               'bbh_frac' : bbh_frac,
               'binning':binning}
     generate_config_file(config_filename, config)
@@ -656,12 +702,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     popsycle_config = load_config_file(popsycle_config_filename)
 
     # Load multiplicity from popsycle_config
-    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
-    # Additional multiplicity classes may require a different method of instantiation
-    # that would require breaking this out into a separate function
+    multiplicity = _get_multiplicity_from_config(popsycle_config)
     if multiplicity is not None:
-        # These arguments ensure a maximum of triples
-        multiplicity = multiplicity(CSF_max=2, companion_max=True)
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
         skip_refine_binary_events = True
@@ -1066,12 +1108,8 @@ def run(output_root='root0',
     if additional_photometric_systems == []:
         additional_photometric_systems = None
     # Load multiplicity from popsycle_config
-    multiplicity = multiplicity_list[popsycle_config['multiplicity']]
-    # Additional multiplicity classes may require a different method of instantiation
-    # that would require breaking this out into a separate function
+    multiplicity = _get_multiplicity_from_config(popsycle_config)
     if multiplicity is not None:
-        # These arguments ensure a maximum of triples
-        multiplicity = multiplicity(CSF_max=2, companion_max=True)
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
         hdf5_file_comp = None

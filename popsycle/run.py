@@ -44,22 +44,22 @@ def _get_multiplicity_from_config(popsycle_config):
     if multiplicity is None:
         return None
 
-    multiplicity_resolveddk_params = popsycle_config.get('multiplicity_resolveddk_params',
+    multiplicity_params = popsycle_config.get('multiplicity_params',
                                                          "{'CSF_max': 2, 'companion_max': True}")
-    if multiplicity_resolveddk_params in [None, 'None']:
-        multiplicity_resolveddk_params = {}
-    elif isinstance(multiplicity_resolveddk_params, str):
+    if multiplicity_params in [None, 'None']:
+        multiplicity_params = {}
+    elif isinstance(multiplicity_params, str):
         try:
-            multiplicity_resolveddk_params = ast.literal_eval(multiplicity_resolveddk_params)
+            multiplicity_params = ast.literal_eval(multiplicity_params)
         except Exception:
-            raise Exception('multiplicity_resolveddk_params must be a string representation '
+            raise Exception('multiplicity_params must be a string representation '
                             'of a dictionary (for example: '
                             '"{\'CSF_max\': 2, \'companion_max\': True}").')
 
-    if not isinstance(multiplicity_resolveddk_params, dict):
-        raise Exception('multiplicity_resolveddk_params must evaluate to a dictionary.')
+    if not isinstance(multiplicity_params, dict):
+        raise Exception('multiplicity_params must evaluate to a dictionary.')
 
-    return multiplicity(**multiplicity_resolveddk_params)
+    return multiplicity(**multiplicity_params)
 
 
 def _get_evo_model_from_config(popsycle_config):
@@ -317,7 +317,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   filter_dict={'ubv':['R']},
                                   red_law='Damineli16',
                                   multiplicity=None,
-                                  multiplicity_resolveddk_params="{'CSF_max': 2, 'companion_max': True}",
+                                  multiplicity_params="{'CSF_max': 2, 'companion_max': True}",
                                   evo_model='default',
                                   evo_model_params='{}',
                                   bbh_frac = 'default',
@@ -394,7 +394,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         the table will be generated with resolved multiples.
         Default is None.
 
-    multiplicity_resolveddk_params : str
+    multiplicity_params : str
         String representation of kwargs used to instantiate
         `MultiplicityResolvedDK` when multiplicity is set to `'ResolvedDK'`.
         Example:
@@ -462,7 +462,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'filter_dict': filter_dict,
               'red_law': red_law,
               'multiplicity': multiplicity,
-              'multiplicity_resolveddk_params': multiplicity_resolveddk_params,
+              'multiplicity_params': multiplicity_params,
               'evo_model': evo_model,
               'evo_model_params': evo_model_params,
               'bbh_frac' : bbh_frac,
@@ -593,6 +593,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                           longitude, latitude, area,
                           walltime,
                           n_cores_perform_pop_syn = 1,
+                          multi_proc_pps = True,
                           n_cores_calc_events = 1,
                           n_cores_refine_binary_events = 1,
                           multi_proc_refine_binary_events = True,
@@ -678,6 +679,12 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
     n_cores_perform_pop_syn : int, optional
         Number of cores for executing synthetic.perform_pop_syn
         Default is 1.
+
+    multi_proc_pps : bool, optional
+        Even if n_proc = 1, a pool is still created in perform_pop_syn.
+        If multi_proc_pps = False, perform_pop_syn uses a for-loop and
+        n_proc must = 1.
+        Default is True.
         
     n_cores_calc_events : int, optional
         Number of cores for executing synthetic.calc_events
@@ -821,7 +828,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                overwrite=overwrite,
                                seed=seed,
                                multiplicity=multiplicity,
-                               evo_model=evo_model)
+                               evo_model=evo_model,
+                               multi_proc=multi_proc_pps)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,
@@ -967,6 +975,7 @@ exit $exitcode
     # Pass along optional parameters if present
     if not skip_perform_pop_syn:
         optional_cmds += '--n-cores-perform-pop-syn={} '.format(n_cores_perform_pop_syn)
+        optional_cmds += '--multi-proc-pps={} '.format(multi_proc_pps)
     
     if not skip_calc_events:
         optional_cmds += '--n-cores-calc-events={} '.format(n_cores_calc_events)
@@ -1116,6 +1125,7 @@ def run(output_root='root0',
         field_config_filename='field_config.yaml',
         popsycle_config_filename='popsycle_config.yaml',
         n_cores_perform_pop_syn=1,
+        multi_proc_pps=True,
         n_cores_calc_events=1,
         n_cores_refine_binary_events=1,
         multi_proc_refine_binary_events=True,
@@ -1205,7 +1215,8 @@ def run(output_root='root0',
                                overwrite=overwrite,
                                seed=seed,
                                multiplicity=multiplicity,
-                               evo_model=evo_model)
+                               evo_model=evo_model,
+                               multi_proc=multi_proc_pps)
     if not skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
                            output_root2=output_root,
@@ -1279,6 +1290,7 @@ def run(output_root='root0',
             NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
             additional_photometric_systems=additional_photometric_systems,
             n_proc=n_cores_perform_pop_syn,
+            multi_proc=multi_proc_pps,
             overwrite=overwrite,
             seed=seed,
             multiplicity=multiplicity,
@@ -1427,6 +1439,10 @@ def main():
                                'function. '
                                'Default is --n-cores=1 or serial processing.',
                           default=1)
+    optional.add_argument('--multi-proc-pps', type=bool,
+                          help='Controls multi processing for perform_pop_syn '
+                               'even if n-cores=1',
+                          default=True)
     optional.add_argument('--n-cores-refine-binary-events', type=int,
                           help='Number of cores to use in the refine_binary_events '
                                'function. '
@@ -1469,6 +1485,7 @@ def main():
         field_config_filename=args.field_config_filename,
         popsycle_config_filename=args.popsycle_config_filename,
         n_cores_perform_pop_syn=args.n_cores_perform_pop_syn,
+        multi_proc_pps=args.multi_proc_pps,
         n_cores_calc_events=args.n_cores_calc_events,
         n_cores_refine_binary_events=args.n_cores_refine_binary_events,
         multi_proc_refine_binary_events=args.multi_proc_refine_binary_events,

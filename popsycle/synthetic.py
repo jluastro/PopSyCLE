@@ -104,6 +104,12 @@ all_filt_list = ['ubv,U', 'ubv,B', 'ubv,V', 'ubv,I', 'ubv,R',
 multiplicity_list = {'None': None,
                      'ResolvedDK': MultiplicityResolvedDK}
 
+##########
+# List of all supported evolution models
+##########
+evo_model_list = {'default': 'default',
+                     'COSMIC': COSMIC}
+
 ###########################################################################
 ############# Population synthesis and associated functions ###############
 ###########################################################################

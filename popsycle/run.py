@@ -21,6 +21,7 @@ from popsycle.synthetic import _check_calc_events
 from popsycle.synthetic import _check_refine_events
 from popsycle.synthetic import _check_refine_binary_events
 from popsycle.synthetic import multiplicity_list
+from popsycle.synthetic import evo_model_list
 from popsycle import binary_utils
 from popsycle import phot_utils
 
@@ -59,6 +60,45 @@ def _get_multiplicity_from_config(popsycle_config):
         raise Exception('multiplicity_resolveddk_params must evaluate to a dictionary.')
 
     return multiplicity(**multiplicity_resolveddk_params)
+
+
+def _get_evo_model_from_config(popsycle_config):
+    """
+    Instantiate the evolution model object from popsycle_config.
+
+    Parameters
+    ----------
+    popsycle_config : dict
+        Dictionary loaded from popsycle config yaml.
+
+    Returns
+    -------
+    evo_model : object, str, or None
+        Instantiated evolution model object, 'default', or None.
+    """
+    evo_model = popsycle_config.get('evo_model', 'default')
+    if evo_model == 'default':
+        return evo_model
+
+    if evo_model not in evo_model_list:
+        raise Exception('evo_model must be "default" or "COSMIC"')
+
+    evo_model_class = evo_model_list[evo_model]
+
+    evo_model_params = popsycle_config.get('evo_model_params', '{}')
+    if evo_model_params in [None, 'None']:
+        evo_model_params = {}
+    elif isinstance(evo_model_params, str):
+        try:
+            evo_model_params = ast.literal_eval(evo_model_params)
+        except Exception:
+            raise Exception('evo_model_params must be a string representation '
+                            'of a dictionary (for example: "{\'foo\': 1}").')
+
+    if not isinstance(evo_model_params, dict):
+        raise Exception('evo_model_params must evaluate to a dictionary.')
+
+    return evo_model_class(**evo_model_params)
 
 
 def _return_filename_dict(output_root, filter_dict, red_law, multiplicity = None):
@@ -278,6 +318,8 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   red_law='Damineli16',
                                   multiplicity=None,
                                   multiplicity_resolveddk_params="{'CSF_max': 2, 'companion_max': True}",
+                                  evo_model='default',
+                                  evo_model_params='{}',
                                   bbh_frac = 'default',
                                   binning = True,
                                   config_filename='popsycle_config.yaml'):
@@ -359,6 +401,20 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
             "{'CSF_max': 2, 'companion_max': True}"
         Default keeps previous behavior (maximum of triples).
 
+    evo_model : str
+        Evolution model selector.
+        Supported values:
+            'default' : use SPISEA MISTv1 models
+            'COSMIC' : instantiate SPISEA COSMIC model with evo_model_params
+        Default is 'default'.
+
+    evo_model_params : str
+        String representation of kwargs used to instantiate the selected
+        evolution model (currently relevant for 'COSMIC').
+        Example:
+            "{'BSEDict': {'xi' : 1, ...}}"
+        Default is '{}'.
+
     bbh_frac : str or float
         If make_bhs_single() is run, this is the fraction of binary black holes.
         If bbh_frac = 'default', then make_bhs_single() will not be run.
@@ -387,6 +443,10 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         multiplicity = 'None'
     if multiplicity not in multiplicity_list:
         raise Exception('multiplicity must be None or "ResolvedDK"')
+    if evo_model is None:
+        evo_model = 'None'
+    if evo_model not in ['default'] + list(evo_model_list.keys()):
+        raise Exception('evo_model must be "default", None, or "COSMIC"')
 
     config = {'radius_cut': radius_cut,
               'obs_time': obs_time,
@@ -403,6 +463,8 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'red_law': red_law,
               'multiplicity': multiplicity,
               'multiplicity_resolveddk_params': multiplicity_resolveddk_params,
+              'evo_model': evo_model,
+              'evo_model_params': evo_model_params,
               'bbh_frac' : bbh_frac,
               'binning':binning}
     generate_config_file(config_filename, config)
@@ -703,6 +765,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
 
     # Load multiplicity from popsycle_config
     multiplicity = _get_multiplicity_from_config(popsycle_config)
+    evo_model = _get_evo_model_from_config(popsycle_config)
     if multiplicity is not None:
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
@@ -757,7 +820,8 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                verbose = verbose,
                                overwrite=overwrite,
                                seed=seed,
-                               multiplicity=multiplicity)
+                               multiplicity=multiplicity,
+                               evo_model=evo_model)
     if not skip_calc_events:
         _check_calc_events(hdf5_file='test.h5',
                            output_root2=output_root,
@@ -1109,6 +1173,7 @@ def run(output_root='root0',
         additional_photometric_systems = None
     # Load multiplicity from popsycle_config
     multiplicity = _get_multiplicity_from_config(popsycle_config)
+    evo_model = _get_evo_model_from_config(popsycle_config)
     if multiplicity is not None:
         hdf5_file_comp = '%s_companions.h5' % output_root
     else:
@@ -1139,7 +1204,8 @@ def run(output_root='root0',
                                binning=popsycle_config['binning'],
                                overwrite=overwrite,
                                seed=seed,
-                               multiplicity=multiplicity)
+                               multiplicity=multiplicity,
+                               evo_model=evo_model)
     if not skip_calc_events:
         _check_calc_events(hdf5_file=filename_dict['hdf5_filename'],
                            output_root2=output_root,
@@ -1215,7 +1281,8 @@ def run(output_root='root0',
             n_proc=n_cores_perform_pop_syn,
             overwrite=overwrite,
             seed=seed,
-            multiplicity=multiplicity) 
+            multiplicity=multiplicity,
+            evo_model=evo_model) 
                 
     if not skip_make_bhs_single:
         print('-- Executing make_bhs_single')

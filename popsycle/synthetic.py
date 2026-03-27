@@ -2235,7 +2235,9 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             if isinstance(evo_model, COSMIC):
                 atm_func = atmospheres.get_merged_atmosphere_w_bb_supplement
                 my_iso = synthetic.IsochronePhotExternalEvolution(log_age, 0, 10,
-                                                                  evo_model=evolution.COSMIC(),
+                                                                  # Use caller-provided COSMIC instance
+                                                                  # so custom BSEDict kwargs are preserved.
+                                                                  evo_model=evo_model,
                                                                   metallicity=feh,
                                                                   atm_func=atm_func,
                                                                   filters=my_filt_list,

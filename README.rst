@@ -31,7 +31,7 @@ path to your `PYTHONPATH`. For example:
 
 .. code-block:: bash
 
-    git clone git@github.com:jluastro/PopSyCLE.git
+    git clone git@github.com:MovingUniverseLab/PopSyCLE.git
     echo "export PYTHONPATH=$PWD/PopSyCLE:$PYTHONPATH" >> ~/.bashrc
 
 Running PopSyCLE

@@ -1,10 +1,8 @@
-# Licensed under a 3-clause BSD style license - see LICENSE.rst
+import importlib.metadata
 
-# Packages may add whatever they like to this file, but
-# should keep this content at the top.
-# ----------------------------------------------------------------------------
-from ._astropy_init import *   # noqa
-# ----------------------------------------------------------------------------
-
-__all__ = []
+try:
+    __version__ = importlib.metadata.version(__package__)
+except importlib.metadata.PackageNotFoundError:
+    # Fallback for development mode if not installed
+    __version__ = "1.1.0"
 

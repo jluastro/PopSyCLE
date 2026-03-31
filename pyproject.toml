@@ -1,7 +1,52 @@
+[project]
+name = "PopSyCLE"
+description = "PopSyCLE (Population Synthesis for Compact-object Lensing Events) is a package to model the Milky Way, including compact objects, and synthetically observe to find microlensing events."
+version = "1.1.0"
+authors = [
+    {name = "Jessica R. Lu", email = "jlu.astro@berkeley.edu"},
+    {name = "Casey Lam"},
+    {name = "Samantha Rose"},
+    {name = "Natasha Abrams"},
+    {name = "Michael Medford"},
+    {name = "Kerianne Pruett"},
+    {name = "Will Dawson"},
+    {name = "Macy Huston"}
+]
+requires-python = ">=3.11"
+readme = "README.rst"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE*"]
+
+dependencies = ["setuptools",
+    "numpy>=1.24.3",
+    "matplotlib",
+    "pytest",
+    "astropy",
+    "h5py>=3.8.0",
+    "scipy>=1.10.1",
+    "pyyaml>=6.0",
+    "pandas>=1.5.2",
+    "numpydoc>=1.5",
+    "sphinx_rtd_theme",
+    "pysynphot",
+    "scikit-learn",
+    "bagle"
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers"
+]
+
+[project.urls]
+Homepage = "https://github.com/MovingUniverseLab/PopSyCLE/tree/main"
+Issues = "https://github.com/MovingUniverseLab/PopSyCLE/issues"
+
 [build-system]
-
-requires = ["setuptools",
-            "setuptools_scm",
-            "wheel"]
-
+requires = [
+    "setuptools>=61.0",
+    "wheel"
+]
 build-backend = 'setuptools.build_meta'

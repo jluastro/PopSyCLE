@@ -6276,7 +6276,8 @@ def einstein_radius(M, d_L, d_S):
         Einstein radius, in mas
     """
     inv_dist_diff = (1 / (d_L*unit.kpc) - 1 / (d_S*unit.kpc))
-    return (unit.rad*(np.sqrt((4*const.G/(const.c**2)) * M*unit.M_sun * inv_dist_diff))).to('mas').value
+    thetaE = (unit.rad*(np.sqrt((4*const.G/(const.c**2)) * M*unit.M_sun * inv_dist_diff))).to('mas').value
+    return thetaE
 
 
 def calc_sph_motion(vx, vy, vz, r, b, l):

@@ -2,13 +2,57 @@ Change Log
 ==========
 
 =========================
+v2.1.0 (2026-04-01)
+=========================
+* Inclusion of Rubin and Roman filters by creating interpolations between UBV filters and those respective filters
+    * Author: Sage Remulla in `PR 66 <https://github.com/jluastro/PopSyCLE/pull/66>`_
+* Support for orbital motion in lightcurves generated and refactor of ``refine_binary_events()`` to use lightcurve.py functions and be compatible with updated BAGLE
+    * Authors: Alina Hussain and Natasha Abrams
+* Inclusion of SDSS filter support via Galaxia
+    * Author: Natasha Abrams
+* Support for multiple filters to be analyzed at once in ``refine_events()`` by using a ``filt_dict``
+    * *NOTE* in run.py this deprecates using ``photometric_system`` and ``filter`` in ``run.py``, but it is still allowed when running ``refine_events()`` directly
+    * Author: Sage Remulla in `PR 68 <https://github.com/jluastro/PopSyCLE/pull/68>`_ and `PR 75 <https://github.com/MovingUniverseLab/PopSyCLE/pull/75>`_
+* Changes and tutorial for compatibility with `synthpop <https://github.com/synthpop-galaxy/synthpop>`_ as a replacement for galaxia+perform_pop_syn in some cases
+    * Author: Macy Huston in `PR 67 <https://github.com/jluastro/PopSyCLE/pull/67>`_
+* Black hole splitting to allow user to choose binary black hole fraction
+    * Fixed bugs in base function
+    * Added capability to run this via run.py and slurm scripts
+    * Author: Natasha Abrams
+* Bug Fixes and Misc
+    * Make Einstein radius more precise by using astropy constants
+    * Added some asserts to verify companions are matched between primary and companion .h5 files (just for debugging, there was no issue)
+    * Updated test_synthetic.py multiplicity fraction and CO fraction. The code that produced these didn't change, but it appears that the numpy seed generation changed causing the fractions to shift by 1-2%.
+
+
+=========================
+v2.0.2 (2024-12-24)
+=========================
+
+* Functions to manipulate lightcurves
+    * Generate BAGLE models and parameters given a table of events
+* HDF5 analysis utilities
+    * Return a table with lists of star systems and their RA, Dec, z position, and system apparent magnitude. This is useful for making stellar density maps, computing microlens event occurrence rates, etc.
+    * Count number of stars in hdf5 file
+    * Makes a fraction of black holes single after perform_pop_syn. This is a temporary fix since there is no binary evolution and all the black holes end up in binaries.
+* Bug Fixes
+    * Issues involving masked columns causing masked blends and magnitudes instead of nans or correctly added ones
+    * Column names of magnitudes of companion table
+
+=========================
+v2.0.1 (2024-03-12)
+=========================
+
+Small utility bug fixes
+
+=========================
 v2.0.0 (2024-01-29)
 =========================
 
 New Features:
 -------------
 * Multiplicity
-    * See Abrams et al., in prep for details
+    * See `Abrams et al. 2025 <https://ui.adsabs.harvard.edu/abs/2025ApJ...980..103A/abstract>`_
     * See `new example <https://github.com/jluastro/PopSyCLE/blob/main/docs/PopSyCLE_example_multiples.ipynb>`_ for details of how to call functions to add multiple systems. 
         
         * run_galaxia() is not modified, but all other function calls can be optionally changed to add multiple systems.

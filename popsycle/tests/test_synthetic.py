@@ -52,7 +52,7 @@ def galaxia():
 
     return output_root
 
-@pytest.fixture(name = 'galaxia', scope="module")
+@pytest.fixture(name = 'galaxia', scope="session")
 def galaxia_fixture():
     return galaxia()
     
@@ -82,7 +82,7 @@ def srun_galaxia(galaixa):
 
     return output_root
 
-@pytest.fixture(name = 'srun_galaxia', scope="module")
+@pytest.fixture(name = 'srun_galaxia', scope="session")
 def srun_galaxia_fixture(galaxia):
     return srun_galaxia(galaxia)
 
@@ -105,7 +105,7 @@ def srun_popsyn(srun_galaxia):
 
     return output_root
 
-@pytest.fixture(name = 'srun_popsyn', scope="module")
+@pytest.fixture(name = 'srun_popsyn', scope="session")
 def srun_popsyn_fixture(srun_galaxia):
     return srun_popsyn(srun_galaxia)
 
@@ -127,7 +127,7 @@ def srun_calc_events(srun_popsyn):
 
     return output_root
 
-@pytest.fixture(name = 'srun_calc_events', scope="module")
+@pytest.fixture(name = 'srun_calc_events', scope="session")
 def srun_calc_events_fixture(srun_popsyn):
     return srun_calc_events(srun_popsyn)
 
@@ -137,8 +137,7 @@ def srun_refine_events(srun_calc_events):
     input_root = srun_calc_events
 
     synthetic.refine_events(input_root=input_root,
-                            filter_name='I',
-                            photometric_system='ubv',
+                            filter_dict={'ubv':['I']},
                             red_law='Damineli16',
                             overwrite=True,
                             output_file='default')
@@ -147,7 +146,7 @@ def srun_refine_events(srun_calc_events):
 
     return output_root
 
-@pytest.fixture(name = 'srun_refine_events', scope="module")
+@pytest.fixture(name = 'srun_refine_events', scope="session")
 def srun_refine_events_fixture(srun_calc_events):
     return srun_refine_events(srun_calc_events)
 
@@ -175,7 +174,7 @@ def mrun_galaxia(galaixa):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_galaxia', scope="module")
+@pytest.fixture(name = 'mrun_galaxia', scope="session")
 def mrun_galaxia_fixture(galaxia):
     return mrun_galaxia(galaxia)
 
@@ -201,7 +200,7 @@ def mrun_popsyn(mrun_galaxia):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_popsyn', scope="module")
+@pytest.fixture(name = 'mrun_popsyn', scope="session")
 def mrun_popsyn_fixture(mrun_galaxia):
     return mrun_popsyn(mrun_galaxia)
 
@@ -225,7 +224,7 @@ def mrun_calc_events(mrun_popsyn):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_calc_events', scope="module")
+@pytest.fixture(name = 'mrun_calc_events', scope="session")
 def mrun_calc_events_fixture(mrun_popsyn):
     return mrun_calc_events(mrun_popsyn)
 
@@ -235,8 +234,7 @@ def mrun_refine_events(mrun_calc_events):
     input_root = mrun_calc_events
 
     synthetic.refine_events(input_root=input_root,
-                            filter_name='I',
-                            photometric_system='ubv',
+                            filter_dict={'ubv':['I']},
                             red_law='Damineli16',
                             hdf5_file_comp=input_root + '_companions.h5',
                             overwrite=True,
@@ -247,7 +245,7 @@ def mrun_refine_events(mrun_calc_events):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_refine_events', scope="module")
+@pytest.fixture(name = 'mrun_refine_events', scope="session")
 def mrun_refine_events_fixture(mrun_calc_events):
     return mrun_refine_events(mrun_calc_events)
 
@@ -265,7 +263,7 @@ def mrun_refine_binary(mrun_refine_events):
 
     return output_root
 
-@pytest.fixture(name = 'mrun_refine_binary', scope="module")
+@pytest.fixture(name = 'mrun_refine_binary', scope="session")
 def mrun_refine_binary_fixture(mrun_refine_events):
     return mrun_refine_binary(mrun_refine_events)
 
@@ -1203,15 +1201,15 @@ def test_no_nan_companions(mrun_popsyn):
 def test_single_CO_frac(srun_popsyn):
     """
     Checks that the CO fraction of objects greater than 0.1 Msun
-    is about 9.1%
+    is about 10.6%
     """
     test_hdf5 = h5py.File(srun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.1 #Msun
     CO, total, CO_frac = calc_CO_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
     
-    precalc_CO_frac = 0.09138
-    precalc_CO_number = 23173 
-    precalc_total_number = 253583
+    precalc_CO_frac = 0.1065
+    precalc_CO_number = 27474
+    precalc_total_number = 257884
     precalc_error = precalc_CO_frac*np.sqrt((np.sqrt(precalc_CO_number)/precalc_CO_number)**2 + (np.sqrt(precalc_total_number)/precalc_total_number)**2)
     
     assert(np.abs(CO_frac - precalc_CO_frac) < precalc_error)
@@ -1236,18 +1234,18 @@ def calc_CO_frac_mass_cutoff(hdf5_file, lower_mass_cutoff):
 
 def test_multiplicity_properties(mrun_popsyn):
     """
-    Checks that the multiplicity fraction of objects > 0.5 Msun is about 52%
+    Checks that the multiplicity fraction of objects > 0.5 Msun is about 49%
     and that the minimum semimajor axis is greater than 10^-2
     """
     test_hdf5 = h5py.File(mrun_popsyn + '.h5', 'r')
     lower_mass_cutoff = 0.5 #Msun
     multiplicity_frac, multiples, total = calc_multiplicity_frac_mass_cutoff(test_hdf5, lower_mass_cutoff)
 
-    precalc_mult_frac = 0.5199
-    precalc_mult_number = 23710 
-    precalc_total_number = 45606
+    precalc_mult_frac = 0.4915
+    precalc_mult_number = 24519 
+    precalc_total_number = 49885
     precalc_error = precalc_mult_frac*np.sqrt((np.sqrt(precalc_mult_number)/precalc_mult_number)**2 + (np.sqrt(precalc_total_number)/precalc_total_number)**2)
-    
+
     assert(np.abs(multiplicity_frac - precalc_mult_frac) < precalc_error)
     
     test_hdf5.close()
@@ -1322,6 +1320,7 @@ def test_refine_binary_events_multiple_lightcurves(mrun_refine_binary):
     
     test_events = Table.read(mrun_refine_binary + '.fits')
 
+@pytest.mark.xfail
 def test_refine_binary_events_psbl_lightcurve():
     """
     Generates a lightcurve that should have 4 peaks.
@@ -1364,7 +1363,7 @@ def test_refine_binary_events_psbl_lightcurve():
     plt.savefig(popsycle.__path__[0] + '/tests/data_test/psbl_4_peaks_example.png')
     
     return
-
+@pytest.mark.xfail
 def test_bspl_single_luminous_source_one_peak():
     """
     Makes sure that a BSPL event with one luminous source

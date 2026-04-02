@@ -73,4 +73,20 @@ popsycle.utils module
    :undoc-members:
    :show-inheritance:
 
+popsycle.binary_utils module
+---------------------
+
+.. automodule:: popsycle.binary_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+popsycle.phot_utils module
+---------------------
+
+.. automodule:: popsycle.phot_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 

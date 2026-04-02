@@ -18,10 +18,10 @@ except ImportError:
 if not _ASTROPY_SETUP_:  # noqa
     import os
     from warnings import warn
-    from astropy.config.configuration import (
-        update_default_config,
-        ConfigurationDefaultMissingError,
-        ConfigurationDefaultMissingWarning)
+    #from astropy.config.configuration import (
+    #    update_default_config,
+    #    ConfigurationDefaultMissingError,
+    #    ConfigurationDefaultMissingWarning)
 
     # Create the test function for self test
     from astropy.tests.runner import TestRunner

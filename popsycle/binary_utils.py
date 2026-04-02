@@ -4,6 +4,8 @@ from astropy.table import Table, Column
 from ast import literal_eval
 import h5py
 import pandas as pd
+import os
+from popsycle import synthetic
 
 
 def add_magnitudes(mags):
@@ -227,82 +229,10 @@ def add_observable_peaks_column(t_prim, t_comp_rb, t_comp_rb_mp, t_lightcurves, 
 
     return t_prim
 
-def cut_Mruns(t_prim, t_comp_rb, t_comp_rb_mp, min_mag, delta_m_cut, u0_cut, ubv_filter, S_LSN):
-    """
-    Make observational cuts on PopSyCLE runs with multiple systems
 
-    Parameters
-    ----------
-    t_prim : Astropy table
-        Events table from refine_binary_events.
-        Must contain 'observable_n_peaks' column.
-
-    t_comp_rb : Astropy table
-        Companion table from refine_binary_events.
-
-    t_comp_rb_mp : Astropy table
-        Multi peak table from refine binary events 
-        (each row corresponds to a peak in a lightcurve).
-
-    min_mag : float
-        Minimum baseline or source magnitude (specified by S_LSN).
-
-    delta_m_cut : float or None.
-        Minimum bump magnitude.
-
-    u0_cut : float
-        Maximum u0.
-
-    ubv_filter : str
-        Filter name used when cutting on min_mag and delta_m_cut.
-
-    S_LSN : str
-        'S' for source mag cut or 'LSN' for baseline magnitude cut.
-
-    Returns
-    -------
-    t_both_mcut : Astropy table
-        Table with specified observational cuts.
-        
-    t_both_mcut_one_peak : Astropy table
-        Table with specified observational cuts and only single peaked events.
-        
-    t_multiples_mcut_multi_peak : Astropy table
-        Table with specified observational cuts and only multipeaked events
-        containing a multiple system.
-    """
-    #S_LSN is source or baseline mag cut
-    if S_LSN == 'S':
-        mag_cut = t_prim['ubv_{}_app_S'.format(ubv_filter)] <= min_mag
-    elif S_LSN == 'LSN':
-        mag_cut = t_prim['ubv_{}_app_LSN'.format(ubv_filter)] <= min_mag
-    
-    u0_cut = np.abs(t_prim['u0']) < u0_cut
-    
-    binary_filt = (t_prim['isMultiple_L'] == 1) | (t_prim['isMultiple_S'] == 1)
-    single_filt = (t_prim['isMultiple_L'] == 0) & (t_prim['isMultiple_S'] == 0)
-    assert(len(t_prim) == (sum(binary_filt) + sum(single_filt)))
-
-    if delta_m_cut is not None:
-        delta_m_cut = ((t_prim['bin_delta_m'] > 0.1) & binary_filt) | ((t_prim['delta_m_{}'.format(ubv_filter)] > 0.1) & single_filt)
-        total_cut = mag_cut & u0_cut & delta_m_cut
-    else:
-        total_cut = mag_cut & u0_cut
-
-    t_both_mcut = t_prim[total_cut]
-    binary_filt_cut = (t_both_mcut['isMultiple_L'] == 1) | (t_both_mcut['isMultiple_S'] == 1)
-    single_filt_cut = (t_both_mcut['isMultiple_L'] == 0) & (t_both_mcut['isMultiple_S'] == 0)
-    assert(len(t_both_mcut) == (sum(binary_filt_cut) + sum(single_filt_cut)))
-
-    t_mult_mcut_no_peaks = t_both_mcut[binary_filt_cut & (t_both_mcut['observable_n_peaks'] == 0)] 
-    t_both_mcut_one_peak = t_both_mcut[(binary_filt_cut & (t_both_mcut['observable_n_peaks'] == 1)) | single_filt_cut]
-    t_multiples_mcut_multi_peak = t_both_mcut[binary_filt_cut & (t_both_mcut['observable_n_peaks'] > 1)]
-    assert(len(t_both_mcut) == (len(t_mult_mcut_no_peaks) + len(t_both_mcut_one_peak) + len(t_multiples_mcut_multi_peak)))
-
-    return t_both_mcut, t_both_mcut_one_peak, t_multiples_mcut_multi_peak
 
 def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['ubv_I', 'ubv_K', 'ubv_J', 'ubv_U', 'ubv_R', 'ubv_B', 'ubv_V', 'ubv_H'],
-                    new_hdf5_file = None, new_hdf5_file_comp = None):
+                    new_hdf5_file = None, new_hdf5_file_comp = None, symlink_aux_files = True):
     """
     This makes some fraction of BHs singles.
     Currently no binary star evolution, so all BHs end up in binaries.
@@ -338,6 +268,13 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
         New hdf5 file name.
         Default is None which saves it as
         hdf5_comp_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac).
+
+    symlink_aux_files : bool
+        Makes symbolic links to the following necessary auxiliary files with the new root:
+        _perform_pop_syn.log
+        _galaxia.log
+        _galaxia_params.txt
+        Default is True.
     """
     
     tmp_prim = h5py.File(hdf5_file, 'r')
@@ -348,7 +285,11 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
     if new_hdf5_file is None:
         new_hdf5_file = hdf5_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac)
     if new_hdf5_file_comp is None:
-        new_hdf5_file_comp = hdf5_comp_file[:-3] + '_{}_bhb_frac.h5'.format(bh_binary_frac)
+        new_hdf5_file_comp = hdf5_comp_file[:-13] + '{}_bhb_frac_companions.h5'.format(bh_binary_frac)
+    if symlink_aux_files:
+        os.symlink(hdf5_file[:-3] + '_galaxia.log', new_hdf5_file[:-3] + '_galaxia.log')
+        os.symlink(hdf5_file[:-3] + '_galaxia_params.txt', new_hdf5_file[:-3] + '_galaxia_params.txt')
+        os.symlink(hdf5_file[:-3] + '_perform_pop_syn.log', new_hdf5_file[:-3] + '_perform_pop_syn.log')
 
     prim_copy = h5py.File(new_hdf5_file, 'w')
     prim_copy[list(keys)[-2]] = tmp_prim[list(keys)[-2]][:]
@@ -366,7 +307,8 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
     for i in list(keys)[1:-2]:
         if i[0] == 'l':
             prim = pd.read_hdf(hdf5_file, i).set_index(['obj_id'])
-            bh_prim = prim[prim['rem_id'] == 103]
+            bbh_prim_crit = (prim['rem_id'] == 103) & (prim['isMultiple'] == 1)
+            bh_prim = prim[bbh_prim_crit]
             #idxs of bhs that will be made single
             bh_prim_singlify_idxs = np.random.choice(bh_prim.index, size = int(len(bh_prim)*(1-bh_binary_frac)), replace = False)
             
@@ -377,19 +319,53 @@ def make_bhs_single(hdf5_file, hdf5_comp_file, bh_binary_frac = 0.1, phots = ['u
             for phot in phots:
                 bh_prim.loc[bh_prim_singlify_idxs, (phot)] = np.nan
     
-            prim[prim['rem_id'] == 103] = bh_prim
+            prim[bbh_prim_crit] = bh_prim
             
             comp = pd.read_hdf(hdf5_comp_file, i).set_index(['system_idx'])
-            comp.drop(bh_prim_singlify_idxs)
+            comp.drop(index=bh_prim_singlify_idxs, axis=0, inplace=True)
 
-            with h5py.File(new_hdf5_file, 'r+') as prim_hdf5:
-                prim_np = prim.reset_index().to_numpy()
-                prim_hdf5.create_dataset(i, data=prim_np)
+            # Verify number of companions in table same as accounted for in primary table
+            assert(len(comp) == np.sum(prim['N_companions']))
 
-            with h5py.File(new_hdf5_file_comp, 'r+') as comp_hdf5:
-                comp_np = comp.reset_index().to_numpy()
-                comp_hdf5.create_dataset(i, data=comp_np)
+            prim.reset_index(inplace=True)
+            comp.reset_index(inplace=True)
 
+            prim_hdf5 = h5py.File(new_hdf5_file, 'r+')
+            compound_dtype = synthetic._generate_compound_dtype(prim.dtypes.to_dict())
+            save_data = np.empty(len(prim), dtype=compound_dtype)
+            for colname in prim.keys():
+                save_data[colname] = prim[colname].to_numpy()
+            dataset = prim_hdf5.create_dataset(i, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=compound_dtype)
+            dataset.resize((len(prim),))
+            prim_hdf5[i][:] = save_data
+            prim_hdf5.close()
+
+            del prim, save_data
+
+            comp_hdf5 = h5py.File(new_hdf5_file_comp, 'r+')
+            compound_dtype = synthetic._generate_compound_dtype(comp.dtypes.to_dict())
+            save_data = np.empty(len(comp), dtype=compound_dtype)
+            for colname in comp.keys():
+                save_data[colname] = comp[colname].to_numpy()
+            dataset = comp_hdf5.create_dataset(i, shape=(0,),
+                                        chunks=(1e4,),
+                                        maxshape=(None,),
+                                        dtype=compound_dtype)
+            dataset.resize((len(comp),))
+            comp_hdf5[i][:] = save_data
+            comp_hdf5.close()
+
+            del comp, save_data
+            
+                #prim_hdf5.create_dataset(i)#, data=prim_np.astype("|V256"))
+
+            #with h5py.File(new_hdf5_file_comp, 'r+') as comp_hdf5:
+            #    comp_np = comp.reset_index().to_numpy()
+            #    comp_hdf5.create_dataset(i)#, data=comp_np.astype("|V256"))
+                
     return
 
 

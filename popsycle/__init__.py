@@ -4,5 +4,5 @@ try:
     __version__ = importlib.metadata.version(__package__)
 except importlib.metadata.PackageNotFoundError:
     # Fallback for development mode if not installed
-    __version__ = "1.1.0"
+    __version__ = "2.1.0"
 

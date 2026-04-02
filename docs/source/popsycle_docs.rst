@@ -9,6 +9,17 @@ Documentation
 1 Installation
 ==============
 
+Prior to installing PopSyCLE, you will need to install several dependencies.
+Instructions for installing the dependencies are shown below.
+These include:
+
+#. Galaxia - Galactic modeling code
+#. SPISEA - Simple Stellar Pops code
+#. BAGLE - Microlensing code
+
+While SPISEA and BAGLE are available through conda, Galaxia is not and must
+be manually installed.
+
 1.1 Installing Galaxia
 -----------------------
 

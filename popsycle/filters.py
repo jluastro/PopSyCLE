@@ -373,6 +373,100 @@ def ztf_mag_AB_to_vega(ztf_mag_AB, filter_name):
     return ztf_mag_vega
 
 
+def roman_mag_vega_to_AB(roman_mag_vega, filter_name):
+    """
+    Converts vega magnitudes into AB magnitudes for Roman filters.
+
+    Parameters
+    ----------
+    roman_mag_vega : float, array of floats
+        Roman photometry of galaxia / SPISEA sources in vega system
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events.
+
+    Returns
+    -------
+    roman_mag_AB : float, array of floats
+        Roman photometry of galaxia / SPISEA sources in AB system
+
+    """
+    import synphot as syn
+    import stsynphot as stsyn
+    from synphot import Observation
+    from astropy import units as u
+    
+    wfi_filt = stsyn.band(f'roman, wfi, {filter_name}')
+ 
+    # STMag
+    photflam = wfi_filt.unit_response(stsyn.conf.area)  # inverse sensitivity in flam
+    stmag = -21.1 - 2.5 * np.log10(photflam.value)
+    
+    # Pivot Wavelength and bandwidth
+    photplam = wfi_filt.pivot() # pivot wavelength in angstroms
+    bandwidth = wfi_filt.photbw() # bandwidth in angstroms
+    
+    # ABMag
+    abmag = stmag - 5 * np.log10(photplam.value) + 18.6921
+    
+    # Vegamag
+    # synthetic observation of vega in bandpass using vega spectrum
+    obs = Observation(stsyn.Vega, wfi_filt, binset=wfi_filt.binset)  
+    vegamag = -1 * obs.effstim(flux_unit='obmag', area=stsyn.conf.area)
+
+    roman_mag_AB = roman_mag_vega + (abmag - vegamag.value)
+ 
+    return roman_mag_AB
+
+
+def roman_mag_AB_to_vega(roman_mag_AB, filter_name):
+    """
+    Converts AB magnitudes into vega magnitudes for Roman filters.
+
+    Parameters
+    ----------
+    roman_mag_AB : float, array of floats
+        Roman photometry of galaxia / SPISEA sources in AB system
+
+    filter_name : str
+        The name of the filter in which to calculate all the
+        microlensing events. Must be either 'g' or 'r' or 'i'.
+
+    Returns
+    -------
+    roman_mag_vega : float, array of floats
+        Roman photometry of galaxia / SPISEA sources in vega system
+
+    """
+    import synphot as syn
+    import stsynphot as stsyn
+    from synphot import Observation
+    from astropy import units as u
+    
+    wfi_filt = stsyn.band(f'roman, wfi, {filter_name}')
+ 
+    # STMag
+    photflam = wfi_filt.unit_response(stsyn.conf.area)  # inverse sensitivity in flam
+    stmag = -21.1 - 2.5 * np.log10(photflam.value)
+    
+    # Pivot Wavelength and bandwidth
+    photplam = wfi_filt.pivot() # pivot wavelength in angstroms
+    bandwidth = wfi_filt.photbw() # bandwidth in angstroms
+    
+    # ABMag
+    abmag = stmag - 5 * np.log10(photplam.value) + 18.6921
+    
+    # Vegamag
+    # synthetic observation of vega in bandpass using vega spectrum
+    obs = Observation(stsyn.Vega, wfi_filt, binset=wfi_filt.binset)  
+    vegamag = -1 * obs.effstim(flux_unit='obmag', area=stsyn.conf.area)
+
+    roman_mag_vega = roman_mag_AB + (vegamag.value - abmag)
+    
+    return roman_mag_vega
+
+
 def generate_ubv_to_rubin_grid(iso_dir,filter_name):
     """
     Creates the 2D transformational matrix necessary for generating rubin u, g, r, i, z, and y

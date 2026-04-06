@@ -182,9 +182,9 @@ def trim_popsycle_tables(idx, event_tab, comps_tab, lcurv_tab):
     lcurv_df['key_L_S'] = lcurv_df['obj_id_L'].astype(int).astype(str) + '_' + lcurv_df['obj_id_S'].astype(int).astype(str)
 
     # Filter the tables using the isin() method on the combined key
-    print(len(comps_df), len(lcurv_df))
     comps_df_t = comps_df[comps_df['key_L_S'].isin(search_keys['key_L_S'])]
     lcurv_df_t = lcurv_df[lcurv_df['key_L_S'].isin(search_keys['key_L_S'])]
+    print(f'Trimmed to N_events = {len(event_df_t)}, N_comp = {len(comps_df_t)}, N_lcurve = {len(lcurv_df_t)}')
 
     # --- Step 4 (Optional): Clean up and convert back to Astropy Table if needed ---
     # Remove the temporary key column

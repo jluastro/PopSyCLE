@@ -6406,11 +6406,11 @@ def calc_app_mag(r, M, E, f):
 
     Parameters
     ----------
-    M : float or array
-        Absolute magnitude of star
-
     r : float or array
         Distance of star from sun (in kpc)
+        
+    M : float or array
+        Absolute magnitude of star
 
     E : float or array
         Extinction law

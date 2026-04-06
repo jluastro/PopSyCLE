@@ -127,3 +127,121 @@ def count_stars_hdf5(hdf5_file, filt='ubv_I', mag_threshold=21):
     N_stars = len(gdx)
 
     return N_stars
+
+def count_stars_all(h5_file):
+    """
+    Finds the number of stars or systems in the field.
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+
+    Returns
+    -------
+    n_stars : int
+        Number of stars.
+    """
+    hf = h5py.File(h5_file, 'r')
+    n_stars = 0
+    for k in list(hf.keys()):
+        if '_' not in k:
+            n_stars += hf[k].shape[0]
+    return n_stars
+
+def count_stars_all_per_bin(h5_file):
+    """
+    Finds the number of stars or systems per bin.
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+
+    Returns
+    -------
+    n_stars : list
+        Number of stars per bin.
+    """
+    hf = h5py.File(h5_file, 'r')
+    n_stars = []
+    for k in list(hf.keys()):
+        if '_' not in k:
+            n_stars.append(hf[k].shape[0])
+    return n_stars
+
+def events_for_popclass(h5_file, max_stars_per_bin=3e3):
+    """
+    Draw microlensing events for random lens, source pairs from a 
+    PopSyCLE singles-only catalog. 
+    
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+
+    max_stars_per_bin : str
+        Maxinum number of stars per bin to use for the 
+        calculation. Prevents excessive memory/computation use.
+        Default is 3e3.
+
+    Returns
+    -------
+    rem_ids : np.array
+        array of lens types
+    thetaEs : np.array
+        array of Einstein ring radii for events (mas)
+    piEs : np.array
+        array of microlensing parallaxes for events (unitless)
+    tEs : np.array
+        array of timescales for events (days)
+    weights : np.array
+        array of relative weights for events (mu_rel * thetaE)
+    """
+    hf = h5py.File(h5_file, 'r')
+    rem_ids = []
+    thetaEs = []
+    piEs = []
+    tEs = []
+    weights = []
+    stars_per_bin = count_stars_all_per_bin(h5_file)
+    scale_stars_used = np.maximum(1,int(np.floor(np.max(stars_per_bin)/max_stars_per_bin)))
+    for k in list(hf.keys()):
+        if '_' not in k:
+            print('running', k)
+            dat = hf[k]
+
+            if dat.shape[0] > 0:
+                patch = dat[::scale_stars_used]
+                dists = patch['rad']
+                mul = patch['mu_lcosb']
+                mub = patch['mu_b']
+                masses = patch['mass']
+                rem_id_catalog = patch['rem_id']
+                idx = np.arange(len(masses))
+                del patch
+
+                src_idxs, lens_idxs = np.meshgrid(idx, idx)
+                src_idxs, lens_idxs = src_idxs.ravel(), lens_idxs.ravel()
+
+                dist_comp = (dists[src_idxs] > dists[lens_idxs]) #source further than lens
+                use_srcs = src_idxs[dist_comp]
+                use_lens = lens_idxs[dist_comp]
+                rem_id = rem_id_catalog[use_lens]
+
+                # Microlensing math
+                pi_rel = (1/dists[use_lens] - 1/dists[use_srcs])
+                c, G, mSun, pctom = 299792458, 6.6743e-11, 1.98840987e+30, 3.08567758e+16
+                theta_e = np.sqrt(4*G*mSun*masses[use_lens]*pi_rel/(1000*pctom*c**2)) * 180/np.pi * 60**2 * 1000
+                pi_e = pi_rel / theta_e
+                mu_rel = np.sqrt((mul[use_lens]-mul[use_srcs])**2 + (mub[use_lens]-mub[use_srcs])**2)
+                t_e = theta_e/mu_rel * 365.25 # years -> days
+                thetamu = theta_e*mu_rel
+                rem_ids.append(rem_id)
+                thetaEs.append(theta_e)
+                piEs.append(pi_e)
+                tEs.append(t_e)
+                weights.append(thetamu)
+    print(f'Drew {len(np.concatenate(thetaEs))} events total')
+    return np.concatenate(rem_ids), np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
+

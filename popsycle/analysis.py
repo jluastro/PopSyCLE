@@ -250,18 +250,10 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
     return np.concatenate(rem_ids), np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
 
 
-# For the blend calculation, sum the mags
-def blend_magsum(magss):
-    return -2.5*np.log10(np.sum(10**(-0.4*magss),axis=1))
-
-# For the blend calculation, flux-weight average the astrometric values
-def blend_mag_weighted_sum(mags, vals):
-    fluxes = 10**(-0.4*mags)
-    sum_vals = (np.sum(fluxes.T*vals.T, axis=1)/np.sum(fluxes,axis=1)).T
-    return sum_vals
-
-# For the blend calculation, use a KDTree to assign stars to blend "clusters"
-def calc_blend_clusters(points, radius, star_idxs):
+def _calc_blend_clusters(points, radius, star_idxs):
+    """
+    Helper function for calc_blends to run the KDTree clustering
+    """
     # Set up KDTree and array to note whether each point has been assigned a cluster
     tree = KDTree(points)
     n_points = len(points)
@@ -278,13 +270,11 @@ def calc_blend_clusters(points, radius, star_idxs):
             prim_idxs.append(star_idxs[i])
     return clusters, np.array(prim_idxs)
 
-"""
-Take a resolved star catalog and blend it, summing magnitudes
-and calculating flux-weighted positions, proper
-motions, and parallaxes.
-"""
-def calc_blends_bin(star_dat, blend_rad, filters,
+def _calc_blends_bin(star_dat, blend_rad, filters,
                 primary_filter=None, ext_law='Damineli16'):
+    """
+    Helper function for calc_blends to process 1 bin
+    """
     # Clean up table and sort by magnitude
     if primary_filter is None:
         warnings.warn(f"No primary_filter provided. Using {filters[0]}"+
@@ -303,7 +293,7 @@ def calc_blends_bin(star_dat, blend_rad, filters,
     all_l, all_b = star_dat['glon'].to_numpy(), star_dat['glat'].to_numpy()
     delta_l_cosb = ((all_l-360*(all_l>180))-l_mean)*np.cos(all_b*np.pi/180)
     delta_b = all_b-b_mean
-    all_pts = np.transpose([all_l,all_b])
+    all_pts = np.transpose([delta_l_cosb, delta_b])
     star_idxs = star_dat['obj_id'].to_numpy()
 
     # Set up arrays with necessary data
@@ -312,28 +302,28 @@ def calc_blends_bin(star_dat, blend_rad, filters,
     star_dat.loc[:,'plx'] = 1/star_dat['rad']
     astrom_vals = star_dat[['glon','glat','mu_lcosb',
                            'mu_b','plx','exbv']].to_numpy()
-    blend_vals = []
 
     # Run the cluster calculation on the sorted/cleaned points
-    clusters0, prim_idxs = calc_blend_clusters(all_pts, blend_rad, star_idxs)
+    clusters0, prim_idxs = _calc_blend_clusters(all_pts, blend_rad, star_idxs)
     # Turn this into a masked array for easy mag + param sums
     clusters_arr = np.array(list(zip_longest(*clusters0, fillvalue=-1))).T
     clusters = np.ma.masked_values(clusters_arr, -1)
 
-    # Compute the magnitude sums & other values if desired
+    # Compute the magnitude sums & weighted astrometry parameters
     mags = np.append(mags, [np.repeat(np.inf, len(filters))], axis=0)
-    bmags = blend_magsum(mags[clusters,:])
+    bmags = -2.5*np.log10(np.sum(10**(-0.4*mags[clusters,:]),axis=1))
     out = {}
     for i,f in enumerate(filters):
         out[f] = bmags[:,i]
     mags_prim = np.append(mags_prim, [np.inf])
     astrom_vals = np.append(astrom_vals, [np.repeat(0, 6)], axis=0)
-    bvals = blend_mag_weighted_sum(mags_prim[clusters], astrom_vals[clusters,:])
+    fluxes = 10**(-0.4*mags_prim[clusters])
+    bvals = (np.sum(fluxes.T*astrom_vals[clusters,:].T, axis=1)
+                / np.sum(fluxes,axis=1)).T
     for i, col in enumerate(['glon','glat','mu_lcosb',
                              'mu_b','plx', 'exbv']):
         out[col] = bvals[:,i]
     out['obj_id'] = prim_idxs
-    print(out.keys())
     return out
 
 def calc_blends(hdf5_file, blend_rad, filters,
@@ -373,7 +363,7 @@ def calc_blends(hdf5_file, blend_rad, filters,
     for dset_name in list(hf.keys()):
         if (dset_name.startswith('l')) & ('_' not in dset_name):
             print(dset_name)
-            blend_bin = calc_blends_bin(pd.DataFrame(hf[dset_name][:]),
+            blend_bin = _calc_blends_bin(pd.DataFrame(hf[dset_name][:]),
                 blend_rad, filters,
                 primary_filter=primary_filter, ext_law=ext_law)
             compound_dtype = synthetic._generate_compound_dtype(blend_bin)

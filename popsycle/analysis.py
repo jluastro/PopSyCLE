@@ -337,7 +337,8 @@ def calc_blends_bin(star_dat, blend_rad, filters,
     return out
 
 def calc_blends(hdf5_file, blend_rad, filters,
-                primary_filter=None, recalc=False):
+                primary_filter=None, ext_law='Damineli16',
+                recalc=False, combine_bins=False):
     """
     Artificially blend the catalog based on a given radius &
     save the blend catalog to a file.
@@ -353,8 +354,12 @@ def calc_blends(hdf5_file, blend_rad, filters,
     primary_filter : str = None
         filter to use for astrometric parameter flux-weighting.
         if None, use the first filter in the list.
+    ext_law : str = 'Damineli16'
+        extinction law
     recalc : boolean = False
         if True, recalculate and replace existing file
+    combine_bins : boolean = False
+        if True, save a single dataset instead of binned data
     """
     outfile_name = hdf5_file.replace('.h5', '_blended_catalog.h5')
 
@@ -370,20 +375,31 @@ def calc_blends(hdf5_file, blend_rad, filters,
             print(dset_name)
             blend_bin = calc_blends_bin(pd.DataFrame(hf[dset_name][:]),
                 blend_rad, filters,
-                primary_filter=primary_filter)
+                primary_filter=primary_filter, ext_law=ext_law)
             compound_dtype = synthetic._generate_compound_dtype(blend_bin)
             save_data = np.empty(len(blend_bin['plx']), dtype=compound_dtype)
             for colname in blend_bin:
                 save_data[colname] = blend_bin[colname]
-            if dset_name not in outfile:
-                dataset = outfile.create_dataset(dset_name, shape=(0,),
-                                            chunks=(1e4,),
-                                            maxshape=(None,),
-                                            dtype=compound_dtype)
+            if combine_bins:
+                if 'data' not in outfile:
+                    dataset = outfile.create_dataset('data', shape=(0,),
+                                                chunks=(1e4,),
+                                                maxshape=(None,),
+                                                dtype=compound_dtype)
+                else:
+                    dataset = outfile['data']
+                old_size = dataset.shape[0]
             else:
-                dataset = outfile[dset_name]
-            new_size = len(blend_bin['plx'])
+                if dset_name not in outfile:
+                    dataset = outfile.create_dataset(dset_name, shape=(0,),
+                                                chunks=(1e4,),
+                                                maxshape=(None,),
+                                                dtype=compound_dtype)
+                else:
+                    dataset = outfile[dset_name]
+                old_size = 0
+            new_size = old_size + len(blend_bin['plx'])
             dataset.resize((new_size, ))
-            dataset[:] = save_data
+            dataset[old_size:new_size] = save_data
     hf.close()
     outfile.close()

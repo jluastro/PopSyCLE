@@ -331,7 +331,10 @@ def calc_blends(hdf5_file, blend_rad, filters,
                 recalc=False, combine_bins=False):
     """
     Artificially blend the catalog based on a given radius &
-    save the blend catalog to a file.
+    save the blend catalog to a file. Outputs are: summed magnitudes
+    in selected filters, primary filter flux-weighted positions,
+    proper motions, parallaxes, and reddening, and the obj_id in
+    the original table of the brightest star in the blend.
 
     Parameters
     ----------

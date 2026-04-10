@@ -77,10 +77,113 @@ from multiprocessing import Pool, Value, Lock
 #
 #     return
 
+def _get_bagle_model_list_initialization(event_table, comp_table, lcurve_table,
+                         filter_dict, red_law):
+    """
+    Parameters
+    ----------
+    event_table: Table
+        The table containing event data such as object IDs for lenses and sources.
 
+    comp_table: Table
+        The table containing companion data.
+
+    lcurve_table: Table or None
+        The table containing light curve data associated with the events.
+
+    filter_dict : dict
+        Dictionary with desired photometric systems and
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r:
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
+
+    red_law : str
+        Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
+
+    return_name_and_dict : bool, Optional
+        If True, returns name of model and parameter dict list instead of model list.
+        Default is False.
+
+    Returns
+    -------
+    input for multiproc to be plugged into get_bagle_model_list or get_bagle_name_and_param_dict_list
+    """
+    # Set event table index for easier cross-matching.
+    event_table_df = event_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'], drop=False)
+
+    # Convert other tables to pandas.
+    if lcurve_table is not None:
+        lcurv_table_df = lcurve_table.to_pandas()
+        comps_table_df = comp_table.to_pandas()
+
+        # Group lightcurves associated with the same event.
+        grouped_lcurv = lcurv_table_df.groupby(['obj_id_L', 'obj_id_S'])
+
+        # Filter each group to just the companions used in the lightcurve.
+        # Should be 1 lens companion for PSBL, 1 source companion for BSPL, 1 lens + 1 source for BSBL
+        lcurv_used = lcurv_table_df.loc[grouped_lcurv['used_lightcurve'].idxmax()]
+
+        # Clean up columns that should be ints not floats and set index.
+        lcurv_used['obj_id_L'] = lcurv_used['obj_id_L'].astype('int')
+        lcurv_used['obj_id_S'] = lcurv_used['obj_id_S'].astype('int')
+        lcurv_used.set_index(['obj_id_L', 'obj_id_S'], inplace=True)
+
+        comps_table_df['companion_idx'] = comps_table_df['companion_idx'].astype('float')
+
+        # Group the companions by the index for easier access.
+        grouped_comps = comps_table_df.groupby(['obj_id_L', 'obj_id_S'])
+
+    # Split up the events and companions for use in multiprocessing
+    inputs = np.empty(len(event_table), dtype=object)
+
+    for i in range(len(event_table_df)):
+        event_i = Table.from_pandas(event_table_df.iloc[[i]]) # return astropy table, not series
+        index_i = event_table_df.index[i]
+
+        if ((lcurve_table is None) or (comp_table is None)):
+            inputs[i] = [event_i, None, filter_dict, red_law]
+        else:
+            try:
+                # Get the used lightcurve row.
+                lcurve_i = lcurv_used.loc[index_i]
+
+                # Get the individual companions associated with this used lightcurve.
+                comps_i_all = grouped_comps.get_group(index_i)
+                comps_i = comps_i_all.loc[(comps_i_all['companion_idx'] == lcurve_i['companion_id_L']) |
+                                          (comps_i_all['companion_idx'] == lcurve_i['companion_id_S'])]
+                comps_i = Table.from_pandas(comps_i)
+
+            except KeyError:
+                comps_i = None
+
+            inputs[i] = [event_i, comps_i, filter_dict, red_law]
+    return inputs
+
+    if n_multi_proc > 1:
+        # Set up the multiprocessing
+        pool = Pool(n_multi_proc)
+
+        # Generate model instances for all the events.
+        results = pool.starmap(get_bagle_model, inputs)
+        pool.close()
+        pool.join()
+
+        all_models = results
+    else:
+        all_models = []
+        for i in range(len(inputs)):
+            all_models.append( get_bagle_model(*inputs[i]) )
+
+    return all_models
+                             
 def get_bagle_model_list(event_table, comp_table, lcurve_table,
-                         filter_dict, red_law, n_multi_proc=6,
-                         return_name_and_dict = False):
+                         filter_dict, red_law, n_multi_proc=6):
     """
     Parameters
     ----------
@@ -119,55 +222,8 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
     n_multi_proc: int, optional, default=6
         The number of multiprocessing processes to be used for model generation.
     """
-    # Set event table index for easier cross-matching.
-    event_table_df = event_table.to_pandas().set_index(['obj_id_L', 'obj_id_S'], drop=False)
-
-    # Convert other tables to pandas.
-    if lcurve_table is not None:
-        lcurv_table_df = lcurve_table.to_pandas()
-        comps_table_df = comp_table.to_pandas()
-
-        # Group lightcurves associated with the same event.
-        grouped_lcurv = lcurv_table_df.groupby(['obj_id_L', 'obj_id_S'])
-
-        # Filter each group to just the companions used in the lightcurve.
-        # Should be 1 lens companion for PSBL, 1 source companion for BSPL, 1 lens + 1 source for BSBL
-        lcurv_used = lcurv_table_df.loc[grouped_lcurv['used_lightcurve'].idxmax()]
-
-        # Clean up columns that should be ints not floats and set index.
-        lcurv_used['obj_id_L'] = lcurv_used['obj_id_L'].astype('int')
-        lcurv_used['obj_id_S'] = lcurv_used['obj_id_S'].astype('int')
-        lcurv_used.set_index(['obj_id_L', 'obj_id_S'], inplace=True)
-
-        comps_table_df['companion_idx'] = comps_table_df['companion_idx'].astype('float')
-
-        # Group the companions by the index for easier access.
-        grouped_comps = comps_table_df.groupby(['obj_id_L', 'obj_id_S'])
-
-    # Split up the events and companions for use in multiprocessing
-    inputs = np.empty(len(event_table), dtype=object)
-
-    for i in range(len(event_table_df)):
-        event_i = Table.from_pandas(event_table_df.iloc[[i]]) # return astropy table, not series
-        index_i = event_table_df.index[i]
-
-        if ((lcurve_table is None) or (comp_table is None)):
-            inputs[i] = [event_i, None, filter_dict, red_law, return_name_and_dict]
-        else:
-            try:
-                # Get the used lightcurve row.
-                lcurve_i = lcurv_used.loc[index_i]
-
-                # Get the individual companions associated with this used lightcurve.
-                comps_i_all = grouped_comps.get_group(index_i)
-                comps_i = comps_i_all.loc[(comps_i_all['companion_idx'] == lcurve_i['companion_id_L']) |
-                                          (comps_i_all['companion_idx'] == lcurve_i['companion_id_S'])]
-                comps_i = Table.from_pandas(comps_i)
-
-            except KeyError:
-                comps_i = None
-
-            inputs[i] = [event_i, comps_i, filter_dict, red_law, return_name_and_dict]
+    inputs = _get_bagle_model_list_initialization(event_table, comp_table, lcurve_table,
+                         filter_dict, red_law)
 
     if n_multi_proc > 1:
         # Set up the multiprocessing
@@ -183,6 +239,66 @@ def get_bagle_model_list(event_table, comp_table, lcurve_table,
         all_models = []
         for i in range(len(inputs)):
             all_models.append( get_bagle_model(*inputs[i]) )
+
+    return all_models
+
+def get_bagle_model_name_and_dict_list(event_table, comp_table, lcurve_table,
+                         filter_dict, red_law, n_multi_proc=6):
+    """
+    Parameters
+    ----------
+    event_table: Table
+        The table containing event data such as object IDs for lenses and sources.
+
+    comp_table: Table
+        The table containing companion data.
+
+    lcurve_table: Table or None
+        The table containing light curve data associated with the events.
+
+    filter_dict : dict
+        Dictionary with desired photometric systems and
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r:
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
+
+    red_law : str
+        Name of reddening law in filt_dict list above, i.e. 'Damineli16'.
+
+    return_name_and_dict : bool, Optional
+        If True, returns name of model and parameter dict list instead of model list.
+        Default is False.
+
+    Returns
+    -------
+    A list of BAGLE model instances.
+
+    n_multi_proc: int, optional, default=6
+        The number of multiprocessing processes to be used for model generation.
+    """
+    inputs = _get_bagle_model_list_initialization(event_table, comp_table, lcurve_table,
+                         filter_dict, red_law)
+
+    if n_multi_proc > 1:
+        # Set up the multiprocessing
+        pool = Pool(n_multi_proc)
+
+        # Generate model instances for all the events.
+        results = pool.starmap(get_bagle_model_name_and_dict, inputs)
+        pool.close()
+        pool.join()
+
+        all_models = results
+    else:
+        all_models = []
+        for i in range(len(inputs)):
+            all_models.append( get_bagle_model_name_and_dict(*inputs[i]) )
 
     return all_models
 
@@ -244,6 +360,51 @@ def get_bagle_model(event, companions, filter_dict, red_law, return_name_and_dic
     mod = mod_class(**parameter_dict)
 
     return mod
+
+def get_bagle_model_name_and_dict(event, companions, filter_dict, red_law):
+    """
+    Get a BAGLE model instance for a single event (and its associated companions).
+
+    Parameters
+    ----------
+    event : astropy.table.Table
+        A row from an astropy Table of events. Usually this is the produce of refine_events
+        and refine_binary_events(). The length of the table should be 1.
+
+    companions : astropy.table.Table
+        A table of the companions associated with the above event. This can be None if
+        no binaries were simulated. Note, the companions should only be those needed
+        to generate the event. If an event has triples involved, the irrelevant (or less
+        important) companions should be trimmed first.
+
+    filter_dict : dict
+        Dictionary with desired photometric systems and
+        filters to calculate microlensing events for.
+        The dictionary keys are photometric systems.
+        The dictionary values are lists of strings filled
+        with filters within that photometric system key.
+        The filter name convention is set
+        in the global filt_dict parameter at the top of this module.
+        Example:
+            To calculate the events for UBV U, and ZTF, u, g, r:
+                filter_dict = {'ubv':['U'],'ztf':['u','g','r']}
+
+    red_law : str
+
+    Returns
+    -------
+    model_name : str
+        Name of BAGLE model
+
+    parameter_dict : dict
+        Dictionary of BAGLE model parameters
+
+    """
+    event = event[0]
+
+    model_name, parameter_dict = get_bagle_model_name_and_params(event, companions, filter_dict, red_law)
+
+    return model_name, parameter_dict
 
 def coords_and_prop_motion(event):
     # Get the coordinates of this event.
@@ -431,7 +592,7 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, filter_dict, 
             filt = photometric_system + '_' + filter_name
 
             magL_pri = event['%s_%s_L' % (photometric_system, filter_name)]
-            mgaL_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]
+            magL_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]
 
             if np.ma.is_masked(magL_pri):
                 magL_pri = 99

@@ -627,12 +627,6 @@ def process_location_popsycle(
             output_location = kwargs['output_location']
         else:
             output_location = model.parms.output_location
-
-        # Get star generator name
-        if 'star_generator' in kwargs:
-            star_generator = kwargs['star_generator']
-        else:
-            star_generator = model.parms.star_generator
     
         output_root = os.path.join(output_location, name_for_output)
 
@@ -661,12 +655,14 @@ def process_location_popsycle(
                                                               field_shape=field_shape,
                                                               field_scale=np.abs(long_bin_edges[i] - long_bin_edges[i+1]),
                                                               field_scale_unit=field_scale_unit,
-                                                              save_data=False,
-                                                              popsycle_kwargs = {'save_h5':False, 'index':index},
-                                                                    star_generator = star_generator)
+                                                              save_data=False)
 
                 popsycle_list[f"l{str(i)}b{str(j)}"] = popsycle_df
                 popsycle_bin_list[f"l{str(i)}b{str(j)}"]= popsycle_bin_df
+
+                popsycle_df['obj_id'] = popsycle_df['obj_id'] + index
+                popsycle_bin_df['system_idx'] = popsycle_bin_df['system_idx'] + index
+                
                 popsycle_datasets = pd.concat([popsycle_datasets, popsycle_df], ignore_index=True)
                 popsycle_bin_datasets = pd.concat([popsycle_bin_datasets, popsycle_bin_df], ignore_index=True)
 
@@ -743,7 +739,7 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     _check_run_synthpop(config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit)
 
     # Create SynthPop model
-    mod = synthpop.SynthPop(config_file, *args, **kwargs)
+    mod = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs)
 
     if name_for_output == "default":
         name_for_output = mod.parms.name_for_output
@@ -5048,6 +5044,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         for system in filter_dict:
             for filters in filter_dict[system]:
                 _calc_observables(filters, red_law, event_tab, blend_tab, system)
+                print(event_tab)
 
         # Relative parallax
         pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
@@ -5062,6 +5059,9 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+
+        print(event_tab)
+        print(output_file)
         
         # Add the filter_dict as a header to store metadata # CHANGE HERE
         filters_string = ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()])
@@ -5491,6 +5491,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # (commonly used in microlensing): f_source / f_total
     f_blend = flux_S / flux_tot
     event_tab['f_blend_' + filter_name] = f_blend
+    print(event_tab['f_blend_' + filter_name])
 
     return
 

@@ -677,12 +677,13 @@ def process_location_popsycle(
                 params_file.write(f"seed {model.parms.random_seed}\n")
                 params_file.write(lines)
 
+        if model.parms.multiplicity_kwargs != None:
         # Write h5files
-        with h5py.File(f"{output_root}_companions.h5", 'w') as h5file:
-            h5file['lat_bin_edges'] = lat_bin_edges
-            h5file['long_bin_edges'] = long_bin_edges
-
-        _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_bin_list, f"{output_root}_companions")
+            with h5py.File(f"{output_root}_companions.h5", 'w') as h5file:
+                h5file['lat_bin_edges'] = lat_bin_edges
+                h5file['long_bin_edges'] = long_bin_edges
+    
+            _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_bin_list, f"{output_root}_companions")
         
         with h5py.File(f"{output_root}.h5", 'w') as h5file:
             h5file['lat_bin_edges'] = lat_bin_edges

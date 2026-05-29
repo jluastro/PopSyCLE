@@ -12,7 +12,7 @@ from itertools import zip_longest
 
 filt_dict = phot_utils.make_filt_dict()
 
-def get_star_system_pos_mag(hdf5_file, filt='ubv_I', recalc=True):
+def get_star_system_pos_mag(hdf5_file, filt='ubv_I', ext_law='Damineli16', recalc=True):
     """
     Return a table with lists of star systems and their RA, Dec, z position,
     and system apparent magnitude. This is useful for making stellar density maps,
@@ -23,8 +23,12 @@ def get_star_system_pos_mag(hdf5_file, filt='ubv_I', recalc=True):
     ----------
     hdf5_file : str
         Name of the H5 file output from perform_pop_syn.
+        
     filt : str
         filter to use to calculate the apparent magnitude
+        
+    ext_law : str
+        extinction law for calculating apparent magnitudes
 
     Returns
     -------
@@ -55,7 +59,6 @@ def get_star_system_pos_mag(hdf5_file, filt='ubv_I', recalc=True):
         if key.startswith('l'):
             field_keys.append(key)
 
-    ext_law = 'Damineli16'
     start_time = time.time()
 
     list_of_df = []
@@ -102,7 +105,7 @@ def get_star_system_pos_mag(hdf5_file, filt='ubv_I', recalc=True):
 
     return df_final
 
-def count_stars_hdf5(hdf5_file, filt='ubv_I', mag_threshold=21):
+def count_stars_hdf5(hdf5_file, filt='ubv_I', mag_threshold=21, ext_law='Damineli16'):
     """
     Finds the number of stars in the field brighter than a certain mag.
     Assumes binary/multiple stars are blended.
@@ -118,13 +121,16 @@ def count_stars_hdf5(hdf5_file, filt='ubv_I', mag_threshold=21):
 
     mag_threshold: float
         Magnitude below which we count the number of stars.
+        
+    ext_law : str
+        extinction law for calculating apparent magnitudes
 
     Returns
     -------
     stars_above_threshold : float
         Number of stars brighter than mag threshold (1e-6).
     """
-    df_all_stars = get_star_system_pos_mag(hdf5_file, filt=filt)
+    df_all_stars = get_star_system_pos_mag(hdf5_file, filt=filt, ext_law=ext_law)
 
     # Get good stars above our magnitude threshold.
     gdx = np.where(df_all_stars['m_' + filt + '_app'] < mag_threshold)[0]
@@ -174,7 +180,7 @@ def count_stars_all_per_bin(h5_file):
             n_stars.append(hf[k].shape[0])
     return n_stars
 
-def events_for_popclass(h5_file, max_stars_per_bin=3e3):
+def events_for_popclass(h5_file, max_stars_per_bin=3e3, add_dl=False):
     """
     Draw microlensing events for random lens, source pairs from a 
     PopSyCLE singles-only catalog. 
@@ -208,6 +214,7 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
     piEs = []
     tEs = []
     weights = []
+    dls = []
     stars_per_bin = count_stars_all_per_bin(h5_file)
     scale_stars_used = np.maximum(1,int(np.floor(np.max(stars_per_bin)/max_stars_per_bin)))
     for k in list(hf.keys()):
@@ -246,8 +253,134 @@ def events_for_popclass(h5_file, max_stars_per_bin=3e3):
                 piEs.append(pi_e)
                 tEs.append(t_e)
                 weights.append(thetamu)
+                dls.append(dists[use_lens])
     print(f'Drew {len(np.concatenate(thetaEs))} events total')
-    return np.concatenate(rem_ids), np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
+    if not add_dl:
+        return np.concatenate(rem_ids), np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights)
+    else:
+        return np.concatenate(rem_ids), np.concatenate(thetaEs), np.concatenate(piEs), np.concatenate(tEs), np.concatenate(weights), np.concatenate(dls)
+
+def statistical_eventrate(h5_file, solid_angle, filt='ubv_I', mag_threshold=21
+                          max_stars_per_bin=1e4, tE_range=(0,np.inf),
+                          ext_law='Damineli16'):
+    """
+    Statistically estimate event rates from a
+    PopSyCLE singles-only catalog.
+    
+    Parameters
+    ----------
+    hdf5_file : str
+        Filename of an hdf5 file.
+        
+    solid_angle : float
+        area of catalog on-sky in square degrees
+        
+    filt :  str
+        filter to use for source mag limit
+        
+    mag_threshold : float
+        source mag limit
+
+    max_stars_per_bin : str
+        Maxinum number of stars per bin to use for the
+        calculation. Prevents excessive memory/computation use.
+        Default is 1e4.
+        
+    tE_range : (float,float)
+        minimum and maximum tE in days for events to include
+        in the rate estimation
+        
+    ext_law : str
+        extinction law for calculating apparent magnitudes
+
+    Returns
+    -------
+    tau : float
+        microlensing optical depth
+        
+    gamma_area : float
+        events per year square degree
+        
+    gamma_star : float
+        events per year per source star
+
+    avg_tE : float
+        average event timescale
+        
+    n_lens : int
+        total number of stars in the catalog
+        
+    n_source : int
+        total number of catalog stars that meet the mag threshold
+    """
+    
+    # Load up file and basic details
+    hf = h5py.File(h5_file, 'r')
+    stars_per_bin = count_stars_all_per_bin(h5_file)
+    n_stars_all = np.sum(stars_per_bin)
+    n_sources_all = count_stars_hdf5(h5_file, filt=filt,
+            mag_threshold=mag_threshold, ext_law=ext_law)
+    
+    # Set up sums
+    n_events = 0
+    n_stars_used = 0
+    n_sources_used = 0
+    thetaE_murel_sum = 0.0
+    thetaE2_sum = 0.0
+    scale_stars_used = np.maximum(1,int(np.floor(np.max(stars_per_bin)/max_stars_per_bin)))
+    
+    # Iterate over bins
+    for k in list(hf.keys()):
+        if (k.startswith('l')) & ('_' not in k):
+            print('running', k)
+            dat = hf[k]
+
+            if dat.shape[0] > 0:
+                # Downsample and grab needed data
+                patch = dat[::scale_stars_used]
+                dists = patch['rad']
+                mul = patch['mu_lcosb']
+                mub = patch['mu_b']
+                masses = patch['mass']
+                mags = synthetic.calc_app_mag(dists, patch[filt],
+                            patch['exbv'], filt_dict[filt][ext_law])
+                rem_id_catalog = patch['rem_id']
+                idx = np.arange(len(masses))
+                idx_s = np.where(mags<mag_theshold)[0]
+                del patch
+
+                # Set up source and lens indices for valid pairs
+                src_idxs, lens_idxs = np.meshgrid(idx_s, idx)
+                src_idxs, lens_idxs = src_idxs.ravel(), lens_idxs.ravel()
+                dist_comp = (dists[src_idxs] > dists[lens_idxs]) #source further than lens
+                use_srcs = src_idxs[dist_comp]
+                use_lens = lens_idxs[dist_comp]
+
+                # Microlensing math
+                c, G, mSun, pctom = 299792458, 6.6743e-11, 1.98840987e+30, 3.08567758e+16
+                theta_e = np.sqrt(4*G*mSun*masses[use_lens]*pi_rel/(1000*pctom*c**2)) #rad
+                mu_rel = np.sqrt((mul[use_lens]-mul[use_srcs])**2 + (mub[use_lens]-mub[use_srcs])**2) * (1./1000.) * (1./365.25) * (1.0/60.0/60.0) * np.pi/180.0 # rad/day
+                
+                # Accounting
+                n_events += len(use_lens)
+                n_stars_used += len(idx)
+                n_sources_used += len(idx_s)
+                thetaE_murel_sum += np.sum(theta_e*murel)
+                thetaE2_sum += np.sum(theta_e**2)
+                
+    print(f'Drew {n_events} events total')
+    area_eff_lens = solid_angle * n_stars_used/n_stars_all
+    area_eff_source = solid_angle * n_sources_used/n_sources_all
+    # Optical depth
+    tau = np.pi*thetaE2_sum / (n_sources_used * area_eff_lens)
+    # Event rates
+    gamma_area = 2*thetaE_murel_sum / area_eff_lens / (area_eff_source /
+                    (np.pi/180)**2) * 365.25
+    gamma_star = 2*thetaE_murel_sum / area_eff_lens / n_sources_used * 365.25
+    # Average timescale
+    avg_tE = thetaE2_sum / thetaE_murel_sum
+    
+    return tau, gamma_area, gamma_star, avg_tE, n_stars_all, n_sources_all
 
 
 def _calc_blend_clusters(points, radius, star_idxs):

@@ -13,7 +13,7 @@ import numpy as np
 import h5py
 import math
 from astropy import units
-from scipy.stats import maxwell
+from scipy.stats import maxwell, lognorm
 import astropy.coordinates as coord
 from astropy.coordinates.representation import UnitSphericalRepresentation
 from astropy.coordinates import SkyCoord  # High-level coordinates
@@ -401,7 +401,7 @@ def run_galaxia(output_root, longitude, latitude, area,
 def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            IFMR,
                            bin_edges_number,
-                           BH_kick_speed_mean, NS_kick_speed_mean,
+                           BH_kick_speed_mean, NS_kick_speed_prms,
                            additional_photometric_systems,
                            multiplicity, binning,
                            overwrite, seed,
@@ -443,11 +443,17 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-        Defaults to 400 km/s based on distributions found by
-        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+    NS_kick_speed_prms : dict, optional
+        Dictionary containing Shape, Mean, and Std (if applicable) of the
+        birth kick speed of NS in either a log normal distribution or maxwellian distribution.
+        Keys must include 'shape' and 'mean'.
+        If using a log normal, the 'std' key must also be included.
+        Allowed 'shape' values: 'lognorm', 'maxwell'
+        Example::
+            NS_kick_speed_prms = {'shape': 'lognorm', 'mean': 5.6, 'std': 0.68}
+        Defaults to log normal with mean of 5.6 and std of 0.68 based on distributions found by
+        Disberg et al 2025 'The Kick Velocity Distribution of Isolated Neutron Stars'.
+        https://iopscience.iop.org/article/10.3847/2041-8213/adf286
 
     additional_photometric_systems : list of strs
         The name of the photometric systems which should be calculated from
@@ -515,10 +521,29 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
         if not isinstance(BH_kick_speed_mean, float):
             raise Exception('BH_kick_speed_mean (%s) must be an integer or a float.' % str(BH_kick_speed_mean))
 
-    if not isinstance(NS_kick_speed_mean, int):
-        if not isinstance(NS_kick_speed_mean, float):
-            raise Exception('NS_kick_speed_mean (%s) must be an integer or a float.' % str(NS_kick_speed_mean))
+    if not isinstance(NS_kick_speed_prms, dict):
+        raise Exception('NS_kick_speed_prms (%s) must be an dictionary.' % str(NS_kick_speed_prms))
+        
+    if 'shape' not in NS_kick_speed_prms:
+        raise Exception("NS_kick_speed_prms (%s) must include 'shape' as a key." % str(NS_kick_speed_prms))
 
+    if 'mean' not in NS_kick_speed_prms:
+        raise Exception("NS_kick_speed_prms (%s) must include 'mean' as a key." % str(NS_kick_speed_prms))
+
+    if NS_kick_speed_prms['shape'] not in ['lognorm','maxwell']:
+        raise Exception("NS_kick_speed_prms['shape'] (%s) must be one of the following: 'lognorm', 'maxwell'." % str(NS_kick_speed_prms['shape']))
+
+    if not isinstance(NS_kick_speed_prms['mean'],int):
+        if not isinstance(NS_kick_speed_prms['mean'],float):
+            raise Exception("NS_kick_speed_prms['mean'] (%s) must be integer or a float." % str(NS_kick_speed_prms['mean']))
+
+    if NS_kick_speed_prms['shape'] == 'lognorm':
+        if 'std' not in NS_kick_speed_prms:
+            raise Exception("NS_kick_speed_prms (%s) must include 'mean' as a key." % str(NS_kick_speed_prms))
+        if not isinstance(NS_kick_speed_prms['std'],int):
+            if not isinstance(NS_kick_speed_prms['std'],float):
+                raise Exception("NS_kick_speed_prms['std'] (%s) must be integer or a float." % str(NS_kick_speed_prms['std']))
+            
     if multiplicity is not None:
         if not isinstance(multiplicity, MultiplicityResolvedDK):
             raise Exception('multiplicity must be None or a subclass of MultiplicityResolvedDK.')
@@ -559,7 +584,8 @@ def _check_perform_pop_syn(ebf_file, output_root, iso_dir,
 def perform_pop_syn(ebf_file, output_root, iso_dir,
                     IFMR,
                     bin_edges_number=None,
-                    BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                    BH_kick_speed_mean=50, 
+                    NS_kick_speed_prms={'shape':'lognormal','mean':5.6,'std':0.68},
                     additional_photometric_systems=None,
                     multiplicity=None, binning = True,
                     overwrite=False, seed=None,
@@ -603,11 +629,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float, optional
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-        Defaults to 400 km/s based on distributions found by
-        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+    NS_kick_speed_prms : dict, optional
+        Dictionary containing Shape, Mean, and Std (if applicable) of the
+        birth kick speed of NS in either a log normal distribution or maxwellian distribution.
+        Keys must include 'shape' and 'mean'.
+        If using a log normal, the 'std' key must also be included.
+        Allowed 'shape' values: 'lognorm', 'maxwell'
+        Example::
+            NS_kick_speed_prms = {'shape': 'lognorm', 'mean': 5.6, 'std': 0.68}
+        Defaults to log normal with mean of 5.6 and std of 0.68 based on distributions found by
+        Disberg et al 2025 'The Kick Velocity Distribution of Isolated Neutron Stars'.
+        https://iopscience.iop.org/article/10.3847/2041-8213/adf286
 
     additional_photometric_systems : list of strs, optional
         The name of the photometric systems which should be calculated from
@@ -676,7 +708,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     _check_perform_pop_syn(ebf_file, output_root, iso_dir,
                            IFMR,
                            bin_edges_number,
-                           BH_kick_speed_mean, NS_kick_speed_mean,
+                           BH_kick_speed_mean, NS_kick_speed_prms,
                            additional_photometric_systems,
                            multiplicity, binning,
                            overwrite, seed,
@@ -880,7 +912,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                     #                                          popid_array, age_array, lat_bin_edges, long_bin_edges,
                     #                                          ebf_file,
                     #                                          kdt_star_p, exbv_arr4kdt,
-                    #                                          iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
+                    #                                          iso_dir, IFMR, NS_kick_speed_prms, BH_kick_speed_mean,
                     #                                          multiplicity,
                     #                                          additional_photometric_systems,
                     #                                          t0, binning, seed, output_root, verbose=verbose)
@@ -898,7 +930,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
                             popid_array, age_array, lat_bin_edges, long_bin_edges,
                             ebf_file,
                             kdt_star_p, exbv_arr4kdt,
-                            iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
+                            iso_dir, IFMR, NS_kick_speed_prms, BH_kick_speed_mean,
                             multiplicity,
                             additional_photometric_systems,
                             t0, binning, seed, output_root, verbose)
@@ -967,7 +999,7 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line2 = 'output_root , ' + output_root + '\n'
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
     line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
+    line5 = 'NS_kick_speed_prms , ' + str(NS_kick_speed_prms) + '\n'
     line6 = 'iso_dir , ' + iso_dir + '\n'
     line7 = 'IFMR , ' + str(IFMR) + '\n'
     line8 = 'seed , ' + str(seed) + '\n'
@@ -1039,7 +1071,7 @@ def _mp_init_worker(lock_in, next_id_stars_val_in, next_id_co_val_in):
 def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                  popid_array, age_array, lat_bin_edges, long_bin_edges,
                                  ebf_file, kdt_star_p, exbv_arr4kdt,
-                                 iso_dir, IFMR, NS_kick_speed_mean, BH_kick_speed_mean,
+                                 iso_dir, IFMR, NS_kick_speed_prms, BH_kick_speed_mean,
                                  multiplicity, additional_photometric_systems, t0,
                                  binning, seed,
                                  output_root, verbose=0):
@@ -1092,11 +1124,17 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
         'Spera15' = IFMR_Spera15
         'SukhboldN20' = IFMR_N20_Sukhbold
         
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-        Defaults to 400 km/s based on distributions found by
-        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+    NS_kick_speed_prms : dict, optional
+        Dictionary containing Shape, Mean, and Std (if applicable) of the
+        birth kick speed of NS in either a log normal distribution or maxwellian distribution.
+        Keys must include 'shape' and 'mean'.
+        If using a log normal, the 'std' key must also be included.
+        Allowed 'shape' values: 'lognorm', 'maxwell'
+        Example::
+            NS_kick_speed_prms = {'shape': 'lognorm', 'mean': 5.6, 'std': 0.68}
+        Defaults to log normal with mean of 5.6 and std of 0.68 based on distributions found by
+        Disberg et al 2025 'The Kick Velocity Distribution of Isolated Neutron Stars'.
+        https://iopscience.iop.org/article/10.3847/2041-8213/adf286
         
     BH_kick_speed_mean : float
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
@@ -1208,7 +1246,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                         stars_in_bin,
                                         kdt_star_p, exbv_arr4kdt,
                                         BH_kick_speed_mean=BH_kick_speed_mean,
-                                        NS_kick_speed_mean=NS_kick_speed_mean,
+                                        NS_kick_speed_prms=NS_kick_speed_prms,
                                         additional_photometric_systems=additional_photometric_systems,
                                         multiplicity=multiplicity,
                                         seed=seed)
@@ -1536,7 +1574,8 @@ def _make_co_dict(log_age,
                   cluster,
                   star_dict,
                   kdt_star_p, exbv_arr4kdt,
-                  BH_kick_speed_mean=50, NS_kick_speed_mean=400,
+                  BH_kick_speed_mean=50, 
+                  NS_kick_speed_prms={'shape':'lognorm','mean':5.6,'std':0.68},
                   additional_photometric_systems=None,
                   multiplicity=None,
                   seed=None):
@@ -1566,11 +1605,17 @@ def _make_co_dict(log_age,
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float, optional
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-        Defaults to 400 km/s based on distributions found by
-        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+    NS_kick_speed_prms : dict, optional
+        Dictionary containing Shape, Mean, and Std (if applicable) of the 
+        birth kick speed of NS in either a log normal distribution or maxwellian distribution.
+        Keys must include 'shape' and 'mean'. 
+        If using a log normal, the 'std' key must also be included.
+        Allowed 'shape' values: 'lognorm', 'maxwell'
+        Example::
+            NS_kick_speed_prms = {'shape': 'lognorm', 'mean': 5.6, 'std': 0.68}
+        Defaults to log normal with mean of 5.6 and std of 0.68 based on distributions found by
+        Disberg et al 2025 'The Kick Velocity Distribution of Isolated Neutron Stars'.
+        https://iopscience.iop.org/article/10.3847/2041-8213/adf286
 
     additional_photometric_systems : list of strs or None, optional
         The name of the photometric systems which should be calculated from
@@ -1689,9 +1734,15 @@ def _make_co_dict(log_age,
             # user defined mean by the Maxwellian mean.
 
             NS_idx = np.where(co_dict['rem_id'] == 102)[0]
-            NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
             if len(NS_idx) > 0:
-                NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
+                if NS_kick_speed_prms['shape'] == 'maxwell':
+                    NS_kick_speed_mean = NS_kick_speed_prms['mean']
+                    NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
+                    NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
+                if NS_kick_speed_prms['shape'] == 'lognorm':
+                    NS_kick_speed_scale = np.exp(NS_kick_speed_prms['mean'])
+                    NS_kick_speed_std = NS_kick_speed_prms['std']
+                    NS_kick_speed = lognorm.rvs(loc=0, scale=NS_kick_speed_scale, s=NS_kick_speed_std, size=len(NS_idx))
                 NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
                 co_dict['vx'][NS_idx] += NS_kick[0]
                 co_dict['vy'][NS_idx] += NS_kick[1]

@@ -236,7 +236,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
                                   galaxia_galaxy_model_filename='/Users/myself/galaxia_galaxy_model_filename',
                                   bin_edges_number=None,
                                   BH_kick_speed_mean=50,
-                                  NS_kick_speed_mean=400,
+                                  NS_kick_speed_prms={'shape':'lognormal','mean':5.6,'std':0.68},
                                   filter_dict={'ubv':['R']},
                                   red_law='Damineli16',
                                   multiplicity=None,
@@ -289,11 +289,17 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
         Mean of the birth kick speed of BH (in km/s) maxwellian distrubution.
         Defaults to 50 km/s.
 
-    NS_kick_speed_mean : float
-        Mean of the birth kick speed of NS (in km/s) maxwellian distrubution.
-        Defaults to 400 km/s based on distributions found by
-        Hobbs et al 2005 'A statistical study of 233 pulsar proper motions'.
-        https://ui.adsabs.harvard.edu/abs/2005MNRAS.360..974H/abstract
+    NS_kick_speed_prms : dict, optional
+        Dictionary containing Shape, Mean, and Std (if applicable) of the
+        birth kick speed of NS in either a log normal distribution or maxwellian distribution.
+        Keys must include 'shape' and 'mean'.
+        If using a log normal, the 'std' key must also be included.
+        Allowed 'shape' values: 'lognorm', 'maxwell'
+        Example::
+            NS_kick_speed_prms = {'shape': 'lognorm', 'mean': 5.6, 'std': 0.68}
+        Defaults to log normal with mean of 5.6 and std of 0.68 based on distributions found by
+        Disberg et al 2025 'The Kick Velocity Distribution of Isolated Neutron Stars'.
+        https://iopscience.iop.org/article/10.3847/2041-8213/adf286
 
     filter_dict : dict
         Dictionary with desired photometric systems and filters to calculate microlensing events for.
@@ -353,7 +359,7 @@ def generate_popsycle_config_file(radius_cut=2, obs_time=1000,
               'galaxia_galaxy_model_filename': os.path.abspath(galaxia_galaxy_model_filename),
               'bin_edges_number': bin_edges_number,
               'BH_kick_speed_mean': BH_kick_speed_mean,
-              'NS_kick_speed_mean': NS_kick_speed_mean,
+              'NS_kick_speed_prms': NS_kick_speed_prms,
               'filter_dict': filter_dict,
               'red_law': red_law,
               'multiplicity': multiplicity,
@@ -708,7 +714,7 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                                IFMR=popsycle_config['IFMR'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
-                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               NS_kick_speed_prms=popsycle_config['NS_kick_speed_prms'],
                                additional_photometric_systems=additional_photometric_systems,
                                n_proc=n_cores_perform_pop_syn,
                                binning = popsycle_config['binning'],
@@ -1093,7 +1099,7 @@ def run(output_root='root0',
                                IFMR=popsycle_config['IFMR'],
                                bin_edges_number=popsycle_config['bin_edges_number'],
                                BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
-                               NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+                               NS_kick_speed_prms=popsycle_config['NS_kick_speed_prms'],
                                additional_photometric_systems=additional_photometric_systems,
                                verbose=verbose,
                                n_proc=n_cores_perform_pop_syn,
@@ -1170,7 +1176,7 @@ def run(output_root='root0',
             IFMR=popsycle_config['IFMR'],
             bin_edges_number=popsycle_config['bin_edges_number'],
             BH_kick_speed_mean=popsycle_config['BH_kick_speed_mean'],
-            NS_kick_speed_mean=popsycle_config['NS_kick_speed_mean'],
+            NS_kick_speed_prms=popsycle_config['NS_kick_speed_prms'],
             additional_photometric_systems=additional_photometric_systems,
             n_proc=n_cores_perform_pop_syn,
             overwrite=overwrite,

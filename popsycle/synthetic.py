@@ -1024,13 +1024,17 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
     line1 = 'ebf_file , ' + ebf_file + '\n'
     line2 = 'output_root , ' + output_root + '\n'
     line3 = 'bin_edges_number , ' + str(bin_edges_number) + '\n'
-    line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
-    line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
-    line6 = 'iso_dir , ' + iso_dir + '\n'
     if isinstance(evo_model, COSMIC):
-        line7 = 'evo_model, COSMIC' + '\n'
+        line4 = 'natal_kicks , COSMIC kick_x/kick_y/kick_z (km/s)' + '\n'
+        line5 = 'BH_kick_speed_mean , ignored when evo_model=COSMIC' + '\n'
+        line6 = 'NS_kick_speed_mean , ignored when evo_model=COSMIC' + '\n'
+        line7 = 'evo_model , COSMIC' + '\n'
     else:
+        line4 = 'BH_kick_speed_mean , ' + str(BH_kick_speed_mean) + ' , (km/s)' + '\n'
+        line5 = 'NS_kick_speed_mean , ' + str(NS_kick_speed_mean) + ' , (km/s)' + '\n'
+        line6 = 'iso_dir , ' + iso_dir + '\n'
         line7 = 'IFMR , ' + str(IFMR) + '\n'
+    line7b = 'iso_dir , ' + iso_dir + '\n' if isinstance(evo_model, COSMIC) else ''
     line8 = 'seed , ' + str(seed) + '\n'
 
     line9 = 'VERSION INFORMATION' + '\n'
@@ -1055,11 +1059,15 @@ def perform_pop_syn(ebf_file, output_root, iso_dir,
         line23 = 'No companions h5 file as multiplicity = None' + '\n'
 
     with open(output_root + '_perform_pop_syn.log', 'w') as out:
-        out.writelines([line0, dash_line, line1, line2, line3, line4, line5,
-                        line6, line7, line8, empty_line, line9, dash_line,
-                        line10, line11, line12, empty_line,line13, dash_line,
-                        line14, line15, line16, line17, line18, line19, empty_line, line20, dash_line,
-                        line21, line22, line23])
+        log_lines = [line0, dash_line, line1, line2, line3, line4, line5,
+                     line6, line7]
+        if line7b:
+            log_lines.append(line7b)
+        log_lines += [line8, empty_line, line9, dash_line,
+                      line10, line11, line12, empty_line, line13, dash_line,
+                      line14, line15, line16, line17, line18, line19, empty_line,
+                      line20, dash_line, line21, line22, line23]
+        out.writelines(log_lines)
 
     ##########
     # Informative print statements.
@@ -1276,7 +1284,8 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                         additional_photometric_systems=additional_photometric_systems,
                                         multiplicity=multiplicity,
                                         seed=seed,
-                                        mp_lock=mp_lock)
+                                        mp_lock=mp_lock,
+                                        evo_model=evo_model)
 
     #########
     # If there are multiples make companions table
@@ -1286,6 +1295,7 @@ def _process_popsyn_stars_in_bin(bin_idx, age_of_bin, metallicity_of_bin,
                                                              star_dict=star_dict,
                                                              co_dict=co_dict,
                                                              additional_photometric_systems=additional_photometric_systems,
+                                                             evo_model=evo_model,
                                                              t0=t0, verbose=verbose)
 
         if companions_table is not None:
@@ -1605,7 +1615,8 @@ def _make_co_dict(log_age,
                   additional_photometric_systems=None,
                   multiplicity=None,
                   seed=None,
-                  mp_lock=None):
+                  mp_lock=None,
+                  evo_model='default'):
     
     """
     Perform population synthesis.
@@ -1653,6 +1664,11 @@ def _make_co_dict(log_age,
         the table will be generated with resolved multiples.
         Default is None.
 
+    evo_model : str or spisea.evolution.COSMIC, optional
+        Evolution model used for the cluster. When COSMIC is used,
+        natal kicks come from SPISEA kick_x/y/z columns instead of
+        Maxwellian NS/BH kicks. Default is 'default'.
+
     Returns
     -------
     co_dict : dictionary
@@ -1666,6 +1682,7 @@ def _make_co_dict(log_age,
     global lock, next_id_co_val
 
     co_dict = None
+    use_cosmic_kicks = isinstance(evo_model, COSMIC)
 
     if cluster:
         output = cluster.star_systems
@@ -1698,6 +1715,8 @@ def _make_co_dict(log_age,
                 keep_columns += ['m_rubin_u', 'm_rubin_g', 'm_rubin_r', 'm_rubin_i', 'm_rubin_z', 'm_rubin_y']
             if 'roman' in additional_photometric_systems:
                 keep_columns += ['m_roman_f062', 'm_roman_f087', 'm_roman_f106', 'm_roman_f129', 'm_roman_f158', 'm_roman_f146', 'm_roman_f184', 'm_roman_f213']
+        if use_cosmic_kicks:
+            keep_columns += ['kick_x', 'kick_y', 'kick_z']
         co_table.keep_columns(keep_columns)
 
         # Fill out the rest of co_dict
@@ -1745,32 +1764,36 @@ def _make_co_dict(log_age,
             co_dict['px'], co_dict['py'], co_dict['pz'] = co_helio
 
             ##########
-            # Add kicks to NSs and BHs.
+            # Add natal kicks.
             ##########
+            if use_cosmic_kicks:
+                co_dict['vx'] += co_table['kick_x'].data
+                co_dict['vy'] += co_table['kick_y'].data
+                co_dict['vz'] += co_table['kick_z'].data
+            else:
+                # Maxwellian pdf is sqrt(2/pi) * x^2 * exp[-x^2/(2 * a^2)] / a^3,
+                # with a scale parameter `a`.
+                # The Maxwellian mean is 2 * a * sqrt(2/pi).
+                # Here we calculate the scipy.stats `scale` by dividing the
+                # user defined mean by the Maxwellian mean.
 
-            # Maxwellian pdf is sqrt(2/pi) * x^2 * exp[-x^2/(2 * a^2)] / a^3,
-            # with a scale parameter `a`.
-            # The Maxwellian mean is 2 * a * sqrt(2/pi).
-            # Here we calculate the scipy.stats `scale` by dividing the
-            # user defined mean by the Maxwellian mean.
+                NS_idx = np.where(co_dict['rem_id'] == 102)[0]
+                NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
+                if len(NS_idx) > 0:
+                    NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
+                    NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
+                    co_dict['vx'][NS_idx] += NS_kick[0]
+                    co_dict['vy'][NS_idx] += NS_kick[1]
+                    co_dict['vz'][NS_idx] += NS_kick[2]
 
-            NS_idx = np.where(co_dict['rem_id'] == 102)[0]
-            NS_kick_speed_scale = NS_kick_speed_mean / (2*np.sqrt(2/np.pi))
-            if len(NS_idx) > 0:
-                NS_kick_speed = maxwell.rvs(loc=0, scale=NS_kick_speed_scale, size=len(NS_idx))
-                NS_kick = utils.sample_spherical(len(NS_idx), NS_kick_speed)
-                co_dict['vx'][NS_idx] += NS_kick[0]
-                co_dict['vy'][NS_idx] += NS_kick[1]
-                co_dict['vz'][NS_idx] += NS_kick[2]
-
-            BH_idx = np.where(co_dict['rem_id'] == 103)[0]
-            BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
-            if len(BH_idx) > 0:
-                BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
-                BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
-                co_dict['vx'][BH_idx] += BH_kick[0]
-                co_dict['vy'][BH_idx] += BH_kick[1]
-                co_dict['vz'][BH_idx] += BH_kick[2]
+                BH_idx = np.where(co_dict['rem_id'] == 103)[0]
+                BH_kick_speed_scale = BH_kick_speed_mean / (2*np.sqrt(2/np.pi))
+                if len(BH_idx) > 0:
+                    BH_kick_speed = maxwell.rvs(loc=0, scale=BH_kick_speed_scale, size=len(BH_idx))
+                    BH_kick = utils.sample_spherical(len(BH_idx), BH_kick_speed)
+                    co_dict['vx'][BH_idx] += BH_kick[0]
+                    co_dict['vy'][BH_idx] += BH_kick[1]
+                    co_dict['vz'][BH_idx] += BH_kick[2]
 
             # Add precision to r, b, l
             co_dict['rad'] = utils.add_precision64(co_dict['rad'], -4)
@@ -2352,7 +2375,26 @@ def _rename_mass_columns_from_spisea(cluster, multiplicity):
 
     return
 
-def _add_multiples(star_zams_masses, cluster, verbose=0):
+def _add_cosmic_kicks_to_matched_primaries(star_dict, galaxia_ids, kick_x, kick_y, kick_z):
+    """
+    Add COSMIC kick components to Galaxia primaries and update spherical kinematics.
+    """
+    galaxia_ids = np.asarray(galaxia_ids, dtype=int)
+    np.add.at(star_dict['vx'], galaxia_ids, kick_x)
+    np.add.at(star_dict['vy'], galaxia_ids, kick_y)
+    np.add.at(star_dict['vz'], galaxia_ids, kick_z)
+
+    vr, mu_b, mu_lcosb = calc_sph_motion(star_dict['vx'][galaxia_ids],
+                                         star_dict['vy'][galaxia_ids],
+                                         star_dict['vz'][galaxia_ids],
+                                         star_dict['rad'][galaxia_ids],
+                                         star_dict['glat'][galaxia_ids],
+                                         star_dict['glon'][galaxia_ids])
+    star_dict['vr'][galaxia_ids] = utils.add_precision64(vr, -4)
+    star_dict['mu_b'][galaxia_ids] = utils.add_precision64(mu_b, -4)
+    star_dict['mu_lcosb'][galaxia_ids] = utils.add_precision64(mu_lcosb, -4)
+
+def _add_multiples(star_zams_masses, cluster, star_dict=None, evo_model='default', verbose=0):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2364,6 +2406,13 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
 
     cluster : object
         Resolved cluster object from SPISEA.
+
+    star_dict : dictionary or None, optional
+        Galaxia stars in the current bin. If provided with COSMIC as
+        evo_model, natal kicks are applied when primaries are matched.
+
+    evo_model : str or spisea.evolution.COSMIC, optional
+        Evolution model used for the cluster. Default is 'default'.
 
     Ouput:
     -------
@@ -2372,9 +2421,13 @@ def _add_multiples(star_zams_masses, cluster, verbose=0):
         Deleted companions of compact objects and with primary zams masses too large.
 
     """
-    return _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=verbose)
+    return _add_multiples_some_unmatched(star_zams_masses, cluster,
+                                         star_dict=star_dict,
+                                         evo_model=evo_model,
+                                         verbose=verbose)
 
-def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
+def _add_multiples_some_unmatched(star_zams_masses, cluster,
+                                  star_dict=None, evo_model='default', verbose=0):
     """
     Modifies companion table of cluster object to point to Galaxia stars.
     Effectively adds multiple systems with stellar primaries.
@@ -2386,6 +2439,13 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
 
     cluster : object
         Resolved cluster object from SPISEA.
+
+    star_dict : dictionary or None, optional
+        Galaxia stars in the current bin. If provided with COSMIC as
+        evo_model, natal kicks are applied when primaries are matched.
+
+    evo_model : str or spisea.evolution.COSMIC, optional
+        Evolution model used for the cluster. Default is 'default'.
 
     Returns
     -------
@@ -2441,6 +2501,15 @@ def _add_multiples_some_unmatched(star_zams_masses, cluster, verbose=0):
         print(f'_add_multiples: Trimming from total of {len(cluster_ss)} SPISEA primaries in matching.')
         print(f'  {np.sum(cond_matched)} are matched')
     cluster_ss = cluster_ss[cond_matched]
+
+    if (star_dict is not None and isinstance(evo_model, COSMIC)
+            and len(cluster_ss) > 0 and 'kick_x' in cluster_ss.colnames):
+        _add_cosmic_kicks_to_matched_primaries(
+            star_dict,
+            cluster_ss['galaxia_id'].data,
+            cluster_ss['kick_x'].data,
+            cluster_ss['kick_y'].data,
+            cluster_ss['kick_z'].data)
 
     # join tables to keep only those companions that pass our cuts.
     companion_tmp_df = cluster.companions.to_pandas().set_index(['system_idx'])
@@ -2968,8 +3037,8 @@ def _match_companions_kdtree_nonneg(mz_galaxia_in, mz_spisea_in, max_frac_mass_d
 
 
 def _make_companions_table(cluster, star_dict, co_dict,
-                           additional_photometric_systems = None, t0 = 0,
-                           verbose=0):
+                           additional_photometric_systems = None, evo_model='default',
+                           t0 = 0, verbose=0):
     """
     Makes companions table by:
         1. Taking companions of compact objects and pointing their 
@@ -3070,7 +3139,10 @@ def _make_companions_table(cluster, star_dict, co_dict,
         # Treats stellar companions and joins stellar and CO companions
         ###########
         # First matches galaxia and SPISEA primaries
-        companions_table = _add_multiples(star_zams_masses=star_dict['zams_mass'], cluster=cluster)
+        companions_table = _add_multiples(star_zams_masses=star_dict['zams_mass'],
+                                          cluster=cluster,
+                                          star_dict=star_dict,
+                                          evo_model=evo_model)
         if verbose > 3: print(f'test3 {time.time() - t0:.2f} sec')
         if companions_table:
             # sums mass of companions if there are triples

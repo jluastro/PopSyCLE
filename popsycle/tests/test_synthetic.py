@@ -1447,6 +1447,198 @@ def test_psbl_parallax():
     model = synthetic.psbl_model_gen(test_dict)#psbl_parameter_dict)
     
     piE_E, piE_N = model.piE
+
+    return
+
+
+def _mock_star_dict_for_kicks(n=50, seed=42):
+    rng = np.random.default_rng(seed)
+    return {
+        'rad': rng.uniform(4, 8, n),
+        'glat': rng.uniform(-5, 5, n),
+        'glon': rng.uniform(-5, 5, n),
+        'vx': rng.uniform(-50, 50, n),
+        'vy': rng.uniform(-50, 50, n),
+        'vz': rng.uniform(-50, 50, n),
+        'feh': rng.uniform(-0.5, 0.5, n),
+        'popid': np.ones(n),
+    }
+
+
+def _mock_co_star_systems(phases, kicks):
+    n = len(phases)
+    tab = Table()
+    tab['zams_mass'] = np.linspace(1, 5, n)
+    tab['isMultiple'] = np.zeros(n, dtype=bool)
+    tab['systemMass'] = tab['zams_mass']
+    tab['phase'] = phases
+    tab['mass'] = tab['zams_mass'] * 0.5
+    for filt in ['m_ubv_I', 'm_ubv_R', 'm_ubv_B', 'm_ubv_U', 'm_ubv_V',
+                 'm_ukirt_H', 'm_ukirt_J', 'm_ukirt_K']:
+        tab[filt] = np.full(n, np.nan)
+    tab['kick_x'] = np.array([k[0] for k in kicks])
+    tab['kick_y'] = np.array([k[1] for k in kicks])
+    tab['kick_z'] = np.array([k[2] for k in kicks])
+    return tab
+
+
+class _MockCluster:
+    def __init__(self, star_systems, companions=None):
+        self.star_systems = star_systems
+        self.companions = companions
+
+
+def _init_co_dict_worker(next_id_co=100):
+    from multiprocessing import Lock, Value
+    mp_lock = Lock()
+    synthetic._mp_init_worker(mp_lock, Value('i', 0), Value('i', next_id_co))
+    return mp_lock
+
+
+def test_make_co_dict_cosmic_kicks():
+    """
+    With COSMIC, all compact objects receive SPISEA kick_x/y/z on top of KDE velocities.
+    """
+    try:
+        from spisea.evolution import COSMIC
+    except ImportError:
+        pytest.skip('SPISEA COSMIC not available')
+
+    seed = 42
+    star_dict = _mock_star_dict_for_kicks(seed=seed)
+    kdt_star_p = cKDTree(np.random.rand(10, 3))
+    exbv_arr4kdt = np.zeros(10)
+    mp_lock = _init_co_dict_worker()
+
+    phases = np.array([101, 102, 103])
+    zero_kicks = [(0, 0, 0)] * 3
+    known_kicks = [(10.0, 1.0, 0.5), (20.0, 2.0, 1.0), (30.0, 3.0, 1.5)]
+
+    cluster_zero = _MockCluster(_mock_co_star_systems(phases, zero_kicks))
+    cluster_kick = _MockCluster(_mock_co_star_systems(phases, known_kicks))
+
+    co_zero, _ = synthetic._make_co_dict(9.0, cluster_zero, star_dict,
+                                         kdt_star_p, exbv_arr4kdt,
+                                         seed=seed, mp_lock=mp_lock,
+                                         evo_model=COSMIC())
+    co_kick, _ = synthetic._make_co_dict(9.0, cluster_kick, star_dict,
+                                         kdt_star_p, exbv_arr4kdt,
+                                         seed=seed, mp_lock=mp_lock,
+                                         evo_model=COSMIC())
+
+    np.testing.assert_allclose(co_kick['vx'] - co_zero['vx'],
+                               [k[0] for k in known_kicks])
+    np.testing.assert_allclose(co_kick['vy'] - co_zero['vy'],
+                               [k[1] for k in known_kicks])
+    np.testing.assert_allclose(co_kick['vz'] - co_zero['vz'],
+                               [k[2] for k in known_kicks])
+
+    return
+
+
+def test_make_co_dict_default_kicks_unchanged():
+    """
+    Default mode still applies Maxwellian kicks only to NS/BH, not WDs.
+    """
+    seed = 42
+    star_dict = _mock_star_dict_for_kicks(seed=seed)
+    kdt_star_p = cKDTree(np.random.rand(10, 3))
+    exbv_arr4kdt = np.zeros(10)
+    mp_lock = _init_co_dict_worker()
+
+    try:
+        from spisea.evolution import COSMIC
+    except ImportError:
+        pytest.skip('SPISEA COSMIC not available')
+
+    wd_only = _MockCluster(_mock_co_star_systems([101], [(0, 0, 0)]))
+    co_default, _ = synthetic._make_co_dict(9.0, wd_only, star_dict,
+                                            kdt_star_p, exbv_arr4kdt,
+                                            seed=seed, mp_lock=mp_lock,
+                                            evo_model='default')
+    co_cosmic, _ = synthetic._make_co_dict(9.0, wd_only, star_dict,
+                                           kdt_star_p, exbv_arr4kdt,
+                                           seed=seed, mp_lock=mp_lock,
+                                           evo_model=COSMIC())
+
+    np.testing.assert_allclose(co_default['vx'], co_cosmic['vx'])
+
+    ns_only = _MockCluster(_mock_co_star_systems([102], [(0, 0, 0)]))
+    co_default_ns, _ = synthetic._make_co_dict(9.0, ns_only, star_dict,
+                                               kdt_star_p, exbv_arr4kdt,
+                                               seed=seed, mp_lock=mp_lock,
+                                               evo_model='default',
+                                               NS_kick_speed_mean=400,
+                                               BH_kick_speed_mean=50)
+    co_cosmic_ns, _ = synthetic._make_co_dict(9.0, ns_only, star_dict,
+                                              kdt_star_p, exbv_arr4kdt,
+                                              seed=seed, mp_lock=mp_lock,
+                                              evo_model=COSMIC())
+    assert not np.allclose(co_default_ns['vx'], co_cosmic_ns['vx'])
+
+    return
+
+
+def test_add_multiples_cosmic_kicks(monkeypatch):
+    """
+    COSMIC kicks are added to matched Galaxia primaries during _add_multiples.
+    """
+    try:
+        from spisea.evolution import COSMIC
+    except ImportError:
+        pytest.skip('SPISEA COSMIC not available')
+
+    star_dict = {
+        'zams_mass': np.array([1.0, 2.0, 5.0]),
+        'vx': np.array([10.0, 20.0, 30.0]),
+        'vy': np.array([1.0, 2.0, 3.0]),
+        'vz': np.array([0.5, 1.0, 1.5]),
+        'rad': np.array([5.0, 5.0, 5.0]),
+        'glat': np.array([0.0, 0.0, 0.0]),
+        'glon': np.array([0.0, 0.0, 0.0]),
+        'vr': np.zeros(3),
+        'mu_b': np.zeros(3),
+        'mu_lcosb': np.zeros(3),
+    }
+    vx_before = star_dict['vx'].copy()
+
+    cluster_ss = Table()
+    cluster_ss['isMultiple'] = np.array([True, True])
+    cluster_ss['phase'] = np.array([0, 0])
+    cluster_ss['zams_mass'] = np.array([1.0, 2.0])
+    cluster_ss['kick_x'] = np.array([5.0, 10.0])
+    cluster_ss['kick_y'] = np.array([1.0, 2.0])
+    cluster_ss['kick_z'] = np.array([0.5, 1.0])
+    companions = Table()
+    companions['system_idx'] = np.array([0, 1])
+    companions['mass'] = np.array([0.5, 0.4])
+    companions['zams_mass'] = np.array([0.4, 0.3])
+    cluster = _MockCluster(cluster_ss, companions)
+
+    monkeypatch.setattr(
+        synthetic, 'match_companions',
+        lambda star_zams_masses, spisea_zams_masses, verbose=0:
+        (np.array([0, 2]), np.array([0.0, 0.0])))
+
+    synthetic._add_multiples(star_dict['zams_mass'], cluster,
+                             star_dict=star_dict, evo_model=COSMIC())
+
+    np.testing.assert_allclose(star_dict['vx'], vx_before + [5.0, 0.0, 10.0])
+    np.testing.assert_allclose(star_dict['vy'], [2.0, 2.0, 5.0])
+    np.testing.assert_allclose(star_dict['vz'], [1.0, 1.0, 2.5])
+
+    vr, mu_b, mu_lcosb = synthetic.calc_sph_motion(
+        star_dict['vx'][[0, 2]], star_dict['vy'][[0, 2]], star_dict['vz'][[0, 2]],
+        star_dict['rad'][[0, 2]], star_dict['glat'][[0, 2]], star_dict['glon'][[0, 2]])
+    vr = popsycle.utils.add_precision64(vr, -4)
+    mu_b = popsycle.utils.add_precision64(mu_b, -4)
+    mu_lcosb = popsycle.utils.add_precision64(mu_lcosb, -4)
+    np.testing.assert_allclose(star_dict['vr'][[0, 2]], vr, rtol=0, atol=1e-4)
+    np.testing.assert_allclose(star_dict['mu_b'][[0, 2]], mu_b, rtol=0, atol=1e-4)
+    np.testing.assert_allclose(star_dict['mu_lcosb'][[0, 2]], mu_lcosb, rtol=0, atol=1e-4)
+
+    return
+
     
     import pdb
     pdb.set_trace()

@@ -4017,22 +4017,16 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     bigpatch = np.hstack((hf[name00], hf[name01], hf[name10], hf[name11]))
     hf.close()
 
-    # pdb.set_trace()
-
     # Adds separation in mas between primary and furthest companion if there are companions
     if hdf5_file_comp is not None:
         hfc = h5py.File(hdf5_file_comp, 'r')
         bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
         hfc.close()
-
-        # pdb.set_trace()
         
         if len(bigpatch_comp) > 0:
             bigpatch_comp = rfn.append_fields(bigpatch_comp, 'sep', np.zeros(len(bigpatch_comp)), usemask = False) #separation in mas
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
-
-            # pdb.set_trace()
 
             rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_companions']))
 
@@ -4070,7 +4064,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
                                                                             time_array[i],
                                                                             radius_cut)
-
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                   r_t[lens_id], r_t[sorc_id])  # mas      
@@ -5977,9 +5970,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     comp_table['companion_idx'] = np.arange(len(comp_table))
 
-    comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
-    comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
-    comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
+    if 'm_ukirt_H' in comp_table.columns:
+        comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
+        comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
+        comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
 
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
     if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:

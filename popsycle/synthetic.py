@@ -540,9 +540,14 @@ def write_synthpop_params(mod, config_file,
 
     synthpop_param_loc = os.path.join(output_location, synthpop_param_fname)
 
+    if os.path.isdir(output_location):
+        print("bin_test exists.")
+    else:
+        os.makedirs(output_location)
+
     print('** Generating %s **' % synthpop_param_fname)
 
-    with open(synthpop_param_loc, 'w') as f:
+    with open(synthpop_param_loc, 'w+') as f:
         for param in params:
             f.write(param + '\n')
             print('-- %s' % param)
@@ -650,12 +655,13 @@ def process_location_popsycle(
 
         for i in range(len(lat_bin_edges)-1):
             for j in range(len(long_bin_edges)-1):
+
                 popsycle_df, popsycle_bin_df = model.process_location(l_deg=(long_bin_edges[i]+long_bin_edges[i+1])/2,
-                                                              b_deg=(lat_bin_edges[j]+lat_bin_edges[j+1])/2,
-                                                              field_shape=field_shape,
-                                                              field_scale=np.abs(long_bin_edges[i] - long_bin_edges[i+1]),
-                                                              field_scale_unit=field_scale_unit,
-                                                              save_data=False)
+                                                                  b_deg=(lat_bin_edges[j]+lat_bin_edges[j+1])/2,
+                                                                  field_shape=field_shape,
+                                                                  field_scale=np.abs(long_bin_edges[i] - long_bin_edges[i+1]),
+                                                                  field_scale_unit=field_scale_unit,
+                                                                  save_data=False)
 
                 popsycle_list[f"l{str(i)}b{str(j)}"] = popsycle_df
                 popsycle_bin_list[f"l{str(i)}b{str(j)}"]= popsycle_bin_df

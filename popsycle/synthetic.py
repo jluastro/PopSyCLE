@@ -559,8 +559,7 @@ def process_location_popsycle(
     surveyArea: float = None,
     field_scale_unit: str = 'deg',
     save_data = False, bin_edges_number = None,
-    **kwargs
-) -> pd.DataFrame:
+    **kwargs):
         """
         Performs the field generation for a given position.
 
@@ -599,14 +598,6 @@ def process_location_popsycle(
             
         bin_edges_number : int
             Number of bins
-
-        Returns
-        -------
-        popsycle_datasets : DataFrame
-            Generated stars as Pandas Dataframe
-
-        popsycle_bin_datasets : Dataframe
-            Generated companions as Pandas Dataframe
         """
 
         # Get output parameters
@@ -640,9 +631,6 @@ def process_location_popsycle(
         if field_scale_unit=='sr':
             surveyArea *= (180/np.pi)**2
 
-        popsycle_datasets = pd.DataFrame()
-        popsycle_bin_datasets = pd.DataFrame()
-
         popsycle_list = {}
         popsycle_bin_list = {}
 
@@ -663,16 +651,15 @@ def process_location_popsycle(
                                                                   field_scale_unit=field_scale_unit,
                                                                   save_data=False)
 
-                popsycle_list[f"l{str(i)}b{str(j)}"] = popsycle_df
-                popsycle_bin_list[f"l{str(i)}b{str(j)}"]= popsycle_bin_df
-
                 popsycle_df['obj_id'] = popsycle_df['obj_id'] + index
                 popsycle_bin_df['system_idx'] = popsycle_bin_df['system_idx'] + index
                 
-                popsycle_datasets = pd.concat([popsycle_datasets, popsycle_df], ignore_index=True)
-                popsycle_bin_datasets = pd.concat([popsycle_bin_datasets, popsycle_bin_df], ignore_index=True)
+                popsycle_list[f"l{str(i)}b{str(j)}"] = popsycle_df
+                popsycle_bin_list[f"l{str(i)}b{str(j)}"]= popsycle_bin_df
+                
 
-                index = popsycle_datasets['obj_id'].max() + 1  # Keeps track of the number of stars in the dataframe
+                if len(popsycle_df)>0:
+                    index = popsycle_df['obj_id'].max() + 1  # Keeps track of the number of stars in the dataframe
 
         if os.path.exists(output_root + '_synthpop_params.txt'):
                 with open(output_root + '_synthpop_params.txt', 'r') as params_file:
@@ -698,7 +685,7 @@ def process_location_popsycle(
         _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_list, output_root)
         logger.info(f"PopSyCLE formatted output saved in {output_root}.h5")
 
-        return popsycle_datasets, popsycle_bin_datasets
+        return
 
 def run_synthpop(config_file, name_for_output="default", l_deg=None, 
                  b_deg=None, field_shape="box", surveyArea=1e-3, field_scale_unit='deg', 
@@ -762,7 +749,7 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     if l_deg is None or b_deg is None or surveyArea is None:
         cat = mod.process_all()
     else:
-        cat, distr = process_location_popsycle(mod, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit,
+        process_location_popsycle(mod, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit,
                                                save_data, **kwargs)
 
     t1 = time.time()
@@ -2511,32 +2498,32 @@ def _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, obj_arr, output_root, comp
             ##########
             if obj_arr is not None:
                 dataframe = obj_arr[dset_name]
-                id_lb = np.where((dataframe['glat'] != np.nan))[0]
+                #id_lb = np.where((dataframe['glat'] != np.nan))[0]
                 
-                if len(id_lb) == 0:
+                if len(dataframe) == 0:
                     continue
                 
                 # Loop over the obj_arr and add all columns
                 # (matching id_lb) into save_data
-                save_data = np.empty(len(id_lb), dtype=compound_dtype)
+                save_data = np.empty(len(dataframe), dtype=compound_dtype)
 
                 if companion_obj_arr is None:
                     for colname in dataframe:
-                        save_data[colname] = dataframe[colname][id_lb]
+                        save_data[colname] = dataframe[colname].to_numpy()
                 # If making a companion hd5f file, finds corresponding companions and save them
                 else:
-                    companion_id_lb = [np.where(companion_obj_arr['system_idx'] == ii)[0] for ii in dataframe['obj_id'][id_lb]]
-                    companion_id_lb = list(np.concatenate(companion_id_lb).ravel()) # Simplifies datastructure
-                    if len(companion_id_lb) == 0:
+#                    companion_id_lb = [np.where(companion_obj_arr['system_idx'] == ii)[0] for ii in dataframe['obj_id'][id_lb]]
+#                    companion_id_lb = list(np.concatenate(companion_id_lb).ravel()) # Simplifies datastructure
+                    if len(companion_obj_arr) == 0:
                         continue
-                    save_data = np.array(companion_obj_arr[companion_id_lb])
+                    save_data = companion_obj_arr.to_numpy()
 
                 # Resize the dataset and add data.
                 old_size = dataset.shape[0]
                 if companion_obj_arr is None:
-                    new_size = old_size + len(id_lb)                
+                    new_size = old_size + len(dataframe)
                 else:
-                    new_size = old_size + len(companion_id_lb)                     
+                    new_size = old_size + len(companion_obj_arr)
                 dataset.resize((new_size, ))
                 dataset[old_size:new_size] = save_data
 
@@ -4023,22 +4010,16 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
     bigpatch = np.hstack((hf[name00], hf[name01], hf[name10], hf[name11]))
     hf.close()
 
-    # pdb.set_trace()
-
     # Adds separation in mas between primary and furthest companion if there are companions
     if hdf5_file_comp is not None:
         hfc = h5py.File(hdf5_file_comp, 'r')
         bigpatch_comp = np.hstack((hfc[name00], hfc[name01], hfc[name10], hfc[name11]))
         hfc.close()
-
-        # pdb.set_trace()
         
         if len(bigpatch_comp) > 0:
             bigpatch_comp = rfn.append_fields(bigpatch_comp, 'sep', np.zeros(len(bigpatch_comp)), usemask = False) #separation in mas
             bigpatch_comp_df = pd.DataFrame(data = bigpatch_comp, columns = np.dtype(bigpatch_comp[0]).names)
             bigpatch_df = pd.DataFrame(data = bigpatch, columns = np.dtype(bigpatch[0]).names)
-
-            # pdb.set_trace()
 
             rad = np.array(np.repeat(bigpatch_df['rad'], bigpatch_df['N_companions']))
 
@@ -4076,7 +4057,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
                                                                             time_array[i],
                                                                             radius_cut)
-
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                   r_t[lens_id], r_t[sorc_id])  # mas      
@@ -5983,9 +5963,10 @@ def refine_binary_events(events, companions, photometric_system, filter_name,
 
     comp_table['companion_idx'] = np.arange(len(comp_table))
 
-    comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
-    comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
-    comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
+    if 'm_ukirt_H' in comp_table.columns:
+        comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
+        comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
+        comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
 
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
     if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:

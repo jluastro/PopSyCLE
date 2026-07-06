@@ -542,6 +542,8 @@ def write_synthpop_params(mod, config_file,
 
     print('** Generating %s **' % synthpop_param_fname)
 
+    if not os.path.exists(output_location):
+        os.makedirs(output_location)
     with open(synthpop_param_loc, 'w') as f:
         for param in params:
             f.write(param + '\n')

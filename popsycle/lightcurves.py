@@ -558,7 +558,7 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, filter_dict, 
     else:
         if event_id == None:
             obj_id_L = companions['obj_id_L'][comp_idx_L]
-            obj_id_S = companions['obj_id_S'][comp_idx_S]
+            obj_id_S = companions['obj_id_S'][comp_idx_L]
             event_id = (np.where(np.logical_and((events['obj_id_L'] == obj_id_L), (events['obj_id_S'] == obj_id_S)))[0])[0]
             event = events[event_id]
         else:
@@ -678,7 +678,7 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, filter_dict, 
         obj_id_S = event['obj_id_S']
     else:
         if event_id == None:
-            obj_id_L = companions['obj_id_L'][comp_idx_L]
+            obj_id_L = companions['obj_id_L'][comp_idx_S]
             obj_id_S = companions['obj_id_S'][comp_idx_S]
             event_id = (np.where(np.logical_and((events['obj_id_L'] == obj_id_L), (events['obj_id_S'] == obj_id_S)))[0])[0]
             event = events[event_id]
@@ -795,7 +795,7 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, f
     else:
         if event_id == None:
             obj_id_L = companions['obj_id_L'][comp_idx_L]
-            obj_id_S = companions['obj_id_S'][comp_idx_S]
+            obj_id_S = companions['obj_id_S'][comp_idx_L]
             event_id = (np.where(np.logical_and((events['obj_id_L'] == obj_id_L), (events['obj_id_S'] == obj_id_S)))[0])[0]
             event = events[event_id]
         else:

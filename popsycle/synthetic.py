@@ -52,6 +52,9 @@ from popsycle import binary_utils, phot_utils, lightcurves
 from astropy.io import fits
 from astropy.coordinates import solar_system_ephemeris
 from warnings import warn, filterwarnings
+import synthpop
+from synthpop.synthpop_utils.synthpop_logging import logger
+import pdb
 
 from astropy.io.fits.verify import VerifyWarning
 filterwarnings('ignore', category=VerifyWarning, append=True)
@@ -395,6 +398,380 @@ def run_galaxia(output_root, longitude, latitude, area,
         out.writelines([line0, dash_line, line1, line2, line3, line3b, line4,
                         empty_line, line8, dash_line, line9, line10, line11,
                         empty_line, line12, dash_line, line13,
+                        empty_line, line17, dash_line, line18])
+
+################################################
+############# Synthpop Framework ###############
+################################################
+
+def _check_run_synthpop(config_file, name_for_output="default", 
+                        l_deg: float = None, b_deg: float = None,
+                        field_shape: str = 'box',
+                        surveyArea: float = None,
+                        field_scale_unit: str = "deg"):
+    """
+    Check that the inputs to synthpop are valid
+
+    Parameters
+    -----------
+    config_file : str
+        Path to Synthpop configuration file
+
+    name_for_output : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    l_deg : float
+        Galactic longitude in degrees
+
+    b_deg : float
+        Galactic latitude in degrees
+
+    field_shape : str
+        Shape of the field: may be 'circle' or 'box'
+
+    surveyArea : float
+        Area of the field in field scale unit
+
+    field_scale_unit : str
+        Unit for field scale
+
+    """
+
+    # Check the config_file for correct type and existence
+    if not isinstance(config_file, str):
+        raise Exception('config_file (%s) must be a string.' % str(config_file))
+
+    if not isinstance(name_for_output, str):
+        raise Exception('name_for_output (%s) must be a string.' % str(name_for_output))
+
+    if l_deg is not None:
+        if not isinstance(l_deg, (float,int)):
+                raise Exception('l (%s) must be a float.' % str(l))
+    if b_deg is not None:
+        if not isinstance(b_deg, (float,int)):
+                raise Exception('b (%s) must be a float.' % str(b))
+    if surveyArea is not None:
+        if not isinstance(surveyArea, (float,int)):
+                raise Exception('surveyArea (%s) must be a float.' % str(surveyArea))
+    if not isinstance(field_scale_unit, str):
+                raise Exception('field_scale_unit (%s) must be a string.' % str(field_scale_unit))
+    if not isinstance(field_shape, str):
+                raise Exception('field_shape (%s) must be a string.' % str(field_shape))
+
+def write_synthpop_params(mod, config_file,
+                          name_for_output,
+                          l_deg: float = None, 
+                          b_deg: float = None,
+                          field_shape: str = 'box',
+                          surveyArea: float = None,
+                          field_scale_unit: str = 'deg',
+                         **kwargs):
+    """
+    Creates the parameter file that Synthpop requires for running.
+
+    Parameters
+    ----------
+    config_file : str
+        Path to Synthpop configuration file
+
+    name_for_output : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    l_deg : float
+        Galactic longitude in degrees
+
+    b_deg : float
+        Galactic latitude in degrees
+
+    field_shape : str
+        Shape of the field: may be 'circle' or 'box'
+
+    surveyArea : float
+        Area of the field in field scale unit
+
+    field_scale_unit : str
+        Unit for field scale
+
+    Returns
+    -------
+    <synthpop_param_loc>_synthpop_params.txt : str
+        A text file with the parameters that Synthpop requires to run.
+    """
+    
+    params = [
+        "configFile %s" % config_file,
+        "nameForOutput %s" % name_for_output,
+        "l %s" % l_deg,
+        "b %s" % b_deg,
+        "surveyArea %s" % surveyArea,
+        "fieldScaleUnit %s" % field_scale_unit,
+        "fieldShape %s" % field_shape,
+    ]
+    if 'output_filename_pattern' in kwargs or mod.parms.output_filename_pattern:
+        file_keys = {
+            "time": datetime.datetime.now().time(),
+            "date": datetime.datetime.now().date(),
+            "l_deg": l_deg,
+            "b_deg": b_deg,
+            "model_name": mod.parms.model_name,
+            "name_for_output": name_for_output,
+            }
+        if mod.parms.scale_factor != 1:
+            scale_factor_ending = f"_scaled{mod.parms.scale_factor:.3f}"
+        else:
+            scale_factor_ending = ""
+
+        name_for_output = mod.parms.output_filename_pattern.format(**file_keys) + scale_factor_ending
+
+    synthpop_param_fname = '%s_psc_synthpop_params.txt' % name_for_output
+
+    if 'output_location' in kwargs:
+        output_location = kwargs['output_location']
+    else:
+        output_location = mod.parms.output_location
+
+    synthpop_param_loc = os.path.join(output_location, synthpop_param_fname)
+
+    print('** Generating %s **' % synthpop_param_fname)
+
+    if not os.path.exists(output_location):
+        os.makedirs(output_location)
+    with open(synthpop_param_loc, 'w') as f:
+        for param in params:
+            f.write(param + '\n')
+            print('-- %s' % param)
+
+def process_location_popsycle(
+    model, name_for_output, l_deg: float = None, 
+    b_deg: float = None,
+    field_shape: str = 'box',
+    surveyArea: float = None,
+    field_scale_unit: str = 'deg',
+    save_data = False, bin_edges_number = None,
+    **kwargs):
+        """
+        Performs the field generation for a given position.
+
+        Parameters
+        ----------
+        model : Synthpop object
+        
+        config_file : str
+            Path to Synthpop configuration file
+
+        name_for_output : str
+            The thing you want the output files to be named
+            Examples:
+               'myout'
+               '/some/path/to/myout'
+               '../back/to/some/path/myout'
+    
+        l_deg : float
+            Galactic longitude in degrees
+    
+        b_deg : float
+            Galactic latitude in degrees
+    
+        field_shape : str
+            Shape of the field: may be 'circle' or 'box'
+    
+        surveyArea : float
+            Area of the field in field scale unit
+    
+        field_scale_unit : str
+            Unit for field scale
+            
+        save_data : bool
+            If True the DataFrame is saved to disk
+            If False the DataFrame are only returned,
+            
+        bin_edges_number : int
+            Number of bins
+        """
+
+        # Get output parameters
+        if 'output_filename_pattern' in kwargs or model.parms.output_filename_pattern:
+            file_keys = {
+                "time": datetime.datetime.now().time(),
+                "date": datetime.datetime.now().date(),
+                "l_deg": l_deg,
+                "b_deg": b_deg,
+                "model_name": model.parms.model_name,
+                "name_for_output": name_for_output,
+                }
+            if model.parms.scale_factor != 1:
+                scale_factor_ending = f"_scaled{model.parms.scale_factor:.3f}"
+            else:
+                scale_factor_ending = ""
+    
+            name_for_output = f"{model.parms.output_filename_pattern.format(**file_keys) + scale_factor_ending}_psc"
+        else:
+            name_for_output = f"{model.get_filename(l_deg, b_deg)}_psc"
+
+        if 'output_location' in kwargs:
+            output_location = kwargs['output_location']
+        else:
+            output_location = model.parms.output_location
+    
+        output_root = os.path.join(output_location, name_for_output)
+
+        latitude = l_deg
+        longitude = b_deg
+        if field_scale_unit=='sr':
+            surveyArea *= (180/np.pi)**2
+
+        popsycle_list = {}
+        popsycle_bin_list = {}
+
+        # Calculate bin edges
+        _, lat_bin_edges, long_bin_edges = _get_bin_edges_box(latitude, longitude, surveyArea, bin_edges_number)
+
+        # Run field generation for each subfield
+    
+        index = 0
+
+        for i in range(len(lat_bin_edges)-1):
+            for j in range(len(long_bin_edges)-1):
+                popsycle_df, popsycle_bin_df = model.process_location(l_deg=(long_bin_edges[i]+long_bin_edges[i+1])/2,
+                                                              b_deg=(lat_bin_edges[j]+lat_bin_edges[j+1])/2,
+                                                              field_shape=field_shape,
+                                                              field_scale=np.abs(long_bin_edges[i] - long_bin_edges[i+1]),
+                                                              field_scale_unit=field_scale_unit,
+                                                              save_data=False)
+
+                popsycle_df['obj_id'] = popsycle_df['obj_id'] + index
+                popsycle_bin_df['system_idx'] = popsycle_bin_df['system_idx'] + index
+                
+                popsycle_list[f"l{str(i)}b{str(j)}"] = popsycle_df
+                popsycle_bin_list[f"l{str(i)}b{str(j)}"]= popsycle_bin_df
+                
+
+                if len(popsycle_df)>0:
+                    index = popsycle_df['obj_id'].max() + 1  # Keeps track of the number of stars in the dataframe
+
+        if os.path.exists(output_root + '_synthpop_params.txt'):
+                with open(output_root + '_synthpop_params.txt', 'r') as params_file:
+                    lines = params_file.read()
+        else:
+            lines = ""
+        with open(output_root + '_synthpop_params.txt', 'w') as params_file:
+                params_file.write(f"seed {model.parms.random_seed}\n")
+                params_file.write(lines)
+
+        if model.parms.multiplicity_kwargs != None:
+        # Write h5files
+            with h5py.File(f"{output_root}_companions.h5", 'w') as h5file:
+                h5file['lat_bin_edges'] = lat_bin_edges
+                h5file['long_bin_edges'] = long_bin_edges
+    
+            _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_bin_list, f"{output_root}_companions")
+        
+        with h5py.File(f"{output_root}.h5", 'w') as h5file:
+            h5file['lat_bin_edges'] = lat_bin_edges
+            h5file['long_bin_edges'] = long_bin_edges
+
+        _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_list, output_root)
+        logger.info(f"PopSyCLE formatted output saved in {output_root}.h5")
+
+        return
+
+def run_synthpop(config_file, name_for_output="default", l_deg=None, 
+                 b_deg=None, field_shape="box", surveyArea=1e-3, field_scale_unit='deg', 
+                 save_data=False, *args, **kwargs):
+    """
+    Initializes Synthpop model and runs Synthpop framework
+
+    Parameters
+    ----------
+    config_file : str
+        Path to Synthpop configuration file
+
+    name_for_output : str
+        The thing you want the output files to be named
+        Examples:
+           'myout'
+           '/some/path/to/myout'
+           '../back/to/some/path/myout'
+
+    l_deg : float
+        Galactic longitude in degrees
+
+    b_deg : float
+        Galactic latitude in degrees
+
+    field_shape : str
+        Shape of the field: may be 'circle' or 'box'
+
+    surveyArea : float
+        Area of the field in field scale unit
+
+    field_scale_unit : str
+        Unit for field scale
+        
+    save_data : bool
+        If True the DataFrame is saved to disk
+        If False the DataFrame are only returned,
+
+    Returns
+    -------
+    <name_for_output>__synthpop.log : str
+        A log file with information about the Synthpop execution
+    """
+    # Error handling/complaining if input types are not right.
+    _check_run_synthpop(config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit)
+
+    # Create SynthPop model
+    mod = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs)
+
+    if name_for_output == "default":
+        name_for_output = mod.parms.name_for_output
+
+    # Writes out galaxia params to disk
+    write_synthpop_params(mod, config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit, **kwargs)
+
+    t0 = time.time()
+
+    mod.init_populations()
+
+    # Perform field generation
+    if l_deg is None or b_deg is None or surveyArea is None:
+        cat = mod.process_all()
+    else:
+        process_location_popsycle(mod, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit,
+                                               save_data, **kwargs)
+
+    t1 = time.time()
+    ##########
+    # Make log file
+    ##########
+
+    now = datetime.datetime.now()
+    dash_line = '-----------------------------' + '\n'
+    empty_line = '\n'
+
+    line0 = 'FUNCTION INPUT PARAMETERS' + '\n'
+    line1 = 'l_deg , ' + str(l_deg) + '\n'
+    line2 = 'b_deg , ' + str(b_deg) + '\n'
+    line3 = 'surveyArea , ' + str(surveyArea) + '\n'
+    line3b = 'config file , ' + config_file + '\n'
+
+    line12 = 'OTHER INFORMATION' + '\n'
+    line13 = str(t1 - t0) + ' : total runtime (s)' + '\n'
+
+    line17 = 'FILES CREATED' + '\n'
+    line18 = name_for_output + '.ebf : ebf file' + '\n'
+
+    with open(name_for_output + '_synthpop.log', 'w') as out:
+        out.writelines([line0, dash_line, line1, line2, line3, line3b, 
+                        line12, dash_line, line13,
                         empty_line, line17, dash_line, line18])
 
 
@@ -1531,6 +1908,63 @@ def _get_bin_edges(l, b, surveyArea, bin_edges_number):
     long_bin_edges[wrap_id] -= 360
     return bin_edges_number, lat_bin_edges, long_bin_edges
 
+def _get_bin_edges_box(l, b, surveyArea, bin_edges_number):
+    """
+    
+    Parameters
+    -----------    
+    l : float
+        Galactic longitude, ranging from -180 degrees to 180 degrees
+        
+    b : float
+        Galactic latitude, ranging from -90 degrees to 90 degrees
+        
+    surveyArea : float
+        Area of the sky that will be generated, in square degrees
+        
+    bin_edges_number :int
+        Number of edges for the bins
+            bins = bin_edges_number - 1
+        Total number of bins is
+            N_bins = (bin_edges_number - 1)**2
+        If set to None (default in perform_pop_syn), then number of bins is
+            bin_edges_number = int(60 * 2 * radius) + 1
+    
+    Returns
+    --------
+    bin_edges_number : int
+        Modified number of edges for the bins.
+        If bin_edges_number = None
+            The widths fo the bins are set to 1/2 an arcmin
+        Bin numbers are set to at least 3 bins.
+        
+    lat_bin_edges : array
+        Edges for the latitude binning (deg)
+
+    long_bin_edges : array
+        Edges for the longitude binning (deg)
+    """
+    # Extend the edges a bit, that's what the * 1.1 is for
+    # (to potentially catch any edge cases.)
+    # make bins of size ~1/2 arcmin
+    width = np.sqrt(surveyArea)/2  # degrees
+    # Define bin_edges_number, if not given in input.
+    if bin_edges_number is None:
+        # set the widths to 1/2 arcmin
+        bin_edges_number = int(60 * 2 * width) + 1
+    # Make sure we have enough bin edges (min is 3)
+    bin_edges_number = max(bin_edges_number, 3)
+    # Make sure we have don't have too many bin edges (max is 40)
+    bin_edges_number = min(bin_edges_number, 40)
+    lat_bin_edges = np.linspace(b + width, b - width,
+                                bin_edges_number)
+    long_bin_edges = np.linspace(l - width, l + width,
+                                 bin_edges_number)
+    # Angle wrapping for longitude
+    wrap_id = np.where(long_bin_edges > 180)[0]
+    long_bin_edges[wrap_id] -= 360
+    return bin_edges_number, lat_bin_edges, long_bin_edges
+
 
 def _make_co_dict(log_age,
                   cluster,
@@ -1983,6 +2417,109 @@ def _bin_lb_hdf5(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_
                     new_size = old_size + len(id_lb)                
                 else:
                     new_size = old_size + len(companion_id_lb)                     
+                dataset.resize((new_size, ))
+                dataset[old_size:new_size] = save_data
+
+            hf.close()
+
+    return
+
+def _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, obj_arr, output_root, companion_obj_arr = None):
+    """
+    Given stars and compact objects, sort them into latitude and
+    longitude bins. Save each latitude and longitude bin, and the edges that
+    define the latitude and longitude bins, as datasets in a compound type hdf5 file.
+
+    Parameters
+    -----------
+    lat_bin_edges : array
+        Edges for the latitude binning (deg)
+
+    long_bin_edges : array
+        Edges for the longitude binning (deg)
+
+    obj_arr : array or None
+        Array of stars or compact objects to be binned
+        (either co_dict or star_dict)
+
+    output_root : str
+        The path and name of the hdf5 file,
+        without suffix (will be saved as output_root.h5)
+
+    companion_obj_arr : astropy table or None, optional
+        Companion table from the ResolvedCluster object. 
+        To be used if creating a companion hdf5 file.
+        Default None.
+        
+    Returns
+    ------------
+    output_root.h5 : hdf5 file
+        An compoud type hdf5 file with datasets that correspond to the longitude bin edges,
+        latitude bin edges, and the compact objects and stars sorted into
+        those bins.
+    """
+    if companion_obj_arr is None:
+        # Create compound datatype from obj_arr
+        compound_dtype = _generate_compound_dtype(list(obj_arr.values())[0])
+    else:
+        compound_dtype = np.dtype(companion_obj_arr[0])
+
+    ##########
+    # Loop through the latitude and longitude bins.
+    ##########
+    """ for i in range(len(obj_arr)):
+        dataframe = obj_arr[i]
+        print(dataframe) """
+        
+    for ll in range(len(long_bin_edges) - 1):
+        for bb in range(len(lat_bin_edges) - 1):
+            # Open our HDF5 file for reading and appending.
+            # Create as necessary.
+            hf = h5py.File(output_root + '.h5', 'r+')
+
+            # HDF5 dataset name
+            dset_name = 'l' + str(ll) + 'b' + str(bb)
+
+            # Create data set if needed. Start with 0 stars in the dataset.
+            if dset_name not in hf:
+                dataset = hf.create_dataset(dset_name, shape=(0,),
+                                            chunks=(1e4,),
+                                            maxshape=(None,),
+                                            dtype=compound_dtype)
+            else:
+                dataset = hf[dset_name]
+
+            ##########
+            # Binning the stars and/or compact objects or companions
+            ##########
+            if obj_arr is not None:
+                dataframe = obj_arr[dset_name]
+                #id_lb = np.where((dataframe['glat'] != np.nan))[0]
+                
+                if len(dataframe) == 0:
+                    continue
+                
+                # Loop over the obj_arr and add all columns
+                # (matching id_lb) into save_data
+                save_data = np.empty(len(dataframe), dtype=compound_dtype)
+
+                if companion_obj_arr is None:
+                    for colname in dataframe:
+                        save_data[colname] = dataframe[colname].to_numpy()
+                # If making a companion hd5f file, finds corresponding companions and save them
+                else:
+#                    companion_id_lb = [np.where(companion_obj_arr['system_idx'] == ii)[0] for ii in dataframe['obj_id'][id_lb]]
+#                    companion_id_lb = list(np.concatenate(companion_id_lb).ravel()) # Simplifies datastructure
+                    if len(companion_obj_arr) == 0:
+                        continue
+                    save_data = companion_obj_arr.to_numpy()
+
+                # Resize the dataset and add data.
+                old_size = dataset.shape[0]
+                if companion_obj_arr is None:
+                    new_size = old_size + len(dataframe)
+                else:
+                    new_size = old_size + len(companion_obj_arr)
                 dataset.resize((new_size, ))
                 dataset[old_size:new_size] = save_data
 
@@ -3516,7 +4053,6 @@ def _calc_event_time_loop(llbb, hdf5_file, obs_time, n_obs, radius_cut,
         lens_id, sorc_id, r_t, sep, event_id1, c = _calc_event_cands_radius(bigpatch,
                                                                             time_array[i],
                                                                             radius_cut)
-
         # Calculate einstein radius and lens-source separation
         theta_E = einstein_radius(bigpatch['systemMass'][lens_id],
                                   r_t[lens_id], r_t[sorc_id])  # mas      
@@ -4491,6 +5027,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         for system in filter_dict:
             for filters in filter_dict[system]:
                 _calc_observables(filters, red_law, event_tab, blend_tab, system)
+                print(event_tab)
 
         # Relative parallax
         pi_rel = event_tab['rad_L'] ** -1 - event_tab['rad_S'] ** -1
@@ -4505,6 +5042,9 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         event_tab['gal_seed'] = np.ones(len(event_tab)) * gal_seed
 
         event_tab.write(output_file, overwrite=overwrite)
+
+        print(event_tab)
+        print(output_file)
         
         # Add the filter_dict as a header to store metadata # CHANGE HERE
         filters_string = ', '.join([': '.join([system, ', '.join(filts)]) for system , filts in filter_dict.items()])
@@ -4934,6 +5474,7 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
     # (commonly used in microlensing): f_source / f_total
     f_blend = flux_S / flux_tot
     event_tab['f_blend_' + filter_name] = f_blend
+    print(event_tab['f_blend_' + filter_name])
 
     return
 
@@ -5427,9 +5968,10 @@ def refine_binary_events(events, companions, filter_dict,
 
     comp_table['companion_idx'] = np.arange(len(comp_table))
 
-    comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
-    comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
-    comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
+    if 'm_ukirt_H' in comp_table.columns:
+        comp_table.rename_column('m_ukirt_H', 'm_ubv_H')
+        comp_table.rename_column('m_ukirt_J', 'm_ubv_J')
+        comp_table.rename_column('m_ukirt_K', 'm_ubv_K')
 
     event_table['f_blend_%s' % filter_name] = event_table['f_blend_%s' % filter_name] # None of these should be nan
     if type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == np.ma.core.MaskedArray or type(comp_table['m_%s_%s' % (photometric_system, filter_name)]) == MaskedColumn:
@@ -5934,7 +6476,8 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     even_cheb = cheb_fit[indices%2==0]
     asymm = np.sqrt(np.sum(odd_cheb**2)/np.sum(even_cheb**2))
     param_dict['asymmetry'] = asymm
-    
+
+    # PEAKS FIX HERE
     # Split up peaks by minima between peaks
     # Note since it's magnitudes all the np.min and such are maxima
     split_data = []
@@ -5942,7 +6485,10 @@ def lightcurve_parameter_gen(model, model_parameter_dict, comp_idxs, obj_id_L, o
     if len(peaks) > 1:
         for i in range(len(peaks) - 1):
             min_btwn_peaks = np.max(phot[peaks[i]:peaks[i+1]])
-            end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
+            try: # FIXME TEMPORARY ONLY!!!
+                end_idx = np.where(phot[start_idx:] == min_btwn_peaks)[0][0] + start_idx
+            except:
+                return param_dict
             split_data.append([dt[start_idx:end_idx], phot[start_idx:end_idx]])
             start_idx = end_idx
     split_data.append([dt[start_idx:], phot[start_idx:]])

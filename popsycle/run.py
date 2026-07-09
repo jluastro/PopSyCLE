@@ -12,16 +12,49 @@ import yaml
 import sys
 import time
 import glob
-from popsycle import synthetic
-from popsycle import utils
-from popsycle.synthetic import _check_run_galaxia
-from popsycle.synthetic import _check_perform_pop_syn
-from popsycle.synthetic import _check_calc_events
-from popsycle.synthetic import _check_refine_events
-from popsycle.synthetic import _check_refine_binary_events
-from popsycle.synthetic import multiplicity_list
-from popsycle import binary_utils
-from popsycle import phot_utils
+
+synthetic = None
+utils = None
+binary_utils = None
+phot_utils = None
+_check_run_galaxia = None
+_check_perform_pop_syn = None
+_check_calc_events = None
+_check_refine_events = None
+_check_refine_binary_events = None
+multiplicity_list = None
+
+
+def _load_runtime_dependencies():
+    global synthetic
+    global utils
+    global binary_utils
+    global phot_utils
+    global _check_run_galaxia
+    global _check_perform_pop_syn
+    global _check_calc_events
+    global _check_refine_events
+    global _check_refine_binary_events
+    global multiplicity_list
+
+    if synthetic is not None:
+        return
+
+    from popsycle import synthetic as synthetic_mod
+    from popsycle import utils as utils_mod
+    from popsycle import binary_utils as binary_utils_mod
+    from popsycle import phot_utils as phot_utils_mod
+
+    synthetic = synthetic_mod
+    utils = utils_mod
+    binary_utils = binary_utils_mod
+    phot_utils = phot_utils_mod
+    _check_run_galaxia = synthetic_mod._check_run_galaxia
+    _check_perform_pop_syn = synthetic_mod._check_perform_pop_syn
+    _check_calc_events = synthetic_mod._check_calc_events
+    _check_refine_events = synthetic_mod._check_refine_events
+    _check_refine_binary_events = synthetic_mod._check_refine_binary_events
+    multiplicity_list = synthetic_mod.multiplicity_list
 
 
 def _return_filename_dict(output_root, filter_dict, red_law, multiplicity = None):
@@ -1362,6 +1395,7 @@ def main():
                           help="Skip running refine_binary_events.",
                           action='store_true')
     args = parser.parse_args()
+    _load_runtime_dependencies()
 
     run(output_root=args.output_root,
         field_config_filename=args.field_config_filename,

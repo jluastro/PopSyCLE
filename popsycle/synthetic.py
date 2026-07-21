@@ -12,6 +12,7 @@ Including:
 import numpy as np
 import h5py
 import math
+import pickle
 from astropy import units
 from scipy.stats import maxwell
 import astropy.coordinates as coord
@@ -31,7 +32,7 @@ import subprocess
 import os
 from sklearn import neighbors
 import itertools
-from multiprocessing import Pool, Value, Lock
+from multiprocessing import Pool, Value, Lock, Manager
 import inspect
 import numpy.lib.recfunctions as rfn
 import copy
@@ -540,9 +541,7 @@ def write_synthpop_params(mod, config_file,
 
     synthpop_param_loc = os.path.join(output_location, synthpop_param_fname)
 
-    if os.path.isdir(output_location):
-        print("bin_test exists.")
-    else:
+    if not os.path.isdir(output_location):
         os.makedirs(output_location)
 
     print('** Generating %s **' % synthpop_param_fname)
@@ -638,11 +637,14 @@ def process_location_popsycle(
         _, lat_bin_edges, long_bin_edges = _get_bin_edges_box(latitude, longitude, surveyArea, bin_edges_number)
 
         # Run field generation for each subfield
-    
         index = 0
 
         for i in range(len(lat_bin_edges)-1):
             for j in range(len(long_bin_edges)-1):
+
+                l_deg=(long_bin_edges[i]+long_bin_edges[i+1])/2
+                b_deg=(lat_bin_edges[j]+lat_bin_edges[j+1])/2
+                field_scale=np.abs(long_bin_edges[i] - long_bin_edges[i+1])
 
                 popsycle_df, popsycle_bin_df = model.process_location(l_deg=(long_bin_edges[i]+long_bin_edges[i+1])/2,
                                                                   b_deg=(lat_bin_edges[j]+lat_bin_edges[j+1])/2,
@@ -660,6 +662,10 @@ def process_location_popsycle(
 
                 if len(popsycle_df)>0:
                     index = popsycle_df['obj_id'].max() + 1  # Keeps track of the number of stars in the dataframe
+
+                popsycle_list[f"l{str(i)}b{str(j)}"] = popsycle_df
+                popsycle_bin_list[f"l{str(i)}b{str(j)}"]= popsycle_bin_df
+            
 
         if os.path.exists(output_root + '_synthpop_params.txt'):
                 with open(output_root + '_synthpop_params.txt', 'r') as params_file:
@@ -687,9 +693,186 @@ def process_location_popsycle(
 
         return
 
-def run_synthpop(config_file, name_for_output="default", l_deg=None, 
-                 b_deg=None, field_shape="box", surveyArea=1e-3, field_scale_unit='deg', 
-                 save_data=False, *args, **kwargs):
+def init_model(config_file, args, kwargs):
+    """
+        Initializes a SynthPop model for use in a multiprocessing pool.
+    """
+    global _model
+    _model = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs)
+    print(_model, flush=True)
+    return _model
+
+def process_location_popsycle_parallel(
+    config_file, name_for_output, l_deg: float = None, 
+    b_deg: float = None,
+    field_shape: str = 'box',
+    surveyArea: float = None,
+    field_scale_unit: str = 'deg',
+    save_data = False, bin_edges_number = None,
+    proc_num=1,
+    *args,**kwargs):
+        """
+        Performs the field generation for a given position with multiprocessing.
+
+        Parameters
+        ----------
+        model : Synthpop object
+        
+        config_file : str
+            Path to Synthpop configuration file
+
+        name_for_output : str
+            The thing you want the output files to be named
+            Examples:
+               'myout'
+               '/some/path/to/myout'
+               '../back/to/some/path/myout'
+    
+        l_deg : float
+            Galactic longitude in degrees
+    
+        b_deg : float
+            Galactic latitude in degrees
+    
+        field_shape : str
+            Shape of the field: may be 'circle' or 'box'
+    
+        surveyArea : float
+            Area of the field in field scale unit
+    
+        field_scale_unit : str
+            Unit for field scale
+            
+        save_data : bool
+            If True the DataFrame is saved to disk
+            If False the DataFrame are only returned,
+            
+        bin_edges_number : int
+            Number of bins
+        """
+
+        latitude = l_deg
+        longitude = b_deg
+        if field_scale_unit=='sr':
+            surveyArea *= (180/np.pi)**2
+
+        popsycle_list = {}
+        popsycle_bin_list = {}
+
+        # Calculate bin edges
+        _, lat_bin_edges, long_bin_edges = _get_bin_edges_box(latitude, longitude, surveyArea, bin_edges_number)
+
+        # Multiprocessing arguments
+        index = 0
+        dict = Manager().dict()
+        lock = Manager().Lock()
+        dict['index'] = 0
+        coords_list = []
+        edge_pairs = []
+        
+        for i in range(len(lat_bin_edges)-1):
+            for j in range(len(long_bin_edges)-1):
+
+                _l_deg=(long_bin_edges[i]+long_bin_edges[i+1])/2
+                _b_deg=(lat_bin_edges[j]+lat_bin_edges[j+1])/2
+                field_scale=np.abs(long_bin_edges[i] - long_bin_edges[i+1])
+
+                coords_tuple = (_l_deg, _b_deg, field_scale, dict, lock, field_shape, field_scale_unit, i, j, name_for_output, kwargs)
+                
+                edge_pairs.append(coords_tuple)
+
+        model = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs) # Reference model for output parameters
+
+        # Get output parameters
+        if 'output_filename_pattern' in kwargs or model.parms.output_filename_pattern:
+            file_keys = {
+                "time": datetime.datetime.now().time(),
+                "date": datetime.datetime.now().date(),
+                "l_deg": l_deg,
+                "b_deg": b_deg,
+                "model_name": model.parms.model_name,
+                "name_for_output": name_for_output,
+                }
+            if model.parms.scale_factor != 1:
+                scale_factor_ending = f"_scaled{model.parms.scale_factor:.3f}"
+            else:
+                scale_factor_ending = ""
+    
+            name_for_output = f"{model.parms.output_filename_pattern.format(**file_keys) + scale_factor_ending}_psc"
+        else:
+            name_for_output = f"{model.get_filename(l_deg, b_deg)}_psc"
+    
+        if 'output_location' in kwargs:
+            output_location = kwargs['output_location']
+        else:
+            output_location = model.parms.output_location
+    
+        output_root = os.path.join(output_location, name_for_output)
+
+        pool = Pool(processes=proc_num, initializer=init_model, initargs=(config_file, args, kwargs,)) # Open multiprocessing pool
+        
+        results = pool.starmap_async(process_location_popsycle_worker, edge_pairs)  # Run field generation
+
+        results = results.get()
+
+        for set in results:
+            popsycle_list[f"l{str(set[4])}b{str(set[5])}"] = set[0]
+            popsycle_bin_list[f"l{str(set[4])}b{str(set[5])}"]= set[1]
+            
+        if os.path.exists(output_root + '_synthpop_params.txt'):
+                with open(output_root + '_synthpop_params.txt', 'r') as params_file:
+                    lines = params_file.read()
+        else:
+            lines = ""
+        with open(output_root + '_synthpop_params.txt', 'w') as params_file:
+                params_file.write(f"seed {model.parms.random_seed}\n")
+                params_file.write(lines)
+
+        if model.parms.multiplicity_kwargs != None:
+        
+        # Write h5files
+            with h5py.File(f"{output_root}_companions.h5", 'w') as h5file:
+                h5file['lat_bin_edges'] = lat_bin_edges
+                h5file['long_bin_edges'] = long_bin_edges
+    
+            _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_bin_list, f"{output_root}_companions")
+        
+        with h5py.File(f"{output_root}.h5", 'w') as h5file:
+            h5file['lat_bin_edges'] = lat_bin_edges
+            h5file['long_bin_edges'] = long_bin_edges
+
+        _bin_lb_hdf5_lists(lat_bin_edges, long_bin_edges, popsycle_list, output_root)
+        logger.info(f"PopSyCLE formatted output saved in {output_root}.h5")
+
+        return
+
+def process_location_popsycle_worker(l_deg, b_deg, field_scale, dict, lock, field_shape, field_scale_unit, i, j, name_for_output, kwargs):
+    """
+        Performs the field generation for a subfield at a given position with multiprocessing.
+        Returns a list containing the generated dataframes, coordinates, and edge numbers.
+        
+    """
+
+    _model.init_populations()
+    
+    popsycle_df, popsycle_bin_df = _model.process_location(l_deg=l_deg,
+                                                                  b_deg=b_deg,
+                                                                  field_shape=field_shape,
+                                                                  field_scale=field_scale,
+                                                                  field_scale_unit=field_scale_unit,
+                                                                  save_data=False)
+
+    
+    popsycle_df['obj_id'] = popsycle_df['obj_id'] + dict['index']
+    popsycle_bin_df['system_idx'] = popsycle_bin_df['system_idx'] + dict['index']
+    
+    dict['index'] = popsycle_df['obj_id'].max() + 1
+
+    return [popsycle_df, popsycle_bin_df, l_deg, b_deg, i, j]
+
+def run_synthpop(output_root="default", longitude=None, 
+                 latitude=None, area=1e-3, proc_num=1, *args, **kwargs):
+
     """
     Initializes Synthpop model and runs Synthpop framework
 
@@ -698,23 +881,20 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     config_file : str
         Path to Synthpop configuration file
 
-    name_for_output : str
+    output_root : str
         The thing you want the output files to be named
         Examples:
            'myout'
            '/some/path/to/myout'
            '../back/to/some/path/myout'
 
-    l_deg : float
+    longitude : float
         Galactic longitude in degrees
 
-    b_deg : float
+    latitude : float
         Galactic latitude in degrees
 
-    field_shape : str
-        Shape of the field: may be 'circle' or 'box'
-
-    surveyArea : float
+    area : float
         Area of the field in field scale unit
 
     field_scale_unit : str
@@ -729,28 +909,60 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     <name_for_output>__synthpop.log : str
         A log file with information about the Synthpop execution
     """
+    config_file = "popsycle_multiples_defaults.synthpop_conf"
+    field_shape="box"
+    field_scale_unit='deg'
+    save_data = False
+
+    # Rename variables to match SynthPop inputs
+    name_for_output = output_root
+    surveyArea = area
+    l_deg = longitude
+    b_deg = latitude
+                     
     # Error handling/complaining if input types are not right.
     _check_run_synthpop(config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit)
 
-    # Create SynthPop model
-    mod = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs)
+    if proc_num == 1:  # Run without multiprocessing
+        # Create SynthPop model
+        mod = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs)
+    
+        if name_for_output == "default":
+            name_for_output = mod.parms.name_for_output
+    
+        # Writes out galaxia params to disk
+        write_synthpop_params(mod, config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit, **kwargs)
+    
+        t0 = time.time()
+    
+        mod.init_populations()
+    
+        # Perform field generation
+        if l_deg is None or b_deg is None or surveyArea is None:
+            cat = mod.process_all()
+        else:
+            process_location_popsycle(mod, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit,
+                                                   save_data, **kwargs)
+    else:  # Run with multiprocessing
+        mod = synthpop.SynthPop(config_file, binning_procedure = True, *args, **kwargs)
 
-    if name_for_output == "default":
-        name_for_output = mod.parms.name_for_output
+        if name_for_output == "default":
+            name_for_output = mod.parms.name_for_output
+    
+        # Writes out galaxia params to disk
+        write_synthpop_params(mod, config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit, **kwargs)
 
-    # Writes out galaxia params to disk
-    write_synthpop_params(mod, config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit, **kwargs)
+        t0 = time.time()
+        
+        process_location_popsycle_parallel(config_file, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit,
+                                                   save_data, proc_num, *args, **kwargs)
 
-    t0 = time.time()
-
-    mod.init_populations()
-
-    # Perform field generation
-    if l_deg is None or b_deg is None or surveyArea is None:
-        cat = mod.process_all()
+    if 'output_location' in kwargs:
+        output_location = kwargs['output_location']
     else:
-        process_location_popsycle(mod, name_for_output, l_deg, b_deg, field_shape, surveyArea, field_scale_unit,
-                                               save_data, **kwargs)
+        output_location = mod.parms.output_location
+
+    output_root = os.path.join(output_location, name_for_output)
 
     t1 = time.time()
     ##########
@@ -773,7 +985,7 @@ def run_synthpop(config_file, name_for_output="default", l_deg=None,
     line17 = 'FILES CREATED' + '\n'
     line18 = name_for_output + '.ebf : ebf file' + '\n'
 
-    with open(name_for_output + '_synthpop.log', 'w') as out:
+    with open(output_root + '_synthpop.log', 'w') as out:
         out.writelines([line0, dash_line, line1, line2, line3, line3b, 
                         line12, dash_line, line13,
                         empty_line, line17, dash_line, line18])

@@ -546,7 +546,7 @@ def write_synthpop_params(mod, config_file,
 
     print('** Generating %s **' % synthpop_param_fname)
 
-    with open(synthpop_param_loc, 'w+') as f:
+    with open(synthpop_param_loc, 'w') as f:
         for param in params:
             f.write(param + '\n')
             print('-- %s' % param)

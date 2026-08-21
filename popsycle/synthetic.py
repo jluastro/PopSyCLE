@@ -871,7 +871,7 @@ def process_location_popsycle_worker(l_deg, b_deg, field_scale, dict, lock, fiel
     return [popsycle_df, popsycle_bin_df, l_deg, b_deg, i, j]
 
 def run_synthpop(output_root="default", longitude=None, 
-                 latitude=None, area=1e-3, proc_num=1, *args, **kwargs):
+                 latitude=None, area=1e-3, proc_num=1, config_file = "popsycle_multiples_defaults.synthpop_conf", *args, **kwargs):
 
     """
     Initializes Synthpop model and runs Synthpop framework
@@ -2895,7 +2895,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
 
     # Calculate the initial cluster mass
     # changed from 0.08 to 0.11 at start because MIST can't handle.
-    massLimits = np.array([0.11, 0.5, 120])
+    massLimits = np.array([0.07, 0.5, 120])
     powers = np.array([-1.3, -2.3])
     
 
@@ -2917,7 +2917,7 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         # Using MIST models to get white dwarfs
         with lock:
             my_iso = synthetic.IsochronePhot(log_age, 0, 10,
-                                         evo_model=evolution.MISTv1(),
+                                         evo_model=evolution.MISTv1(synthpop_extension=True),
                                          filters=my_filt_list,
                                          iso_dir=iso_dir,
                                          metallicity=feh)
@@ -2935,13 +2935,13 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
             if cluster is None:
                 cluster = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             cluster_chunk_mass, ifmr=IFMR_dict[IFMR],
-                                            seed=seed, verbose=False)
+                                            seed=seed, verbose=False, keep_low_mass_stars=True)
                 _rename_mass_columns_from_spisea(cluster, multiplicity)
 
             elif cluster is not None:
                 cluster_addition = synthetic.ResolvedCluster(my_iso, trunc_kroupa,
                                             cluster_chunk_mass, ifmr=IFMR_dict[IFMR],
-                                            seed=seed, verbose=False)
+                                            seed=seed, verbose=False, keep_low_mass_stars=True)
                 _rename_mass_columns_from_spisea(cluster_addition, multiplicity)
 
                 if multiplicity is not None:
@@ -5242,7 +5242,7 @@ def refine_events(input_root, red_law, filter_dict = None, filter_name = None, p
         # Add stuff to event_tab... shouldn't have any direct outputs
         for system in filter_dict:
             for filters in filter_dict[system]:
-                _calc_observables(filters, red_law, event_tab, blend_tab, system)
+                _calc_observables(filters, red_law, event_tab, blend_tab, system, galactic_model_code)
                 print(event_tab)
 
         # Relative parallax
@@ -5574,7 +5574,7 @@ def calc_blend_and_centroid(filter_name, red_law, blend_tab, photometric_system=
     return app_blended, flux_N_tot, cent_l, cent_b
 
 
-def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system='ubv'):
+def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_system='ubv', galactic_model_code = 'galaxia'):
     """
     Calculate a bunch of observable quantities we get out from microlensing
 
@@ -5588,16 +5588,29 @@ def _calc_observables(filter_name, red_law, event_tab, blend_tab, photometric_sy
 
     """
     f_i = filt_dict[photometric_system + '_' + filter_name][red_law]
+    print(galactic_model_code)
 
+    if galactic_model_code == 'galaxia':
     # Calculate apparent magnitude of lens and source, and fix bad values
-    app_S = calc_app_mag(event_tab['rad_S'],
-                         event_tab[photometric_system + '_' + filter_name + '_S'],
-                         event_tab['exbv_S'], f_i)
-    app_L = calc_app_mag(event_tab['rad_L'],
-                         event_tab[photometric_system + '_' + filter_name + '_L'],
-                         event_tab['exbv_L'], f_i)
-    event_tab[photometric_system + '_' + filter_name + '_app_S'] = app_S
-    event_tab[photometric_system + '_' + filter_name + '_app_L'] = app_L
+        app_S = calc_app_mag(event_tab['rad_S'],
+                             event_tab[photometric_system + '_' + filter_name + '_S'],
+                             event_tab['exbv_S'], f_i)
+        app_L = calc_app_mag(event_tab['rad_L'],
+                             event_tab[photometric_system + '_' + filter_name + '_L'],
+                             event_tab['exbv_L'], f_i)
+
+        event_tab[photometric_system + '_' + filter_name + '_app_S'] = app_S
+        event_tab[photometric_system + '_' + filter_name + '_app_L'] = app_L
+    
+    else:
+        app_S = event_tab[photometric_system + '_' + filter_name + '_S']  # SynthPop: apparent magnitudes
+        app_L = event_tab[photometric_system + '_' + filter_name + '_L']
+
+        event_tab.rename_column(photometric_system + '_' + filter_name + '_S', photometric_system + '_' + filter_name + '_app_S')
+        event_tab.rename_column(photometric_system + '_' + filter_name + '_L', photometric_system + '_' + filter_name + '_app_L')
+
+    # event_tab[photometric_system + '_' + filter_name + '_app_S'] = app_S
+    # event_tab[photometric_system + '_' + filter_name + '_app_L'] = app_L
 
     # Convert absolute magnitude to fluxes, and fix bad values
     flux_L = 10 ** (app_L / -2.5)

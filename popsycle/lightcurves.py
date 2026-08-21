@@ -387,7 +387,10 @@ def get_psbl_lightcurve_parameters(events, companions, comp_idx_L, photometric_s
     e = companions['e'][comp_idx_L]
     tp = companions['tp'][comp_idx_L]
     a = 10**(companions['log_a'][comp_idx_L])
-    dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
+    if '%s_%s_L' % (photometric_system, filter_name) in event:
+        dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
+    else:
+        dmag_Lp_Ls = [event['%s_%s_app_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
     
 
     parameter_dict = {'raL': raL, 'decL': decL,
@@ -477,7 +480,10 @@ def get_bspl_lightcurve_parameters(events, companions, comp_idx_S, photometric_s
     dL = event['rad_L'] * 10 ** 3  # Distance to lens
     dL_dS = dL / (event['rad_S'] * 10 ** 3)  # Distance to lens/Distance to source
     xS0 = np.array([0, 0])  # arbitrary offset (arcsec)
-    mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
+    if '%s_%s_app_S' % (photometric_system, filter_name) in event:
+        mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
+    else:
+        mag_src_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
     mag_src_pri = binary_utils.subtract_magnitudes(
         event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event['f_blend_%s' % filter_name]  # ASSUMES THAT SOURCE BINARIES ARE BLENDED
@@ -580,7 +586,10 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
     dS = event['rad_S'] * 10 ** 3  # Distance to source
     xS0_E = 0.0  # arbitrary offset (arcsec)
     xS0_N = 0.0  # arbitrary offset (arcsec)
-    mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
+    if '%s_%s_app_S' % (photometric_system, filter_name) in event:
+        mag_src_sec = synthetic.calc_app_mag(event['rad_S'], abs_mag_sec, event['exbv_S'], f_i)
+    else:
+        mag_src_sec = companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_S]
     mag_src_pri = binary_utils.subtract_magnitudes(
         event['%s_%s_app_S' % (photometric_system, filter_name)], mag_src_sec)
     b_sff = event['f_blend_%s' % filter_name]  # ASSUMES THAT SOURCE BINARIES ARE BLENDED
@@ -596,7 +605,10 @@ def get_bsbl_lightcurve_parameters(events, companions, comp_idx_L, comp_idx_S, p
     eS = companions['e'][comp_idx_S]
     tpS = companions['tp'][comp_idx_S]
     aS = 10**(companions['log_a'][comp_idx_S])
-    dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
+    if '%s_%s_L' % (photometric_system, filter_name) in event:
+        dmag_Lp_Ls = [event['%s_%s_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
+    else:
+        dmag_Lp_Ls = [event['%s_%s_app_L' % (photometric_system, filter_name)] - companions['m_%s_%s' % (photometric_system, filter_name)][comp_idx_L]]
     mass_source_p = event['mass_S']
     mass_source_s = companions['mass'][comp_idx_S]
 

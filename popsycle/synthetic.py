@@ -2176,6 +2176,8 @@ def _make_cluster(iso_dir, log_age, currentClusterMass,
         The current mass in the unmade clusters (<= 100 M_sun)
 
     """
+    global lock
+
     cluster = None
     
     # Add additional filters to isochrones if additional_photometric_systems

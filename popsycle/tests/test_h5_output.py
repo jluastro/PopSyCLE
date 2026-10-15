@@ -23,6 +23,7 @@ def test_h5_output(extra_col= True):
     synthetic.perform_pop_syn(ebf_file = ebf_file,
                               output_root = 'test',
                               iso_dir = '/u/casey/scratch/work/microlens/popsycle_test/isochrones/',
+                              IFMR = 'SukhboldN20',
                               bin_edges_number = None, overwrite = True, seed=42);
 
     #read in the data from the reference h5 file

@@ -12,6 +12,7 @@ def test_get_bagle_model_list():
     photom_sys = 'ubv'
     filter_name = 'I'
     red_law = 'Damineli16'
+    filter_dict = {photom_sys: [filter_name]}
     n_multi_proc = 6
 
     in_root = f'data_test/test_Mrun_refined_events_{photom_sys}_{filter_name}_{red_law}'
@@ -23,7 +24,8 @@ def test_get_bagle_model_list():
     lcurves_tab = Table.read(full_in_root + '_rb_lightcurves.fits')
 
     model_list = lightcurves.get_bagle_model_list(events_tab, comps_tab, lcurves_tab,
-                                                  photom_sys, filter_name, red_law,
+                                                  filter_dict,
+                                                  red_law,
                                                   n_multi_proc=n_multi_proc)
 
     assert isinstance(model_list[0], model.PSBL_PhotAstrom_Par_EllOrbs_Param7)

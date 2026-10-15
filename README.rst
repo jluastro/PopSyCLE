@@ -26,13 +26,68 @@ found at our galaxia GitHub repo: https://github.com/jluastro/galaxia.
 Installation
 ------------
 
-To install PopSyCLE, clone the GitHub repository and add the repository's
-path to your `PYTHONPATH`. For example:
+PopSyCLE is packaged and can be installed directly with either conda or pip.
+For the full pipeline, use **Python 3.11**. This is the compatible overlap for
+the current SPISEA and BAGLE dependency stack.
+
+Conda installation
+^^^^^^^^^^^^^^^^^^
+
+The repository ships with an ``environment.yml`` that installs the Python
+dependencies and installs PopSyCLE in editable mode.
 
 .. code-block:: bash
 
-    git clone git@github.com:jluastro/PopSyCLE.git
-    echo "export PYTHONPATH=$PWD/PopSyCLE:$PYTHONPATH" >> ~/.bashrc
+    git clone https://github.com/MovingUniverseLab/PopSyCLE.git
+    cd PopSyCLE
+    conda env create -f environment.yml
+    conda activate popsycle
+
+Pip installation
+^^^^^^^^^^^^^^^^
+
+If you prefer virtual environments or already manage Python outside conda,
+install PopSyCLE directly with pip:
+
+.. code-block:: bash
+
+    git clone https://github.com/MovingUniverseLab/PopSyCLE.git
+    cd PopSyCLE
+    python3.11 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install --upgrade pip
+    python -m pip install -e .
+
+SPISEA
+^^^^^^
+
+SPISEA is still distributed upstream as a source checkout rather than a normal
+PyPI package, so install it separately after creating the PopSyCLE environment.
+Follow the SPISEA repository instructions and make sure it is importable in the
+same environment before running the PopSyCLE pipeline.
+
+.. code-block:: bash
+
+    git clone https://github.com/astropy/SPISEA.git
+    export PYTHONPATH=$PWD/SPISEA:$PYTHONPATH
+
+Command line entry point
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+After installation, the pipeline CLI is available as:
+
+.. code-block:: bash
+
+    popsycle --help
+
+Galaxia
+^^^^^^^
+
+Galaxia is still a separate external dependency and must be installed manually.
+PopSyCLE checks for the custom ``galaxia`` executable in ``$PATH`` and requires
+version ``0.7.2.1`` from the PopSyCLE-compatible Galaxia fork. Follow the
+Galaxia instructions in the documentation before running the synthesis
+pipeline.
 
 Running PopSyCLE
 ----------------

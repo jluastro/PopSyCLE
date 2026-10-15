@@ -11,8 +11,11 @@ pandas~=1.5.2
 numpydoc~=1.5
 sphinx_rtd_theme
 pysynphot
+synphot
+stsynphot
 scikit-learn
 # The following are needed for BAGLE
 celerite
 jplephem
 ephem
+bagle>=1.0.5

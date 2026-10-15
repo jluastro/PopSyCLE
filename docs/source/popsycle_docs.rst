@@ -9,6 +9,9 @@ Documentation
 1 Installation
 ==============
 
+For a full-featured installation, use Python 3.11. That is the supported
+overlap for the current SPISEA and BAGLE dependency stack.
+
 1.1 Installing Galaxia
 -----------------------
 
@@ -82,17 +85,43 @@ Documentation
 1.2 Installing SPISEA
 ----------------------
 
-    SPISEA can be installed by cloning the repository from `<https://github.com/astropy/SPISEA>`_ and following the instructions.
+    SPISEA still needs to be installed separately from source. Use the
+    repository at `<https://github.com/astropy/SPISEA>`_ and make sure it is
+    importable in the same Python environment as PopSyCLE before running the
+    full pipeline.
 
 1.3 Installing BAGLE
 ----------------------
 
-    BAGLE can be installed by cloning the repository from `<https://github.com/MovingUniverseLab/BAGLE_Microlensing>`_ and following the instructions.
+    BAGLE is installed automatically as part of the packaged PopSyCLE install
+    methods below. If you need to install it separately, see
+    `<https://github.com/MovingUniverseLab/BAGLE_Microlensing>`_.
 
 1.4 Installing Python libraries
 --------------------------------
 
-    We recommend the Anaconda distribution. See `requirements.txt <https://github.com/jluastro/PopSyCLE/blob/main/requirements.txt>`_ for details.
+    We recommend one of the following installation flows from the repository
+    root.
+
+    Conda:
+
+    .. code-block:: bash
+
+        conda env create -f environment.yml
+        conda activate popsycle
+
+    Pip:
+
+    .. code-block:: bash
+
+        python3.11 -m venv .venv
+        source .venv/bin/activate
+        python -m pip install --upgrade pip
+        python -m pip install -e .
+
+    SPISEA still needs to be installed separately from its source repository
+    and made importable in the same environment. After PopSyCLE and SPISEA are
+    installed, the PopSyCLE CLI is available as ``popsycle``.
 
 ===============
 2 Reading Files
@@ -1325,4 +1354,3 @@ Note: be careful with the branch of arctangent. Practically, use ``numpy.arctan2
    :align: center
 
 Diagram of Heliocentric and Galactic coordinate systems. The red dot is the sun.
-

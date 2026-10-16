@@ -337,7 +337,7 @@ def generate_popsycle_config_file(galactic_model="galaxia", **kwargs):
         filter_dict = kwargs.get("filter_dict", {'ubv':['R']})
         if "red_law" in kwargs:
             print("Warning: red_law will be overridden by SynthPop configuration")
-        red_law = ''
+        red_law = "Damineli16"
         if "multiplicity" in kwargs:
             print("Warning: multiplicity will be overridden by SynthPop configuration")
         bbh_frac = kwargs.get("bbh_frac", 'default')
@@ -868,8 +868,6 @@ def generate_slurm_script(slurm_config_filename, popsycle_config_filename,
                            overwrite=overwrite,
                            hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_events:
-        if run_synthpop:
-            popsycle_config['red_law'] = "Damineli16" # synthpop red_law
         _check_refine_events(input_root='test',
                              filter_dict=popsycle_config['filter_dict'],
                              red_law=popsycle_config['red_law'],
@@ -1283,7 +1281,7 @@ def run(output_root='root0',
         hdf5_file_comp = '%s_companions.h5' % name_for_output
 
         # Return the dictionary containing PopSyCLE output filenames
-        filename_dict = _return_filename_dict(name_for_output, popsycle_config['filter_dict'], popsycle_config['red_law'])
+        filename_dict = _return_filename_dict(name_for_output, popsycle_config['filter_dict'], '')  # Blank red_law
 
         filename_dict['hdf5_companions_filename'] = '%s_companions.h5' % name_for_output
         filename_dict['companions_filename'] = '%s_events_companions.fits' % name_for_output
@@ -1325,8 +1323,6 @@ def run(output_root='root0',
                            overwrite=overwrite,
                            hdf5_file_comp=hdf5_file_comp)
     if not skip_refine_events:
-        if run_synthpop:
-            popsycle_config['red_law'] = "Damineli16" # default red_law for check refine_events
         _check_refine_events(input_root=output_root,
                              filter_dict=popsycle_config['filter_dict'],
                              red_law=popsycle_config['red_law'],
